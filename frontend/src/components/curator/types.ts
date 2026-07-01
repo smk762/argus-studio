@@ -220,6 +220,64 @@ export const DATASET_SIZE_GUIDE: Record<TargetCategory, DatasetSizeGuide> = {
   setting: { ideal: "25–50", low: 15, hi: 80 },
 };
 
+/**
+ * Suggested kohya-style SDXL LoRA training params derived from the selected
+ * subset size and target category. These are sensible starting points, not
+ * gospel — the repeats/epochs are solved to land near a category-appropriate
+ * total step count so small sets train longer per image and large sets don't
+ * overcook.
+ */
+export interface TrainingParams {
+  images: number;
+  repeats: number;
+  epochs: number;
+  totalSteps: number;
+  networkDim: number;
+  networkAlpha: number;
+  unetLr: string;
+  textEncoderLr: string;
+  optimizer: string;
+  scheduler: string;
+  resolution: number;
+  batchSize: number;
+  precision: string;
+}
+
+interface CategoryTrainingBias {
+  targetSteps: number;
+  dim: number;
+  alpha: number;
+}
+
+const TRAINING_BIAS: Record<TargetCategory, CategoryTrainingBias> = {
+  identity: { targetSteps: 1500, dim: 16, alpha: 8 },
+  wardrobe: { targetSteps: 1600, dim: 16, alpha: 8 },
+  pose_composition: { targetSteps: 1800, dim: 32, alpha: 16 },
+  setting: { targetSteps: 2000, dim: 32, alpha: 16 },
+};
+
+export function suggestTrainingParams(count: number, category: TargetCategory): TrainingParams {
+  const bias = TRAINING_BIAS[category];
+  const epochs = 10;
+  const n = Math.max(1, count);
+  const repeats = Math.max(1, Math.round(bias.targetSteps / (n * epochs)));
+  return {
+    images: count,
+    repeats,
+    epochs,
+    totalSteps: count * repeats * epochs,
+    networkDim: bias.dim,
+    networkAlpha: bias.alpha,
+    unetLr: "1e-4",
+    textEncoderLr: "5e-5",
+    optimizer: "AdamW8bit",
+    scheduler: "cosine",
+    resolution: 1024,
+    batchSize: 2,
+    precision: "bf16",
+  };
+}
+
 export type DatasetSizeTone = "empty" | "low" | "good" | "high";
 
 export function datasetSizeStatus(

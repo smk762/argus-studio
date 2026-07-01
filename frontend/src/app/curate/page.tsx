@@ -8,6 +8,7 @@ import { ScanSummaryPanel } from "@/components/curator/ScanSummaryPanel";
 import { ResultsGrid } from "@/components/curator/ResultsGrid";
 import { ClusterReviewLane } from "@/components/curator/ClusterReviewLane";
 import { FacetRail } from "@/components/curator/FacetRail";
+import { SelectionInsights } from "@/components/curator/SelectionInsights";
 import { ExportPanel } from "@/components/curator/ExportPanel";
 import { ImageDetailModal } from "@/components/curator/ImageDetailModal";
 import {
@@ -225,6 +226,7 @@ export default function CuratePage() {
             {summary && (
               <>
                 <FacetRail summary={summary} filters={filters} onChange={setFilters} visibleCount={filtered.length} />
+                <SelectionInsights summary={summary} selectedResults={selectedResults} />
                 <ExportPanel summary={summary} selectedResults={selectedResults} />
               </>
             )}
