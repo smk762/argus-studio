@@ -1,5 +1,20 @@
-# Frontend only. argus-curator is not defined here — run it separately with volumes whose
-# *container* paths match NEXT_PUBLIC_CURATOR_SOURCE_PATH / OUTPUT_PATH in .env (local mode).
+# Argus suite — one stack, loosely coupled.
+#
+# The three services are independent; pick what you need with profiles:
+#
+#   docker compose up --build                      # frontend only (demo mode, no backend)
+#   docker compose --profile curator up --build    # frontend + argus-curator
+#   docker compose --profile lens    up --build    # frontend + argus-lens
+#   docker compose --profile full    up --build    # whole suite
+#
+# NVIDIA GPUs (optional): add the override file, e.g.
+#   docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build
+#
+# The only cross-service coupling is the curate -> caption handoff: argus-curator
+# and argus-lens share the dataset at /data/images so lens can read the manifest's
+# abs_path entries and write .txt sidecars. Each still runs fine on its own.
+name: argus-suite
+
 services:
   frontend:
     build:
@@ -8,14 +23,58 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8100}
         NEXT_PUBLIC_CURATOR_URL: ${NEXT_PUBLIC_CURATOR_URL:-http://localhost:8101}
         NEXT_PUBLIC_CURATOR_UI_MODE: ${NEXT_PUBLIC_CURATOR_UI_MODE:-demo}
-        NEXT_PUBLIC_CURATOR_SOURCE_PATH: ${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-}
-        NEXT_PUBLIC_CURATOR_OUTPUT_PATH: ${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-}
+        NEXT_PUBLIC_CURATOR_SOURCE_PATH: ${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}
+        NEXT_PUBLIC_CURATOR_OUTPUT_PATH: ${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
+        # URL the CURATOR CONTAINER uses to reach lens for the export->caption handoff
+        # (server-to-server, so it's the compose service name, not localhost).
+        NEXT_PUBLIC_LENS_INTERNAL_URL: ${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8100}
       - NEXT_PUBLIC_CURATOR_URL=${NEXT_PUBLIC_CURATOR_URL:-http://localhost:8101}
       - NEXT_PUBLIC_CURATOR_UI_MODE=${NEXT_PUBLIC_CURATOR_UI_MODE:-demo}
-      - NEXT_PUBLIC_CURATOR_SOURCE_PATH=${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-}
-      - NEXT_PUBLIC_CURATOR_OUTPUT_PATH=${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-}
+      - NEXT_PUBLIC_CURATOR_SOURCE_PATH=${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}
+      - NEXT_PUBLIC_CURATOR_OUTPUT_PATH=${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
+      - NEXT_PUBLIC_LENS_INTERNAL_URL=${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
+    restart: unless-stopped
+
+  argus-lens:
+    profiles: ["lens", "full"]
+    build:
+      context: ../argus-lens
+      dockerfile: Dockerfile.standalone
+      args:
+        EXTRAS: ${LENS_EXTRAS:-server,local}
+    image: argus-lens:standalone
+    ports:
+      - "${LENS_PORT:-8100}:8100"
+    environment:
+      - ARGUS_BACKEND=${ARGUS_BACKEND:-hybrid}
+      - ARGUS_API_KEY=${ARGUS_API_KEY:-}
+      - HF_HOME=/root/.cache/huggingface
+      - HF_TRUST_REMOTE_CODE=${HF_TRUST_REMOTE_CODE:-false}
+    volumes:
+      # Shared dataset (RW so lens can write caption sidecars next to source images).
+      - ${DATASET_DIR:-./data}:/data/images
+      - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
+    restart: unless-stopped
+
+  argus-curator:
+    profiles: ["curator", "full"]
+    build:
+      context: ../argus-curator
+    image: argus-curator:latest
+    ports:
+      - "${CURATOR_PORT:-8101}:8101"
+    environment:
+      - CURATOR_SOURCE_PATH=/data/images
+      - CURATOR_CACHE_DIR=/root/.cache/argus_curator/scans
+      - HF_HOME=/root/.cache/huggingface
+    volumes:
+      - ${DATASET_DIR:-./data}:/data/images
+      - ${OUTPUT_DIR:-./out}:/data/out
+      - ${HOME}/.cache/argus_curator:/root/.cache/argus_curator
+      - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
+      - ${HOME}/.insightface:/root/.insightface
     restart: unless-stopped

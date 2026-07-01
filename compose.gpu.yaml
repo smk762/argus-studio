@@ -1,0 +1,23 @@
+# Optional NVIDIA GPU override. Requires the NVIDIA Container Toolkit on the host.
+#
+#   docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build
+#
+# Kept separate so the base stack runs on any machine (CPU-only, no toolkit).
+services:
+  argus-lens:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  argus-curator:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

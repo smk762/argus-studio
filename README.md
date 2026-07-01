@@ -12,7 +12,50 @@ Designed as a living onboarding document -- every parameter includes an inline e
 
 ## Quick Start
 
-Start the `argus-lens` server first (in a separate terminal):
+### Whole suite in one stack (recommended)
+
+The three repos are designed to run together but stay loosely coupled — bring up
+only what you need with compose **profiles**. Clone them as siblings first:
+
+```bash
+git clone https://github.com/smk762/argus-lens ../argus-lens
+git clone https://github.com/smk762/argus-curator ../argus-curator
+# (this repo is argus-vision-demo)
+cp .env.example .env      # set DATASET_DIR / OUTPUT_DIR, choose UI mode, etc.
+```
+
+Then, from this repo root:
+
+```bash
+docker compose up --build                    # frontend only (demo mode, no backend)
+docker compose --profile curator up --build  # frontend + argus-curator
+docker compose --profile lens    up --build  # frontend + argus-lens
+docker compose --profile full    up --build  # whole suite
+```
+
+| Profile | Services started | Use it for |
+|---|---|---|
+| _(none)_ | frontend | Public captioning + read-only `/curate` demo |
+| `curator` | frontend + argus-curator | Scanning / exporting datasets |
+| `lens` | frontend + argus-lens | Captioning against a running engine |
+| `full` | frontend + both | End-to-end curate → caption (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
+
+**NVIDIA GPUs** (optional, needs the NVIDIA Container Toolkit): layer the override so
+the base stack still runs on CPU-only machines.
+
+```bash
+docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build
+```
+
+The only cross-service coupling is the **curate → caption handoff**: curator and lens
+share the dataset at `/data/images` (`DATASET_DIR`) so lens can read the manifest's
+`abs_path` entries and write `.txt` sidecars. The curator calls lens server-to-server at
+`NEXT_PUBLIC_LENS_INTERNAL_URL` (the compose service DNS name, not `localhost`). Each
+service still runs perfectly on its own.
+
+### Run services individually
+
+You can also run any piece outside Docker. Start the `argus-lens` server (in a separate terminal):
 
 ```bash
 # In the argus-lens repo (PyPI install)
@@ -84,11 +127,15 @@ Open [http://localhost:3000](http://localhost:3000) (captioning) or [http://loca
 
 ```
 browser (:3000)  →  Next.js frontend
-                         ├─ POST /caption/url  →  argus-lens (:8100)  →  captioning
-                         └─ /scan/folder, …     →  argus-curator (:8101)  →  curation API
+                         ├─ POST /caption/url   →  argus-lens (:8100)     →  captioning
+                         └─ /scan/folder, …      →  argus-curator (:8101)  →  curation API
+
+curate → caption handoff (server-to-server, "full" profile):
+   argus-curator  ── POST /caption/manifest ──▶  argus-lens
+        └───────────── shared /data/images ─────────────┘
 ```
 
-The demo is a thin frontend-only wrapper. It sends JSON requests to the `argus-lens` and `argus-curator` HTTP servers and renders results. No backend code lives in this repo.
+The demo is a thin frontend-only wrapper. It sends JSON requests to the `argus-lens` and `argus-curator` HTTP servers and renders results. No backend code lives in this repo — the suite `compose.yaml` builds the two backends from their sibling repositories.
 
 - **Frontend** — Next.js 15 (App Router) + Tailwind CSS v4, dark theme
 - **Captioning server** — `argus-lens[server]` (see [argus-lens](https://github.com/smk762/argus-lens))
@@ -98,11 +145,20 @@ The demo is a thin frontend-only wrapper. It sends JSON requests to the `argus-l
 
 | Variable | Default | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8100` | URL the browser uses to reach the argus-lens API |
-| `NEXT_PUBLIC_CURATOR_URL` | `http://localhost:8101` | URL the browser uses to reach the argus-curator API (`/curate`) |
-| `FRONTEND_PORT` | `3000` | Host port for the Next.js frontend (Docker only) |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8100` | URL the **browser** uses to reach the argus-lens API |
+| `NEXT_PUBLIC_CURATOR_URL` | `http://localhost:8101` | URL the **browser** uses to reach the argus-curator API (`/curate`) |
+| `NEXT_PUBLIC_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
+| `NEXT_PUBLIC_CURATOR_SOURCE_PATH` | `/data/images` | Default source path shown in the folder picker (path inside the curator container) |
+| `NEXT_PUBLIC_CURATOR_OUTPUT_PATH` | `/data/out` | Default export destination (path inside the curator container) |
+| `NEXT_PUBLIC_LENS_INTERNAL_URL` | `http://argus-lens:8100` | URL the **curator container** uses to reach lens for the caption handoff (server-to-server) |
+| `DATASET_DIR` | `./data` | Host dir mounted at `/data/images` on **both** curator and lens |
+| `OUTPUT_DIR` | `./out` | Host dir mounted at `/data/out` on curator (exports) |
+| `HF_CACHE_DIR` | `~/.cache/huggingface` | Host Hugging Face cache shared with the backends |
+| `ARGUS_BACKEND` | `hybrid` | argus-lens captioning backend |
+| `LENS_EXTRAS` | `server,local` | pip extras baked into the standalone lens image (`server,openai,replicate` for cloud-only) |
+| `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |
 
-`NEXT_PUBLIC_*` values are inlined when the client bundle is built. After changing the API URL in `.env`, restart `npm run dev` (local) or run `docker compose build --no-cache` before `docker compose up` so the container image picks up the new URL.
+`NEXT_PUBLIC_*` values are inlined when the client bundle is built. After changing them in `.env`, run `docker compose build --no-cache` (or restart `npm run dev` locally) so the container image picks up the new values.
 
 ## Parameters
 

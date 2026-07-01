@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { exportSelection } from "@/lib/curatorApi";
-import { IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH } from "@/lib/curatorEnv";
+import { IS_LIVE, LENS_INTERNAL_URL, LOCAL_OUTPUT_PATH } from "@/lib/curatorEnv";
 import type { ExportResult, ImageResult, ScanSummary } from "./types";
 
 interface Props {
@@ -55,7 +55,7 @@ export function ExportPanel({ summary, selectedResults }: Props) {
         include_rejected: true,
         keep_similar: true,
         write_manifest: true,
-        caption_url: toCaption ? `${LENS_URL}/caption/manifest` : null,
+        caption_url: toCaption ? `${LENS_INTERNAL_URL}/caption/manifest` : null,
       });
       setResult(res);
     } catch (err) {
@@ -129,7 +129,7 @@ export function ExportPanel({ summary, selectedResults }: Props) {
           </label>
           <label
             className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-            title={`POSTs the manifest to ${LENS_URL}/caption/manifest for a one-click curate → caption run.`}
+            title={`argus-curator POSTs the manifest to ${LENS_INTERNAL_URL}/caption/manifest for a one-click curate → caption run.`}
           >
             <input
               type="checkbox"
