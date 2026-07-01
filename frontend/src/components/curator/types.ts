@@ -1,107 +1,268 @@
-export interface ScoreBreakdown {
-  sharpness?: number;
-  resolution?: number;
-  artifact?: number;
-  aesthetic?: number;
-  subject?: number;
-  orientation_bonus?: number;
+/**
+ * Wire types for the argus-curator API (:8101).
+ *
+ * These mirror `argus_curator.models` exactly — the curator emits these shapes
+ * from POST /scan/folder and GET /scan/{id}, and consumes ExportRequest at
+ * POST /export. The shared TargetProfile is the contract argus-lens inherits.
+ */
+
+export type TargetStyle = "photo" | "anime";
+export type TargetCategory = "identity" | "wardrobe" | "pose_composition" | "setting";
+
+export interface TargetProfile {
+  target_style: TargetStyle;
+  target_backend: string | null;
+  checkpoint: string | null;
+  target_category: TargetCategory;
+}
+
+export interface ScanConfig {
+  min_short_side: number;
+  max_aspect_ratio: number;
+  blur_threshold: number;
+  cluster_distance: number;
+  weight_sharpness: number;
+  weight_resolution: number;
+  weight_artifact: number;
+  weight_subject: number;
+  sharpness_ref: number;
+  resolution_ref: number;
+  diversity_weight: number;
+  max_workers: number;
+}
+
+export interface FaceConfig {
+  enabled: boolean;
+  model: string;
+  min_det_score: number;
+  cluster_eps: number;
+  device: string;
+}
+
+export interface FaceDetection {
+  bbox: [number, number, number, number]; // [x, y, w, h]
+  det_score: number;
+  cluster_id: string | null;
+  primary: boolean;
 }
 
 export interface ImageResult {
-  name: string;
-  source: string;
-  width: number;
-  height: number;
-  short_side: number;
-  aspect_ratio: number;
-  sharpness: number;
-  artifact_score: number;
-  aesthetic_score: number;
-  phash: string;
+  rel_path: string;
+  abs_path: string;
+  score: number;
   passed: boolean;
   reject_reason: string | null;
+  similar_group: number;
+  group_size: number;
+  is_representative: boolean;
   is_duplicate: boolean;
   duplicate_of: string | null;
-  cluster_id: number | null;
-  score: number;
-  face_count?: number;
-  person_detected?: boolean;
-  subject_score?: number;
-  tag_boost?: number;
-  selected: boolean;
-  score_breakdown?: ScoreBreakdown;
+  keep_reason: string;
+  sharpness: number;
+  artifact_score: number;
+  width: number;
+  height: number;
+  faces: FaceDetection[];
+  face_count: number;
+  primary_face_cluster: string | null;
+  phash: string;
+  score_breakdown: Record<string, number>;
+}
+
+export interface FaceCluster {
+  cluster_id: string;
+  size: number;
+  representative_rel_path: string;
+  representative_bbox: [number, number, number, number] | null;
 }
 
 export interface ScanSummary {
+  scan_id: string;
+  folder: string;
+  target_profile: TargetProfile;
+  config: ScanConfig;
+  faces_config: FaceConfig;
   total: number;
-  rejected_filters: number;
-  duplicates_removed: number;
-  candidates: number;
-  selected: number;
-  objective: string;
-  target_style: string;
-  diversity_weight: number;
-  embedding_clustering: boolean;
+  passed: number;
+  rejected: number;
+  duplicates: number;
+  similar_clusters: number;
   reject_reasons: Record<string, number>;
-  selected_names: string[];
+  face_clusters: FaceCluster[];
   results: ImageResult[];
-  /** Present when the scan ran against an ephemeral browser-upload session on the API. */
-  session_id?: string;
+  offset: number;
+  limit: number | null;
+  returned: number;
 }
 
-export interface PresetDescription {
-  label: string;
-  description: string;
+export interface ExportRequest {
+  scan_id?: string | null;
+  selection?: string[] | null;
+  dest: string;
+  mode: "copy" | "symlink" | "move";
+  preserve_structure: boolean;
+  min_score: number;
+  include_rejected: boolean;
+  keep_similar: boolean;
+  max_keep?: number | null;
+  face_clusters?: string[] | null;
+  write_manifest: boolean;
+  caption_url?: string | null;
 }
 
-export const OBJECTIVES = ["identity", "style", "wardrobe", "concept"] as const;
-export type Objective = (typeof OBJECTIVES)[number];
+export interface ExportResult {
+  manifest_path: string | null;
+  copied: number;
+  skipped: number;
+  dest: string;
+  mode: string;
+  selected_rel_paths: string[];
+  captioned: boolean;
+}
 
-export const OBJECTIVE_COLORS: Record<Objective, string> = {
-  identity: "accent-purple",
-  style: "accent-teal",
-  wardrobe: "accent-green",
-  concept: "accent-orange",
+export interface Detectors {
+  torch: boolean;
+  cuda: boolean;
+  clip: boolean;
+  insightface: boolean;
+  onnxruntime: boolean;
+}
+
+export interface FolderEntry {
+  name: string;
+  rel_path: string;
+  abs_path: string;
+  image_count: number;
+  subfolder_count: number;
+}
+
+export interface FolderListing {
+  root: string;
+  path: string;
+  abs_path: string;
+  parent: string | null;
+  direct_image_count: number;
+  folders: FolderEntry[];
+}
+
+// ── UI-facing config (the subset the config panel edits) ────────────────────
+
+export const TARGET_CATEGORIES: TargetCategory[] = [
+  "identity",
+  "wardrobe",
+  "pose_composition",
+  "setting",
+];
+
+export const CATEGORY_LABELS: Record<TargetCategory, string> = {
+  identity: "Identity",
+  wardrobe: "Wardrobe",
+  pose_composition: "Pose / Composition",
+  setting: "Setting",
 };
 
-export interface ScanConfig {
-  objective: Objective;
-  target_style: "photo" | "anime";
-  apply_preset: boolean;
-  filters: {
-    min_short_side: number;
-    max_aspect_ratio: number;
-    blur_threshold: number;
-  };
-  duplicates: {
-    phash_hamming_distance: number;
-  };
-  embeddings: {
-    use_clip: boolean;
-    use_dino: boolean;
-    batch_size: number;
-  };
-  detectors: {
-    use_yolo: boolean;
-    use_mtcnn: boolean;
-  };
-  selection: {
-    target_count: number | null;
-    top_percent: number;
-    diversity_weight: number;
-    use_embedding_clusters: boolean;
+export const CATEGORY_DESCRIPTIONS: Record<TargetCategory, string> = {
+  identity: "Person / character LoRA — strict blur floor, rewards a single centred face.",
+  wardrobe: "Clothing / outfit LoRA — prefers full-body framing, looser face penalty.",
+  pose_composition: "Pose LoRA — biases toward framing variety, stronger diversity pressure.",
+  setting: "Scene LoRA — rewards wide framing and high resolution, minimal face penalty.",
+};
+
+export const CATEGORY_COLORS: Record<TargetCategory, string> = {
+  identity: "accent-purple",
+  wardrobe: "accent-green",
+  pose_composition: "accent-teal",
+  setting: "accent-orange",
+};
+
+/** The editable slice of TargetProfile + ScanConfig + FaceConfig the panel manages. */
+export interface CuratorConfig {
+  profile: TargetProfile;
+  config: ScanConfig;
+  faces: FaceConfig;
+}
+
+export function defaultScanConfig(): ScanConfig {
+  return {
+    min_short_side: 512,
+    max_aspect_ratio: 3.0,
+    blur_threshold: 100.0,
+    cluster_distance: 10,
+    weight_sharpness: 0.35,
+    weight_resolution: 0.3,
+    weight_artifact: 0.15,
+    weight_subject: 0.2,
+    sharpness_ref: 800.0,
+    resolution_ref: 1024,
+    diversity_weight: 0.4,
+    max_workers: 4,
   };
 }
 
-export function defaultConfig(objective: Objective = "identity"): ScanConfig {
+export function defaultCuratorConfig(): CuratorConfig {
   return {
-    objective,
-    target_style: "photo",
-    apply_preset: true,
-    filters: { min_short_side: 512, max_aspect_ratio: 3.0, blur_threshold: 100.0 },
-    duplicates: { phash_hamming_distance: 10 },
-    embeddings: { use_clip: true, use_dino: false, batch_size: 16 },
-    detectors: { use_yolo: false, use_mtcnn: false },
-    selection: { target_count: null, top_percent: 80, diversity_weight: 0.4, use_embedding_clusters: true },
+    profile: {
+      target_style: "photo",
+      target_backend: "sdxl",
+      checkpoint: null,
+      target_category: "identity",
+    },
+    config: defaultScanConfig(),
+    faces: {
+      enabled: false,
+      model: "buffalo_l",
+      min_det_score: 0.5,
+      cluster_eps: 0.5,
+      device: "auto",
+    },
   };
+}
+
+/** Build the POST /scan/folder request body from the editable config. */
+export function buildScanBody(folder: string, cfg: CuratorConfig): Record<string, unknown> {
+  return {
+    folder,
+    target_profile: cfg.profile,
+    config: cfg.config,
+    faces: cfg.faces,
+  };
+}
+
+// ── Left-rail facets (client-side filtering of the results grid) ────────────
+
+export interface CuratorFilters {
+  /** Selected face clusters (empty = all identities). */
+  faceClusters: string[];
+  minScore: number;
+  passedOnly: boolean;
+  /** Hide non-representative near-duplicates. */
+  hideDuplicates: boolean;
+  /** Keep only images with exactly one detected face. */
+  singleFaceOnly: boolean;
+  /** Drop images with no recognised face (primary_face_cluster == null). */
+  requireKnownFace: boolean;
+}
+
+export function defaultFilters(): CuratorFilters {
+  return {
+    faceClusters: [],
+    minScore: 0,
+    passedOnly: false,
+    hideDuplicates: false,
+    singleFaceOnly: false,
+    requireKnownFace: false,
+  };
+}
+
+/** True when an image should be shown / is eligible under the current facets. */
+export function matchesFilters(img: ImageResult, f: CuratorFilters): boolean {
+  if (img.score < f.minScore) return false;
+  if (f.passedOnly && !img.passed) return false;
+  if (f.hideDuplicates && img.is_duplicate) return false;
+  if (f.singleFaceOnly && img.face_count !== 1) return false;
+  if (f.requireKnownFace && !img.primary_face_cluster) return false;
+  if (f.faceClusters.length > 0) {
+    if (!img.primary_face_cluster || !f.faceClusters.includes(img.primary_face_cluster)) return false;
+  }
+  return true;
 }
