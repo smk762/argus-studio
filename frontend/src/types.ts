@@ -18,6 +18,38 @@ export interface CaptionRequest {
   prose_enrichment?: boolean;
 }
 
+export interface CaptionFolderRequest {
+  folder: string;
+  recursive?: boolean;
+  write_sidecar?: boolean;
+  trigger_word?: string;
+  target_style?: string;
+  target_category?: string;
+  target_backend?: string;
+  checkpoint?: string | null;
+  prose_enrichment?: boolean;
+}
+
+/** Per-image row returned by /caption/folder and /caption/manifest. */
+export interface BatchCaptionRow {
+  rel_path: string;
+  final_caption: string;
+}
+
+export interface BatchCaptionError {
+  rel_path: string;
+  error: string;
+}
+
+/** Response shape shared by /caption/folder and /caption/manifest. */
+export interface BatchCaptionResult {
+  total: number;
+  captioned: number;
+  failed: number;
+  results: BatchCaptionRow[];
+  errors: BatchCaptionError[];
+}
+
 export const TARGET_BACKENDS = [
   { value: "sdxl", label: "SDXL", tokens: 60 },
   { value: "sd15", label: "SD 1.5", tokens: 60 },

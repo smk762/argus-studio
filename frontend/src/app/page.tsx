@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { CaptionResult, CaptionRequest } from "@/types";
+import type { BatchCaptionResult, CaptionResult, CaptionRequest } from "@/types";
 import { TARGET_BACKENDS, TARGET_STYLES, TARGET_CATEGORIES } from "@/types";
 import { ImagePreview } from "@/components/ImagePreview";
 import { CaptionVariants } from "@/components/CaptionVariants";
@@ -10,12 +10,22 @@ import { RawOutputs } from "@/components/RawOutputs";
 import { AutoRemoved } from "@/components/AutoRemoved";
 import { ExportButtons } from "@/components/ExportButtons";
 import { ParamInfo } from "@/components/ParamInfo";
+import { BatchCaptionResults } from "@/components/BatchCaptionResults";
+import { FolderPicker } from "@/components/curator/FolderPicker";
+import { captionFolder, captionManifest, listLensFolders } from "@/lib/lensApi";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 
+type InputMode = "url" | "folder" | "manifest";
+
 export default function Home() {
+  const [mode, setMode] = useState<InputMode>("url");
   const [imageUrl, setImageUrl] = useState("");
+  const [folderPath, setFolderPath] = useState("");
+  const [recursive, setRecursive] = useState(false);
+  const [writeSidecar, setWriteSidecar] = useState(true);
+  const [manifestFile, setManifestFile] = useState<File | null>(null);
   const [targetBackend, setTargetBackend] = useState("sdxl");
   const [targetStyle, setTargetStyle] = useState("photo");
   const [targetCategory, setTargetCategory] = useState("identity");
@@ -23,6 +33,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CaptionResult | null>(null);
+  const [batchResult, setBatchResult] = useState<BatchCaptionResult | null>(null);
+  const [batchSource, setBatchSource] = useState("");
   const [analyzedUrl, setAnalyzedUrl] = useState("");
   const [lensVersion, setLensVersion] = useState<string | null>(null);
 
@@ -30,10 +42,14 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch(`${API_URL}/version`);
+        // The lens API has no /version route; /backends is its status endpoint.
+        // A 200 here means the API is reachable — report how many backends are ready.
+        const resp = await fetch(`${API_URL}/backends`);
         if (!resp.ok) throw new Error(String(resp.status));
-        const data: { version?: string } = await resp.json();
-        if (!cancelled) setLensVersion(data.version ?? "unknown");
+        const data: { backends?: Record<string, { available?: boolean }> } = await resp.json();
+        const backends = Object.values(data.backends ?? {});
+        const available = backends.filter((b) => b?.available).length;
+        if (!cancelled) setLensVersion(backends.length > 0 ? `${available}/${backends.length} backends` : "connected");
       } catch {
         if (!cancelled) setLensVersion("");
       }
@@ -79,6 +95,46 @@ export default function Home() {
       const data: CaptionResult = await resp.json();
       setResult(data);
       setAnalyzedUrl(imageUrl.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runFolder = async () => {
+    if (!folderPath.trim()) return;
+    setLoading(true);
+    setError(null);
+    setBatchResult(null);
+    try {
+      const data = await captionFolder({
+        folder: folderPath.trim(),
+        recursive,
+        write_sidecar: writeSidecar,
+        target_style: targetStyle,
+        target_category: targetCategory,
+        target_backend: targetBackend,
+        prose_enrichment: proseEnrichment,
+      });
+      setBatchResult(data);
+      setBatchSource(folderPath.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runManifest = async () => {
+    if (!manifestFile) return;
+    setLoading(true);
+    setError(null);
+    setBatchResult(null);
+    try {
+      const data = await captionManifest(manifestFile, { write_sidecar: writeSidecar });
+      setBatchResult(data);
+      setBatchSource(manifestFile.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -155,52 +211,109 @@ export default function Home() {
       {/* Main content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
         {/* Input form */}
-        <form onSubmit={handleSubmit} className="mb-8">
-          {/* URL input row */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-6">
-            <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="Paste image URL (https://...)"
-              required
-              className="flex-1 px-4 py-3 rounded-lg bg-surface border border-border text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent-purple/50 focus:border-accent-purple/50 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={loading || !imageUrl.trim()}
-              className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <svg
-                    className="animate-spin h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Analyzing...
-                </span>
-              ) : (
-                "Analyze"
-              )}
-            </button>
+        <div className="mb-8">
+          {/* Input mode switcher */}
+          <div className="mb-4 inline-flex rounded-lg border border-border bg-surface p-1">
+            {(["url", "folder", "manifest"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  setMode(m);
+                  setError(null);
+                }}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
+                  mode === m ? "bg-accent-purple text-white" : "text-muted hover:text-foreground"
+                }`}
+              >
+                {m === "url" ? "Single URL" : m === "folder" ? "Local folder" : "Curate manifest"}
+              </button>
+            ))}
           </div>
 
-          {/* Parameters — single row */}
+          {/* URL mode */}
+          {mode === "url" && (
+            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 mb-6">
+              <input
+                type="url"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="Paste image URL (https://...)"
+                required
+                className="flex-1 px-4 py-3 rounded-lg bg-surface border border-border text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent-purple/50 focus:border-accent-purple/50 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={loading || !imageUrl.trim()}
+                className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+              >
+                {loading ? <Spinner label="Analyzing..." /> : "Analyze"}
+              </button>
+            </form>
+          )}
+
+          {/* Local folder mode */}
+          {mode === "folder" && (
+            <div className="mb-6 space-y-3">
+              <p className="text-xs text-muted">
+                Caption every image in a folder on the argus-lens host (e.g. a shared Docker volume). Writes{" "}
+                <span className="font-mono text-foreground/80">.txt</span> sidecars next to each image.
+              </p>
+              <FolderPicker fetcher={listLensFolders} onSelect={setFolderPath} selectedAbs={folderPath} />
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="text"
+                  value={folderPath}
+                  onChange={(e) => setFolderPath(e.target.value)}
+                  placeholder="/data/images"
+                  className="flex-1 px-4 py-3 rounded-lg bg-surface border border-border text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent-purple/50 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => void runFolder()}
+                  disabled={loading || !folderPath.trim()}
+                  className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {loading ? <Spinner label="Captioning..." /> : "Caption folder"}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-5">
+                <Toggle checked={recursive} onChange={setRecursive} label="Recursive" />
+                <Toggle checked={writeSidecar} onChange={setWriteSidecar} label="Write .txt sidecars" />
+              </div>
+            </div>
+          )}
+
+          {/* Curate manifest mode */}
+          {mode === "manifest" && (
+            <div className="mb-6 space-y-3">
+              <p className="text-xs text-muted">
+                Upload a <span className="font-mono text-foreground/80">manifest.jsonl</span> from the Curate step. Each
+                row&apos;s <span className="font-mono text-foreground/80">target_profile</span> is applied per image, so
+                the parameters below are ignored.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="file"
+                  accept=".jsonl,.json,application/x-ndjson"
+                  onChange={(e) => setManifestFile(e.target.files?.[0] ?? null)}
+                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-accent-purple/20 file:px-3 file:py-1.5 file:text-accent-purple"
+                />
+                <button
+                  type="button"
+                  onClick={() => void runManifest()}
+                  disabled={loading || !manifestFile}
+                  className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {loading ? <Spinner label="Captioning..." /> : "Caption manifest"}
+                </button>
+              </div>
+              <Toggle checked={writeSidecar} onChange={setWriteSidecar} label="Write .txt sidecars" />
+            </div>
+          )}
+
+          {/* Parameters — ignored in manifest mode (profiles come from the manifest) */}
+          {mode !== "manifest" && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Target Style */}
             <ParamInfo
@@ -290,7 +403,8 @@ export default function Home() {
               </div>
             </ParamInfo>
           </div>
-        </form>
+          )}
+        </div>
 
         {/* Error */}
         {error && (
@@ -299,8 +413,13 @@ export default function Home() {
           </div>
         )}
 
-        {/* Results */}
-        {result && (
+        {/* Batch results (folder / manifest) */}
+        {mode !== "url" && batchResult && (
+          <BatchCaptionResults result={batchResult} source={batchSource} />
+        )}
+
+        {/* Single-URL result */}
+        {mode === "url" && result && (
           <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
             {/* Left: image */}
             <div className="space-y-4">
@@ -327,7 +446,7 @@ export default function Home() {
         )}
 
         {/* Empty state */}
-        {!result && !loading && !error && (
+        {(mode === "url" ? !result : !batchResult) && !loading && !error && (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 rounded-2xl bg-surface border border-border flex items-center justify-center mb-4">
               <svg
@@ -345,12 +464,16 @@ export default function Home() {
               </svg>
             </div>
             <h2 className="text-lg font-medium text-foreground/60 mb-1">
-              Paste an image URL to get started
+              {mode === "url"
+                ? "Paste an image URL to get started"
+                : mode === "folder"
+                  ? "Pick a folder to batch-caption"
+                  : "Upload a curate manifest to batch-caption"}
             </h2>
             <p className="text-sm text-muted max-w-md">
-              Argus Lens will generate structured caption variants optimised
-              for LoRA training, with raw model outputs and auto-removed
-              tag analysis.
+              {mode === "url"
+                ? "Argus Lens will generate structured caption variants optimised for LoRA training, with raw model outputs and auto-removed tag analysis."
+                : "Argus Lens writes a .txt sidecar next to each image using the LoRA-optimised final caption — ready to drop straight into training."}
             </p>
 
             {/* Quick reference */}
@@ -403,6 +526,51 @@ export default function Home() {
         </div>
       </footer>
     </div>
+  );
+}
+
+function Spinner({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        />
+      </svg>
+      {label}
+    </span>
+  );
+}
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground/80">
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+          checked ? "bg-accent-purple" : "bg-border"
+        }`}
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+            checked ? "translate-x-[18px]" : "translate-x-1"
+          }`}
+        />
+      </button>
+      {label}
+    </label>
   );
 }
 

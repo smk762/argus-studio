@@ -8,31 +8,39 @@ interface Props {
   /** Called with the absolute host path when a folder is chosen. */
   onSelect: (absPath: string) => void;
   selectedAbs?: string;
+  /**
+   * Folder-listing fetcher. Defaults to the curator's GET /folders; pass a
+   * lens-backed fetcher (or any GET /folders peer) to reuse the picker.
+   */
+  fetcher?: (path: string, signal?: AbortSignal) => Promise<FolderListing>;
 }
 
-/** Browse Docker-mounted folders exposed by the curator's GET /folders. */
-export function FolderPicker({ onSelect, selectedAbs }: Props) {
+/** Browse Docker-mounted folders exposed by a peer's GET /folders endpoint. */
+export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: Props) {
   const [rel, setRel] = useState("");
   const [listing, setListing] = useState<FolderListing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch + apply results only in async callbacks (safe to call from an effect).
-  const fetchListing = useCallback((path: string, signal?: AbortSignal) => {
-    listFolders(path, signal)
-      .then((data) => {
-        setListing(data);
-        setRel(data.path);
-        setError(null);
-      })
-      .catch((err) => {
-        if (signal?.aborted) return;
-        setError(err instanceof Error ? err.message : "Could not list folders");
-      })
-      .finally(() => {
-        if (!signal?.aborted) setLoading(false);
-      });
-  }, []);
+  const fetchListing = useCallback(
+    (path: string, signal?: AbortSignal) => {
+      fetcher(path, signal)
+        .then((data) => {
+          setListing(data);
+          setRel(data.path);
+          setError(null);
+        })
+        .catch((err) => {
+          if (signal?.aborted) return;
+          setError(err instanceof Error ? err.message : "Could not list folders");
+        })
+        .finally(() => {
+          if (!signal?.aborted) setLoading(false);
+        });
+    },
+    [fetcher],
+  );
 
   // Navigation from user events may set the spinner synchronously.
   const load = useCallback(
@@ -54,9 +62,7 @@ export function FolderPicker({ onSelect, selectedAbs }: Props) {
   if (error) {
     return (
       <div className="rounded-lg border border-accent-amber/30 bg-accent-amber/5 p-3 text-[11px] leading-relaxed text-accent-amber">
-        Folder browsing unavailable: {error}. Set{" "}
-        <span className="font-mono text-foreground/80">CURATOR_SOURCE_PATH</span> on the curator, or enter a path
-        manually below.
+        Folder browsing unavailable: {error}. Configure a source root on the server, or enter a path manually below.
       </div>
     );
   }

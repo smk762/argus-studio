@@ -75,6 +75,21 @@ argus-lens serve --cors --port 8100
 
 Or use an editable install while hacking Python: `uv pip install -e ".[server,local]"` from the argus-lens repo (no wheel step).
 
+### Caption page (`/`)
+
+The caption page has three input modes:
+
+- **Single URL** — paste an image URL for one structured caption (`POST /caption/url`).
+- **Local folder** — batch-caption every image in a server-side folder (`POST /caption/folder`), writing a `.txt` sidecar next to each image. The folder picker browses `GET /folders`, which requires a source root:
+
+  ```bash
+  argus-lens serve --cors --port 8100 --source-root /path/to/images
+  # or: LENS_SOURCE_PATH=/path/to/images argus-lens serve --cors
+  ```
+
+  In the suite compose this is preset to `/data/images` (`DATASET_DIR`). You can also type a path manually if browsing is disabled.
+- **Curate manifest** — upload a `manifest.jsonl` produced by `/curate` (`POST /caption/manifest`); each row's `target_profile` is applied per image. Images must be reachable at their `abs_path` (the shared `/data/images` mount).
+
 ### Curator SPA (`/curate`)
 
 The curator UI calls `NEXT_PUBLIC_CURATOR_URL` (default `http://localhost:8101`). Run the FastAPI app from [argus-curator](https://github.com/smk762/argus-curator) in another terminal.
@@ -155,6 +170,7 @@ The demo is a thin frontend-only wrapper. It sends JSON requests to the `argus-l
 | `OUTPUT_DIR` | `./out` | Host dir mounted at `/data/out` on curator (exports) |
 | `HF_CACHE_DIR` | `~/.cache/huggingface` | Host Hugging Face cache shared with the backends |
 | `ARGUS_BACKEND` | `hybrid` | argus-lens captioning backend |
+| `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
 | `LENS_EXTRAS` | `server,local` | pip extras baked into the standalone lens image (`server,openai,replicate` for cloud-only) |
 | `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |
 
