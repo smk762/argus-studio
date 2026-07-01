@@ -6,6 +6,13 @@
  * POST /export. The shared TargetProfile is the contract argus-lens inherits.
  */
 
+/**
+ * Version of the argus-curator handoff manifest. Mirrors
+ * `argus_curator.models.MANIFEST_VERSION`; stamped on each row of the demo
+ * manifest so its shape matches what a live curator export writes.
+ */
+export const MANIFEST_VERSION = "1.0";
+
 export type TargetStyle = "photo" | "anime";
 export type TargetCategory = "identity" | "wardrobe" | "pose_composition" | "setting";
 export type FacePose = "frontal" | "three_quarter" | "profile";

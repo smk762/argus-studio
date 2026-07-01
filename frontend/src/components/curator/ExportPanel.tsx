@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { exportSelection } from "@/lib/curatorApi";
 import { IS_LIVE, LENS_INTERNAL_URL, LOCAL_OUTPUT_PATH } from "@/lib/curatorEnv";
-import { datasetSizeStatus, type ExportResult, type ImageResult, type ScanSummary } from "./types";
+import { MANIFEST_VERSION, datasetSizeStatus, type ExportResult, type ImageResult, type ScanSummary } from "./types";
 
 const HINT_TONE: Record<string, string> = {
   empty: "border-border bg-background/60 text-muted",
@@ -24,6 +24,7 @@ function buildManifest(summary: ScanSummary, rows: ImageResult[]): string {
   return rows
     .map((r) =>
       JSON.stringify({
+        manifest_version: MANIFEST_VERSION,
         rel_path: r.rel_path,
         abs_path: r.abs_path,
         target_profile: summary.target_profile,
