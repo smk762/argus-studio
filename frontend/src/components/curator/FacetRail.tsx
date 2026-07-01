@@ -1,7 +1,7 @@
 "use client";
 
 import { ThumbImage } from "./ThumbImage";
-import type { CuratorFilters, ScanSummary } from "./types";
+import { FACE_POSES, POSE_LABELS, type CuratorFilters, type FacePose, type ScanSummary } from "./types";
 
 interface Props {
   summary: ScanSummary;
@@ -22,7 +22,18 @@ export function FacetRail({ summary, filters, onChange, visibleCount }: Props) {
     });
   };
 
+  const togglePose = (p: FacePose) => {
+    const has = filters.poses.includes(p);
+    set({ poses: has ? filters.poses.filter((x) => x !== p) : [...filters.poses, p] });
+  };
+
   const hasFaces = summary.faces_config.enabled && summary.face_clusters.length > 0;
+
+  const poseCounts = summary.results.reduce<Record<string, number>>((acc, r) => {
+    if (r.primary_face_pose) acc[r.primary_face_pose] = (acc[r.primary_face_pose] ?? 0) + 1;
+    return acc;
+  }, {});
+  const hasPoses = Object.keys(poseCounts).length > 0;
 
   return (
     <div className="space-y-5 rounded-xl border border-border bg-surface p-4">
@@ -72,6 +83,46 @@ export function FacetRail({ summary, filters, onChange, visibleCount }: Props) {
                     <div className="truncate font-mono text-[11px] text-foreground">{fc.cluster_id}</div>
                     <div className="text-[10px] text-muted">{fc.size} faces</div>
                   </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Head pose */}
+      {hasPoses && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">Head pose</span>
+            {filters.poses.length > 0 && (
+              <button
+                type="button"
+                onClick={() => set({ poses: [] })}
+                className="cursor-pointer text-[10px] text-accent-teal hover:underline"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {FACE_POSES.map((p) => {
+              const active = filters.poses.includes(p);
+              const count = poseCounts[p] ?? 0;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  disabled={count === 0}
+                  onClick={() => togglePose(p)}
+                  className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-center transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+                    active
+                      ? "border-accent-purple/50 bg-accent-purple/10 ring-1 ring-accent-purple/40"
+                      : "border-border bg-background hover:bg-surface-hover"
+                  }`}
+                >
+                  <span className="text-[11px] font-medium text-foreground">{POSE_LABELS[p]}</span>
+                  <span className="font-mono text-[10px] text-muted">{count}</span>
                 </button>
               );
             })}

@@ -21,6 +21,7 @@ function buildManifest(summary: ScanSummary, rows: ImageResult[]): string {
         abs_path: r.abs_path,
         target_profile: summary.target_profile,
         primary_face_cluster: r.primary_face_cluster,
+        primary_face_pose: r.primary_face_pose,
         score: Number(r.score.toFixed(4)),
         similar_group: r.similar_group,
       }),

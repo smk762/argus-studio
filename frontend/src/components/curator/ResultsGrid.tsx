@@ -2,7 +2,7 @@
 
 import { ThumbImage } from "./ThumbImage";
 import { statusExplanation } from "./imageExplain";
-import type { ImageResult } from "./types";
+import { POSE_LABELS, type ImageResult } from "./types";
 
 interface Props {
   scanId: string;
@@ -135,6 +135,18 @@ function Card({
           <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${status.cls}`}>
             {status.label}
           </span>
+          {img.primary_face_pose && (
+            <span
+              className="ml-1 inline-block rounded bg-accent-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple"
+              title={
+                img.primary_face_yaw != null
+                  ? `Primary face orientation (yaw ${img.primary_face_yaw.toFixed(0)}°)`
+                  : "Primary face orientation"
+              }
+            >
+              {POSE_LABELS[img.primary_face_pose]}
+            </span>
+          )}
           {img.reject_reason && (
             <div className="truncate text-[10px] leading-tight text-accent-red/80" title={img.reject_reason}>
               {img.reject_reason}

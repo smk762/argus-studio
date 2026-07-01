@@ -8,6 +8,15 @@
 
 export type TargetStyle = "photo" | "anime";
 export type TargetCategory = "identity" | "wardrobe" | "pose_composition" | "setting";
+export type FacePose = "frontal" | "three_quarter" | "profile";
+
+export const FACE_POSES: FacePose[] = ["frontal", "three_quarter", "profile"];
+
+export const POSE_LABELS: Record<FacePose, string> = {
+  frontal: "Head-on",
+  three_quarter: "3/4",
+  profile: "Profile",
+};
 
 export interface TargetProfile {
   target_style: TargetStyle;
@@ -44,6 +53,9 @@ export interface FaceDetection {
   det_score: number;
   cluster_id: string | null;
   primary: boolean;
+  yaw: number | null;
+  pitch: number | null;
+  pose: FacePose | null;
 }
 
 export interface ImageResult {
@@ -65,6 +77,8 @@ export interface ImageResult {
   faces: FaceDetection[];
   face_count: number;
   primary_face_cluster: string | null;
+  primary_face_pose: FacePose | null;
+  primary_face_yaw: number | null;
   phash: string;
   score_breakdown: Record<string, number>;
 }
@@ -106,6 +120,7 @@ export interface ExportRequest {
   keep_similar: boolean;
   max_keep?: number | null;
   face_clusters?: string[] | null;
+  face_poses?: FacePose[] | null;
   write_manifest: boolean;
   caption_url?: string | null;
 }
@@ -233,6 +248,8 @@ export function buildScanBody(folder: string, cfg: CuratorConfig): Record<string
 export interface CuratorFilters {
   /** Selected face clusters (empty = all identities). */
   faceClusters: string[];
+  /** Selected primary-face poses (empty = all orientations). */
+  poses: FacePose[];
   minScore: number;
   passedOnly: boolean;
   /** Hide non-representative near-duplicates. */
@@ -246,6 +263,7 @@ export interface CuratorFilters {
 export function defaultFilters(): CuratorFilters {
   return {
     faceClusters: [],
+    poses: [],
     minScore: 0,
     passedOnly: false,
     hideDuplicates: false,
@@ -263,6 +281,9 @@ export function matchesFilters(img: ImageResult, f: CuratorFilters): boolean {
   if (f.requireKnownFace && !img.primary_face_cluster) return false;
   if (f.faceClusters.length > 0) {
     if (!img.primary_face_cluster || !f.faceClusters.includes(img.primary_face_cluster)) return false;
+  }
+  if (f.poses.length > 0) {
+    if (!img.primary_face_pose || !f.poses.includes(img.primary_face_pose)) return false;
   }
   return true;
 }

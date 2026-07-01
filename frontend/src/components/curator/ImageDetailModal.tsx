@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { ThumbImage } from "./ThumbImage";
 import { formatScoreBreakdown, statusExplanation } from "./imageExplain";
-import type { ImageResult } from "./types";
+import { POSE_LABELS, type ImageResult } from "./types";
 
 interface Props {
   scanId: string;
@@ -110,6 +110,14 @@ export function ImageDetailModal({ scanId, img, selected, onToggle, onClose }: P
                 rows={[
                   ["Count", String(img.face_count)],
                   ["Primary identity", img.primary_face_cluster ?? "—"],
+                  [
+                    "Primary orientation",
+                    img.primary_face_pose
+                      ? `${POSE_LABELS[img.primary_face_pose]}${
+                          img.primary_face_yaw != null ? ` (yaw ${img.primary_face_yaw.toFixed(0)}°)` : ""
+                        }`
+                      : "—",
+                  ],
                 ]}
               />
             )}
@@ -128,6 +136,7 @@ export function ImageDetailModal({ scanId, img, selected, onToggle, onClose }: P
                   >
                     <span className="font-mono text-foreground">{f.cluster_id ?? "unclustered"}</span>
                     <span className="ml-2 text-muted">det {f.det_score.toFixed(2)}</span>
+                    {f.pose && <span className="ml-2 text-accent-purple">{POSE_LABELS[f.pose]}</span>}
                     {f.primary && <span className="ml-2 text-accent-teal">primary</span>}
                   </div>
                 ))}
