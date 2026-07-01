@@ -19,7 +19,7 @@ import {
   type ImageResult,
   type ScanSummary,
 } from "@/components/curator/types";
-import { getHealth, scanFolder } from "@/lib/curatorApi";
+import { getHealth, scanFolderStream, type ScanProgress } from "@/lib/curatorApi";
 import { CURATOR_UI_MODE, IS_LIVE, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
 
 type View = "grid" | "clusters";
@@ -36,6 +36,7 @@ export default function CuratePage() {
   const [folderPath, setFolderPath] = useState(() => (IS_LIVE ? LOCAL_SOURCE_PATH : ""));
   const [summary, setSummary] = useState<ScanSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState<string | null>(null);
 
@@ -88,13 +89,15 @@ export default function CuratePage() {
     e.preventDefault();
     if (!IS_LIVE || !folderPath.trim()) return;
     setError(null);
+    setProgress(null);
     setLoading(true);
     try {
-      applySummary(await scanFolder(folderPath.trim(), config));
+      applySummary(await scanFolderStream(folderPath.trim(), config, setProgress));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Scan failed");
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -274,12 +277,7 @@ export default function CuratePage() {
               </>
             )}
 
-            {!summary && loading && (
-              <div className="flex flex-col items-center justify-center gap-4 py-32">
-                <div className="h-12 w-12 animate-spin rounded-full border-2 border-accent-teal/30 border-t-accent-teal" />
-                <p className="text-sm text-muted">Scanning images…</p>
-              </div>
-            )}
+            {!summary && loading && <ScanProgressView progress={progress} />}
 
             {!summary && !loading && !error && (
               <div className="py-24 text-center text-muted">
@@ -311,10 +309,51 @@ export default function CuratePage() {
       <ImageDetailModal
         scanId={summary?.scan_id ?? ""}
         img={detail}
+        list={filtered}
         selected={detail ? selected.has(detail.rel_path) : false}
         onToggle={toggle}
+        onNavigate={setDetail}
         onClose={() => setDetail(null)}
       />
+    </div>
+  );
+}
+
+const PHASE_LABELS: Record<ScanProgress["phase"], string> = {
+  collecting: "Reading images from disk",
+  scoring: "Scoring images",
+  faces: "Detecting & clustering faces",
+  clustering: "Grouping near-duplicates",
+};
+
+function ScanProgressView({ progress }: { progress: ScanProgress | null }) {
+  // "scoring" is the only phase with a meaningful running count; the others are
+  // short and reported without per-item granularity, so show them as pending.
+  const label = progress ? PHASE_LABELS[progress.phase] : "Starting scan";
+  const hasCount = progress?.phase === "scoring" && progress.total > 0;
+  const pct = hasCount ? Math.round((progress!.done / progress!.total) * 100) : null;
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-5 py-32">
+      <div className="h-12 w-12 animate-spin rounded-full border-2 border-accent-teal/30 border-t-accent-teal" />
+      <div className="w-full max-w-sm space-y-2 text-center">
+        <p className="text-sm font-medium text-foreground">{label}…</p>
+        {hasCount ? (
+          <>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-hover">
+              <div
+                className="h-full rounded-full bg-accent-teal transition-all duration-300 ease-out"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <p className="font-mono text-xs text-muted">
+              {progress!.done.toLocaleString()} / {progress!.total.toLocaleString()} ({pct}%)
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-muted">This can take a moment for large folders…</p>
+        )}
+      </div>
     </div>
   );
 }

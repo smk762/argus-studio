@@ -17,6 +17,8 @@ interface Props {
   faceCluster?: string | null;
   className?: string;
   rounded?: string;
+  /** How the image fills its box. "cover" (default) crops; "contain" shows all of it. */
+  fit?: "cover" | "contain";
 }
 
 /**
@@ -25,12 +27,13 @@ interface Props {
  * coloured placeholder keyed by face cluster so identities stay visually
  * distinct without bundling binaries.
  */
-export function ThumbImage({ scanId, relPath, faceCluster, className = "", rounded = "" }: Props) {
+export function ThumbImage({ scanId, relPath, faceCluster, className = "", rounded = "", fit = "cover" }: Props) {
   const [failed, setFailed] = useState(false);
   const showImg = IS_LIVE && !failed;
   const seed = faceCluster ?? relPath;
   const hue = hueFor(seed);
   const base = relPath.split("/").pop() ?? relPath;
+  const fitClass = fit === "contain" ? "object-contain" : "object-cover";
 
   if (showImg) {
     return (
@@ -40,7 +43,7 @@ export function ThumbImage({ scanId, relPath, faceCluster, className = "", round
         alt={relPath}
         loading="lazy"
         onError={() => setFailed(true)}
-        className={`h-full w-full object-cover ${rounded} ${className}`}
+        className={`h-full w-full ${fitClass} ${rounded} ${className}`}
       />
     );
   }

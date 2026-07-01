@@ -190,6 +190,55 @@ export const CATEGORY_COLORS: Record<TargetCategory, string> = {
   setting: "accent-orange",
 };
 
+/** Framing guidance shown under the category picker — what to feed the trainer. */
+export const CATEGORY_COMPOSITION_TIPS: Record<TargetCategory, string> = {
+  identity:
+    "The face is the concept: favour clear, sharp face shots at varied angles (head-on, 3/4, profile) and expressions, plus a few half/full-body frames where the face is still visible. Faceless crops don't teach identity — enable Face Clustering, then filter with “Require a known face”.",
+  wardrobe:
+    "Show the full outfit: prefer full/half-body framing over close-ups. A visible face helps, but the garment should be the focus and well-lit from multiple angles.",
+  pose_composition:
+    "Prioritise variety of pose and framing over a single subject. Mix wide and tight crops; the body/gesture matters more than a pristine face.",
+  setting:
+    "Reward wide, high-resolution scenes. Faces are incidental — keep establishing shots and environments; drop tight portraits.",
+};
+
+/**
+ * Ideal training-set size for an SDXL LoRA, per category. Identity/character
+ * concepts converge on ~15–30 sharp, varied images; broader concepts benefit
+ * from a bit more variety. These are guidelines, not hard limits.
+ */
+export interface DatasetSizeGuide {
+  ideal: string;
+  low: number; // below this = too few
+  hi: number; // above this = getting large
+}
+
+export const DATASET_SIZE_GUIDE: Record<TargetCategory, DatasetSizeGuide> = {
+  identity: { ideal: "15–30", low: 12, hi: 50 },
+  wardrobe: { ideal: "20–40", low: 15, hi: 60 },
+  pose_composition: { ideal: "20–40", low: 15, hi: 60 },
+  setting: { ideal: "25–50", low: 15, hi: 80 },
+};
+
+export type DatasetSizeTone = "empty" | "low" | "good" | "high";
+
+export function datasetSizeStatus(
+  count: number,
+  category: TargetCategory,
+): { tone: DatasetSizeTone; text: string } {
+  const g = DATASET_SIZE_GUIDE[category];
+  if (count === 0) {
+    return { tone: "empty", text: `Aim for ~${g.ideal} sharp, varied images for an SDXL ${CATEGORY_LABELS[category]} LoRA.` };
+  }
+  if (count < g.low) {
+    return { tone: "low", text: `${count} selected — light for SDXL; ~${g.ideal} usually trains a stronger, more flexible LoRA.` };
+  }
+  if (count > g.hi) {
+    return { tone: "high", text: `${count} selected — more than needed. Trimming to your best ~${g.ideal} keeps the concept clean.` };
+  }
+  return { tone: "good", text: `${count} selected — in the ~${g.ideal} sweet spot for an SDXL ${CATEGORY_LABELS[category]} LoRA.` };
+}
+
 /** The editable slice of TargetProfile + ScanConfig + FaceConfig the panel manages. */
 export interface CuratorConfig {
   profile: TargetProfile;

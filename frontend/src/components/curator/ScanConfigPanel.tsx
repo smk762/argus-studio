@@ -4,6 +4,7 @@ import {
   CATEGORY_COLORS,
   CATEGORY_DESCRIPTIONS,
   CATEGORY_LABELS,
+  CATEGORY_COMPOSITION_TIPS,
   TARGET_CATEGORIES,
   type CuratorConfig,
   type TargetCategory,
@@ -59,6 +60,9 @@ export function ScanConfigPanel({ value, onChange, loading }: Props) {
             );
           })}
         </div>
+        <p className="mt-2 rounded-lg border border-border bg-background/60 p-2.5 text-[11px] leading-relaxed text-muted">
+          {CATEGORY_COMPOSITION_TIPS[value.profile.target_category]}
+        </p>
       </div>
 
       {/* Target style */}

@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { exportSelection } from "@/lib/curatorApi";
 import { IS_LIVE, LENS_INTERNAL_URL, LOCAL_OUTPUT_PATH } from "@/lib/curatorEnv";
-import type { ExportResult, ImageResult, ScanSummary } from "./types";
+import { datasetSizeStatus, type ExportResult, type ImageResult, type ScanSummary } from "./types";
+
+const HINT_TONE: Record<string, string> = {
+  empty: "border-border bg-background/60 text-muted",
+  low: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange",
+  good: "border-accent-green/30 bg-accent-green/5 text-accent-green",
+  high: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange",
+};
 
 interface Props {
   summary: ScanSummary;
@@ -40,6 +47,7 @@ export function ExportPanel({ summary, selectedResults }: Props) {
 
   const count = selectedResults.length;
   const disabled = count === 0 || busy;
+  const sizeHint = datasetSizeStatus(count, summary.target_profile.target_category);
 
   const runLiveExport = async () => {
     setBusy(true);
@@ -88,6 +96,10 @@ export function ExportPanel({ summary, selectedResults }: Props) {
           {count} selected
         </span>
       </div>
+
+      <p className={`rounded-lg border p-2.5 text-[11px] leading-relaxed ${HINT_TONE[sizeHint.tone]}`}>
+        {sizeHint.text}
+      </p>
 
       {IS_LIVE ? (
         <>
