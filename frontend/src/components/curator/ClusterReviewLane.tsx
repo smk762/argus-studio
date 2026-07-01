@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { ThumbImage } from "./ThumbImage";
-import type { ImageResult } from "./types";
+import { faceFocalPoint, type ImageResult } from "./types";
 
 interface Props {
   scanId: string;
@@ -66,7 +66,12 @@ export function ClusterReviewLane({ scanId, results, selected, onToggle }: Props
                   }`}
                 >
                   <div className="relative aspect-square">
-                    <ThumbImage scanId={scanId} relPath={m.rel_path} faceCluster={m.primary_face_cluster} />
+                    <ThumbImage
+                      scanId={scanId}
+                      relPath={m.rel_path}
+                      faceCluster={m.primary_face_cluster}
+                      objectPosition={faceFocalPoint(m)}
+                    />
                     <span className="absolute right-1 top-1 rounded bg-black/50 px-1 py-0.5 font-mono text-[10px] text-white">
                       {m.score.toFixed(2)}
                     </span>

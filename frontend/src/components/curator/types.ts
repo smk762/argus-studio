@@ -90,6 +90,24 @@ export interface ImageResult {
   score_breakdown: Record<string, number>;
 }
 
+/**
+ * CSS object-position that keeps the subject in frame when an image is
+ * square-cropped (object-cover) in a thumbnail tile. Anchors on the primary
+ * face's centre so heads aren't sliced off; falls back to an upper-centre bias
+ * (where heads usually sit in portraits) when no face was detected.
+ */
+export function faceFocalPoint(img: ImageResult): string {
+  const face = img.faces.find((f) => f.primary) ?? img.faces[0];
+  if (face && img.width > 0 && img.height > 0) {
+    const [x, y, w, h] = face.bbox;
+    const clamp = (v: number) => Math.min(100, Math.max(0, v));
+    const cx = clamp(((x + w / 2) / img.width) * 100);
+    const cy = clamp(((y + h / 2) / img.height) * 100);
+    return `${cx.toFixed(1)}% ${cy.toFixed(1)}%`;
+  }
+  return "50% 25%";
+}
+
 export interface FaceCluster {
   cluster_id: string;
   size: number;

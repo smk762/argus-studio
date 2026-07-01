@@ -2,7 +2,7 @@
 
 import { ThumbImage } from "./ThumbImage";
 import { statusExplanation } from "./imageExplain";
-import { POSE_LABELS, type ImageResult } from "./types";
+import { faceFocalPoint, POSE_LABELS, type ImageResult } from "./types";
 
 interface Props {
   scanId: string;
@@ -99,7 +99,12 @@ function Card({
         className="block w-full cursor-pointer text-left"
       >
         <div className="relative aspect-square">
-          <ThumbImage scanId={scanId} relPath={img.rel_path} faceCluster={img.primary_face_cluster} />
+          <ThumbImage
+            scanId={scanId}
+            relPath={img.rel_path}
+            faceCluster={img.primary_face_cluster}
+            objectPosition={faceFocalPoint(img)}
+          />
           <div className="absolute right-1 top-1">
             <ScoreBadge score={img.score} />
           </div>

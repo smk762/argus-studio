@@ -95,7 +95,7 @@ export function ImageDetailModal({ scanId, img, list, selected, onToggle, onNavi
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {/* Image takes two of the three columns. */}
             <div className="lg:col-span-2">
-              <div className="flex max-h-[70vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
+              <div className="flex h-[70vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
                 <ThumbImage
                   scanId={scanId}
                   relPath={img.rel_path}

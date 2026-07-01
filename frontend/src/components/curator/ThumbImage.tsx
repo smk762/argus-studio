@@ -19,6 +19,11 @@ interface Props {
   rounded?: string;
   /** How the image fills its box. "cover" (default) crops; "contain" shows all of it. */
   fit?: "cover" | "contain";
+  /**
+   * CSS object-position for the "cover" fit — the focal point kept in frame when
+   * the tile crops (e.g. "50% 25%" to favour the head). Ignored for "contain".
+   */
+  objectPosition?: string;
 }
 
 /**
@@ -27,7 +32,15 @@ interface Props {
  * coloured placeholder keyed by face cluster so identities stay visually
  * distinct without bundling binaries.
  */
-export function ThumbImage({ scanId, relPath, faceCluster, className = "", rounded = "", fit = "cover" }: Props) {
+export function ThumbImage({
+  scanId,
+  relPath,
+  faceCluster,
+  className = "",
+  rounded = "",
+  fit = "cover",
+  objectPosition,
+}: Props) {
   const [failed, setFailed] = useState(false);
   const showImg = IS_LIVE && !failed;
   const seed = faceCluster ?? relPath;
@@ -43,6 +56,7 @@ export function ThumbImage({ scanId, relPath, faceCluster, className = "", round
         alt={relPath}
         loading="lazy"
         onError={() => setFailed(true)}
+        style={fit === "cover" && objectPosition ? { objectPosition } : undefined}
         className={`h-full w-full ${fitClass} ${rounded} ${className}`}
       />
     );
