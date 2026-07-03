@@ -11,19 +11,39 @@ import { FacetRail } from "@/components/curator/FacetRail";
 import { SelectionInsights } from "@/components/curator/SelectionInsights";
 import { ExportPanel } from "@/components/curator/ExportPanel";
 import { ImageDetailModal } from "@/components/curator/ImageDetailModal";
+import { IngestPanel } from "@/components/curator/IngestPanel";
 import {
   defaultCuratorConfig,
   defaultFilters,
   matchesFilters,
   type CuratorConfig,
   type CuratorFilters,
+  type Detectors,
   type ImageResult,
   type ScanSummary,
 } from "@/components/curator/types";
-import { getHealth, scanFolderStream, type ScanProgress } from "@/lib/curatorApi";
+import { getDetectors, getHealth, getScan, scanFolderStream, type ScanProgress } from "@/lib/curatorApi";
 import { CURATOR_UI_MODE, IS_LIVE, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
 
 type View = "grid" | "clusters";
+
+interface ScanHistoryEntry {
+  scan_id: string;
+  folder: string;
+  total: number;
+  at: number;
+}
+
+const HISTORY_KEY = "argus.curate.scanHistory";
+const HISTORY_MAX = 8;
+
+function loadHistory(): ScanHistoryEntry[] {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]") as ScanHistoryEntry[];
+  } catch {
+    return [];
+  }
+}
 
 /** The default keep-set for a fresh scan: passing, unique representatives. */
 function defaultSelection(summary: ScanSummary): Set<string> {
@@ -45,8 +65,36 @@ export default function CuratePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [view, setView] = useState<View>("grid");
   const [detail, setDetail] = useState<ImageResult | null>(null);
+  const [detectors, setDetectors] = useState<Detectors | null>(null);
+  const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
 
   const loadedSample = useRef(false);
+
+  // Live extras: detector capabilities + recent-scan history (localStorage).
+  useEffect(() => {
+    if (!IS_LIVE) return;
+    setHistory(loadHistory());
+    const ctrl = new AbortController();
+    getDetectors(ctrl.signal)
+      .then(setDetectors)
+      .catch(() => setDetectors(null));
+    return () => ctrl.abort();
+  }, []);
+
+  const recordScan = useCallback((data: ScanSummary, folder: string) => {
+    setHistory((prev) => {
+      const next = [
+        { scan_id: data.scan_id, folder, total: data.total, at: Date.now() },
+        ...prev.filter((h) => h.scan_id !== data.scan_id),
+      ].slice(0, HISTORY_MAX);
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      } catch {
+        /* storage full/unavailable — history just won't persist */
+      }
+      return next;
+    });
+  }, []);
 
   // Version banner (live) — reachability check.
   useEffect(() => {
@@ -93,12 +141,28 @@ export default function CuratePage() {
     setProgress(null);
     setLoading(true);
     try {
-      applySummary(await scanFolderStream(folderPath.trim(), config, setProgress));
+      const data = await scanFolderStream(folderPath.trim(), config, setProgress);
+      applySummary(data);
+      recordScan(data, folderPath.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Scan failed");
     } finally {
       setLoading(false);
       setProgress(null);
+    }
+  };
+
+  /** Reload a persisted scan from the history rail (no rescan). */
+  const openHistoryScan = async (entry: ScanHistoryEntry) => {
+    setError(null);
+    setLoading(true);
+    try {
+      applySummary(await getScan(entry.scan_id));
+      setFolderPath(entry.folder);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reload scan (it may have been evicted)");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -180,6 +244,7 @@ export default function CuratePage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
           <aside className="space-y-4">
             {IS_LIVE ? (
+              <>
               <form onSubmit={handleScan} className="space-y-4">
                 <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
                   <span className="block text-xs font-semibold uppercase tracking-wider text-muted">Image source</span>
@@ -208,9 +273,53 @@ export default function CuratePage() {
                   </button>
                 </div>
                 <div className="rounded-xl border border-border bg-surface p-4">
+                  {detectors && <DetectorBadges detectors={detectors} />}
                   <ScanConfigPanel value={config} onChange={setConfig} loading={loading} />
                 </div>
               </form>
+
+              <IngestPanel onIngested={setFolderPath} disabled={loading} />
+
+              {history.length > 0 && (
+                <div className="space-y-2 rounded-xl border border-border bg-surface p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted">Recent scans</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHistory([]);
+                        try {
+                          localStorage.removeItem(HISTORY_KEY);
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
+                      className="cursor-pointer text-[10px] text-muted underline decoration-dotted hover:text-foreground"
+                    >
+                      clear
+                    </button>
+                  </div>
+                  <ul className="space-y-1">
+                    {history.map((h) => (
+                      <li key={h.scan_id}>
+                        <button
+                          type="button"
+                          onClick={() => void openHistoryScan(h)}
+                          disabled={loading}
+                          title={`${h.folder} — reload without rescanning`}
+                          className="w-full cursor-pointer rounded-lg border border-border bg-background px-2.5 py-1.5 text-left transition-colors hover:border-accent-teal/40 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <span className="block truncate font-mono text-[11px] text-foreground/90">{h.folder}</span>
+                          <span className="block text-[10px] text-muted">
+                            {h.total} images · {new Date(h.at).toLocaleString()}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              </>
             ) : (
               <div className="space-y-2 rounded-xl border border-accent-purple/30 bg-accent-purple/5 p-4">
                 <span className="block text-xs font-semibold uppercase tracking-wider text-accent-purple">Demo sample</span>
@@ -328,11 +437,13 @@ const PHASE_LABELS: Record<ScanProgress["phase"], string> = {
   clustering: "Grouping near-duplicates",
 };
 
+// Phases that report a meaningful running count (determinate bar). The others
+// (collecting / near-duplicate clustering) are quick and shown as pending.
+const DETERMINATE_PHASES: ScanProgress["phase"][] = ["scoring", "faces"];
+
 function ScanProgressView({ progress }: { progress: ScanProgress | null }) {
-  // "scoring" is the only phase with a meaningful running count; the others are
-  // short and reported without per-item granularity, so show them as pending.
   const label = progress ? PHASE_LABELS[progress.phase] : "Starting scan";
-  const hasCount = progress?.phase === "scoring" && progress.total > 0;
+  const hasCount = !!progress && DETERMINATE_PHASES.includes(progress.phase) && progress.total > 0;
   const pct = hasCount ? Math.round((progress!.done / progress!.total) * 100) : null;
 
   return (
@@ -356,6 +467,35 @@ function ScanProgressView({ progress }: { progress: ScanProgress | null }) {
           <p className="text-xs text-muted">This can take a moment for large folders…</p>
         )}
       </div>
+    </div>
+  );
+}
+
+const DETECTOR_INFO: { key: keyof Detectors; label: string; hint: string }[] = [
+  { key: "torch", label: "torch", hint: "PyTorch — required for CLIP embeddings and GPU scoring" },
+  { key: "cuda", label: "cuda", hint: "NVIDIA GPU acceleration (falls back to CPU when off)" },
+  { key: "clip", label: "clip", hint: "CLIP embeddings — powers the diversity weighting" },
+  { key: "insightface", label: "faces", hint: "InsightFace — face detection, pose buckets, identity clustering" },
+  { key: "onnxruntime", label: "onnx", hint: "ONNX runtime for the face models" },
+];
+
+/** What the curator backend can actually do (GET /detectors) — explains greyed-out options. */
+function DetectorBadges({ detectors }: { detectors: Detectors }) {
+  return (
+    <div className="mb-3 flex flex-wrap gap-1.5 border-b border-border pb-3">
+      {DETECTOR_INFO.map(({ key, label, hint }) => (
+        <span
+          key={key}
+          title={`${hint} — ${detectors[key] ? "available" : "not installed on the curator"}`}
+          className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
+            detectors[key]
+              ? "border-accent-green/40 bg-accent-green/10 text-accent-green"
+              : "border-border bg-background text-muted line-through"
+          }`}
+        >
+          {label}
+        </span>
+      ))}
     </div>
   );
 }

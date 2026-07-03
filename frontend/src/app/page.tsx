@@ -12,12 +12,32 @@ import { ExportButtons } from "@/components/ExportButtons";
 import { ParamInfo } from "@/components/ParamInfo";
 import { BatchCaptionResults } from "@/components/BatchCaptionResults";
 import { FolderPicker } from "@/components/curator/FolderPicker";
-import { captionFolder, captionManifest, listLensFolders } from "@/lib/lensApi";
+import { DropZone } from "@/components/DropZone";
+import {
+  captionFilesStream,
+  captionFolder,
+  captionManifest,
+  immichCaptionStream,
+  listImmichAlbums,
+  listLensFolders,
+  type ImmichAlbum,
+} from "@/lib/lensApi";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 
-type InputMode = "url" | "folder" | "manifest";
+type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
+
+const MODE_LABELS: Record<InputMode, string> = {
+  url: "Single URL",
+  upload: "Upload",
+  folder: "Local folder",
+  immich: "Immich",
+  manifest: "Curate manifest",
+};
+
+const isImageFile = (f: File) => f.type.startsWith("image/");
+const isManifestFile = (f: File) => /\.jsonl?$/i.test(f.name);
 
 export default function Home() {
   const [mode, setMode] = useState<InputMode>("url");
@@ -26,6 +46,12 @@ export default function Home() {
   const [recursive, setRecursive] = useState(false);
   const [writeSidecar, setWriteSidecar] = useState(true);
   const [manifestFile, setManifestFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [immichAlbums, setImmichAlbums] = useState<ImmichAlbum[] | null>(null);
+  const [immichError, setImmichError] = useState<string | null>(null);
+  const [albumId, setAlbumId] = useState("");
+  const [writeBack, setWriteBack] = useState(true);
   const [targetBackend, setTargetBackend] = useState("sdxl");
   const [targetStyle, setTargetStyle] = useState("photo");
   const [targetCategory, setTargetCategory] = useState("identity");
@@ -42,14 +68,26 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        // The lens API has no /version route; /backends is its status endpoint.
-        // A 200 here means the API is reachable — report how many backends are ready.
-        const resp = await fetch(`${API_URL}/backends`);
-        if (!resp.ok) throw new Error(String(resp.status));
-        const data: { backends?: Record<string, { available?: boolean }> } = await resp.json();
-        const backends = Object.values(data.backends ?? {});
-        const available = backends.filter((b) => b?.available).length;
-        if (!cancelled) setLensVersion(backends.length > 0 ? `${available}/${backends.length} backends` : "connected");
+        // Version from /health (newer lens), backend readiness from /backends;
+        // tolerate either being missing so older servers still show status.
+        const [healthResp, backendsResp] = await Promise.allSettled([
+          fetch(`${API_URL}/health`),
+          fetch(`${API_URL}/backends`),
+        ]);
+        let version = "";
+        if (healthResp.status === "fulfilled" && healthResp.value.ok) {
+          const h: { version?: string } = await healthResp.value.json();
+          if (h.version) version = `v${h.version}`;
+        }
+        let backendsLabel = "";
+        if (backendsResp.status === "fulfilled" && backendsResp.value.ok) {
+          const data: { backends?: Record<string, { available?: boolean }> } = await backendsResp.value.json();
+          const backends = Object.values(data.backends ?? {});
+          const available = backends.filter((b) => b?.available).length;
+          backendsLabel = backends.length > 0 ? `${available}/${backends.length} backends` : "connected";
+        }
+        // Empty string = unreachable (renders the red banner).
+        if (!cancelled) setLensVersion([version, backendsLabel].filter(Boolean).join(" · "));
       } catch {
         if (!cancelled) setLensVersion("");
       }
@@ -142,8 +180,123 @@ export default function Home() {
     }
   };
 
+  const runUpload = async () => {
+    if (uploadFiles.length === 0) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setBatchResult(null);
+    setProgress({ done: 0, total: uploadFiles.length });
+    try {
+      const rows = await captionFilesStream(
+        uploadFiles,
+        { target_style: targetStyle, target_category: targetCategory, target_backend: targetBackend },
+        (_row, done) => setProgress({ done, total: uploadFiles.length }),
+      );
+      if (rows.length === 1 && uploadFiles.length === 1) {
+        // Single upload: show the full variant/raw-output breakdown like URL mode.
+        setResult(rows[0]);
+        setAnalyzedUrl(URL.createObjectURL(uploadFiles[0]));
+      } else {
+        const skipped = uploadFiles.length - rows.length;
+        setBatchResult({
+          total: uploadFiles.length,
+          captioned: rows.length,
+          failed: skipped,
+          results: rows.map((r) => ({ rel_path: r.name, final_caption: r.final_caption })),
+          errors:
+            skipped > 0
+              ? [{ rel_path: "(skipped)", error: `${skipped} file(s) could not be decoded as images` }]
+              : [],
+        });
+        setBatchSource(`${uploadFiles.length} uploaded file(s)`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+      setProgress(null);
+    }
+  };
+
+  const runImmich = async () => {
+    if (!albumId) return;
+    const album = immichAlbums?.find((a) => a.id === albumId);
+    setLoading(true);
+    setError(null);
+    setBatchResult(null);
+    setProgress(null);
+    const rows: { rel_path: string; final_caption: string }[] = [];
+    const errors: { rel_path: string; error: string }[] = [];
+    try {
+      const summary = await immichCaptionStream(
+        {
+          album_id: albumId,
+          target_style: targetStyle,
+          target_category: targetCategory,
+          target_backend: targetBackend,
+          prose_enrichment: proseEnrichment,
+          write_back: writeBack,
+        },
+        (p) => {
+          setProgress({ done: p.done, total: p.total });
+          if (p.error) errors.push({ rel_path: p.name, error: p.error });
+          else rows.push({ rel_path: p.name, final_caption: p.final_caption ?? "" });
+        },
+      );
+      setBatchResult({ ...summary, results: rows, errors });
+      setBatchSource(album ? `Immich · ${album.name}` : "Immich album");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+      setProgress(null);
+    }
+  };
+
+  // Load the album list when the Immich tab is first opened.
+  useEffect(() => {
+    if (mode !== "immich" || immichAlbums !== null) return;
+    let cancelled = false;
+    setImmichError(null);
+    listImmichAlbums()
+      .then((albums) => {
+        if (cancelled) return;
+        setImmichAlbums(albums);
+        if (albums.length > 0) setAlbumId((cur) => cur || albums[0].id);
+      })
+      .catch((err) => {
+        if (!cancelled) setImmichError(err instanceof Error ? err.message : "Failed to reach Immich");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, immichAlbums]);
+
+  /** Route files dropped anywhere on the page: manifests to the manifest tab, images to Upload. */
+  const handlePageDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    const manifest = files.find(isManifestFile);
+    if (manifest) {
+      setManifestFile(manifest);
+      setMode("manifest");
+      return;
+    }
+    const images = files.filter(isImageFile);
+    if (images.length > 0) {
+      setUploadFiles((cur) => [...cur, ...images]);
+      setMode("upload");
+    }
+  };
+
   return (
-    <div className="flex flex-col min-h-screen">
+    <div
+      className="flex flex-col min-h-screen"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handlePageDrop}
+    >
       {/* Header */}
       <header className="border-b border-border bg-surface/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
@@ -214,7 +367,7 @@ export default function Home() {
         <div className="mb-8">
           {/* Input mode switcher */}
           <div className="mb-4 inline-flex rounded-lg border border-border bg-surface p-1">
-            {(["url", "folder", "manifest"] as const).map((m) => (
+            {(["url", "upload", "folder", "immich", "manifest"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -226,7 +379,7 @@ export default function Home() {
                   mode === m ? "bg-accent-purple text-white" : "text-muted hover:text-foreground"
                 }`}
               >
-                {m === "url" ? "Single URL" : m === "folder" ? "Local folder" : "Curate manifest"}
+                {MODE_LABELS[m]}
               </button>
             ))}
           </div>
@@ -250,6 +403,101 @@ export default function Home() {
                 {loading ? <Spinner label="Analyzing..." /> : "Analyze"}
               </button>
             </form>
+          )}
+
+          {/* Upload mode */}
+          {mode === "upload" && (
+            <div className="mb-6 space-y-3">
+              <DropZone
+                onFiles={(files) => setUploadFiles((cur) => [...cur, ...files])}
+                accept="image/*"
+                filter={isImageFile}
+                label="Drop images here, or click to browse"
+                hint="A single image shows the full breakdown; multiple images run as a batch."
+              />
+              {uploadFiles.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-medium text-foreground/90">
+                    {uploadFiles.length} file{uploadFiles.length > 1 ? "s" : ""}
+                  </span>
+                  <span className="max-w-md truncate font-mono text-muted">
+                    {uploadFiles.map((f) => f.name).join(", ")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setUploadFiles([])}
+                    className="cursor-pointer text-muted underline decoration-dotted hover:text-foreground"
+                  >
+                    clear
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => void runUpload()}
+                  disabled={loading || uploadFiles.length === 0}
+                  className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {loading ? (
+                    <Spinner label="Captioning..." />
+                  ) : (
+                    `Caption ${uploadFiles.length || ""} image${uploadFiles.length === 1 ? "" : "s"}`
+                  )}
+                </button>
+                {progress && <ProgressLine done={progress.done} total={progress.total} />}
+              </div>
+            </div>
+          )}
+
+          {/* Immich mode */}
+          {mode === "immich" && (
+            <div className="mb-6 space-y-3">
+              <p className="text-xs text-muted">
+                Caption an <a className="text-accent-purple hover:text-accent-purple/80" href="https://immich.app" target="_blank" rel="noopener noreferrer">Immich</a>{" "}
+                album straight from your photo server — nothing is copied into the dataset. With write-back enabled,
+                each caption is pushed to the asset&apos;s description in Immich.
+              </p>
+              {immichError ? (
+                <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-accent-red">
+                  {immichError}
+                  <span className="block mt-1 text-muted">
+                    Set <span className="font-mono">IMMICH_URL</span> and{" "}
+                    <span className="font-mono">IMMICH_API_KEY</span> on the argus-lens server to enable this mode.
+                  </span>
+                </div>
+              ) : immichAlbums === null ? (
+                <p className="text-xs text-muted">Loading albums…</p>
+              ) : immichAlbums.length === 0 ? (
+                <p className="text-xs text-muted">No albums found on the Immich server.</p>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <select
+                    value={albumId}
+                    onChange={(e) => setAlbumId(e.target.value)}
+                    className="flex-1 px-4 py-3 rounded-lg bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple/50 cursor-pointer"
+                  >
+                    {immichAlbums.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.asset_count} assets)
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => void runImmich()}
+                    disabled={loading || !albumId}
+                    className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    {loading ? <Spinner label="Captioning..." /> : "Caption album"}
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-4">
+                <Toggle checked={writeBack} onChange={setWriteBack} label="Write captions back to Immich" />
+                {progress && <ProgressLine done={progress.done} total={progress.total} />}
+              </div>
+            </div>
           )}
 
           {/* Local folder mode */}
@@ -377,7 +625,8 @@ export default function Home() {
               </select>
             </ParamInfo>
 
-            {/* Prose Enrichment */}
+            {/* Prose Enrichment — not accepted by the upload endpoint (/caption/stream) */}
+            {mode !== "upload" && (
             <ParamInfo
               label="Prose Enrichment"
               description="When enabled, novel noun/adjective phrases from prose output (Florence-2) are extracted and appended to the training variant as low-priority tag-style tokens. This adds scene context without displacing core identity or wardrobe tags. Disable for a pure WD14-only training caption."
@@ -402,6 +651,7 @@ export default function Home() {
                 </span>
               </div>
             </ParamInfo>
+            )}
           </div>
           )}
         </div>
@@ -418,8 +668,8 @@ export default function Home() {
           <BatchCaptionResults result={batchResult} source={batchSource} />
         )}
 
-        {/* Single-URL result */}
-        {mode === "url" && result && (
+        {/* Single-image result (URL mode, or a one-file upload) */}
+        {(mode === "url" || mode === "upload") && result && (
           <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
             {/* Left: image */}
             <div className="space-y-4">
@@ -446,7 +696,7 @@ export default function Home() {
         )}
 
         {/* Empty state */}
-        {(mode === "url" ? !result : !batchResult) && !loading && !error && (
+        {(mode === "url" || mode === "upload" ? !result && !batchResult : !batchResult) && !loading && !error && (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 rounded-2xl bg-surface border border-border flex items-center justify-center mb-4">
               <svg
@@ -466,9 +716,13 @@ export default function Home() {
             <h2 className="text-lg font-medium text-foreground/60 mb-1">
               {mode === "url"
                 ? "Paste an image URL to get started"
-                : mode === "folder"
-                  ? "Pick a folder to batch-caption"
-                  : "Upload a curate manifest to batch-caption"}
+                : mode === "upload"
+                  ? "Drop images anywhere on this page"
+                  : mode === "folder"
+                    ? "Pick a folder to batch-caption"
+                    : mode === "immich"
+                      ? "Pick an Immich album to batch-caption"
+                      : "Upload a curate manifest to batch-caption"}
             </h2>
             <p className="text-sm text-muted max-w-md">
               {mode === "url"
@@ -525,6 +779,23 @@ export default function Home() {
           <span>MIT License</span>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function ProgressLine({ done, total }: { done: number; total: number }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <div className="flex min-w-40 flex-1 items-center gap-2">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-hover">
+        <div
+          className="h-full rounded-full bg-accent-purple transition-all duration-300 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="shrink-0 font-mono text-xs tabular-nums text-accent-purple">
+        {done} / {total}
+      </span>
     </div>
   );
 }

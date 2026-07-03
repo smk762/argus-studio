@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { exportSelection } from "@/lib/curatorApi";
-import { IS_LIVE, LENS_INTERNAL_URL, LOCAL_OUTPUT_PATH } from "@/lib/curatorEnv";
+import { exportSelectionStream, type ExportProgress } from "@/lib/curatorApi";
+import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
+import { IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH } from "@/lib/curatorEnv";
 import { MANIFEST_VERSION, datasetSizeStatus, type ExportResult, type ImageResult, type ScanSummary } from "./types";
 
 const HINT_TONE: Record<string, string> = {
@@ -45,6 +46,9 @@ export function ExportPanel({ summary, selectedResults }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
+  const [transfer, setTransfer] = useState<ExportProgress | null>(null);
+  const [caption, setCaption] = useState<CaptionProgress | null>(null);
+  const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
 
   const count = selectedResults.length;
   const disabled = count === 0 || busy;
@@ -54,20 +58,34 @@ export function ExportPanel({ summary, selectedResults }: Props) {
     setBusy(true);
     setError(null);
     setResult(null);
+    setTransfer(null);
+    setCaption(null);
+    setCaptionSummary(null);
     try {
-      const res = await exportSelection({
-        scan_id: summary.scan_id,
-        selection: selectedResults.map((r) => r.rel_path),
-        dest: dest.trim(),
-        mode,
-        preserve_structure: preserve,
-        min_score: 0,
-        include_rejected: true,
-        keep_similar: true,
-        write_manifest: true,
-        caption_url: toCaption ? `${LENS_INTERNAL_URL}/caption/manifest` : null,
-      });
+      // 1) Transfer files (+ manifest/report) on the curator, streaming progress.
+      const res = await exportSelectionStream(
+        {
+          scan_id: summary.scan_id,
+          selection: selectedResults.map((r) => r.rel_path),
+          dest: dest.trim(),
+          mode,
+          preserve_structure: preserve,
+          min_score: 0,
+          include_rejected: true,
+          keep_similar: true,
+          write_manifest: true,
+          caption_url: null, // captioning is orchestrated below for live progress
+        },
+        setTransfer,
+      );
       setResult(res);
+
+      // 2) Optionally caption via argus-lens, streaming per-image progress.
+      if (toCaption) {
+        const jsonl = buildManifest(summary, selectedResults);
+        const sum = await captionManifestStream(jsonl, setCaption);
+        setCaptionSummary(sum);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Export failed");
     } finally {
@@ -143,7 +161,7 @@ export function ExportPanel({ summary, selectedResults }: Props) {
           </label>
           <label
             className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-            title={`argus-curator POSTs the manifest to ${LENS_INTERNAL_URL}/caption/manifest for a one-click curate → caption run.`}
+            title={`After export, the manifest is streamed to ${LENS_URL}/caption/manifest/stream so you can watch captioning progress image-by-image.`}
           >
             <input
               type="checkbox"
@@ -159,8 +177,31 @@ export function ExportPanel({ summary, selectedResults }: Props) {
             onClick={() => void runLiveExport()}
             className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "Exporting…" : `Export ${count}${toCaption ? " + caption" : " + manifest"}`}
+            {busy ? "Working…" : `Export ${count}${toCaption ? " + caption" : " + manifest"}`}
           </button>
+
+          {busy && (transfer || caption) && (
+            <div className="space-y-3 rounded-lg border border-border bg-background/50 p-3">
+              {transfer && (
+                <PhaseBar
+                  label={mode === "move" ? "Moving images" : mode === "symlink" ? "Symlinking images" : "Copying images"}
+                  done={transfer.done}
+                  total={transfer.total}
+                  tone="teal"
+                />
+              )}
+              {toCaption && (
+                <PhaseBar
+                  label="Captioning with argus-lens"
+                  done={caption?.done ?? 0}
+                  total={caption?.total ?? count}
+                  tone="purple"
+                  pending={!caption && !!transfer && transfer.done >= transfer.total}
+                  detail={caption?.rel_path}
+                />
+              )}
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -192,9 +233,57 @@ export function ExportPanel({ summary, selectedResults }: Props) {
           {result.manifest_path && (
             <div className="break-all font-mono text-[11px] text-foreground/80">{result.manifest_path}</div>
           )}
-          {result.captioned && <div className="text-accent-purple">Manifest sent to argus-lens for captioning.</div>}
+          {captionSummary && (
+            <div className="text-accent-purple">
+              Captioned {captionSummary.captioned}/{captionSummary.total} with argus-lens
+              {captionSummary.failed > 0 ? ` (${captionSummary.failed} failed)` : ""} — .txt sidecars written next to
+              each source image.
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+const BAR_TONE: Record<string, { bar: string; text: string }> = {
+  teal: { bar: "bg-accent-teal", text: "text-accent-teal" },
+  purple: { bar: "bg-accent-purple", text: "text-accent-purple" },
+};
+
+/** A labelled determinate progress bar for one export/caption phase. */
+function PhaseBar({
+  label,
+  done,
+  total,
+  tone,
+  pending = false,
+  detail,
+}: {
+  label: string;
+  done: number;
+  total: number;
+  tone: "teal" | "purple";
+  pending?: boolean;
+  detail?: string;
+}) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const t = BAR_TONE[tone];
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between gap-2 text-[11px]">
+        <span className="text-foreground/85">{label}</span>
+        <span className={`shrink-0 font-mono tabular-nums ${t.text}`}>
+          {pending ? "waiting…" : `${done.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ease-out ${t.bar} ${pending ? "animate-pulse" : ""}`}
+          style={{ width: pending ? "10%" : `${pct}%` }}
+        />
+      </div>
+      {detail && <p className="truncate font-mono text-[10px] text-muted">{detail}</p>}
     </div>
   );
 }
