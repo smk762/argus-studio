@@ -45,6 +45,7 @@ export default function Home() {
   const [folderPath, setFolderPath] = useState("");
   const [recursive, setRecursive] = useState(false);
   const [writeSidecar, setWriteSidecar] = useState(true);
+  const [writeXmp, setWriteXmp] = useState(false);
   const [manifestFile, setManifestFile] = useState<File | null>(null);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -150,6 +151,7 @@ export default function Home() {
         folder: folderPath.trim(),
         recursive,
         write_sidecar: writeSidecar,
+        write_xmp: writeXmp,
         target_style: targetStyle,
         target_category: targetCategory,
         target_backend: targetBackend,
@@ -170,7 +172,7 @@ export default function Home() {
     setError(null);
     setBatchResult(null);
     try {
-      const data = await captionManifest(manifestFile, { write_sidecar: writeSidecar });
+      const data = await captionManifest(manifestFile, { write_sidecar: writeSidecar, write_xmp: writeXmp });
       setBatchResult(data);
       setBatchSource(manifestFile.name);
     } catch (err) {
@@ -314,6 +316,12 @@ export default function Home() {
                 className="px-3 py-1.5 rounded-lg text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
               >
                 Curate
+              </Link>
+              <Link
+                href="/gallery"
+                className="px-3 py-1.5 rounded-lg text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+              >
+                Gallery
               </Link>
             </nav>
 
@@ -528,6 +536,7 @@ export default function Home() {
               <div className="flex flex-wrap gap-5">
                 <Toggle checked={recursive} onChange={setRecursive} label="Recursive" />
                 <Toggle checked={writeSidecar} onChange={setWriteSidecar} label="Write .txt sidecars" />
+                <Toggle checked={writeXmp} onChange={setWriteXmp} label="Write .xmp sidecars" />
               </div>
             </div>
           )}
@@ -556,7 +565,10 @@ export default function Home() {
                   {loading ? <Spinner label="Captioning..." /> : "Caption manifest"}
                 </button>
               </div>
-              <Toggle checked={writeSidecar} onChange={setWriteSidecar} label="Write .txt sidecars" />
+              <div className="flex flex-wrap gap-5">
+                <Toggle checked={writeSidecar} onChange={setWriteSidecar} label="Write .txt sidecars" />
+                <Toggle checked={writeXmp} onChange={setWriteXmp} label="Write .xmp sidecars" />
+              </div>
             </div>
           )}
 

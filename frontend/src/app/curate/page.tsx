@@ -70,6 +70,13 @@ export default function CuratePage() {
 
   const loadedSample = useRef(false);
 
+  // Deep link from /gallery: ?folder=<path> preselects the scan folder.
+  useEffect(() => {
+    if (!IS_LIVE) return;
+    const folder = new URLSearchParams(window.location.search).get("folder");
+    if (folder) setFolderPath(folder);
+  }, []);
+
   // Live extras: detector capabilities + recent-scan history (localStorage).
   useEffect(() => {
     if (!IS_LIVE) return;
@@ -199,6 +206,9 @@ export default function CuratePage() {
               </Link>
               <Link href="/curate" className="rounded-lg border border-border bg-surface-hover px-3 py-1.5 text-sm text-foreground">
                 Curate
+              </Link>
+              <Link href="/gallery" className="rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground">
+                Gallery
               </Link>
             </nav>
             <div className="flex min-w-0 items-center gap-3">

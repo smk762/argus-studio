@@ -34,6 +34,7 @@ services:
         NEXT_PUBLIC_CURATOR_UI_MODE: ${NEXT_PUBLIC_CURATOR_UI_MODE:-demo}
         NEXT_PUBLIC_CURATOR_SOURCE_PATH: ${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}
         NEXT_PUBLIC_CURATOR_OUTPUT_PATH: ${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
+        NEXT_PUBLIC_QUARRY_URL: ${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}
         # URL the CURATOR CONTAINER uses to reach lens for the export->caption handoff
         # (server-to-server, so it's the compose service name, not localhost).
         NEXT_PUBLIC_LENS_INTERNAL_URL: ${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
@@ -45,6 +46,7 @@ services:
       - NEXT_PUBLIC_CURATOR_UI_MODE=${NEXT_PUBLIC_CURATOR_UI_MODE:-demo}
       - NEXT_PUBLIC_CURATOR_SOURCE_PATH=${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}
       - NEXT_PUBLIC_CURATOR_OUTPUT_PATH=${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
+      - NEXT_PUBLIC_QUARRY_URL=${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}
       - NEXT_PUBLIC_LENS_INTERNAL_URL=${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
     restart: unless-stopped
 
@@ -123,3 +125,24 @@ services:
     # pool paths that don't resolve inside the curator/lens containers.
     command: ["run", "--source", "commons", "--limit", "20", "--export", "--copy", "--licence", "CC0,PD"]
     restart: "no"
+
+  # ── Provenance viewer (read-only API behind the /gallery page) ──────────
+  # Serves subjects / photos / licence / attribution queries from quarry's
+  # sqlite provenance DB, plus pooled-image thumbnails. Read-only by design.
+  argus-quarry-server:
+    profiles: ["gallery", "full"]
+    build:
+      context: ../argus-quarry
+      args:
+        EXTRAS: cli,phash,server
+    image: argus-quarry:server
+    ports:
+      - "${QUARRY_SERVER_PORT:-8102}:8102"
+    environment:
+      - QUARRY_HOME=/data/quarry
+    volumes:
+      # rw: the sqlite provenance DB uses WAL, which needs write access even
+      # for readers. The HTTP API itself exposes no mutations.
+      - ${QUARRY_HOME:-./quarry}:/data/quarry
+    command: ["serve", "--host", "0.0.0.0", "--port", "8102", "--cors"]
+    restart: unless-stopped

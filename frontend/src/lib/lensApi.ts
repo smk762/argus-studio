@@ -32,12 +32,13 @@ export async function captionFolder(req: CaptionFolderRequest): Promise<BatchCap
 /** Batch-caption an argus-curator JSONL manifest (POST /caption/manifest). */
 export async function captionManifest(
   file: File,
-  opts?: { trigger_word?: string; write_sidecar?: boolean },
+  opts?: { trigger_word?: string; write_sidecar?: boolean; write_xmp?: boolean },
 ): Promise<BatchCaptionResult> {
   const fd = new FormData();
   fd.append("manifest", file);
   if (opts?.trigger_word) fd.append("trigger_word", opts.trigger_word);
   fd.append("write_sidecar", String(opts?.write_sidecar ?? true));
+  fd.append("write_xmp", String(opts?.write_xmp ?? false));
   const resp = await fetch(`${LENS_URL}/caption/manifest`, { method: "POST", body: fd });
   if (!resp.ok) return asError(resp);
   return resp.json();

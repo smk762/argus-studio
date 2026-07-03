@@ -42,8 +42,8 @@ docker compose --profile full    up --build  # whole suite
 | _(none)_ | frontend | Public captioning + read-only `/curate` demo |
 | `curator` | frontend + argus-curator | Scanning / exporting datasets |
 | `lens` | frontend + argus-lens | Captioning against a running engine |
-| `gallery` | argus-quarry (run-to-completion job) | Acquiring PD/CC0 images with provenance into `DATASET_DIR` |
-| `full` | frontend + curator + lens | End-to-end curate → caption (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
+| `gallery` | argus-quarry (acquisition job) + argus-quarry-server | Acquiring PD/CC0 images with provenance into `DATASET_DIR`, browsable at `/gallery` |
+| `full` | frontend + curator + lens + quarry server | End-to-end acquire → curate → caption (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
 
 **argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
 public-domain / CC0 images from open archives with full provenance and licence
@@ -119,6 +119,15 @@ In live mode the page also offers:
 - **Recent scans** — reopen a persisted scan (`GET /scan/{scan_id}`) without rescanning; history is kept in the browser.
 - **Detector badges** — what the curator backend can actually do (`GET /detectors`: torch / cuda / clip / faces / onnx), so greyed-out options explain themselves.
 
+### Gallery (`/gallery`)
+
+A read-only view over [argus-quarry](https://github.com/smk762/argus-quarry)'s provenance database (`NEXT_PUBLIC_QUARRY_URL`, default `http://localhost:8102`): pool stats, licence/source/category/subject filters, thumbnails, and a per-image provenance card (source page, photographer, attribution, SHA256). Every photo links straight into `/curate` with its published subject folder preselected. Run the server with the `gallery` profile, or standalone:
+
+```bash
+pip install "argus-quarry[server]"
+argus-quarry serve --cors --port 8102
+```
+
 PyPI install:
 
 ```bash
@@ -170,8 +179,9 @@ argus-quarry (gallery profile, run-to-completion)
    └─ acquire PD/CC0 + provenance ──▶ /data/images (DATASET_DIR)
 
 browser (:3000)  →  Next.js frontend
-                         ├─ /caption/*, /immich/*  →  argus-lens (:8100)     →  captioning
-                         └─ /scan, /upload, …      →  argus-curator (:8101)  →  curation API
+                         ├─ /caption/*, /immich/*  →  argus-lens (:8100)          →  captioning
+                         ├─ /scan, /upload, …      →  argus-curator (:8101)       →  curation API
+                         └─ /photos, /stats, …     →  argus-quarry-server (:8102) →  provenance (read-only)
 
 curate → caption handoff ("full" profile):
    /curate export ── manifest ──▶  argus-lens /caption/manifest/stream
@@ -192,6 +202,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8100` | URL the **browser** uses to reach the argus-lens API |
 | `NEXT_PUBLIC_CURATOR_URL` | `http://localhost:8101` | URL the **browser** uses to reach the argus-curator API (`/curate`) |
+| `NEXT_PUBLIC_QUARRY_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
 | `NEXT_PUBLIC_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
 | `NEXT_PUBLIC_CURATOR_SOURCE_PATH` | `/data/images` | Default source path shown in the folder picker (path inside the curator container) |
 | `NEXT_PUBLIC_CURATOR_OUTPUT_PATH` | `/data/out` | Default export destination (path inside the curator container) |

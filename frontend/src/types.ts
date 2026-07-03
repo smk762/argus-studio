@@ -22,6 +22,8 @@ export interface CaptionFolderRequest {
   folder: string;
   recursive?: boolean;
   write_sidecar?: boolean;
+  /** Also write <image>.xmp sidecars (dc:subject/dc:description) for Lightroom/digiKam/Immich. */
+  write_xmp?: boolean;
   trigger_word?: string;
   target_style?: string;
   target_category?: string;
