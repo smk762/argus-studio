@@ -1,6 +1,6 @@
 # Argus suite — one stack, loosely coupled.
 #
-# The three services are independent; pick what you need with profiles:
+# The services are independent; pick what you need with profiles:
 #
 #   docker compose up --build                      # frontend only (demo mode, no backend)
 #   docker compose --profile curator up --build    # frontend + argus-curator
@@ -12,8 +12,10 @@
 #   docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build
 #
 # argus-quarry (gallery profile) is the upstream *producer*: a run-to-completion
-# job that acquires public-domain / CC0 portraits into its own pool and publishes
-# a curator-ready tree into DATASET_DIR. curator/lens then consume that view:
+# job that acquires PD/CC0 images into its own pool — grouped into LoRA-training
+# categories (identity / wardrobe / setting / concept) since quarry 0.2 — and
+# publishes a curator-ready <category>/<subject>/ tree into DATASET_DIR.
+# curator/lens then consume that view:
 #   docker compose --profile gallery up --build     # fetch -> pool -> publish DATASET_DIR
 #   docker compose --profile curator up --build      # then curate the published images
 #
@@ -59,6 +61,10 @@ services:
     environment:
       - ARGUS_BACKEND=${ARGUS_BACKEND:-hybrid}
       - ARGUS_API_KEY=${ARGUS_API_KEY:-}
+      # Optional Immich integration (caption page "Immich" mode + pull-to-dataset).
+      # Leave unset to disable; lens's /immich/* endpoints then return 503.
+      - IMMICH_URL=${IMMICH_URL:-}
+      - IMMICH_API_KEY=${IMMICH_API_KEY:-}
       # Root the caption page's folder picker browses (GET /folders).
       - LENS_SOURCE_PATH=/data/images
       - HF_HOME=/root/.cache/huggingface
@@ -95,9 +101,11 @@ services:
     restart: unless-stopped
 
   # ── Upstream acquisition (run-to-completion job, not a server) ──────────
-  # Fetches PD/CC0 portraits into its own pool at /data/quarry/images, then
-  # publishes a curator-ready Person_Name/ tree into DATASET_DIR (symlinks by
-  # default -> hence the read-only /data/quarry mount on curator/lens above).
+  # Fetches PD/CC0 images into its own pool at /data/quarry/images, then
+  # publishes a curator-ready <category>/<subject>/ tree into DATASET_DIR
+  # (symlinks by default -> hence the read-only /data/quarry mount on
+  # curator/lens above). Add --category identity|wardrobe|setting|concept to
+  # the command below to harvest a single category instead of all four.
   argus-quarry:
     profiles: ["gallery"]
     build:
@@ -106,10 +114,12 @@ services:
     environment:
       - QUARRY_HOME=/data/quarry
       - QUARRY_MAX_GB=${QUARRY_MAX_GB:-40}         # total raw-pool ceiling; 0 = unlimited
-      - COMMONS_USER_AGENT=${COMMONS_USER_AGENT:-argus-quarry/0.1 (contact@example.com)}
+      - COMMONS_USER_AGENT=${COMMONS_USER_AGENT:-argus-quarry/0.2 (contact@example.com)}
     volumes:
       - ${QUARRY_HOME:-./quarry}:/data/quarry       # raw pool + db/cache/logs
       - ${DATASET_DIR:-./data}:/data/images         # published (curator-ready) view
-    # Fetch into the pool, then publish a symlinked CC0/PD tree into DATASET_DIR.
-    command: ["run", "--source", "commons", "--limit", "20", "--export", "--licence", "CC0,PD"]
+    # Fetch into the pool, then publish a CC0/PD tree into DATASET_DIR. --copy
+    # publishes real files instead of symlinks: symlink targets are absolute
+    # pool paths that don't resolve inside the curator/lens containers.
+    command: ["run", "--source", "commons", "--limit", "20", "--export", "--copy", "--licence", "CC0,PD"]
     restart: "no"

@@ -1,6 +1,8 @@
-# Argus Vision Demo
+# Argus Studio
 
-Single-page web UI demonstrating [argus-lens](https://github.com/smk762/argus-lens) structured image captioning. Paste an image URL, configure pipeline parameters, and inspect training-optimised caption variants, raw model outputs, and auto-removed tag analysis. A separate **curator** view at [`/curate`](http://localhost:3000/curate) talks to [argus-curator](https://github.com/smk762/argus-curator) for folder scans and exports.
+The Argus suite's web UI and compose orchestration. The main page demonstrates [argus-lens](https://github.com/smk762/argus-lens) structured image captioning — paste a URL, drag in images, pick a server-side folder, or caption straight from an [Immich](https://immich.app) album — and inspects training-optimised caption variants, raw model outputs, and auto-removed tag analysis. A **curator** view at [`/curate`](http://localhost:3000/curate) talks to [argus-curator](https://github.com/smk762/argus-curator) for dataset ingestion, folder scans, and exports. Upstream acquisition ([argus-quarry](https://github.com/smk762/argus-quarry)) runs as a compose profile.
+
+> Formerly `argus-vision-demo` — the old GitHub URL redirects here.
 
 Designed as a living onboarding document -- every parameter includes an inline explanation of what it does and why.
 
@@ -14,13 +16,14 @@ Designed as a living onboarding document -- every parameter includes an inline e
 
 ### Whole suite in one stack (recommended)
 
-The three repos are designed to run together but stay loosely coupled — bring up
+The suite repos are designed to run together but stay loosely coupled — bring up
 only what you need with compose **profiles**. Clone them as siblings first:
 
 ```bash
 git clone https://github.com/smk762/argus-lens ../argus-lens
 git clone https://github.com/smk762/argus-curator ../argus-curator
-# (this repo is argus-vision-demo)
+git clone https://github.com/smk762/argus-quarry ../argus-quarry   # optional: gallery profile
+# (this repo is argus-studio)
 cp .env.example .env      # set DATASET_DIR / OUTPUT_DIR, choose UI mode, etc.
 ```
 
@@ -30,6 +33,7 @@ Then, from this repo root:
 docker compose up --build                    # frontend only (demo mode, no backend)
 docker compose --profile curator up --build  # frontend + argus-curator
 docker compose --profile lens    up --build  # frontend + argus-lens
+docker compose --profile gallery up --build  # argus-quarry: acquire PD/CC0 images -> DATASET_DIR
 docker compose --profile full    up --build  # whole suite
 ```
 
@@ -38,7 +42,19 @@ docker compose --profile full    up --build  # whole suite
 | _(none)_ | frontend | Public captioning + read-only `/curate` demo |
 | `curator` | frontend + argus-curator | Scanning / exporting datasets |
 | `lens` | frontend + argus-lens | Captioning against a running engine |
-| `full` | frontend + both | End-to-end curate → caption (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
+| `gallery` | argus-quarry (run-to-completion job) | Acquiring PD/CC0 images with provenance into `DATASET_DIR` |
+| `full` | frontend + curator + lens | End-to-end curate → caption (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
+
+**argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
+public-domain / CC0 images from open archives with full provenance and licence
+records, grouped into LoRA-training categories (`identity` / `wardrobe` /
+`setting` / `concept`), and publishes a curator-ready `<category>/<subject>/`
+tree into `DATASET_DIR`. Run it first, then curate the published images:
+
+```bash
+docker compose --profile gallery up --build   # fetch -> pool -> publish DATASET_DIR
+docker compose --profile curator up --build   # then scan/curate on /curate
+```
 
 **NVIDIA GPUs** (optional, needs the NVIDIA Container Toolkit): layer the override so
 the base stack still runs on CPU-only machines.
@@ -77,9 +93,11 @@ Or use an editable install while hacking Python: `uv pip install -e ".[server,lo
 
 ### Caption page (`/`)
 
-The caption page has three input modes:
+The caption page has five input modes (drag-and-drop works anywhere on the page —
+images land in **Upload**, a `.jsonl` lands in **Curate manifest**):
 
 - **Single URL** — paste an image URL for one structured caption (`POST /caption/url`).
+- **Upload** — drag-and-drop (or browse) images from your machine; they stream through `POST /caption/stream` with per-image progress. A single image gets the full variant breakdown; multiple images run as a batch.
 - **Local folder** — batch-caption every image in a server-side folder (`POST /caption/folder`), writing a `.txt` sidecar next to each image. The folder picker browses `GET /folders`, which requires a source root:
 
   ```bash
@@ -88,11 +106,18 @@ The caption page has three input modes:
   ```
 
   In the suite compose this is preset to `/data/images` (`DATASET_DIR`). You can also type a path manually if browsing is disabled.
+- **Immich** — batch-caption an album on your [Immich](https://immich.app) photo server (`POST /immich/caption/stream`), optionally writing each caption back to the asset's description in Immich. Requires `IMMICH_URL` / `IMMICH_API_KEY` on the argus-lens server.
 - **Curate manifest** — upload a `manifest.jsonl` produced by `/curate` (`POST /caption/manifest`); each row's `target_profile` is applied per image. Images must be reachable at their `abs_path` (the shared `/data/images` mount).
 
 ### Curator SPA (`/curate`)
 
 The curator UI calls `NEXT_PUBLIC_CURATOR_URL` (default `http://localhost:8101`). Run the FastAPI app from [argus-curator](https://github.com/smk762/argus-curator) in another terminal.
+
+In live mode the page also offers:
+
+- **Add images to dataset** — drag-and-drop images into a folder under the shared dataset (`POST /upload` on the curator), or pull an Immich album into it via argus-lens (`POST /immich/pull`); the target folder is pre-filled for scanning.
+- **Recent scans** — reopen a persisted scan (`GET /scan/{scan_id}`) without rescanning; history is kept in the browser.
+- **Detector badges** — what the curator backend can actually do (`GET /detectors`: torch / cuda / clip / faces / onnx), so greyed-out options explain themselves.
 
 PyPI install:
 
@@ -141,16 +166,21 @@ Open [http://localhost:3000](http://localhost:3000) (captioning) or [http://loca
 ## Architecture
 
 ```
-browser (:3000)  →  Next.js frontend
-                         ├─ POST /caption/url   →  argus-lens (:8100)     →  captioning
-                         └─ /scan/folder, …      →  argus-curator (:8101)  →  curation API
+argus-quarry (gallery profile, run-to-completion)
+   └─ acquire PD/CC0 + provenance ──▶ /data/images (DATASET_DIR)
 
-curate → caption handoff (server-to-server, "full" profile):
-   argus-curator  ── POST /caption/manifest ──▶  argus-lens
+browser (:3000)  →  Next.js frontend
+                         ├─ /caption/*, /immich/*  →  argus-lens (:8100)     →  captioning
+                         └─ /scan, /upload, …      →  argus-curator (:8101)  →  curation API
+
+curate → caption handoff ("full" profile):
+   /curate export ── manifest ──▶  argus-lens /caption/manifest/stream
         └───────────── shared /data/images ─────────────┘
+
+Immich (optional):  argus-lens ⇄ IMMICH_URL  (album captioning, write-back, pull-to-dataset)
 ```
 
-The demo is a thin frontend-only wrapper. It sends JSON requests to the `argus-lens` and `argus-curator` HTTP servers and renders results. No backend code lives in this repo — the suite `compose.yaml` builds the two backends from their sibling repositories.
+Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `argus-lens` and `argus-curator` HTTP servers and renders results. No backend code lives in this repo — the suite `compose.yaml` builds the backends from their sibling repositories.
 
 - **Frontend** — Next.js 15 (App Router) + Tailwind CSS v4, dark theme
 - **Captioning server** — `argus-lens[server]` (see [argus-lens](https://github.com/smk762/argus-lens))
@@ -170,6 +200,7 @@ The demo is a thin frontend-only wrapper. It sends JSON requests to the `argus-l
 | `OUTPUT_DIR` | `./out` | Host dir mounted at `/data/out` on curator (exports) |
 | `HF_CACHE_DIR` | `~/.cache/huggingface` | Host Hugging Face cache shared with the backends |
 | `ARGUS_BACKEND` | `hybrid` | argus-lens captioning backend |
+| `IMMICH_URL` / `IMMICH_API_KEY` | _(unset)_ | Enable the Immich integration on argus-lens (album captioning + pull-to-dataset) |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
 | `LENS_EXTRAS` | `server,local` | pip extras baked into the standalone lens image (`server,openai,replicate` for cloud-only) |
 | `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |
@@ -189,8 +220,9 @@ All captioning parameters are exposed in the UI with inline documentation:
 
 ## Related
 
-- [argus-lens](https://github.com/smk762/argus-lens) — captioning engine, CLI, and server for the main demo page
+- [argus-lens](https://github.com/smk762/argus-lens) — captioning engine, CLI, and server for the main page
 - [argus-curator](https://github.com/smk762/argus-curator) — dataset curation CLI and HTTP server for `/curate`
+- [argus-quarry](https://github.com/smk762/argus-quarry) — provenance-first PD/CC0 image acquisition (the `gallery` compose profile)
 
 ## License
 
