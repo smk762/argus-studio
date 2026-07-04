@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { exportSelectionStream, type ExportProgress } from "@/lib/curatorApi";
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
+import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
 import { IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH } from "@/lib/curatorEnv";
+import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
 import { MANIFEST_VERSION, datasetSizeStatus, type ExportResult, type ImageResult, type ScanSummary } from "./types";
 
 const HINT_TONE: Record<string, string> = {
@@ -43,12 +45,17 @@ export function ExportPanel({ summary, selectedResults }: Props) {
   const [mode, setMode] = useState<Mode>("copy");
   const [preserve, setPreserve] = useState(true);
   const [toCaption, setToCaption] = useState(false);
+  const [toForge, setToForge] = useState(false);
+  const [trainer, setTrainer] = useState<TrainerId>("kohya");
+  const [trigger, setTrigger] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [transfer, setTransfer] = useState<ExportProgress | null>(null);
   const [caption, setCaption] = useState<CaptionProgress | null>(null);
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
+  const [forgeRunning, setForgeRunning] = useState(false);
+  const [forgeResult, setForgeResult] = useState<ForgeResult | null>(null);
 
   const count = selectedResults.length;
   const disabled = count === 0 || busy;
@@ -61,6 +68,8 @@ export function ExportPanel({ summary, selectedResults }: Props) {
     setTransfer(null);
     setCaption(null);
     setCaptionSummary(null);
+    setForgeRunning(false);
+    setForgeResult(null);
     try {
       // 1) Transfer files (+ manifest/report) on the curator, streaming progress.
       const res = await exportSelectionStream(
@@ -86,6 +95,22 @@ export function ExportPanel({ summary, selectedResults }: Props) {
         const sum = await captionManifestStream(jsonl, setCaption);
         setCaptionSummary(sum);
       }
+
+      // 3) Optionally forge a training config. Runs after captioning so forge
+      // can collect the fresh .txt sidecars into the export dir.
+      if (toForge) {
+        setForgeRunning(true);
+        try {
+          const forged = await forgeConfig({
+            export_dir: dest.trim(),
+            trainer,
+            trigger: trigger.trim() || null,
+          });
+          setForgeResult(forged);
+        } finally {
+          setForgeRunning(false);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Export failed");
     } finally {
@@ -93,18 +118,31 @@ export function ExportPanel({ summary, selectedResults }: Props) {
     }
   };
 
-  const downloadManifest = () => {
-    const jsonl = buildManifest(summary, selectedResults);
-    const blob = new Blob([jsonl + "\n"], { type: "application/x-ndjson" });
+  const downloadText = (filename: string, text: string, mime: string) => {
+    const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "manifest.jsonl";
+    a.download = filename;
     a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadManifest = () => {
+    const jsonl = buildManifest(summary, selectedResults);
+    downloadText("manifest.jsonl", jsonl + "\n", "application/x-ndjson");
+  };
+
+  const category = summary.target_profile.target_category;
+  const downloadDemoKohya = (file: "dataset.toml" | "config.toml") => {
+    const text =
+      file === "dataset.toml"
+        ? buildKohyaDatasetToml(count, category, "my_subject")
+        : buildKohyaConfigToml(count, category, "my_subject-lora");
+    downloadText(file, text, "application/toml");
   };
 
   return (
@@ -171,16 +209,59 @@ export function ExportPanel({ summary, selectedResults }: Props) {
             />
             Then caption with argus-lens
           </label>
+          <label
+            className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+            title="After export (and captioning), argus-forge turns the manifest + sidecars into a ready-to-run training config under <dest>/forge/."
+          >
+            <input
+              type="checkbox"
+              checked={toForge}
+              onChange={(e) => setToForge(e.target.checked)}
+              className="h-4 w-4 cursor-pointer accent-accent-orange"
+            />
+            Then forge training config
+          </label>
+          {toForge && (
+            <div className="space-y-2 rounded-lg border border-border bg-background/50 p-2.5">
+              <div className="flex gap-2">
+                {(Object.keys(TRAINER_LABELS) as TrainerId[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTrainer(t)}
+                    className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                      trainer === t
+                        ? "border border-accent-orange/40 bg-accent-orange/20 text-accent-orange"
+                        : "border border-border bg-background text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {TRAINER_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={trigger}
+                onChange={(e) => setTrigger(e.target.value)}
+                placeholder="Trigger word (default: export folder name)"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-orange/50 focus:outline-none focus:ring-1 focus:ring-accent-orange/50"
+              />
+            </div>
+          )}
           <button
             type="button"
             disabled={disabled || !dest.trim()}
             onClick={() => void runLiveExport()}
             className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "Working…" : `Export ${count}${toCaption ? " + caption" : " + manifest"}`}
+            {busy
+              ? "Working…"
+              : `Export ${count}${toCaption ? " + caption" : ""}${toForge ? " + forge" : ""}${
+                  !toCaption && !toForge ? " + manifest" : ""
+                }`}
           </button>
 
-          {busy && (transfer || caption) && (
+          {busy && (transfer || caption || forgeRunning) && (
             <div className="space-y-3 rounded-lg border border-border bg-background/50 p-3">
               {transfer && (
                 <PhaseBar
@@ -198,6 +279,15 @@ export function ExportPanel({ summary, selectedResults }: Props) {
                   tone="purple"
                   pending={!caption && !!transfer && transfer.done >= transfer.total}
                   detail={caption?.rel_path}
+                />
+              )}
+              {toForge && (
+                <PhaseBar
+                  label={`Forging ${TRAINER_LABELS[trainer]} config`}
+                  done={forgeResult ? 1 : 0}
+                  total={1}
+                  tone="orange"
+                  pending={!forgeResult}
                 />
               )}
             </div>
@@ -218,6 +308,29 @@ export function ExportPanel({ summary, selectedResults }: Props) {
           >
             Download manifest.jsonl
           </button>
+          <div className="space-y-2 rounded-lg border border-border bg-background/60 p-2.5">
+            <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted">
+              Forge kohya config (demo)
+            </span>
+            <p className="text-[11px] leading-relaxed text-muted">
+              The suggested params above, rendered as kohya sd-scripts TOML client-side. A live run calls{" "}
+              <span className="font-mono text-foreground/80">argus-forge</span> instead — which also handles
+              OneTrainer/diffusers and collects caption sidecars.
+            </p>
+            <div className="flex gap-2">
+              {(["dataset.toml", "config.toml"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => downloadDemoKohya(f)}
+                  className="flex-1 cursor-pointer rounded-lg border border-accent-orange/40 bg-accent-orange/10 px-2 py-1.5 font-mono text-xs font-medium text-accent-orange transition-colors hover:bg-accent-orange/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
         </>
       )}
 
@@ -240,6 +353,24 @@ export function ExportPanel({ summary, selectedResults }: Props) {
               each source image.
             </div>
           )}
+          {forgeResult && (
+            <div className="space-y-1">
+              <div className="text-accent-orange">
+                Forged {TRAINER_LABELS[forgeResult.trainer]} config ({forgeResult.params.repeats} repeats ×{" "}
+                {forgeResult.params.epochs} epochs ≈ {forgeResult.params.total_steps.toLocaleString()} samples
+                {forgeResult.captions_collected > 0
+                  ? `, ${forgeResult.captions_collected} captions collected`
+                  : ""}
+                ).
+              </div>
+              <div className="break-all font-mono text-[11px] text-foreground/80">{forgeResult.out_dir}</div>
+              {forgeResult.warnings.map((w) => (
+                <div key={w} className="text-[11px] text-accent-orange/80">
+                  ! {w}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -249,6 +380,7 @@ export function ExportPanel({ summary, selectedResults }: Props) {
 const BAR_TONE: Record<string, { bar: string; text: string }> = {
   teal: { bar: "bg-accent-teal", text: "text-accent-teal" },
   purple: { bar: "bg-accent-purple", text: "text-accent-purple" },
+  orange: { bar: "bg-accent-orange", text: "text-accent-orange" },
 };
 
 /** A labelled determinate progress bar for one export/caption phase. */
@@ -263,7 +395,7 @@ function PhaseBar({
   label: string;
   done: number;
   total: number;
-  tone: "teal" | "purple";
+  tone: "teal" | "purple" | "orange";
   pending?: boolean;
   detail?: string;
 }) {
