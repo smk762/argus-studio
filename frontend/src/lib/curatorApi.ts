@@ -10,11 +10,7 @@ import type {
   ScanSummary,
 } from "@/components/curator/types";
 import { buildScanBody } from "@/components/curator/types";
-
-async function asError(resp: Response): Promise<never> {
-  const detail = await resp.json().catch(() => null);
-  throw new Error(detail?.detail ?? `Server error: ${resp.status}`);
-}
+import { asError } from "@/lib/apiError";
 
 export interface Health {
   status: string;

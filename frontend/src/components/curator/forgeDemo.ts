@@ -6,7 +6,7 @@
  * caption collection and manifest-aware checkpoints.
  */
 
-import type { TargetCategory } from "./types";
+import type { TargetCategory, TrainingParams } from "./types";
 import { suggestTrainingParams } from "./types";
 
 const DEMO_IMAGE_DIR = "/data/out";
@@ -14,16 +14,16 @@ const SDXL_BASE = "stabilityai/stable-diffusion-xl-base-1.0";
 
 const s = (v: string) => JSON.stringify(v); // TOML basic strings share JSON escaping
 
-function stepsComment(count: number, category: TargetCategory): string {
-  const p = suggestTrainingParams(count, category);
-  const optSteps = Math.ceil(p.totalSteps / p.batchSize);
-  return `# ${p.images} images x ${p.repeats} repeats x ${p.epochs} epochs = ${p.totalSteps} samples (${optSteps} optimizer steps @ batch ${p.batchSize})`;
+const optimizerSteps = (p: TrainingParams) => Math.ceil(p.totalSteps / p.batchSize);
+
+function stepsComment(p: TrainingParams): string {
+  return `# ${p.images} images x ${p.repeats} repeats x ${p.epochs} epochs = ${p.totalSteps} samples (${optimizerSteps(p)} optimizer steps @ batch ${p.batchSize})`;
 }
 
 export function buildKohyaDatasetToml(count: number, category: TargetCategory, trigger: string): string {
   const p = suggestTrainingParams(count, category);
   return `# argus-forge (demo) dataset config for kohya sd-scripts (pass via --dataset_config)
-${stepsComment(count, category)}
+${stepsComment(p)}
 
 [general]
 enable_bucket = true
@@ -49,8 +49,7 @@ class_tokens = ${s(trigger)}
 
 export function buildKohyaConfigToml(count: number, category: TargetCategory, outputName: string): string {
   const p = suggestTrainingParams(count, category);
-  const optSteps = Math.ceil(p.totalSteps / p.batchSize);
-  const warmup = Math.floor(0.05 * optSteps);
+  const warmup = Math.floor(0.05 * optimizerSteps(p));
   return `# argus-forge (demo) training config for kohya sd-scripts (pass via --config_file)
 # Seeded from argus-curator selection insights (${category}, ${p.images} images).
 # Starting points, not gospel — watch samples and stop early if it overfits.
@@ -84,5 +83,6 @@ cache_latents = true
 sdpa = true
 # SDXL's fp16 VAE is numerically unstable; keep it in fp32.
 no_half_vae = true
+logging_dir = ${s(`${DEMO_IMAGE_DIR}/forge/kohya/logs`)}
 `;
 }

@@ -2,13 +2,9 @@
 
 import type { FolderListing } from "@/components/curator/types";
 import type { BatchCaptionResult, CaptionFolderRequest, CaptionResult } from "@/types";
+import { asError } from "@/lib/apiError";
 
 const LENS_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
-
-async function asError(resp: Response): Promise<never> {
-  const detail = await resp.json().catch(() => null);
-  throw new Error(detail?.detail ?? `Server error: ${resp.status}`);
-}
 
 /** Browse folders under the lens --source-root (GET /folders). */
 export async function listLensFolders(path = "", signal?: AbortSignal): Promise<FolderListing> {
@@ -93,10 +89,12 @@ async function readNdjson(resp: Response, onLine: (obj: Record<string, unknown>)
 export async function captionManifestStream(
   manifestJsonl: string,
   onProgress: (p: CaptionProgress) => void,
-  signal?: AbortSignal,
+  opts?: { trigger_word?: string; signal?: AbortSignal },
 ): Promise<CaptionSummary> {
+  const signal = opts?.signal;
   const form = new FormData();
   form.append("manifest", new Blob([manifestJsonl], { type: "application/x-ndjson" }), "manifest.jsonl");
+  if (opts?.trigger_word) form.append("trigger_word", opts.trigger_word);
 
   const resp = await fetch(`${LENS_URL}/caption/manifest/stream`, {
     method: "POST",

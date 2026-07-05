@@ -1,11 +1,8 @@
 /** Thin client for the argus-quarry read-only provenance API (:8102). */
 
-export const QUARRY_URL = process.env.NEXT_PUBLIC_QUARRY_URL ?? "http://localhost:8102";
+import { asError } from "@/lib/apiError";
 
-async function asError(resp: Response): Promise<never> {
-  const detail = await resp.json().catch(() => null);
-  throw new Error(detail?.detail ?? `Server error: ${resp.status}`);
-}
+export const QUARRY_URL = process.env.NEXT_PUBLIC_QUARRY_URL ?? "http://localhost:8102";
 
 export interface QuarryHealth {
   status: string;

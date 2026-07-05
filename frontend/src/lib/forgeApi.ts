@@ -7,6 +7,7 @@
 
 import type { TargetCategory, TargetProfile } from "@/components/curator/types";
 import { FORGE_URL } from "@/lib/curatorEnv";
+import { asError } from "@/lib/apiError";
 
 export type TrainerId = "kohya" | "onetrainer" | "diffusers";
 
@@ -95,41 +96,6 @@ export interface ForgeResult {
   output_name: string;
   captions_collected: number;
   warnings: string[];
-}
-
-export interface ForgeTrainerInfo {
-  id: TrainerId;
-  label: string;
-  files: string[];
-  notes: string;
-}
-
-async function asError(resp: Response): Promise<never> {
-  const detail = await resp.json().catch(() => null);
-  throw new Error(detail?.detail ?? `Server error: ${resp.status}`);
-}
-
-/** List supported trainers and what forge emits for each (GET /trainers). */
-export async function listTrainers(signal?: AbortSignal): Promise<ForgeTrainerInfo[]> {
-  const resp = await fetch(`${FORGE_URL}/trainers`, { signal });
-  if (!resp.ok) return asError(resp);
-  return resp.json();
-}
-
-/** Look at an export dir without writing anything (POST /inspect). */
-export async function forgeInspect(
-  exportDir: string,
-  category?: TargetCategory,
-  signal?: AbortSignal,
-): Promise<ForgeDatasetInfo> {
-  const resp = await fetch(`${FORGE_URL}/inspect`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ export_dir: exportDir, category: category ?? null }),
-    signal,
-  });
-  if (!resp.ok) return asError(resp);
-  return resp.json();
 }
 
 /**

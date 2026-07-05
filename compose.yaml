@@ -6,7 +6,9 @@
 #   docker compose --profile curator up --build    # frontend + argus-curator
 #   docker compose --profile lens    up --build    # frontend + argus-lens
 #   docker compose --profile gallery up --build    # run argus-quarry: acquire -> DATASET_DIR
-#   docker compose --profile forge   up --build    # frontend + argus-forge (training configs)
+#   docker compose --profile forge   up --build    # frontend + curator + argus-forge
+#                                                   # (training configs; needs
+#                                                   #  NEXT_PUBLIC_CURATOR_UI_MODE=live)
 #   docker compose --profile full    up --build    # whole suite
 #
 # NVIDIA GPUs (optional): add the override file, e.g.
@@ -20,9 +22,11 @@
 #   docker compose --profile gallery up --build     # fetch -> pool -> publish DATASET_DIR
 #   docker compose --profile curator up --build      # then curate the published images
 #
-# The only cross-service coupling is the curate -> caption handoff: argus-curator
-# and argus-lens share the dataset at /data/images so lens can read the manifest's
-# abs_path entries and write .txt sidecars. Each still runs fine on its own.
+# Cross-service coupling is limited to shared volumes: argus-curator and
+# argus-lens share the dataset at /data/images (lens reads the manifest's
+# abs_path entries and writes .txt sidecars), and argus-forge shares the same
+# dataset (ro, to collect those sidecars) plus the export dir /data/out with
+# the curator. Each service still runs fine on its own.
 name: argus-suite
 
 services:
@@ -85,7 +89,9 @@ services:
     restart: unless-stopped
 
   argus-curator:
-    profiles: ["curator", "full"]
+    # Also in the forge profile: the ExportPanel's forge step is only reachable
+    # through a live-mode export, which needs the curator.
+    profiles: ["curator", "forge", "full"]
     build:
       context: ../argus-curator
     image: argus-curator:latest
