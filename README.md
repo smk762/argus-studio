@@ -24,6 +24,7 @@ git clone https://github.com/smk762/argus-lens ../argus-lens
 git clone https://github.com/smk762/argus-curator ../argus-curator
 git clone https://github.com/smk762/argus-quarry ../argus-quarry   # optional: gallery profile
 git clone https://github.com/smk762/argus-forge ../argus-forge     # optional: forge profile
+git clone https://github.com/smk762/argus-proof ../argus-proof     # optional: proof profile
 # (this repo is argus-studio)
 cp .env.example .env      # set DATASET_DIR / OUTPUT_DIR, choose UI mode, etc.
 ```
@@ -37,6 +38,7 @@ docker compose --profile lens    up --build  # frontend + argus-lens
 docker compose --profile gallery up --build  # argus-quarry: acquire PD/CC0 images -> DATASET_DIR
 NEXT_PUBLIC_CURATOR_UI_MODE=live \
 docker compose --profile forge   up --build  # frontend + curator + argus-forge (training configs)
+docker compose --profile proof   up --build  # frontend + argus-proof (post-training LoRA evaluation)
 docker compose --profile full    up --build  # whole suite
 ```
 
@@ -47,7 +49,8 @@ docker compose --profile full    up --build  # whole suite
 | `lens` | frontend + argus-lens | Captioning against a running engine |
 | `gallery` | argus-quarry (acquisition job) + argus-quarry-server | Acquiring PD/CC0 images with provenance into `DATASET_DIR`, browsable at `/gallery` |
 | `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers). Set `NEXT_PUBLIC_CURATOR_UI_MODE=live` — the forge step lives in the live-mode export flow |
-| `full` | frontend + curator + lens + quarry server + forge | End-to-end acquire → curate → caption → forge (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
+| `proof` | frontend + argus-proof | Post-training LoRA evaluation ([Phase 0 scaffold](https://github.com/smk762/argus-studio/issues/6): health endpoint on :8104; eval stages and a `/proof` view land with the epic phases) |
+| `full` | frontend + curator + lens + quarry server + forge + proof | End-to-end acquire → curate → caption → forge → evaluate (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
 
 **argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
 public-domain / CC0 images from open archives with full provenance and licence
@@ -187,7 +190,8 @@ browser (:3000)  →  Next.js frontend
                          ├─ /caption/*, /immich/*  →  argus-lens (:8100)          →  captioning
                          ├─ /scan, /upload, …      →  argus-curator (:8101)       →  curation API
                          ├─ /photos, /stats, …     →  argus-quarry-server (:8102) →  provenance (read-only)
-                         └─ /config                →  argus-forge (:8103)         →  training configs
+                         ├─ /config                →  argus-forge (:8103)         →  training configs
+                         └─ /health (eval TBD)     →  argus-proof (:8104)         →  LoRA evaluation
 
 curate → caption → forge handoff ("full" profile):
    /curate export ── manifest ──▶  argus-lens /caption/manifest/stream
@@ -211,6 +215,8 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8100` | URL the **browser** uses to reach the argus-lens API |
 | `NEXT_PUBLIC_CURATOR_URL` | `http://localhost:8101` | URL the **browser** uses to reach the argus-curator API (`/curate`) |
 | `NEXT_PUBLIC_QUARRY_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
+| `NEXT_PUBLIC_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (ExportPanel forge step) |
+| `NEXT_PUBLIC_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (Phase 0: health only; `/proof` view later) |
 | `NEXT_PUBLIC_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
 | `NEXT_PUBLIC_CURATOR_SOURCE_PATH` | `/data/images` | Default source path shown in the folder picker (path inside the curator container) |
 | `NEXT_PUBLIC_CURATOR_OUTPUT_PATH` | `/data/out` | Default export destination (path inside the curator container) |
@@ -223,6 +229,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
 | `LENS_EXTRAS` | `server,local` | pip extras baked into the standalone lens image (`server,openai,replicate` for cloud-only) |
 | `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |
+| `QUARRY_SERVER_PORT` / `FORGE_PORT` / `PROOF_PORT` | `8102` / `8103` / `8104` | Host ports |
 
 `NEXT_PUBLIC_*` values are inlined when the client bundle is built. After changing them in `.env`, run `docker compose build --no-cache` (or restart `npm run dev` locally) so the container image picks up the new values.
 
@@ -242,6 +249,8 @@ All captioning parameters are exposed in the UI with inline documentation:
 - [argus-lens](https://github.com/smk762/argus-lens) — captioning engine, CLI, and server for the main page
 - [argus-curator](https://github.com/smk762/argus-curator) — dataset curation CLI and HTTP server for `/curate`
 - [argus-quarry](https://github.com/smk762/argus-quarry) — provenance-first PD/CC0 image acquisition (the `gallery` compose profile)
+- [argus-forge](https://github.com/smk762/argus-forge) — training bridge: curated exports → ready-to-run LoRA training configs (the `forge` profile)
+- [argus-proof](https://github.com/smk762/argus-proof) — post-training LoRA evaluation and optimisation (the `proof` profile; [epic](https://github.com/smk762/argus-studio/issues/6))
 
 ## License
 
