@@ -23,6 +23,7 @@ only what you need with compose **profiles**. Clone them as siblings first:
 git clone https://github.com/smk762/argus-lens ../argus-lens
 git clone https://github.com/smk762/argus-curator ../argus-curator
 git clone https://github.com/smk762/argus-quarry ../argus-quarry   # optional: gallery profile
+git clone https://github.com/smk762/argus-forge ../argus-forge     # optional: forge profile
 # (this repo is argus-studio)
 cp .env.example .env      # set DATASET_DIR / OUTPUT_DIR, choose UI mode, etc.
 ```
@@ -34,6 +35,8 @@ docker compose up --build                    # frontend only (demo mode, no back
 docker compose --profile curator up --build  # frontend + argus-curator
 docker compose --profile lens    up --build  # frontend + argus-lens
 docker compose --profile gallery up --build  # argus-quarry: acquire PD/CC0 images -> DATASET_DIR
+NEXT_PUBLIC_CURATOR_UI_MODE=live \
+docker compose --profile forge   up --build  # frontend + curator + argus-forge (training configs)
 docker compose --profile full    up --build  # whole suite
 ```
 
@@ -43,7 +46,8 @@ docker compose --profile full    up --build  # whole suite
 | `curator` | frontend + argus-curator | Scanning / exporting datasets |
 | `lens` | frontend + argus-lens | Captioning against a running engine |
 | `gallery` | argus-quarry (acquisition job) + argus-quarry-server | Acquiring PD/CC0 images with provenance into `DATASET_DIR`, browsable at `/gallery` |
-| `full` | frontend + curator + lens + quarry server | End-to-end acquire → curate → caption (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
+| `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers). Set `NEXT_PUBLIC_CURATOR_UI_MODE=live` — the forge step lives in the live-mode export flow |
+| `full` | frontend + curator + lens + quarry server + forge | End-to-end acquire → curate → caption → forge (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
 
 **argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
 public-domain / CC0 images from open archives with full provenance and licence
@@ -118,6 +122,7 @@ In live mode the page also offers:
 - **Add images to dataset** — drag-and-drop images into a folder under the shared dataset (`POST /upload` on the curator), or pull an Immich album into it via argus-lens (`POST /immich/pull`); the target folder is pre-filled for scanning.
 - **Recent scans** — reopen a persisted scan (`GET /scan/{scan_id}`) without rescanning; history is kept in the browser.
 - **Detector badges** — what the curator backend can actually do (`GET /detectors`: torch / cuda / clip / faces / onnx), so greyed-out options explain themselves.
+- **Forge training config** — after export (and captioning), [argus-forge](https://github.com/smk762/argus-forge) turns the export into a ready-to-run LoRA config for kohya sd-scripts, OneTrainer, or diffusers (`POST /config` on `NEXT_PUBLIC_FORGE_URL`, default `http://localhost:8103`), seeded from the same selection-insight heuristics the panel displays. Demo mode offers a client-side kohya TOML download instead. Two caveats when forge runs in Docker: the generated configs reference **container paths** (`/data/out/…`), so substitute your `OUTPUT_DIR` (and prefer `copy`-mode exports over `symlink`) when running `train.sh` on the host; and if you run forge outside compose, start it with `argus-forge serve --cors` so the browser can reach it.
 
 ### Gallery (`/gallery`)
 
@@ -181,11 +186,14 @@ argus-quarry (gallery profile, run-to-completion)
 browser (:3000)  →  Next.js frontend
                          ├─ /caption/*, /immich/*  →  argus-lens (:8100)          →  captioning
                          ├─ /scan, /upload, …      →  argus-curator (:8101)       →  curation API
-                         └─ /photos, /stats, …     →  argus-quarry-server (:8102) →  provenance (read-only)
+                         ├─ /photos, /stats, …     →  argus-quarry-server (:8102) →  provenance (read-only)
+                         └─ /config                →  argus-forge (:8103)         →  training configs
 
-curate → caption handoff ("full" profile):
+curate → caption → forge handoff ("full" profile):
    /curate export ── manifest ──▶  argus-lens /caption/manifest/stream
         └───────────── shared /data/images ─────────────┘
+   then argus-forge /config reads the export (+ collects .txt sidecars)
+        and writes kohya / OneTrainer / diffusers configs under <export>/forge/
 
 Immich (optional):  argus-lens ⇄ IMMICH_URL  (album captioning, write-back, pull-to-dataset)
 ```

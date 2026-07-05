@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { exportSelectionStream, type ExportProgress } from "@/lib/curatorApi";
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
-import { IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH } from "@/lib/curatorEnv";
+import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
+import { FORGE_URL, IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
+import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
 import { MANIFEST_VERSION, datasetSizeStatus, type ExportResult, type ImageResult, type ScanSummary } from "./types";
 
 const HINT_TONE: Record<string, string> = {
@@ -19,6 +21,15 @@ interface Props {
 }
 
 type Mode = "copy" | "symlink" | "move";
+
+/** Filename-safe slug, mirroring argus-forge's slugify (core.py). */
+const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-+|-+$)/g, "");
+
+const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /** Build the JSONL manifest client-side (used for the demo-mode download). */
 function buildManifest(summary: ScanSummary, rows: ImageResult[]): string {
@@ -43,16 +54,45 @@ export function ExportPanel({ summary, selectedResults }: Props) {
   const [mode, setMode] = useState<Mode>("copy");
   const [preserve, setPreserve] = useState(true);
   const [toCaption, setToCaption] = useState(false);
+  const [toForge, setToForge] = useState(false);
+  const [trainer, setTrainer] = useState<TrainerId>("kohya");
+  const [trigger, setTrigger] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [transfer, setTransfer] = useState<ExportProgress | null>(null);
   const [caption, setCaption] = useState<CaptionProgress | null>(null);
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
+  const [forgeRunning, setForgeRunning] = useState(false);
+  const [forgeResult, setForgeResult] = useState<ForgeResult | null>(null);
 
   const count = selectedResults.length;
   const disabled = count === 0 || busy;
-  const sizeHint = datasetSizeStatus(count, summary.target_profile.target_category);
+  const category = summary.target_profile.target_category;
+  const sizeHint = datasetSizeStatus(count, category);
+
+  // Foot-gun warnings for the forge step (degenerate default dest, read-only
+  // dataset mount, kohya's non-recursive image glob).
+  const exportRoot = LOCAL_OUTPUT_PATH || "/data/out";
+  const forgeHints: string[] = [];
+  if (toForge) {
+    const d = dest.trim().replace(/\/+$/, "");
+    if (d === exportRoot) {
+      forgeHints.push(
+        `Destination is the shared export root, so forge derives the trigger ("${d.split("/").pop()}") and sizes params from everything in it. Use a subfolder like ${exportRoot}/my-subject.`,
+      );
+    }
+    if (LOCAL_SOURCE_PATH && (d === LOCAL_SOURCE_PATH || d.startsWith(`${LOCAL_SOURCE_PATH}/`))) {
+      forgeHints.push(
+        "Destination is inside the dataset tree, which argus-forge mounts read-only — the forge step will fail. Export under the output dir instead.",
+      );
+    }
+    if (trainer === "kohya" && preserve) {
+      forgeHints.push(
+        "kohya sd-scripts reads images from the export root only — uncheck “Preserve folder structure” if your selection includes subfolders.",
+      );
+    }
+  }
 
   const runLiveExport = async () => {
     setBusy(true);
@@ -61,50 +101,104 @@ export function ExportPanel({ summary, selectedResults }: Props) {
     setTransfer(null);
     setCaption(null);
     setCaptionSummary(null);
+    setForgeRunning(false);
+    setForgeResult(null);
+    const problems: string[] = [];
     try {
-      // 1) Transfer files (+ manifest/report) on the curator, streaming progress.
-      const res = await exportSelectionStream(
-        {
-          scan_id: summary.scan_id,
-          selection: selectedResults.map((r) => r.rel_path),
-          dest: dest.trim(),
-          mode,
-          preserve_structure: preserve,
-          min_score: 0,
-          include_rejected: true,
-          keep_similar: true,
-          write_manifest: true,
-          caption_url: null, // captioning is orchestrated below for live progress
-        },
-        setTransfer,
-      );
-      setResult(res);
+      // 1) Transfer files (+ manifest/report) on the curator, streaming
+      // progress. A failure here is fatal — the later steps need the export.
+      try {
+        const res = await exportSelectionStream(
+          {
+            scan_id: summary.scan_id,
+            selection: selectedResults.map((r) => r.rel_path),
+            dest: dest.trim(),
+            mode,
+            preserve_structure: preserve,
+            min_score: 0,
+            include_rejected: true,
+            keep_similar: true,
+            write_manifest: true,
+            caption_url: null, // captioning is orchestrated below for live progress
+          },
+          setTransfer,
+        );
+        setResult(res);
+      } catch (err) {
+        setError(`Export failed (argus-curator): ${errMsg(err)}`);
+        return;
+      }
 
       // 2) Optionally caption via argus-lens, streaming per-image progress.
+      // Non-fatal: forge handles caption-less exports (trigger fallback +
+      // warning), so a lens outage shouldn't cost the training config — in
+      // move mode the sources are gone and this run is the only chance.
       if (toCaption) {
-        const jsonl = buildManifest(summary, selectedResults);
-        const sum = await captionManifestStream(jsonl, setCaption);
-        setCaptionSummary(sum);
+        try {
+          const jsonl = buildManifest(summary, selectedResults);
+          const sum = await captionManifestStream(jsonl, setCaption, {
+            trigger_word: toForge ? trigger.trim() : undefined,
+          });
+          setCaptionSummary(sum);
+        } catch (err) {
+          problems.push(`Captioning failed (argus-lens): ${errMsg(err)}`);
+        }
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Export failed");
+
+      // 3) Optionally forge a training config. Runs after captioning so forge
+      // can collect the fresh .txt sidecars into the export dir.
+      if (toForge) {
+        setForgeRunning(true);
+        try {
+          const forged = await forgeConfig({
+            export_dir: dest.trim(),
+            trainer,
+            trigger: trigger.trim() || null,
+            // Pair the output name with the trigger (like demo mode does);
+            // otherwise forge falls back to slugifying the export dir name.
+            output_name: trigger.trim() ? `${slugify(trigger)}-lora` : null,
+            // Don't leave the category to manifest sniffing — send what the
+            // panel's own suggestions were computed from.
+            category,
+          });
+          setForgeResult(forged);
+        } catch (err) {
+          problems.push(`Forge failed (argus-forge at ${FORGE_URL}): ${errMsg(err)}`);
+        } finally {
+          setForgeRunning(false);
+        }
+      }
+
+      if (problems.length > 0) setError(problems.join(" — "));
     } finally {
       setBusy(false);
     }
   };
 
-  const downloadManifest = () => {
-    const jsonl = buildManifest(summary, selectedResults);
-    const blob = new Blob([jsonl + "\n"], { type: "application/x-ndjson" });
+  const downloadText = (filename: string, text: string, mime: string) => {
+    const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "manifest.jsonl";
+    a.download = filename;
     a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadManifest = () => {
+    const jsonl = buildManifest(summary, selectedResults);
+    downloadText("manifest.jsonl", jsonl + "\n", "application/x-ndjson");
+  };
+
+  const downloadDemoKohya = (file: "dataset.toml" | "config.toml") => {
+    const text =
+      file === "dataset.toml"
+        ? buildKohyaDatasetToml(count, category, "my_subject")
+        : buildKohyaConfigToml(count, category, "my_subject-lora");
+    downloadText(file, text, "application/toml");
   };
 
   return (
@@ -131,8 +225,9 @@ export function ExportPanel({ summary, selectedResults }: Props) {
             type="text"
             value={dest}
             onChange={(e) => setDest(e.target.value)}
+            disabled={busy}
             placeholder="/data/out"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-green/50 focus:outline-none focus:ring-1 focus:ring-accent-green/50"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-green/50 focus:outline-none focus:ring-1 focus:ring-accent-green/50 disabled:cursor-not-allowed disabled:opacity-50"
           />
           <div className="flex gap-2">
             {(["copy", "symlink", "move"] as Mode[]).map((m) => (
@@ -140,7 +235,8 @@ export function ExportPanel({ summary, selectedResults }: Props) {
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
-                className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                disabled={busy}
+                className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   mode === m
                     ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal"
                     : "border border-border bg-background text-muted hover:text-foreground"
@@ -155,7 +251,8 @@ export function ExportPanel({ summary, selectedResults }: Props) {
               type="checkbox"
               checked={preserve}
               onChange={(e) => setPreserve(e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-accent-teal"
+              disabled={busy}
+              className="h-4 w-4 cursor-pointer accent-accent-teal disabled:cursor-not-allowed disabled:opacity-50"
             />
             Preserve folder structure
           </label>
@@ -167,20 +264,74 @@ export function ExportPanel({ summary, selectedResults }: Props) {
               type="checkbox"
               checked={toCaption}
               onChange={(e) => setToCaption(e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-accent-purple"
+              disabled={busy}
+              className="h-4 w-4 cursor-pointer accent-accent-purple disabled:cursor-not-allowed disabled:opacity-50"
             />
             Then caption with argus-lens
           </label>
+          <label
+            className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+            title="After export (and captioning), argus-forge turns the manifest + sidecars into a ready-to-run training config under <dest>/forge/."
+          >
+            <input
+              type="checkbox"
+              checked={toForge}
+              onChange={(e) => setToForge(e.target.checked)}
+              disabled={busy}
+              className="h-4 w-4 cursor-pointer accent-accent-orange disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            Then forge training config
+          </label>
+          {toForge && (
+            <div className="space-y-2 rounded-lg border border-border bg-background/50 p-2.5">
+              <div className="flex gap-2">
+                {(Object.keys(TRAINER_LABELS) as TrainerId[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTrainer(t)}
+                    disabled={busy}
+                    className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      trainer === t
+                        ? "border border-accent-orange/40 bg-accent-orange/20 text-accent-orange"
+                        : "border border-border bg-background text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {TRAINER_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={trigger}
+                onChange={(e) => setTrigger(e.target.value)}
+                disabled={busy}
+                placeholder="Trigger word (default: export folder name)"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-orange/50 focus:outline-none focus:ring-1 focus:ring-accent-orange/50 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              {forgeHints.length > 0 && (
+                <ul className="space-y-1 text-[11px] leading-relaxed text-accent-orange/90">
+                  {forgeHints.map((h, i) => (
+                    <li key={i}>! {h}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           <button
             type="button"
             disabled={disabled || !dest.trim()}
             onClick={() => void runLiveExport()}
             className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "Working…" : `Export ${count}${toCaption ? " + caption" : " + manifest"}`}
+            {busy
+              ? "Working…"
+              : `Export ${count}${toCaption ? " + caption" : ""}${toForge ? " + forge" : ""}${
+                  !toCaption && !toForge ? " + manifest" : ""
+                }`}
           </button>
 
-          {busy && (transfer || caption) && (
+          {busy && (transfer || caption || forgeRunning) && (
             <div className="space-y-3 rounded-lg border border-border bg-background/50 p-3">
               {transfer && (
                 <PhaseBar
@@ -198,6 +349,17 @@ export function ExportPanel({ summary, selectedResults }: Props) {
                   tone="purple"
                   pending={!caption && !!transfer && transfer.done >= transfer.total}
                   detail={caption?.rel_path}
+                />
+              )}
+              {toForge && (
+                <PhaseBar
+                  label={`Forging ${TRAINER_LABELS[trainer]} config`}
+                  done={forgeResult ? 1 : 0}
+                  total={1}
+                  tone="orange"
+                  pending={!forgeRunning && !forgeResult}
+                  indeterminate={forgeRunning}
+                  detail={forgeRunning ? "collecting caption sidecars + rendering configs…" : undefined}
                 />
               )}
             </div>
@@ -218,6 +380,29 @@ export function ExportPanel({ summary, selectedResults }: Props) {
           >
             Download manifest.jsonl
           </button>
+          <div className="space-y-2 rounded-lg border border-border bg-background/60 p-2.5">
+            <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted">
+              Forge kohya config (demo)
+            </span>
+            <p className="text-[11px] leading-relaxed text-muted">
+              The suggested params above, rendered as kohya sd-scripts TOML client-side. A live run calls{" "}
+              <span className="font-mono text-foreground/80">argus-forge</span> instead — which also handles
+              OneTrainer/diffusers and collects caption sidecars.
+            </p>
+            <div className="flex gap-2">
+              {(["dataset.toml", "config.toml"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => downloadDemoKohya(f)}
+                  className="flex-1 cursor-pointer rounded-lg border border-accent-orange/40 bg-accent-orange/10 px-2 py-1.5 font-mono text-xs font-medium text-accent-orange transition-colors hover:bg-accent-orange/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
         </>
       )}
 
@@ -240,6 +425,25 @@ export function ExportPanel({ summary, selectedResults }: Props) {
               each source image.
             </div>
           )}
+          {forgeResult && (
+            <div className="space-y-1">
+              <div className="text-accent-orange">
+                Forged {TRAINER_LABELS[forgeResult.trainer]} config ({forgeResult.params.images} images ×{" "}
+                {forgeResult.params.repeats} repeats × {forgeResult.params.epochs} epochs ≈{" "}
+                {forgeResult.params.total_steps.toLocaleString()} samples
+                {forgeResult.captions_collected > 0
+                  ? `, ${forgeResult.captions_collected} captions collected`
+                  : ""}
+                ).
+              </div>
+              <div className="break-all font-mono text-[11px] text-foreground/80">{forgeResult.out_dir}</div>
+              {forgeResult.warnings.map((w, i) => (
+                <div key={i} className="text-[11px] text-accent-orange/80">
+                  ! {w}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -249,22 +453,29 @@ export function ExportPanel({ summary, selectedResults }: Props) {
 const BAR_TONE: Record<string, { bar: string; text: string }> = {
   teal: { bar: "bg-accent-teal", text: "text-accent-teal" },
   purple: { bar: "bg-accent-purple", text: "text-accent-purple" },
+  orange: { bar: "bg-accent-orange", text: "text-accent-orange" },
 };
 
-/** A labelled determinate progress bar for one export/caption phase. */
+/**
+ * A labelled progress bar for one export/caption/forge phase. `pending` =
+ * queued behind an earlier phase ("waiting…"); `indeterminate` = actively
+ * running but without granular progress (a single long request).
+ */
 function PhaseBar({
   label,
   done,
   total,
   tone,
   pending = false,
+  indeterminate = false,
   detail,
 }: {
   label: string;
   done: number;
   total: number;
-  tone: "teal" | "purple";
+  tone: "teal" | "purple" | "orange";
   pending?: boolean;
+  indeterminate?: boolean;
   detail?: string;
 }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -274,13 +485,19 @@ function PhaseBar({
       <div className="flex items-baseline justify-between gap-2 text-[11px]">
         <span className="text-foreground/85">{label}</span>
         <span className={`shrink-0 font-mono tabular-nums ${t.text}`}>
-          {pending ? "waiting…" : `${done.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`}
+          {pending
+            ? "waiting…"
+            : indeterminate
+              ? "running…"
+              : `${done.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`}
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
         <div
-          className={`h-full rounded-full transition-all duration-300 ease-out ${t.bar} ${pending ? "animate-pulse" : ""}`}
-          style={{ width: pending ? "10%" : `${pct}%` }}
+          className={`h-full rounded-full transition-all duration-300 ease-out ${t.bar} ${
+            pending || indeterminate ? "animate-pulse" : ""
+          }`}
+          style={{ width: pending ? "10%" : indeterminate ? "60%" : `${pct}%` }}
         />
       </div>
       {detail && <p className="truncate font-mono text-[10px] text-muted">{detail}</p>}

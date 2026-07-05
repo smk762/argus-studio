@@ -6,6 +6,9 @@
 #   docker compose --profile curator up --build    # frontend + argus-curator
 #   docker compose --profile lens    up --build    # frontend + argus-lens
 #   docker compose --profile gallery up --build    # run argus-quarry: acquire -> DATASET_DIR
+#   docker compose --profile forge   up --build    # frontend + curator + argus-forge
+#                                                   # (training configs; needs
+#                                                   #  NEXT_PUBLIC_CURATOR_UI_MODE=live)
 #   docker compose --profile full    up --build    # whole suite
 #
 # NVIDIA GPUs (optional): add the override file, e.g.
@@ -19,9 +22,11 @@
 #   docker compose --profile gallery up --build     # fetch -> pool -> publish DATASET_DIR
 #   docker compose --profile curator up --build      # then curate the published images
 #
-# The only cross-service coupling is the curate -> caption handoff: argus-curator
-# and argus-lens share the dataset at /data/images so lens can read the manifest's
-# abs_path entries and write .txt sidecars. Each still runs fine on its own.
+# Cross-service coupling is limited to shared volumes: argus-curator and
+# argus-lens share the dataset at /data/images (lens reads the manifest's
+# abs_path entries and writes .txt sidecars), and argus-forge shares the same
+# dataset (ro, to collect those sidecars) plus the export dir /data/out with
+# the curator. Each service still runs fine on its own.
 name: argus-suite
 
 services:
@@ -35,6 +40,7 @@ services:
         NEXT_PUBLIC_CURATOR_SOURCE_PATH: ${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}
         NEXT_PUBLIC_CURATOR_OUTPUT_PATH: ${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
         NEXT_PUBLIC_QUARRY_URL: ${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}
+        NEXT_PUBLIC_FORGE_URL: ${NEXT_PUBLIC_FORGE_URL:-http://localhost:8103}
         # URL the CURATOR CONTAINER uses to reach lens for the export->caption handoff
         # (server-to-server, so it's the compose service name, not localhost).
         NEXT_PUBLIC_LENS_INTERNAL_URL: ${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
@@ -47,6 +53,7 @@ services:
       - NEXT_PUBLIC_CURATOR_SOURCE_PATH=${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}
       - NEXT_PUBLIC_CURATOR_OUTPUT_PATH=${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
       - NEXT_PUBLIC_QUARRY_URL=${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}
+      - NEXT_PUBLIC_FORGE_URL=${NEXT_PUBLIC_FORGE_URL:-http://localhost:8103}
       - NEXT_PUBLIC_LENS_INTERNAL_URL=${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
     restart: unless-stopped
 
@@ -82,7 +89,9 @@ services:
     restart: unless-stopped
 
   argus-curator:
-    profiles: ["curator", "full"]
+    # Also in the forge profile: the ExportPanel's forge step is only reachable
+    # through a live-mode export, which needs the curator.
+    profiles: ["curator", "forge", "full"]
     build:
       context: ../argus-curator
     image: argus-curator:latest
@@ -100,6 +109,27 @@ services:
       - ${HOME}/.cache/argus_curator:/root/.cache/argus_curator
       - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
       - ${HOME}/.insightface:/root/.insightface
+    restart: unless-stopped
+
+  # ── Training bridge (export -> ready-to-run LoRA training configs) ──────
+  # Consumes a curator export (images + manifest.jsonl + .txt sidecars) and
+  # writes kohya / OneTrainer / diffusers configs under <export>/forge/.
+  # Used by the /curate ExportPanel's "Then forge training config" step.
+  argus-forge:
+    profiles: ["forge", "full"]
+    build:
+      context: ../argus-forge
+    image: argus-forge:latest
+    ports:
+      - "${FORGE_PORT:-8103}:8103"
+    volumes:
+      # ro: only read here — source images + the caption sidecars lens wrote
+      # next to them (forge copies those into the export dir).
+      - ${DATASET_DIR:-./data}:/data/images:ro
+      # Resolve argus-quarry's published symlinks (they point into the raw pool).
+      - ${QUARRY_HOME:-./quarry}:/data/quarry:ro
+      # Exports live here; configs land under <export>/forge/<trainer>/.
+      - ${OUTPUT_DIR:-./out}:/data/out
     restart: unless-stopped
 
   # ── Upstream acquisition (run-to-completion job, not a server) ──────────
