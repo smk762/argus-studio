@@ -137,10 +137,10 @@ services:
     restart: unless-stopped
 
   # ── Post-training evaluation (LoRA in, scored verdicts out) ─────────────
-  # Phase 0 scaffold (smk762/argus-studio#6): boots and answers GET /health on
-  # :8104. Eval routes (/run, /score, /report) and the /proof view land with
-  # the epic phases. Reads the dataset + exports; writes eval runs under
-  # /data/out/proof/.
+  # Post-training LoRA eval (smk762/argus-studio#6). Serves scored EvalReports on
+  # :8104 (GET /reports, GET/PUT /report/{id}, POST /report/{id}/hitl) — the
+  # backend for the studio /proof review view. Reads the dataset + exports;
+  # writes eval runs + reports under /data/out/proof/.
   argus-proof:
     profiles: ["proof", "full"]
     build:
@@ -148,12 +148,16 @@ services:
     image: argus-proof:latest
     ports:
       - "${PROOF_PORT:-8104}:8104"
+    environment:
+      # Where the report store reads/writes <run_id>.json (under the mounted
+      # output volume, so reviews persist across restarts).
+      ARGUS_PROOF_REPORTS_DIR: /data/out/proof/reports
     volumes:
       # ro: proof only reads the curated source images (score references).
       - ${DATASET_DIR:-./data}:/data/images:ro
       # Resolve argus-quarry's published symlinks (they point into the raw pool).
       - ${QUARRY_HOME:-./quarry}:/data/quarry:ro
-      # Exports live here; eval runs land under /data/out/proof/<run>/.
+      # Exports live here; eval runs + reports land under /data/out/proof/.
       - ${OUTPUT_DIR:-./out}:/data/out
     restart: unless-stopped
 
