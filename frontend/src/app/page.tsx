@@ -323,6 +323,12 @@ export default function Home() {
               >
                 Gallery
               </Link>
+              <Link
+                href="/proof"
+                className="px-3 py-1.5 rounded-lg text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+              >
+                Proof
+              </Link>
             </nav>
 
             <div className="flex items-center gap-3 min-w-0">

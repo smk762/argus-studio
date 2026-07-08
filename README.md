@@ -49,7 +49,7 @@ docker compose --profile full    up --build  # whole suite
 | `lens` | frontend + argus-lens | Captioning against a running engine |
 | `gallery` | argus-quarry (acquisition job) + argus-quarry-server | Acquiring PD/CC0 images with provenance into `DATASET_DIR`, browsable at `/gallery` |
 | `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers). Set `NEXT_PUBLIC_CURATOR_UI_MODE=live` — the forge step lives in the live-mode export flow |
-| `proof` | frontend + argus-proof | Post-training LoRA evaluation ([Phase 0 scaffold](https://github.com/smk762/argus-studio/issues/6): health endpoint on :8104; eval stages and a `/proof` view land with the epic phases) |
+| `proof` | frontend + argus-proof | Post-training LoRA evaluation ([epic](https://github.com/smk762/argus-studio/issues/6)): review scored eval runs at `/proof` — pass/fail verdict, per-metric scores, and a keyboard-first HITL review (5-star + structured reject reasons, blind mode) against argus-proof on :8104 |
 | `full` | frontend + curator + lens + quarry server + forge + proof | End-to-end acquire → curate → caption → forge → evaluate (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
 
 **argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
@@ -180,6 +180,15 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) (captioning) or [http://localhost:3000/curate](http://localhost:3000/curate) (curation).
 
+### Proof (`/proof`)
+
+Review post-training LoRA evaluation runs from [argus-proof](https://github.com/smk762/argus-proof) (`NEXT_PUBLIC_PROOF_URL`, default `http://localhost:8104`). A run browser lists scored runs; the selected run shows its pass/fail **verdict**, group-collapsed pass-rate, per-metric means (identity / adherence / quality / preference / safety), diversity, and scorer provenance. Below it is the **human-in-the-loop review**: a keyboard-first grid (`1`–`5` rate, `0` clear, arrows move) with a 5-star rating and a structured, multi-label reject taxonomy (deformation / decoherence / ID-not-applied / …) captured as structured codes, not free text. **Blind mode** hides each sample's checkpoint/weight/epoch/seed and randomises order to remove expectation bias, revealing provenance after you rate; the borderline (needs-review) band is surfaced first via the automated pre-pass. Saving folds the ratings + reasons + rater id back into the report and recomputes the verdict (`POST /report/{id}/hitl`). Demo mode reviews a bundled sample report with no backend; run the server with the `proof` profile, or standalone:
+
+```bash
+pip install "argus-proof[server]"
+argus-proof serve --cors --port 8104
+```
+
 ## Architecture
 
 ```
@@ -191,7 +200,7 @@ browser (:3000)  →  Next.js frontend
                          ├─ /scan, /upload, …      →  argus-curator (:8101)       →  curation API
                          ├─ /photos, /stats, …     →  argus-quarry-server (:8102) →  provenance (read-only)
                          ├─ /config                →  argus-forge (:8103)         →  training configs
-                         └─ /health (eval TBD)     →  argus-proof (:8104)         →  LoRA evaluation
+                         └─ /reports, /report/*    →  argus-proof (:8104)         →  LoRA evaluation + HITL review
 
 curate → caption → forge handoff ("full" profile):
    /curate export ── manifest ──▶  argus-lens /caption/manifest/stream
@@ -216,7 +225,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `NEXT_PUBLIC_CURATOR_URL` | `http://localhost:8101` | URL the **browser** uses to reach the argus-curator API (`/curate`) |
 | `NEXT_PUBLIC_QUARRY_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
 | `NEXT_PUBLIC_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (ExportPanel forge step) |
-| `NEXT_PUBLIC_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (Phase 0: health only; `/proof` view later) |
+| `NEXT_PUBLIC_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
 | `NEXT_PUBLIC_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
 | `NEXT_PUBLIC_CURATOR_SOURCE_PATH` | `/data/images` | Default source path shown in the folder picker (path inside the curator container) |
 | `NEXT_PUBLIC_CURATOR_OUTPUT_PATH` | `/data/out` | Default export destination (path inside the curator container) |

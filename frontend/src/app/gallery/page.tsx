@@ -128,6 +128,9 @@ export default function GalleryPage() {
               <Link href="/gallery" className="rounded-lg border border-border bg-surface-hover px-3 py-1.5 text-sm text-foreground">
                 Gallery
               </Link>
+              <Link href="/proof" className="rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground">
+                Proof
+              </Link>
             </nav>
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent-amber/40 bg-accent-amber/20">
