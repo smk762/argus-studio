@@ -36,6 +36,9 @@ export const LENS_INTERNAL_URL =
 /** URL the browser uses to reach the argus-forge API (training-config bridge). */
 export const FORGE_URL = process.env.NEXT_PUBLIC_FORGE_URL ?? "http://localhost:8103";
 
+/** URL the browser uses to reach the argus-proof API (post-training eval). */
+export const PROOF_URL = process.env.NEXT_PUBLIC_PROOF_URL ?? "http://localhost:8104";
+
 /** Scan input directory as seen by argus-curator (container path under Docker). */
 export const LOCAL_SOURCE_PATH = process.env.NEXT_PUBLIC_CURATOR_SOURCE_PATH ?? "";
 

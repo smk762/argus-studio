@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { BatchCaptionResult, CaptionResult, CaptionRequest } from "@/types";
+import { Nav } from "@/components/Nav";
 import { TARGET_BACKENDS, TARGET_STYLES, TARGET_CATEGORIES } from "@/types";
 import { ImagePreview } from "@/components/ImagePreview";
 import { CaptionVariants } from "@/components/CaptionVariants";
@@ -380,26 +381,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             {/* Nav links */}
-            <nav className="flex items-center gap-1">
-              <Link
-                href="/"
-                className="px-3 py-1.5 rounded-lg text-sm text-foreground bg-surface-hover border border-border"
-              >
-                Caption
-              </Link>
-              <Link
-                href="/curate"
-                className="px-3 py-1.5 rounded-lg text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-              >
-                Curate
-              </Link>
-              <Link
-                href="/gallery"
-                className="px-3 py-1.5 rounded-lg text-sm text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-              >
-                Gallery
-              </Link>
-            </nav>
+            <Nav active="/" />
 
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 shrink-0 rounded-lg bg-accent-purple/20 border border-accent-purple/40 flex items-center justify-center">
