@@ -6,6 +6,38 @@ import { asError } from "@/lib/apiError";
 
 const LENS_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 
+/**
+ * Server-side captioning profiles (GET /profiles). Only the hybrid tag↔prose
+ * balance fields are typed here; the endpoint returns additional keys we ignore.
+ */
+export interface LensProfiles {
+  /** Named balance stops → prose_bias value, e.g. {tags:0.2, balanced:0.5, prose:0.85}. */
+  hybrid_presets: Record<string, number>;
+  /** The preset applied when neither hybrid_preset nor prose_bias is sent. */
+  default_hybrid_preset: string;
+}
+
+/** Fetch the lens captioning profiles, including hybrid tag↔prose presets (GET /profiles). */
+export async function getLensProfiles(signal?: AbortSignal): Promise<LensProfiles> {
+  const resp = await fetch(`${LENS_URL}/profiles`, { signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** Optional tag↔prose balance controls accepted by every caption endpoint. */
+export interface HybridBalanceParams {
+  /** Named balance stop; ignored by the server when prose_bias is also sent. */
+  hybrid_preset?: string;
+  /** Continuous 0.0 (pure tags) .. 1.0 (full prose); overrides hybrid_preset. */
+  prose_bias?: number;
+}
+
+/** Append hybrid balance fields to a multipart body only when set. */
+function appendHybrid(fd: FormData, opts?: HybridBalanceParams): void {
+  if (opts?.hybrid_preset) fd.append("hybrid_preset", opts.hybrid_preset);
+  if (opts?.prose_bias != null) fd.append("prose_bias", String(opts.prose_bias));
+}
+
 /** Browse folders under the lens --source-root (GET /folders). */
 export async function listLensFolders(path = "", signal?: AbortSignal): Promise<FolderListing> {
   const params = new URLSearchParams(path ? { path } : {});
@@ -28,13 +60,14 @@ export async function captionFolder(req: CaptionFolderRequest): Promise<BatchCap
 /** Batch-caption an argus-curator JSONL manifest (POST /caption/manifest). */
 export async function captionManifest(
   file: File,
-  opts?: { trigger_word?: string; write_sidecar?: boolean; write_xmp?: boolean },
+  opts?: { trigger_word?: string; write_sidecar?: boolean; write_xmp?: boolean } & HybridBalanceParams,
 ): Promise<BatchCaptionResult> {
   const fd = new FormData();
   fd.append("manifest", file);
   if (opts?.trigger_word) fd.append("trigger_word", opts.trigger_word);
   fd.append("write_sidecar", String(opts?.write_sidecar ?? true));
   fd.append("write_xmp", String(opts?.write_xmp ?? false));
+  appendHybrid(fd, opts);
   const resp = await fetch(`${LENS_URL}/caption/manifest`, { method: "POST", body: fd });
   if (!resp.ok) return asError(resp);
   return resp.json();
@@ -89,12 +122,13 @@ async function readNdjson(resp: Response, onLine: (obj: Record<string, unknown>)
 export async function captionManifestStream(
   manifestJsonl: string,
   onProgress: (p: CaptionProgress) => void,
-  opts?: { trigger_word?: string; signal?: AbortSignal },
+  opts?: { trigger_word?: string; signal?: AbortSignal } & HybridBalanceParams,
 ): Promise<CaptionSummary> {
   const signal = opts?.signal;
   const form = new FormData();
   form.append("manifest", new Blob([manifestJsonl], { type: "application/x-ndjson" }), "manifest.jsonl");
   if (opts?.trigger_word) form.append("trigger_word", opts.trigger_word);
+  appendHybrid(form, opts);
 
   const resp = await fetch(`${LENS_URL}/caption/manifest/stream`, {
     method: "POST",
@@ -118,7 +152,7 @@ export interface UploadCaptionRow extends CaptionResult {
   name: string;
 }
 
-export interface UploadCaptionParams {
+export interface UploadCaptionParams extends HybridBalanceParams {
   trigger_word?: string;
   target_style?: string;
   target_category?: string;
@@ -143,6 +177,7 @@ export async function captionFilesStream(
   if (params.target_style) fd.append("target_style", params.target_style);
   if (params.target_category) fd.append("target_category", params.target_category);
   if (params.target_backend) fd.append("target_backend", params.target_backend);
+  appendHybrid(fd, params);
 
   const resp = await fetch(`${LENS_URL}/caption/stream`, { method: "POST", body: fd, signal });
   if (!resp.ok) return asError(resp);
@@ -172,7 +207,7 @@ export async function listImmichAlbums(signal?: AbortSignal): Promise<ImmichAlbu
   return data.albums;
 }
 
-export interface ImmichCaptionRequest {
+export interface ImmichCaptionRequest extends HybridBalanceParams {
   album_id: string;
   asset_ids?: string[] | null;
   trigger_word?: string;
