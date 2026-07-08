@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { BatchCaptionResult, CaptionResult, CaptionRequest } from "@/types";
 import { TARGET_BACKENDS, TARGET_STYLES, TARGET_CATEGORIES } from "@/types";
@@ -81,6 +81,19 @@ export default function Home() {
     { kind: "url"; url: string } | { kind: "upload"; file: File } | null
   >(null);
   const [lensVersion, setLensVersion] = useState<string | null>(null);
+  // The live blob URL for an uploaded preview (revoked before it's replaced).
+  const objectUrlRef = useRef<string | null>(null);
+  // True once the user picks a preset/slider, so a late /profiles response
+  // doesn't reset their choice to the server default.
+  const hybridTouched = useRef(false);
+  const onHybridChange = (value: HybridBalanceValue) => {
+    hybridTouched.current = true;
+    setHybrid(value);
+  };
+
+  useEffect(() => () => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,7 +138,8 @@ export default function Home() {
         if (presets && Object.keys(presets).length > 0) {
           setHybridPresets(presets);
           const def = profiles.default_hybrid_preset;
-          if (def && def in presets) setHybrid({ preset: def, proseBias: null });
+          // Don't clobber a selection the user already made while this was loading.
+          if (def && def in presets && !hybridTouched.current) setHybrid({ preset: def, proseBias: null });
         }
       })
       .catch(() => {
@@ -247,7 +261,11 @@ export default function Home() {
       if (rows.length === 1 && files.length === 1) {
         // Single upload: show the full variant/raw-output breakdown like URL mode.
         setResult(rows[0]);
-        setAnalyzedUrl(URL.createObjectURL(files[0]));
+        // Revoke the previous blob URL before minting a new one — re-captioning
+        // the same upload would otherwise leak one per run.
+        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = URL.createObjectURL(files[0]);
+        setAnalyzedUrl(objectUrlRef.current);
         setLastSingle({ kind: "upload", file: files[0] });
       } else {
         const skipped = files.length - rows.length;
@@ -728,7 +746,7 @@ export default function Home() {
           {/* Tag ↔ prose balance — applies to every mode except manifest (row-driven) */}
           {mode !== "manifest" && (
             <div className="mt-4">
-              <HybridBalance presets={hybridPresets} value={hybrid} onChange={setHybrid} />
+              <HybridBalance presets={hybridPresets} value={hybrid} onChange={onHybridChange} />
             </div>
           )}
         </div>
