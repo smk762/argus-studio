@@ -7,6 +7,7 @@ import {
   editsToUpdates,
   imageState,
   METRIC_LABELS,
+  presentMetrics,
   rejectLabel,
   submitHitl,
   type EvalReport,
@@ -25,7 +26,7 @@ function shuffledIndices(n: number, seedStr: string): number[] {
   for (const ch of seedStr) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
   const rand = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 0xffffffff;
+    return seed / 0x100000000; // 2^32 keeps the result in [0, 1); /0xffffffff could hit 1.0
   };
   const idx = Array.from({ length: n }, (_, i) => i);
   for (let i = n - 1; i > 0; i--) {
@@ -69,7 +70,7 @@ function StateBadge({ img }: { img: ImageScores }) {
 }
 
 function meanCount(means: MetricScores): number {
-  return METRIC_LABELS.filter((m) => means[m.key] != null).length;
+  return presentMetrics(means).length;
 }
 
 interface ProofBoardProps {
@@ -97,14 +98,21 @@ export function ProofBoard({ initialReport, live }: ProofBoardProps) {
     setFocus(0);
   }, [initialReport]);
 
-  // The report as the reviewer's unsaved edits make it look right now.
-  const view = useMemo(() => applyEdits(report, edits, rater || null), [report, edits, rater]);
+  // The report as the reviewer's unsaved edits make it look right now. With no
+  // edits it IS the report, so the header shows the server's authoritative
+  // verdict/aggregate rather than a client recompute at the default threshold.
+  const view = useMemo(
+    () => (edits.size > 0 ? applyEdits(report, edits, rater || null) : report),
+    [report, edits, rater],
+  );
 
-  // Display order: blind → randomised (remove position bias); otherwise the
-  // borderline band first (auto pre-pass: needs-review, then lowest composite),
-  // so reviewers spend effort where the gate was least sure.
+  // Display order is computed from the ORIGINAL report states (not the edited
+  // view) and only recomputed on run/filter change, so a card doesn't jump as
+  // it's rated — keyboard focus stays on the sample under the cursor. Blind →
+  // randomised (remove position bias); otherwise the borderline band first
+  // (auto pre-pass: needs-review, then lowest composite).
   const order = useMemo(() => {
-    const imgs = view.images;
+    const imgs = report.images;
     let idx = imgs.map((_, i) => i);
     if (blind) {
       idx = shuffledIndices(imgs.length, report.run_id);
@@ -118,7 +126,7 @@ export function ProofBoard({ initialReport, live }: ProofBoardProps) {
     }
     if (needsOnly) idx = idx.filter((i) => imageState(imgs[i]) === "needs_hitl");
     return idx;
-  }, [view.images, blind, needsOnly, report.run_id]);
+  }, [report, blind, needsOnly]);
 
   const editFor = useCallback(
     (img: ImageScores): HitlEdit => edits.get(img.image_id) ?? { hitl_rating: img.hitl_rating, reject_reasons: img.reject_reasons },
@@ -183,9 +191,11 @@ export function ProofBoard({ initialReport, live }: ProofBoardProps) {
     setSaving(true);
     setSaveError(null);
     try {
+      // Demo persists exactly the preview the reviewer is looking at (`view`);
+      // live sends the edits and adopts the server's authoritative recompute.
       const updated = live
         ? await submitHitl(report.run_id, { rater: rater || null, updates: editsToUpdates(edits) })
-        : applyEdits(report, edits, rater || null);
+        : view;
       setReport(updated);
       setEdits(new Map());
     } catch (err) {
@@ -339,7 +349,7 @@ export function ProofBoard({ initialReport, live }: ProofBoardProps) {
 
               {!hidden && (
                 <div className="space-y-1">
-                  {METRIC_LABELS.filter((m) => img.metrics[m.key] != null).map((m) => (
+                  {presentMetrics(img.metrics).map((m) => (
                     <MetricBar key={m.key} label={m.label} value={img.metrics[m.key]} hint={m.hint} />
                   ))}
                   {comp != null && (

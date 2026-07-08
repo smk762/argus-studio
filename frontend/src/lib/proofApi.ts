@@ -136,12 +136,28 @@ export const REJECT_TAXONOMY: { code: RejectReasonCode; label: string; hint: str
 const REJECT_LABEL = new Map(REJECT_TAXONOMY.map((r) => [r.code, r.label]));
 export const rejectLabel = (code: RejectReasonCode): string => REJECT_LABEL.get(code) ?? code;
 
+/** The metric axes actually scored on an image (a missing scorer is omitted, not
+ * a phantom zero). One source of truth for the mean, composite, and rendered
+ * bars so they can't disagree about which axes count. */
+export function presentMetrics(metrics: MetricScores): { key: keyof MetricScores; label: string; hint: string }[] {
+  return METRIC_LABELS.filter((m) => metrics[m.key] != null);
+}
+
 /** Weighted composite over the metrics actually present, mirroring the proof
  * gate's renormalised composite (a missing scorer isn't a phantom zero). */
 export function compositeScore(metrics: MetricScores): number | null {
-  const present = METRIC_LABELS.map((m) => metrics[m.key]).filter((v): v is number => v !== null);
+  const present = presentMetrics(metrics).map((m) => metrics[m.key] as number);
   if (present.length === 0) return null;
   return present.reduce((a, b) => a + b, 0) / present.length;
+}
+
+/** A human's pass/fail from their rating + reasons; ``null`` = no human verdict
+ * yet (leave the gate's decision). Mirrors argus_proof.reports._hitl_decision so
+ * the client preview and the server recompute a review identically. */
+export function hitlDecision(rating: number | null, rejectReasons: RejectReason[]): boolean | null {
+  if (rejectReasons.length > 0) return false;
+  if (rating == null) return null;
+  return rating >= 3;
 }
 
 export type ImageState = "pass" | "fail" | "needs_hitl";
@@ -149,8 +165,8 @@ export type ImageState = "pass" | "fail" | "needs_hitl";
 /** How an image currently stands: a human decision (rating/reject) wins over the
  * gate's auto decision; otherwise the gate's passed flag; else needs review. */
 export function imageState(img: ImageScores): ImageState {
-  if (img.reject_reasons.length > 0) return "fail";
-  if (img.hitl_rating != null) return img.hitl_rating >= 3 ? "pass" : "fail";
+  const decision = hitlDecision(img.hitl_rating, img.reject_reasons);
+  if (decision !== null) return decision ? "pass" : "fail";
   if (img.passed === true) return "pass";
   if (img.passed === false) return "fail";
   return "needs_hitl";
@@ -172,14 +188,19 @@ export interface HitlEdit {
   reject_reasons: RejectReason[];
 }
 
-/** Merge edits onto an image (edits win); leaves the row untouched if no edit. */
+/** Merge edits onto an image (edits win); leaves the row untouched if no edit.
+ * Sets ``passed`` from the human decision the same way the server does, so a
+ * demo (client-applied) review and a live (server-recomputed) one agree — e.g.
+ * a cleared rating falls back to the gate's ``passed`` in both. */
 function withEdit(img: ImageScores, edit: HitlEdit | undefined, rater: string | null): ImageScores {
   if (!edit) return img;
+  const decision = hitlDecision(edit.hitl_rating, edit.reject_reasons);
   return {
     ...img,
     hitl_rating: edit.hitl_rating,
     reject_reasons: edit.reject_reasons,
     hitl_rater: rater ?? img.hitl_rater,
+    passed: decision !== null ? decision : img.passed,
   };
 }
 
@@ -226,12 +247,15 @@ export function applyEdits(report: EvalReport, edits: Map<string, HitlEdit>, rat
   };
 }
 
-/** Collect reviewer edits into the wire shape POST /report/{id}/hitl expects. */
+/** Collect reviewer edits into the wire shape POST /report/{id}/hitl expects.
+ * Machine-generated notes (the gate's ``auto: …`` explanations that seed the
+ * picker on an auto-failed image) are dropped, so a reason the reviewer endorses
+ * isn't recorded as if a human typed that note. */
 export function editsToUpdates(edits: Map<string, HitlEdit>): HitlImageUpdate[] {
   return [...edits.entries()].map(([image_id, e]) => ({
     image_id,
     hitl_rating: e.hitl_rating,
-    reject_reasons: e.reject_reasons,
+    reject_reasons: e.reject_reasons.map((r) => (r.note?.startsWith("auto:") ? { code: r.code } : r)),
   }));
 }
 

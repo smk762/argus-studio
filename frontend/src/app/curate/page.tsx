@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { Nav } from "@/components/Nav";
 import { ScanConfigPanel } from "@/components/curator/ScanConfigPanel";
 import { FolderPicker } from "@/components/curator/FolderPicker";
 import { ScanSummaryPanel } from "@/components/curator/ScanSummaryPanel";
@@ -200,20 +200,7 @@ export default function CuratePage() {
       <header className="sticky top-0 z-10 border-b border-border bg-surface/50 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-4">
-            <nav className="flex items-center gap-1">
-              <Link href="/" className="rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground">
-                Caption
-              </Link>
-              <Link href="/curate" className="rounded-lg border border-border bg-surface-hover px-3 py-1.5 text-sm text-foreground">
-                Curate
-              </Link>
-              <Link href="/gallery" className="rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground">
-                Gallery
-              </Link>
-              <Link href="/proof" className="rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground">
-                Proof
-              </Link>
-            </nav>
+            <Nav active="/curate" />
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent-teal/40 bg-accent-teal/20">
                 <span className="text-sm font-bold text-accent-teal">C</span>

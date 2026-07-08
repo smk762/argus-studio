@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import {
   getProofHealth,
   getReport,
@@ -11,14 +10,8 @@ import {
 } from "@/lib/proofApi";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { IS_LIVE } from "@/lib/curatorEnv";
+import { Nav } from "@/components/Nav";
 import { ProofBoard } from "@/components/proof/ProofBoard";
-
-const NAV = [
-  { href: "/", label: "Caption" },
-  { href: "/curate", label: "Curate" },
-  { href: "/gallery", label: "Gallery" },
-  { href: "/proof", label: "Proof" },
-];
 
 function verdictDot(s: ReportSummary): string {
   if (s.passed) return "bg-accent-green";
@@ -27,13 +20,14 @@ function verdictDot(s: ReportSummary): string {
 }
 
 export default function ProofPage() {
+  // version: null = loading, "" = unreachable, "demo", or a real version string.
   const [version, setVersion] = useState<string | null>(IS_LIVE ? null : "demo");
-  const [unreachable, setUnreachable] = useState(false);
   const [summaries, setSummaries] = useState<ReportSummary[]>(IS_LIVE ? [] : [DEMO_SUMMARY]);
   const [selected, setSelected] = useState<string | null>(IS_LIVE ? null : DEMO_REPORT.run_id);
   const [report, setReport] = useState<EvalReport | null>(IS_LIVE ? null : DEMO_REPORT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const unreachable = version === "";
 
   // Live: reachability + the run list. Demo needs no backend.
   useEffect(() => {
@@ -46,16 +40,15 @@ export default function ProofPage() {
         setSummaries(list);
         if (list.length > 0) setSelected(list[0].run_id);
       } catch {
-        if (!ctrl.signal.aborted) {
-          setVersion("");
-          setUnreachable(true);
-        }
+        if (!ctrl.signal.aborted) setVersion("");
       }
     })();
     return () => ctrl.abort();
   }, []);
 
-  const loadReport = useCallback(async (runId: string) => {
+  // Load the selected run's report, aborting a slower in-flight fetch so a quick
+  // run switch can't land an earlier response over the current selection.
+  const loadReport = useCallback(async (runId: string, signal?: AbortSignal) => {
     if (!IS_LIVE) {
       setReport(DEMO_REPORT);
       return;
@@ -63,17 +56,21 @@ export default function ProofPage() {
     setLoading(true);
     setError(null);
     try {
-      setReport(await getReport(runId));
+      setReport(await getReport(runId, signal));
     } catch (err) {
+      if (signal?.aborted) return; // superseded by a newer selection
       setError(err instanceof Error ? err.message : "Failed to load report");
       setReport(null);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (selected) void loadReport(selected);
+    if (!selected) return;
+    const ctrl = new AbortController();
+    void loadReport(selected, ctrl.signal);
+    return () => ctrl.abort();
   }, [selected, loadReport]);
 
   return (
@@ -81,21 +78,7 @@ export default function ProofPage() {
       <header className="sticky top-0 z-10 border-b border-border bg-surface/50 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-4">
-            <nav className="flex items-center gap-1">
-              {NAV.map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  className={
-                    n.href === "/proof"
-                      ? "rounded-lg border border-border bg-surface-hover px-3 py-1.5 text-sm text-foreground"
-                      : "rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-                  }
-                >
-                  {n.label}
-                </Link>
-              ))}
-            </nav>
+            <Nav active="/proof" />
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent-green/40 bg-accent-green/20">
                 <span className="text-sm font-bold text-accent-green">P</span>
