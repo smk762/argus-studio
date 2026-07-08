@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import type { BatchCaptionResult, CaptionResult, CaptionRequest } from "@/types";
 import { Nav } from "@/components/Nav";
 import { TARGET_BACKENDS, TARGET_STYLES, TARGET_CATEGORIES } from "@/types";
