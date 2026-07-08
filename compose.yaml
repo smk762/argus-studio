@@ -9,6 +9,8 @@
 #   docker compose --profile forge   up --build    # frontend + curator + argus-forge
 #                                                   # (training configs; needs
 #                                                   #  NEXT_PUBLIC_CURATOR_UI_MODE=live)
+#   docker compose --profile proof   up --build    # frontend + argus-proof
+#                                                   # (post-training LoRA evaluation)
 #   docker compose --profile full    up --build    # whole suite
 #
 # NVIDIA GPUs (optional): add the override file, e.g.
@@ -41,6 +43,7 @@ services:
         NEXT_PUBLIC_CURATOR_OUTPUT_PATH: ${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
         NEXT_PUBLIC_QUARRY_URL: ${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}
         NEXT_PUBLIC_FORGE_URL: ${NEXT_PUBLIC_FORGE_URL:-http://localhost:8103}
+        NEXT_PUBLIC_PROOF_URL: ${NEXT_PUBLIC_PROOF_URL:-http://localhost:8104}
         # URL the CURATOR CONTAINER uses to reach lens for the export->caption handoff
         # (server-to-server, so it's the compose service name, not localhost).
         NEXT_PUBLIC_LENS_INTERNAL_URL: ${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
@@ -54,6 +57,7 @@ services:
       - NEXT_PUBLIC_CURATOR_OUTPUT_PATH=${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
       - NEXT_PUBLIC_QUARRY_URL=${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}
       - NEXT_PUBLIC_FORGE_URL=${NEXT_PUBLIC_FORGE_URL:-http://localhost:8103}
+      - NEXT_PUBLIC_PROOF_URL=${NEXT_PUBLIC_PROOF_URL:-http://localhost:8104}
       - NEXT_PUBLIC_LENS_INTERNAL_URL=${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
     restart: unless-stopped
 
@@ -129,6 +133,27 @@ services:
       # Resolve argus-quarry's published symlinks (they point into the raw pool).
       - ${QUARRY_HOME:-./quarry}:/data/quarry:ro
       # Exports live here; configs land under <export>/forge/<trainer>/.
+      - ${OUTPUT_DIR:-./out}:/data/out
+    restart: unless-stopped
+
+  # ── Post-training evaluation (LoRA in, scored verdicts out) ─────────────
+  # Phase 0 scaffold (smk762/argus-studio#6): boots and answers GET /health on
+  # :8104. Eval routes (/run, /score, /report) and the /proof view land with
+  # the epic phases. Reads the dataset + exports; writes eval runs under
+  # /data/out/proof/.
+  argus-proof:
+    profiles: ["proof", "full"]
+    build:
+      context: ../argus-proof
+    image: argus-proof:latest
+    ports:
+      - "${PROOF_PORT:-8104}:8104"
+    volumes:
+      # ro: proof only reads the curated source images (score references).
+      - ${DATASET_DIR:-./data}:/data/images:ro
+      # Resolve argus-quarry's published symlinks (they point into the raw pool).
+      - ${QUARRY_HOME:-./quarry}:/data/quarry:ro
+      # Exports live here; eval runs land under /data/out/proof/<run>/.
       - ${OUTPUT_DIR:-./out}:/data/out
     restart: unless-stopped
 
