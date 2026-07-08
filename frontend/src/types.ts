@@ -16,6 +16,10 @@ export interface CaptionRequest {
   target_category?: string;
   target_backend?: string;
   prose_enrichment?: boolean;
+  /** Named tag↔prose balance stop (e.g. "balanced"). Ignored when prose_bias is set. */
+  hybrid_preset?: string;
+  /** Continuous tag↔prose balance, 0.0 = pure tags .. 1.0 = full prose. Overrides hybrid_preset. */
+  prose_bias?: number;
 }
 
 export interface CaptionFolderRequest {
@@ -30,6 +34,10 @@ export interface CaptionFolderRequest {
   target_backend?: string;
   checkpoint?: string | null;
   prose_enrichment?: boolean;
+  /** Named tag↔prose balance stop (e.g. "balanced"). Ignored when prose_bias is set. */
+  hybrid_preset?: string;
+  /** Continuous tag↔prose balance, 0.0 = pure tags .. 1.0 = full prose. Overrides hybrid_preset. */
+  prose_bias?: number;
 }
 
 /** Per-image row returned by /caption/folder and /caption/manifest. */

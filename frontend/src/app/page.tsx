@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { BatchCaptionResult, CaptionResult, CaptionRequest } from "@/types";
 import { Nav } from "@/components/Nav";
 import { TARGET_BACKENDS, TARGET_STYLES, TARGET_CATEGORIES } from "@/types";
@@ -14,9 +15,17 @@ import { BatchCaptionResults } from "@/components/BatchCaptionResults";
 import { FolderPicker } from "@/components/curator/FolderPicker";
 import { DropZone } from "@/components/DropZone";
 import {
+  HybridBalance,
+  hybridRequestFields,
+  FALLBACK_HYBRID_PRESETS,
+  FALLBACK_DEFAULT_PRESET,
+  type HybridBalanceValue,
+} from "@/components/HybridBalance";
+import {
   captionFilesStream,
   captionFolder,
   captionManifest,
+  getLensProfiles,
   immichCaptionStream,
   listImmichAlbums,
   listLensFolders,
@@ -57,13 +66,35 @@ export default function Home() {
   const [targetStyle, setTargetStyle] = useState("photo");
   const [targetCategory, setTargetCategory] = useState("identity");
   const [proseEnrichment, setProseEnrichment] = useState(true);
+  const [hybridPresets, setHybridPresets] = useState<Record<string, number>>(FALLBACK_HYBRID_PRESETS);
+  const [hybrid, setHybrid] = useState<HybridBalanceValue>({
+    preset: FALLBACK_DEFAULT_PRESET,
+    proseBias: null,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CaptionResult | null>(null);
   const [batchResult, setBatchResult] = useState<BatchCaptionResult | null>(null);
   const [batchSource, setBatchSource] = useState("");
   const [analyzedUrl, setAnalyzedUrl] = useState("");
+  // Remembers the last single-image caption so it can be re-run with a new balance.
+  const [lastSingle, setLastSingle] = useState<
+    { kind: "url"; url: string } | { kind: "upload"; file: File } | null
+  >(null);
   const [lensVersion, setLensVersion] = useState<string | null>(null);
+  // The live blob URL for an uploaded preview (revoked before it's replaced).
+  const objectUrlRef = useRef<string | null>(null);
+  // True once the user picks a preset/slider, so a late /profiles response
+  // doesn't reset their choice to the server default.
+  const hybridTouched = useRef(false);
+  const onHybridChange = (value: HybridBalanceValue) => {
+    hybridTouched.current = true;
+    setHybrid(value);
+  };
+
+  useEffect(() => () => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,24 +129,45 @@ export default function Home() {
     };
   }, []);
 
+  // Fetch the hybrid tag↔prose presets; fall back to the hardcoded set on failure.
+  useEffect(() => {
+    let cancelled = false;
+    getLensProfiles()
+      .then((profiles) => {
+        if (cancelled) return;
+        const presets = profiles.hybrid_presets;
+        if (presets && Object.keys(presets).length > 0) {
+          setHybridPresets(presets);
+          const def = profiles.default_hybrid_preset;
+          // Don't clobber a selection the user already made while this was loading.
+          if (def && def in presets && !hybridTouched.current) setHybrid({ preset: def, proseBias: null });
+        }
+      })
+      .catch(() => {
+        /* keep the hardcoded fallback presets */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const selectedBackend = TARGET_BACKENDS.find(
     (b) => b.value === targetBackend
   );
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!imageUrl.trim()) return;
-
+  const runUrl = async (url: string) => {
+    if (!url) return;
     setLoading(true);
     setError(null);
 
     try {
       const body: CaptionRequest = {
-        image_url: imageUrl.trim(),
+        image_url: url,
         target_style: targetStyle,
         target_category: targetCategory,
         target_backend: targetBackend,
         prose_enrichment: proseEnrichment,
+        ...hybridRequestFields(hybrid),
       };
 
       const resp = await fetch(`${API_URL}/caption/url`, {
@@ -133,12 +185,18 @@ export default function Home() {
 
       const data: CaptionResult = await resp.json();
       setResult(data);
-      setAnalyzedUrl(imageUrl.trim());
+      setAnalyzedUrl(url);
+      setLastSingle({ kind: "url", url });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    void runUrl(imageUrl.trim());
   };
 
   const runFolder = async () => {
@@ -156,6 +214,7 @@ export default function Home() {
         target_category: targetCategory,
         target_backend: targetBackend,
         prose_enrichment: proseEnrichment,
+        ...hybridRequestFields(hybrid),
       });
       setBatchResult(data);
       setBatchSource(folderPath.trim());
@@ -182,27 +241,37 @@ export default function Home() {
     }
   };
 
-  const runUpload = async () => {
-    if (uploadFiles.length === 0) return;
+  const runUpload = async (files: File[] = uploadFiles) => {
+    if (files.length === 0) return;
     setLoading(true);
     setError(null);
     setResult(null);
     setBatchResult(null);
-    setProgress({ done: 0, total: uploadFiles.length });
+    setProgress({ done: 0, total: files.length });
     try {
       const rows = await captionFilesStream(
-        uploadFiles,
-        { target_style: targetStyle, target_category: targetCategory, target_backend: targetBackend },
-        (_row, done) => setProgress({ done, total: uploadFiles.length }),
+        files,
+        {
+          target_style: targetStyle,
+          target_category: targetCategory,
+          target_backend: targetBackend,
+          ...hybridRequestFields(hybrid),
+        },
+        (_row, done) => setProgress({ done, total: files.length }),
       );
-      if (rows.length === 1 && uploadFiles.length === 1) {
+      if (rows.length === 1 && files.length === 1) {
         // Single upload: show the full variant/raw-output breakdown like URL mode.
         setResult(rows[0]);
-        setAnalyzedUrl(URL.createObjectURL(uploadFiles[0]));
+        // Revoke the previous blob URL before minting a new one — re-captioning
+        // the same upload would otherwise leak one per run.
+        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = URL.createObjectURL(files[0]);
+        setAnalyzedUrl(objectUrlRef.current);
+        setLastSingle({ kind: "upload", file: files[0] });
       } else {
-        const skipped = uploadFiles.length - rows.length;
+        const skipped = files.length - rows.length;
         setBatchResult({
-          total: uploadFiles.length,
+          total: files.length,
           captioned: rows.length,
           failed: skipped,
           results: rows.map((r) => ({ rel_path: r.name, final_caption: r.final_caption })),
@@ -211,7 +280,7 @@ export default function Home() {
               ? [{ rel_path: "(skipped)", error: `${skipped} file(s) could not be decoded as images` }]
               : [],
         });
-        setBatchSource(`${uploadFiles.length} uploaded file(s)`);
+        setBatchSource(`${files.length} uploaded file(s)`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -239,6 +308,7 @@ export default function Home() {
           target_backend: targetBackend,
           prose_enrichment: proseEnrichment,
           write_back: writeBack,
+          ...hybridRequestFields(hybrid),
         },
         (p) => {
           setProgress({ done: p.done, total: p.total });
@@ -254,6 +324,13 @@ export default function Home() {
       setLoading(false);
       setProgress(null);
     }
+  };
+
+  /** Re-run the last single-image caption with the current tag↔prose balance. */
+  const recaptionLast = () => {
+    if (!lastSingle || loading) return;
+    if (lastSingle.kind === "url") void runUrl(lastSingle.url);
+    else void runUpload([lastSingle.file]);
   };
 
   // Load the album list when the Immich tab is first opened.
@@ -647,6 +724,13 @@ export default function Home() {
             )}
           </div>
           )}
+
+          {/* Tag ↔ prose balance — applies to every mode except manifest (row-driven) */}
+          {mode !== "manifest" && (
+            <div className="mt-4">
+              <HybridBalance presets={hybridPresets} value={hybrid} onChange={onHybridChange} />
+            </div>
+          )}
         </div>
 
         {/* Error */}
@@ -677,6 +761,27 @@ export default function Home() {
                 </span>
               </div>
               <ExportButtons result={result} imageUrl={analyzedUrl} />
+              {lastSingle && (
+                <button
+                  type="button"
+                  onClick={recaptionLast}
+                  disabled={loading}
+                  className="w-full px-4 py-2.5 rounded-lg border border-accent-purple/40 bg-accent-purple/10 text-accent-purple text-sm font-medium hover:bg-accent-purple/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  {loading ? (
+                    <Spinner label="Re-captioning..." />
+                  ) : (
+                    <>
+                      Re-caption with this balance
+                      <span className="ml-1.5 font-mono text-xs text-accent-purple/70">
+                        {hybrid.proseBias != null
+                          ? `prose_bias ${hybrid.proseBias.toFixed(2)}`
+                          : hybrid.preset}
+                      </span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Right: caption data */}
