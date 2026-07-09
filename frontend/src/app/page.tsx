@@ -150,10 +150,6 @@ export default function Home() {
     };
   }, []);
 
-  const selectedBackend = TARGET_BACKENDS.find(
-    (b) => b.value === targetBackend
-  );
-
   const runUrl = async (url: string) => {
     if (!url) return;
     setLoading(true);
@@ -633,11 +629,7 @@ export default function Home() {
           {mode !== "manifest" && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Target Style */}
-            <ParamInfo
-              label="Target Style"
-              description='Determines how tags are classified and budgeted. "photo" optimises for realism models (natural language tokens). "anime" optimises for booru-tagged models (tag-style tokens, higher density).'
-              example='target_style="photo"'
-            >
+            <ParamInfo conceptId="target_style">
               <div className="flex gap-2">
                 {TARGET_STYLES.map((style) => (
                   <button
@@ -657,11 +649,7 @@ export default function Home() {
             </ParamInfo>
 
             {/* Target Backend */}
-            <ParamInfo
-              label="Target Backend"
-              description={`The diffusion model architecture that will consume these captions. Each backend has a different CLIP/T5 token budget — exceeding it means wasted tokens the model cannot see. Current: ${selectedBackend?.tokens ?? 60} tokens.`}
-              example='target_backend="sdxl"'
-            >
+            <ParamInfo conceptId="target_backend">
               <select
                 value={targetBackend}
                 onChange={(e) => setTargetBackend(e.target.value)}
@@ -676,11 +664,7 @@ export default function Home() {
             </ParamInfo>
 
             {/* Target Category */}
-            <ParamInfo
-              label="Target Category"
-              description='Controls which caption variant becomes the "final_caption" in the output. For identity-focused LoRA training, keep this as "identity". Change to "wardrobe" or "setting" if fine-tuning for those concepts instead.'
-              example='target_category="identity"'
-            >
+            <ParamInfo conceptId="target_category">
               <select
                 value={targetCategory}
                 onChange={(e) => setTargetCategory(e.target.value)}
@@ -696,11 +680,7 @@ export default function Home() {
 
             {/* Prose Enrichment — not accepted by the upload endpoint (/caption/stream) */}
             {mode !== "upload" && (
-            <ParamInfo
-              label="Prose Enrichment"
-              description="When enabled, novel noun/adjective phrases from prose output (Florence-2) are extracted and appended to the training variant as low-priority tag-style tokens. This adds scene context without displacing core identity or wardrobe tags. Disable for a pure WD14-only training caption."
-              example="prose_enrichment=true"
-            >
+            <ParamInfo conceptId="prose_enrichment">
               <div className="flex items-center gap-3">
                 <button
                   type="button"

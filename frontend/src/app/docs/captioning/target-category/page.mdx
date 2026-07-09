@@ -1,0 +1,35 @@
+import { ConceptBody } from "@/components/docs/ConceptBody";
+import { TargetCategoryDemo } from "@/components/docs/TargetCategoryDemo";
+
+export const metadata = {
+  title: "Target category · Argus Studio Docs",
+  description:
+    "Which caption variant becomes the training caption, and what good input looks like for each category.",
+};
+
+# Target category
+
+<ConceptBody id="target_category" />
+
+## Pick a category, see what to feed it
+
+The category you train for changes both the caption and the kind of images that
+make a strong dataset. This widget is driven by the very same scoring guidance the
+[Curate](/curate) tool uses, so it reflects real behaviour:
+
+<TargetCategoryDemo />
+
+## Where it shows up
+
+The concept appears in two places. In the [Caption tool](/), **Target Category**
+selects which variant is written as the `final_caption`. In [Curate](/curate) the
+same idea biases the image scorer toward the framing each concept needs — that's
+the behaviour the widget above previews. The two tools share the core categories
+(identity, wardrobe, setting); Curate concentrates on the ones that most change
+what a good dataset looks like.
+
+## Try it
+
+- Open the [Caption tool](/) and expand the **Target Category** info panel — it reads
+  from the same source as this page.
+- Head to [Curate](/curate) to score a folder against your chosen category.
