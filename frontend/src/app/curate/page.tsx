@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Nav } from "@/components/Nav";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 import { ScanConfigPanel } from "@/components/curator/ScanConfigPanel";
 import { FolderPicker } from "@/components/curator/FolderPicker";
 import { ScanSummaryPanel } from "@/components/curator/ScanSummaryPanel";
@@ -197,20 +198,12 @@ export default function CuratePage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-border bg-surface/50 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-4">
-            <Nav active="/curate" />
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent-teal/40 bg-accent-teal/20">
-                <span className="text-sm font-bold text-accent-teal">C</span>
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-semibold text-foreground">Argus Curator</h1>
-                <p className="text-xs text-muted">Curate by quality and by face, then caption with argus-lens</p>
-              </div>
-            </div>
-          </div>
+      <SiteHeader
+        active="/curate"
+        logo={{ letter: "C", tone: "teal" }}
+        title="Argus Curator"
+        subtitle="Curate by quality and by face, then caption with argus-lens"
+        badge={
           <div className="flex shrink-0 flex-col items-end gap-1">
             <span
               className={`rounded border px-2 py-0.5 text-[9px] uppercase tracking-wider ${
@@ -237,8 +230,8 @@ export default function CuratePage() {
               </div>
             )}
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
@@ -399,10 +392,9 @@ export default function CuratePage() {
         </div>
       </main>
 
-      <footer className="mt-auto border-t border-border py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 text-xs text-muted sm:px-6">
-          <span>
-            Powered by{" "}
+      <SiteFooter
+        poweredBy={
+          <>
             <a
               href="https://github.com/smk762/argus-curator"
               target="_blank"
@@ -412,10 +404,10 @@ export default function CuratePage() {
               argus-curator
             </a>{" "}
             · mode: {CURATOR_UI_MODE}
-          </span>
-          <span>MIT License</span>
-        </div>
-      </footer>
+          </>
+        }
+        right="MIT License"
+      />
 
       <ImageDetailModal
         scanId={summary?.scan_id ?? ""}

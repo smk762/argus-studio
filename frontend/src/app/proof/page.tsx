@@ -10,7 +10,7 @@ import {
 } from "@/lib/proofApi";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { IS_LIVE } from "@/lib/curatorEnv";
-import { Nav } from "@/components/Nav";
+import { SiteHeader } from "@/components/SiteHeader";
 import { ProofBoard } from "@/components/proof/ProofBoard";
 
 function verdictDot(s: ReportSummary): string {
@@ -75,20 +75,12 @@ export default function ProofPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-border bg-surface/50 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-4">
-            <Nav active="/proof" />
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent-green/40 bg-accent-green/20">
-                <span className="text-sm font-bold text-accent-green">P</span>
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-semibold text-foreground">Argus Proof</h1>
-                <p className="text-xs text-muted">Post-training LoRA evaluation &amp; review</p>
-              </div>
-            </div>
-          </div>
+      <SiteHeader
+        active="/proof"
+        logo={{ letter: "P", tone: "green" }}
+        title="Argus Proof"
+        subtitle="Post-training LoRA evaluation & review"
+        badge={
           <div className="shrink-0 text-right">
             {version === null ? (
               <span className="text-[10px] uppercase tracking-wider text-muted/60">…</span>
@@ -105,8 +97,8 @@ export default function ProofPage() {
               </div>
             )}
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {unreachable ? (

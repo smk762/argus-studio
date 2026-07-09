@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Nav } from "@/components/Nav";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 import { DocsSidebar } from "@/components/docs/DocsSidebar";
 
 export const metadata: Metadata = {
@@ -11,22 +12,12 @@ export const metadata: Metadata = {
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-border bg-surface/50 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-4">
-            <Nav active="/docs" />
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent-purple/40 bg-accent-purple/20">
-                <span className="text-sm font-bold text-accent-purple">A</span>
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-semibold text-foreground">Argus Studio Docs</h1>
-                <p className="text-xs text-muted">Interactive handbook for the suite</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        active="/docs"
+        logo={{ letter: "A", tone: "purple" }}
+        title="Argus Studio Docs"
+        subtitle="Interactive handbook for the suite"
+      />
 
       <div className="mx-auto flex w-full max-w-7xl flex-1 gap-8 px-4 py-8 sm:px-6">
         <aside className="hidden w-56 shrink-0 md:block">
@@ -39,20 +30,17 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
         </main>
       </div>
 
-      <footer className="mt-auto border-t border-border py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 text-xs text-muted sm:px-6">
-          <span>
-            Powered by{" "}
-            <Link
-              href="/"
-              className="text-accent-purple transition-colors hover:text-accent-purple/80"
-            >
-              Argus Studio
-            </Link>
-          </span>
-          <span>MIT License</span>
-        </div>
-      </footer>
+      <SiteFooter
+        poweredBy={
+          <Link
+            href="/"
+            className="text-accent-purple transition-colors hover:text-accent-purple/80"
+          >
+            Argus Studio
+          </Link>
+        }
+        right="MIT License"
+      />
     </div>
   );
 }
