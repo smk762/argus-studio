@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import {
   getQuarryHealth,
   getQuarryStats,
@@ -122,20 +123,7 @@ export default function GalleryPage() {
         logo={{ letter: "Q", tone: "amber" }}
         title="Argus Quarry"
         subtitle="Provenance-first PD/CC0 acquisition pool"
-        badge={
-          <div className="shrink-0 text-right">
-            {version === null ? (
-              <span className="text-[10px] uppercase tracking-wider text-muted/60">…</span>
-            ) : version === "" ? (
-              <span className="text-[10px] uppercase tracking-wider text-accent-red/80">API unreachable</span>
-            ) : (
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted">argus-quarry</span>
-                <span className="font-mono text-xs text-foreground/90">v{version}</span>
-              </div>
-            )}
-          </div>
-        }
+        badge={<ApiVersionBadge label="argus-quarry" version={version} prefix="v" />}
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">

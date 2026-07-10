@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ScanConfigPanel } from "@/components/curator/ScanConfigPanel";
 import { FolderPicker } from "@/components/curator/FolderPicker";
 import { ScanSummaryPanel } from "@/components/curator/ScanSummaryPanel";
@@ -204,7 +205,11 @@ export default function CuratePage() {
         title="Argus Curator"
         subtitle="Curate by quality and by face, then caption with argus-lens"
         badge={
-          <div className="flex shrink-0 flex-col items-end gap-1">
+          <ApiVersionBadge
+            label="argus-curator"
+            version={version}
+            className="flex shrink-0 flex-col items-end gap-1"
+          >
             <span
               className={`rounded border px-2 py-0.5 text-[9px] uppercase tracking-wider ${
                 IS_LIVE
@@ -219,17 +224,7 @@ export default function CuratePage() {
             >
               {IS_LIVE ? "Live" : "Demo sample"}
             </span>
-            {version === null ? (
-              <span className="text-[10px] uppercase tracking-wider text-muted/60">…</span>
-            ) : version === "" ? (
-              <span className="text-[10px] uppercase tracking-wider text-accent-red/80">API unreachable</span>
-            ) : (
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted">argus-curator</span>
-                <span className="font-mono text-xs text-foreground/90">{version}</span>
-              </div>
-            )}
-          </div>
+          </ApiVersionBadge>
         }
       />
 

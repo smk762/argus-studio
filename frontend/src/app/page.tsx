@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BatchCaptionResult, CaptionResult, CaptionRequest } from "@/types";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { TARGET_BACKENDS, TARGET_STYLES, TARGET_CATEGORIES } from "@/types";
 import { ImagePreview } from "@/components/ImagePreview";
 import { CaptionVariants } from "@/components/CaptionVariants";
@@ -377,35 +378,7 @@ export default function Home() {
         logo={{ letter: "A", tone: "purple" }}
         title="Argus Lens"
         subtitle="Structured image captioning for training & generation"
-        badge={
-          <div
-            className="shrink-0 text-right max-w-[14rem] sm:max-w-xs"
-            title={
-              lensVersion && lensVersion.length > 0
-                ? `argus-lens ${lensVersion}`
-                : undefined
-            }
-          >
-            {lensVersion === null ? (
-              <span className="text-[10px] uppercase tracking-wider text-muted/60">
-                …
-              </span>
-            ) : lensVersion === "" ? (
-              <span className="text-[10px] uppercase tracking-wider text-accent-red/80">
-                API unreachable
-              </span>
-            ) : (
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted">
-                  argus-lens
-                </span>
-                <span className="text-xs font-mono text-foreground/90 truncate max-w-full">
-                  {lensVersion}
-                </span>
-              </div>
-            )}
-          </div>
-        }
+        badge={<ApiVersionBadge label="argus-lens" version={lensVersion} />}
       />
 
       {/* Main content */}

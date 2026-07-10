@@ -11,6 +11,7 @@ import {
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { IS_LIVE } from "@/lib/curatorEnv";
 import { SiteHeader } from "@/components/SiteHeader";
+import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ProofBoard } from "@/components/proof/ProofBoard";
 
 function verdictDot(s: ReportSummary): string {
@@ -81,22 +82,15 @@ export default function ProofPage() {
         title="Argus Proof"
         subtitle="Post-training LoRA evaluation & review"
         badge={
-          <div className="shrink-0 text-right">
-            {version === null ? (
-              <span className="text-[10px] uppercase tracking-wider text-muted/60">…</span>
-            ) : version === "" ? (
-              <span className="text-[10px] uppercase tracking-wider text-accent-red/80">API unreachable</span>
-            ) : version === "demo" ? (
+          version === "demo" ? (
+            <div className="shrink-0 text-right">
               <span className="rounded-md border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-amber">
                 Demo
               </span>
-            ) : (
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted">argus-proof</span>
-                <span className="font-mono text-xs text-foreground/90">v{version}</span>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <ApiVersionBadge label="argus-proof" version={version} prefix="v" />
+          )
         }
       />
 
