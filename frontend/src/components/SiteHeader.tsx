@@ -51,7 +51,7 @@ export function SiteHeader({
             </div>
           </div>
         </div>
-        {badge != null && badge}
+        {badge}
       </div>
     </header>
   );
