@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Nav } from "@/components/Nav";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
+import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import {
   getQuarryHealth,
   getQuarryStats,
@@ -116,34 +118,13 @@ export default function GalleryPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-border bg-surface/50 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-4">
-            <Nav active="/gallery" />
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent-amber/40 bg-accent-amber/20">
-                <span className="text-sm font-bold text-accent-amber">Q</span>
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-semibold text-foreground">Argus Quarry</h1>
-                <p className="text-xs text-muted">Provenance-first PD/CC0 acquisition pool</p>
-              </div>
-            </div>
-          </div>
-          <div className="shrink-0 text-right">
-            {version === null ? (
-              <span className="text-[10px] uppercase tracking-wider text-muted/60">…</span>
-            ) : version === "" ? (
-              <span className="text-[10px] uppercase tracking-wider text-accent-red/80">API unreachable</span>
-            ) : (
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted">argus-quarry</span>
-                <span className="font-mono text-xs text-foreground/90">v{version}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        active="/gallery"
+        logo={{ letter: "Q", tone: "amber" }}
+        title="Argus Quarry"
+        subtitle="Provenance-first PD/CC0 acquisition pool"
+        badge={<ApiVersionBadge label="argus-quarry" version={version} prefix="v" />}
+      />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {unreachable ? (
@@ -293,10 +274,9 @@ export default function GalleryPage() {
         )}
       </main>
 
-      <footer className="mt-auto border-t border-border py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 text-xs text-muted sm:px-6">
-          <span>
-            Powered by{" "}
+      <SiteFooter
+        poweredBy={
+          <>
             <a
               href="https://github.com/smk762/argus-quarry"
               target="_blank"
@@ -306,10 +286,10 @@ export default function GalleryPage() {
               argus-quarry
             </a>{" "}
             · read-only provenance
-          </span>
-          <span>Images: PD / CC0 as recorded per item</span>
-        </div>
-      </footer>
+          </>
+        }
+        right="Images: PD / CC0 as recorded per item"
+      />
 
       {/* Provenance detail */}
       {detail && (

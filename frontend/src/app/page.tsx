@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { BatchCaptionResult, CaptionResult, CaptionRequest } from "@/types";
-import { Nav } from "@/components/Nav";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
+import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { TARGET_BACKENDS, TARGET_STYLES, TARGET_CATEGORIES } from "@/types";
 import { ImagePreview } from "@/components/ImagePreview";
 import { CaptionVariants } from "@/components/CaptionVariants";
@@ -371,56 +373,13 @@ export default function Home() {
       onDragOver={(e) => e.preventDefault()}
       onDrop={handlePageDrop}
     >
-      {/* Header */}
-      <header className="border-b border-border bg-surface/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            {/* Nav links */}
-            <Nav active="/" />
-
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 shrink-0 rounded-lg bg-accent-purple/20 border border-accent-purple/40 flex items-center justify-center">
-                <span className="text-accent-purple text-sm font-bold">A</span>
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-semibold text-foreground">
-                  Argus Lens
-                </h1>
-                <p className="text-xs text-muted">
-                  Structured image captioning for training &amp; generation
-                </p>
-              </div>
-            </div>
-          </div>
-          <div
-            className="shrink-0 text-right max-w-[14rem] sm:max-w-xs"
-            title={
-              lensVersion && lensVersion.length > 0
-                ? `argus-lens ${lensVersion}`
-                : undefined
-            }
-          >
-            {lensVersion === null ? (
-              <span className="text-[10px] uppercase tracking-wider text-muted/60">
-                …
-              </span>
-            ) : lensVersion === "" ? (
-              <span className="text-[10px] uppercase tracking-wider text-accent-red/80">
-                API unreachable
-              </span>
-            ) : (
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[10px] uppercase tracking-wider text-muted">
-                  argus-lens
-                </span>
-                <span className="text-xs font-mono text-foreground/90 truncate max-w-full">
-                  {lensVersion}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        active="/"
+        logo={{ letter: "A", tone: "purple" }}
+        title="Argus Lens"
+        subtitle="Structured image captioning for training & generation"
+        badge={<ApiVersionBadge label="argus-lens" version={lensVersion} />}
+      />
 
       {/* Main content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
@@ -840,22 +799,19 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between text-xs text-muted">
-          <span>
-            Powered by{" "}
-            <a
-              href="https://github.com/smk762/argus-lens"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent-purple hover:text-accent-purple/80 transition-colors"
-            >
-              argus-lens
-            </a>
-          </span>
-          <span>MIT License</span>
-        </div>
-      </footer>
+      <SiteFooter
+        poweredBy={
+          <a
+            href="https://github.com/smk762/argus-lens"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent-purple hover:text-accent-purple/80 transition-colors"
+          >
+            argus-lens
+          </a>
+        }
+        right="MIT License"
+      />
     </div>
   );
 }
