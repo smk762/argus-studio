@@ -1,0 +1,55 @@
+import { ConceptBody } from "@/components/docs/ConceptBody";
+import { ProseEnrichmentDemo } from "@/components/docs/ProseEnrichmentDemo";
+
+export const metadata = {
+  title: "Prose enrichment · Argus Studio Docs",
+  description:
+    "Append novel Florence-2 prose tokens to the training caption at low priority, without displacing core tags.",
+};
+
+# Prose enrichment
+
+<ConceptBody id="prose_enrichment" />
+
+## What actually gets appended
+
+Two captioners look at each image: WD14 produces tags, Florence-2 produces a
+sentence. Enrichment mines that sentence for phrases the tags *missed* and appends
+only those. Toggle it:
+
+<ProseEnrichmentDemo />
+
+The two rules worth remembering:
+
+1. **Novel only.** A phrase the tags already carry is dropped, so enrichment never
+   double-weights a concept it merely restated.
+2. **Appended last.** The new tokens land at the bottom of the priority order, so a
+   tight [token budget](/docs/captioning/target-backend) spends them first — they
+   can never displace identity or wardrobe tags.
+
+## When to turn it off
+
+Leave it on by default. Turn it off when:
+
+- You want a **pure WD14 tag caption** — reproducing a tag-only dataset, or
+  debugging which captioner is responsible for an artifact.
+- You are training on a **~60-token backend** and want the budget spent entirely on
+  concept tags. (Though you can leave it on: the appended tokens are the first to
+  be dropped anyway, so they cost you nothing you would have kept.)
+
+## Where it shows up
+
+**Prose Enrichment** in the [Caption tool](/) applies to folder, Immich, and manifest
+runs. It is not accepted by the upload endpoint, so the toggle hides in **Upload**
+mode.
+
+Do not confuse it with the **tag ↔ prose balance** control next to it: balance decides
+how much prose survives *into the prose variant*, while enrichment decides whether
+novel prose phrases are appended *to the training variant*.
+
+## Try it
+
+- Open the [Caption tool](/) and expand the **Prose Enrichment** info panel — it
+  reads from the same source as this page.
+- Caption a folder with it on and off, then diff `final_caption` against `raw_prose`
+  in the [raw outputs](/) panel to see exactly which phrases were mined.

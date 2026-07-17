@@ -41,6 +41,7 @@ export const CONCEPTS = {
     ].join("\n"),
     example: 'target_style="photo"',
     related: ["target_backend", "target_category"],
+    href: "/docs/captioning/target-style",
   },
   target_backend: {
     id: "target_backend",
@@ -56,6 +57,7 @@ export const CONCEPTS = {
     ].join("\n"),
     example: 'target_backend="sdxl"',
     related: ["target_style", "prose_enrichment"],
+    href: "/docs/captioning/target-backend",
   },
   target_category: {
     id: "target_category",
@@ -85,6 +87,7 @@ export const CONCEPTS = {
     ].join("\n"),
     example: "prose_enrichment=true",
     related: ["target_backend"],
+    href: "/docs/captioning/prose-enrichment",
   },
 } satisfies Record<string, Concept>;
 

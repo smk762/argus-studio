@@ -19,7 +19,14 @@ export const DOCS_NAV: DocsNavSection[] = [
     items: [{ href: "/docs", label: "Overview" }],
   },
   {
+    // Ordered as the Caption tool presents the controls, so the sidebar reads
+    // in the order a user meets these decisions.
     title: "Captioning",
-    items: [{ href: "/docs/captioning/target-category", label: "Target category" }],
+    items: [
+      { href: "/docs/captioning/target-style", label: "Target style" },
+      { href: "/docs/captioning/target-backend", label: "Target backend" },
+      { href: "/docs/captioning/target-category", label: "Target category" },
+      { href: "/docs/captioning/prose-enrichment", label: "Prose enrichment" },
+    ],
   },
 ];
