@@ -25,19 +25,21 @@ const FRAGMENTS: { text: string; tokens: number; priority: string }[] = [
 const TOTAL = FRAGMENTS.reduce((n, f) => n + f.tokens, 0);
 
 export function TokenBudgetDemo() {
-  const [backend, setBackend] = useState<string>("sdxl");
+  const [backend, setBackend] = useState<string>(TARGET_BACKENDS[0].value);
   const selected = TARGET_BACKENDS.find((b) => b.value === backend) ?? TARGET_BACKENDS[0];
   const budget = selected.tokens;
 
-  // Walk the fragments in priority order, spending the budget until it runs out.
-  const { rows } = FRAGMENTS.reduce(
-    (acc, f) => {
-      const fits = acc.spent + f.tokens <= budget;
-      acc.rows.push({ ...f, fits });
-      return { spent: fits ? acc.spent + f.tokens : acc.spent, rows: acc.rows };
-    },
-    { spent: 0, rows: [] as { text: string; tokens: number; priority: string; fits: boolean }[] },
-  );
+  // Assemble the fragments highest-priority-first, stopping the moment the
+  // budget overflows — a caption is truncated at the tail, never packed
+  // greedily, so once one fragment is dropped every lower-priority one is too.
+  let spent = 0;
+  let overflowed = false;
+  const rows = FRAGMENTS.map((f) => {
+    const fits = !overflowed && spent + f.tokens <= budget;
+    if (fits) spent += f.tokens;
+    else overflowed = true;
+    return { ...f, fits };
+  });
   const dropped = rows.filter((r) => !r.fits).length;
 
   return (
@@ -73,7 +75,7 @@ export function TokenBudgetDemo() {
           <span className="text-accent-green">everything fits.</span>
         ) : (
           <span className="text-accent-amber">
-            the {dropped} lowest-priority {dropped === 1 ? "fragment" : "fragments"} get dropped.
+            the {dropped} lowest-priority {dropped === 1 ? "fragment is" : "fragments are"} dropped.
           </span>
         )}
       </p>
@@ -87,6 +89,7 @@ export function TokenBudgetDemo() {
               style={{ width: `${(r.tokens / TOTAL) * 60}%` }}
             />
             <span className={r.fits ? "text-foreground/80" : "text-muted line-through"}>
+              {!r.fits && <span className="sr-only">dropped: </span>}
               {r.text}
             </span>
             <span className="ml-auto shrink-0 font-mono text-xs text-muted">{r.tokens}t</span>
