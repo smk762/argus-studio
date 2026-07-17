@@ -1,0 +1,49 @@
+import { ConceptBody } from "@/components/docs/ConceptBody";
+import { TokenBudgetDemo } from "@/components/docs/TokenBudgetDemo";
+
+export const metadata = {
+  title: "Target backend · Argus Studio Docs",
+  description:
+    "The diffusion architecture that will consume the caption, and the token budget it imposes.",
+};
+
+# Target backend
+
+<ConceptBody id="target_backend" />
+
+## Spend the budget
+
+Pick a backend and watch the same caption fit — or not. The budgets are the ones the
+[Caption tool](/) sends, so this is the trade you are actually making:
+
+<TokenBudgetDemo />
+
+The lesson is priority, not length. A caption is assembled highest-priority-first,
+so a tight budget does not truncate mid-sentence — it drops whole low-priority
+fragments. Identity survives; appended prose is spent first.
+
+## Choosing one
+
+Match the backend to the checkpoint you will train against, not to the caption you
+wish you could write:
+
+- **~60 tokens** (SDXL, SD 1.5, Playground) — budget is scarce. Lean on
+  [tags over prose](/docs/captioning/prose-enrichment) and let the low-priority
+  fragments go.
+- **~200 tokens** (Flux, SD3, Kolors, PixArt) — room for scene context, so prose
+  enrichment earns its place.
+
+Exceeding the budget is not an error; it is waste. The tokens past the limit are
+assembled, then never seen by the model.
+
+## Where it shows up
+
+**Target Backend** in the [Caption tool](/) sets the budget for every caption in
+the run, single or batch. It pairs with [Target style](/docs/captioning/target-style),
+which decides the *shape* of the tokens the budget is spent on.
+
+## Try it
+
+- Open the [Caption tool](/) and expand the **Target Backend** info panel — it reads
+  from the same source as this page.
+- Caption one image at ~60 tokens, then again at ~200, and diff the `final_caption`.

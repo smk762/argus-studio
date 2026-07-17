@@ -19,7 +19,15 @@ The Argus suite takes you from raw images to an evaluated LoRA:
 
 ## Concepts
 
+The four decisions the [Caption tool](/) asks you to make, in the order it asks them:
+
+- [Target style](/docs/captioning/target-style) — natural-language or booru tag-style,
+  matched to the checkpoint you will train against.
+- [Target backend](/docs/captioning/target-backend) — the architecture that consumes the
+  caption, and the token budget it imposes.
 - [Target category](/docs/captioning/target-category) — which caption variant becomes
   the training caption, and what good input looks like for each.
+- [Prose enrichment](/docs/captioning/prose-enrichment) — whether novel prose phrases are
+  appended to the training caption.
 
 More concept and guide pages are on the way (see the interactive-docs roadmap).

@@ -1,0 +1,46 @@
+import { ConceptBody } from "@/components/docs/ConceptBody";
+import { TargetStyleDemo } from "@/components/docs/TargetStyleDemo";
+
+export const metadata = {
+  title: "Target style · Argus Studio Docs",
+  description:
+    "How tags are classified and budgeted for your model family — natural-language prose vs booru tag-style.",
+};
+
+# Target style
+
+<ConceptBody id="target_style" />
+
+## Two shapes of the same image
+
+The style does not change what the captioner *sees* — it changes how that gets
+written down. Toggle between them:
+
+<TargetStyleDemo />
+
+Anime style also packs more in: a tag-trained checkpoint expects a denser token
+run, so the assembler allows more segments before it starts dropping them.
+
+## Picking one
+
+Match the **base checkpoint you will train against**, not the subject matter. A
+photograph captioned for Pony still wants `anime` style, because Pony was trained
+on booru tags — the style describes the *model's* vocabulary, not the image's
+content.
+
+A quick test: if the checkpoint's own docs show example prompts full of
+`comma_separated_tags`, pick **anime**. If they read like sentences, pick **photo**.
+
+## Where it shows up
+
+**Target Style** in the [Caption tool](/) applies to every caption in the run. It
+pairs with [Target backend](/docs/captioning/target-backend), which sets *how many*
+of these tokens you can afford, and with
+[Target category](/docs/captioning/target-category), which picks which variant
+becomes the `final_caption`.
+
+## Try it
+
+- Open the [Caption tool](/) and expand the **Target Style** info panel — it reads
+  from the same source as this page.
+- Caption the same image both ways and compare the tag variant.
