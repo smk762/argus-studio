@@ -3,6 +3,9 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { DocsSidebar } from "@/components/docs/DocsSidebar";
+import { DocsBreadcrumb } from "@/components/docs/DocsBreadcrumb";
+import { DocsPager } from "@/components/docs/DocsPager";
+import { DocsToc } from "@/components/docs/DocsToc";
 
 export const metadata: Metadata = {
   title: "Docs · Argus Studio",
@@ -26,8 +29,15 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
           </div>
         </aside>
         <main className="min-w-0 flex-1">
+          <DocsBreadcrumb />
           <article className="max-w-3xl">{children}</article>
+          <DocsPager />
         </main>
+        <aside className="hidden w-52 shrink-0 xl:block">
+          <div className="sticky top-24">
+            <DocsToc />
+          </div>
+        </aside>
       </div>
 
       <SiteFooter

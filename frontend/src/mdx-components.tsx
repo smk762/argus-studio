@@ -1,6 +1,7 @@
 import type { MDXComponents } from "mdx/types";
 import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
+import { nodeText, slugify } from "@/lib/slug";
 
 /**
  * Maps the markdown primitives emitted by MDX onto the Studio design tokens
@@ -9,17 +10,31 @@ import type { ComponentPropsWithoutRef } from "react";
  * renders as-is; this only themes the plain prose.
  *
  * Internal links go through next/link so docs<->tools navigation is client-side.
+ * `h2`/`h3` get a slug `id` (from their text) so the on-page TOC and `#anchor`
+ * links resolve; a caller-supplied `id` still wins.
  */
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     h1: (props: ComponentPropsWithoutRef<"h1">) => (
       <h1 className="text-2xl font-semibold text-foreground mt-2 mb-4" {...props} />
     ),
-    h2: (props: ComponentPropsWithoutRef<"h2">) => (
-      <h2 className="text-xl font-semibold text-foreground mt-10 mb-3 scroll-mt-24" {...props} />
+    h2: ({ id, children, ...props }: ComponentPropsWithoutRef<"h2">) => (
+      <h2
+        id={id ?? slugify(nodeText(children))}
+        className="text-xl font-semibold text-foreground mt-10 mb-3 scroll-mt-24"
+        {...props}
+      >
+        {children}
+      </h2>
     ),
-    h3: (props: ComponentPropsWithoutRef<"h3">) => (
-      <h3 className="text-base font-semibold text-foreground mt-6 mb-2 scroll-mt-24" {...props} />
+    h3: ({ id, children, ...props }: ComponentPropsWithoutRef<"h3">) => (
+      <h3
+        id={id ?? slugify(nodeText(children))}
+        className="text-base font-semibold text-foreground mt-6 mb-2 scroll-mt-24"
+        {...props}
+      >
+        {children}
+      </h3>
     ),
     p: (props: ComponentPropsWithoutRef<"p">) => (
       <p className="text-sm leading-relaxed text-foreground/80 my-3" {...props} />

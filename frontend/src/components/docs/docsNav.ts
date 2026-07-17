@@ -30,3 +30,31 @@ export const DOCS_NAV: DocsNavSection[] = [
     ],
   },
 ];
+
+/** A page in reading order, carrying the section it belongs to (for breadcrumbs). */
+export interface DocsNavPage extends DocsNavItem {
+  section: string;
+}
+
+/**
+ * The manifest flattened into linear reading order — the single source both
+ * prev/next paging and the breadcrumb read, so page order lives in one place.
+ */
+export const DOCS_PAGES: DocsNavPage[] = DOCS_NAV.flatMap((section) =>
+  section.items.map((item) => ({ ...item, section: section.title })),
+);
+
+/** Prev/next/current for `pathname`, or nulls when it is not a registered page. */
+export function docsPager(pathname: string): {
+  current: DocsNavPage | null;
+  prev: DocsNavPage | null;
+  next: DocsNavPage | null;
+} {
+  const i = DOCS_PAGES.findIndex((p) => p.href === pathname);
+  if (i === -1) return { current: null, prev: null, next: null };
+  return {
+    current: DOCS_PAGES[i],
+    prev: i > 0 ? DOCS_PAGES[i - 1] : null,
+    next: i < DOCS_PAGES.length - 1 ? DOCS_PAGES[i + 1] : null,
+  };
+}
