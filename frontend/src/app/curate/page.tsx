@@ -195,6 +195,11 @@ export default function CuratePage() {
   );
 
   const selectVisible = () => setSelected((prev) => new Set([...prev, ...filtered.map((r) => r.rel_path)]));
+  const deselectHidden = () =>
+    setSelected((prev) => {
+      const visible = new Set(filtered.map((r) => r.rel_path));
+      return new Set([...prev].filter((relPath) => visible.has(relPath)));
+    });
   const clearSelection = () => setSelected(new Set());
 
   return (
@@ -356,6 +361,13 @@ export default function CuratePage() {
                         className="cursor-pointer rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
                       >
                         Select visible
+                      </button>
+                      <button
+                        type="button"
+                        onClick={deselectHidden}
+                        className="cursor-pointer rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+                      >
+                        Deselect hidden
                       </button>
                       <button
                         type="button"
