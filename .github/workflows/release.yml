@@ -12,7 +12,8 @@ name: Release image to GHCR
 
 on:
   push:
-    tags: ["v*"]
+    # Require a digit after `v` so a stray tag (vtest, v-wip) can't publish.
+    tags: ["v[0-9]*"]
 
 concurrency:
   group: release-${{ github.ref }}
@@ -21,11 +22,15 @@ concurrency:
 jobs:
   publish-image:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+
+      # QEMU is needed to build the linux/arm64 image on an amd64 runner.
+      - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
 
@@ -39,23 +44,31 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/argus-studio
+          # `latest` comes from the default `flavor: latest=auto`, which tags it
+          # only on the newest non-pre-release semver — so an rc/beta tag does
+          # not move `latest`. (An explicit type=raw,value=latest would.)
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
 
       - uses: docker/build-push-action@v6
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Single manifest per platform — skip the default provenance
+          # attestation that otherwise adds an `unknown/unknown` entry to GHCR.
+          provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
           # Baked into the client bundle. Unset variables fall back to the
-          # demo-mode defaults (which match the Dockerfile), so the default
-          # published image is a self-contained demo build.
+          # demo-mode defaults (which match the Dockerfile). This is a demo
+          # FRONT-END: with default localhost:810x URLs the browser expects the
+          # argus compose stack on the user's own host (only /curate demo mode
+          # is backend-free). Override the vars for a hosted deployment.
           build-args: |
             NEXT_PUBLIC_CURATOR_UI_MODE=${{ vars.NEXT_PUBLIC_CURATOR_UI_MODE || 'demo' }}
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:8100' }}
