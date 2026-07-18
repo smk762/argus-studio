@@ -16,6 +16,14 @@ export interface Health {
   status: string;
   service: string;
   version: string;
+  /**
+   * Absolute export root the server contains `/export` destinations under, or
+   * `null` when unconfigured (in which case every live export 400s). Older
+   * servers omit the field. Added in the curator path-containment change.
+   */
+  export_root?: string | null;
+  /** Whether the server permits destructive `mode: "move"` exports. */
+  allow_move?: boolean;
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<Health> {

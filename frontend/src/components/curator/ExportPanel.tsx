@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { exportSelectionStream, type ExportProgress } from "@/lib/curatorApi";
+import { useEffect, useState } from "react";
+import { exportSelectionStream, getHealth, type ExportProgress } from "@/lib/curatorApi";
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
 import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
 import { FORGE_URL, IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
@@ -65,6 +65,31 @@ export function ExportPanel({ summary, selectedResults }: Props) {
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
   const [forgeRunning, setForgeRunning] = useState(false);
   const [forgeResult, setForgeResult] = useState<ForgeResult | null>(null);
+  // Server capabilities from /health (live only). `null` = not yet known;
+  // the curator path-containment change gates move and needs an export root.
+  const [allowMove, setAllowMove] = useState<boolean | null>(null);
+  const [exportRootUnset, setExportRootUnset] = useState(false);
+
+  useEffect(() => {
+    if (!IS_LIVE) return;
+    const ctrl = new AbortController();
+    getHealth(ctrl.signal)
+      .then((h) => {
+        // Older servers omit the fields; treat that as "no gate / unknown"
+        // rather than falsely disabling move on a server that allows it.
+        setAllowMove(h.allow_move ?? true);
+        setExportRootUnset("export_root" in h && h.export_root == null);
+      })
+      .catch(() => {
+        /* health unreachable — the export attempt surfaces the real error */
+      });
+    return () => ctrl.abort();
+  }, []);
+
+  // Never leave the destructive, now-disabled option selected.
+  useEffect(() => {
+    if (allowMove === false) setMode((m) => (m === "move" ? "copy" : m));
+  }, [allowMove]);
 
   const count = selectedResults.length;
   const disabled = count === 0 || busy;
@@ -230,22 +255,39 @@ export function ExportPanel({ summary, selectedResults }: Props) {
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-green/50 focus:outline-none focus:ring-1 focus:ring-accent-green/50 disabled:cursor-not-allowed disabled:opacity-50"
           />
           <div className="flex gap-2">
-            {(["copy", "symlink", "move"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                disabled={busy}
-                className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  mode === m
-                    ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal"
-                    : "border border-border bg-background text-muted hover:text-foreground"
-                }`}
-              >
-                {m}
-              </button>
-            ))}
+            {(["copy", "symlink", "move"] as Mode[]).map((m) => {
+              // The server rejects move with 403 unless started with
+              // --allow-move / CURATOR_ALLOW_MOVE=1; disable it rather than
+              // surface a raw 403 after the user commits to an export.
+              const gated = m === "move" && allowMove === false;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  disabled={busy || gated}
+                  title={
+                    gated
+                      ? "Disabled on this server. Start the curator with --allow-move (CURATOR_ALLOW_MOVE=1) to permit destructive move exports."
+                      : undefined
+                  }
+                  className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    mode === m
+                      ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal"
+                      : "border border-border bg-background text-muted hover:text-foreground"
+                  }`}
+                >
+                  {m}
+                </button>
+              );
+            })}
           </div>
+          {exportRootUnset && (
+            <p className="rounded-lg border border-accent-orange/30 bg-accent-orange/5 px-3 py-2 text-[11px] leading-relaxed text-accent-orange">
+              The curator has no export root configured, so exports will fail.
+              Set <span className="font-mono">CURATOR_EXPORT_PATH</span> on the curator service.
+            </p>
+          )}
           <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
