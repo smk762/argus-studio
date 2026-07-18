@@ -8,6 +8,7 @@
 
 import { PROOF_URL } from "@/lib/curatorEnv";
 import { asError } from "@/lib/apiError";
+import { readNdjson } from "@/lib/lensApi";
 
 // --- wire types (mirror argus_proof.models) --------------------------------
 
@@ -92,6 +93,8 @@ export interface ReportSummary {
   n_images: number;
   n_groups: number | null;
   n_needs_hitl: number;
+  /** Images carrying a second-pass refinement (0 on older servers). */
+  n_refined?: number;
   created_at: string | null;
 }
 
@@ -298,4 +301,107 @@ export async function submitHitl(runId: string, req: HitlRequest, signal?: Abort
   });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+// --- evaluation runs ---------------------------------------------------------
+
+/** The URL a generated sample is served from (GET /report/{run}/image/{id}).
+ * Ids only — the server resolves them under its runs root, never a client path. */
+export function proofImageUrl(runId: string, imageId: string): string {
+  return `${PROOF_URL}/report/${encodeURIComponent(runId)}/image/${encodeURIComponent(imageId)}`;
+}
+
+/** A curator export dir the proof server can evaluate against (GET /exports). */
+export interface ProofExport {
+  name: string;
+  n_rows: number;
+  /** True when the export carries a held-out references/ dir (identity scoring). */
+  has_references: boolean;
+}
+
+export async function listExports(signal?: AbortSignal): Promise<ProofExport[]> {
+  const resp = await fetch(`${PROOF_URL}/exports`, { signal });
+  if (!resp.ok) return asError(resp);
+  const body = (await resp.json()) as { exports: ProofExport[] };
+  return body.exports;
+}
+
+/** Engine-loadable model names under the proof models dir (GET /models). */
+export interface ProofModels {
+  checkpoints: string[];
+  loras: string[];
+}
+
+export async function listProofModels(signal?: AbortSignal): Promise<ProofModels> {
+  const resp = await fetch(`${PROOF_URL}/models`, { signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** POST /run/stream request — mirrors the server's RunRequest. */
+export interface RunEvalRequest {
+  lora: string;
+  base_checkpoint: string;
+  lora_weight?: number;
+  /** Export *name* (from listExports) to source the prompt + references from. */
+  export?: string;
+  /** Explicit prompt; overrides the export's captions. */
+  prompt?: string;
+  negative_prompt?: string;
+  seeds?: number[];
+  steps?: number;
+  cfg?: number;
+  sampler?: string;
+  scheduler?: string;
+  width?: number;
+  height?: number;
+  clip_skip?: number;
+  run_id?: string;
+}
+
+/** One NDJSON frame from POST /run/stream. Generation frames follow the proof
+ * ProgressEvent shape (start/progress/image/done), then `scoring`, then either
+ * `complete` (with the stored report's summary) or `error`. */
+export interface RunEvalProgress {
+  type: "start" | "progress" | "image" | "done" | "scoring" | "complete" | "error";
+  run_id: string;
+  message?: string;
+  seed?: number;
+  image_id?: string;
+  completed?: number;
+  total?: number;
+  n_images?: number;
+  report?: ReportSummary;
+}
+
+/**
+ * Trigger a generation+scoring run (POST /run/stream), streaming NDJSON
+ * progress. Resolves with the stored report's summary from the `complete`
+ * frame; a streamed `error` frame rejects.
+ */
+export async function runEvalStream(
+  req: RunEvalRequest,
+  onProgress: (p: RunEvalProgress) => void,
+  signal?: AbortSignal,
+): Promise<ReportSummary> {
+  const resp = await fetch(`${PROOF_URL}/run/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    signal,
+  });
+  if (!resp.ok) return asError(resp);
+
+  let summary: ReportSummary | null = null;
+  let streamedError: string | null = null;
+  await readNdjson(resp, (obj) => {
+    const frame = obj as unknown as RunEvalProgress;
+    onProgress(frame);
+    if (frame.type === "complete" && frame.report) summary = frame.report;
+    else if (frame.type === "error") streamedError = frame.message ?? "generation failed";
+  });
+
+  if (streamedError) throw new Error(streamedError);
+  if (!summary) throw new Error("Run stream ended without a result");
+  return summary;
 }

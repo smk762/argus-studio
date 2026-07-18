@@ -8,6 +8,7 @@ import {
   imageState,
   METRIC_LABELS,
   presentMetrics,
+  proofImageUrl,
   rejectLabel,
   submitHitl,
   type EvalReport,
@@ -71,6 +72,31 @@ function StateBadge({ img }: { img: ImageScores }) {
 
 function meanCount(means: MetricScores): number {
   return presentMetrics(means).length;
+}
+
+/** The generated sample: the real image (served by id from the proof server)
+ * when live, a placeholder in demo mode or when the file isn't servable. The
+ * image itself stays visible in blind mode — only identifying metadata and
+ * scores are hidden, since a reviewer has to see the sample to rate it. */
+function SampleImage({ runId, img, hidden, live }: { runId: string; img: ImageScores; hidden: boolean; live: boolean }) {
+  const [failed, setFailed] = useState(false);
+  if (!live || failed) {
+    return (
+      <div className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-border bg-surface-hover/40 text-center text-[11px] text-muted/60">
+        {hidden ? "blind sample" : `seed ${img.seed}`}
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- served by the proof API, not a Next asset
+    <img
+      src={proofImageUrl(runId, img.image_id)}
+      alt={hidden ? "blind sample" : `${img.image_id} (seed ${img.seed})`}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="aspect-square w-full rounded-lg border border-border bg-surface-hover/40 object-cover"
+    />
+  );
 }
 
 interface ProofBoardProps {
@@ -334,11 +360,7 @@ export function ProofBoard({ initialReport, live }: ProofBoardProps) {
                 focused ? "border-accent-purple/70 bg-surface" : "border-border bg-surface/40"
               }`}
             >
-              {/* Placeholder for the generated sample (proof image serving lands
-                  with the run/score verbs). Its dataset thumbnail sits beside it. */}
-              <div className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-border bg-surface-hover/40 text-center text-[11px] text-muted/60">
-                {hidden ? "blind sample" : `seed ${img.seed}`}
-              </div>
+              <SampleImage runId={report.run_id} img={img} hidden={hidden} live={live} />
 
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate font-mono text-[11px] text-foreground/80">

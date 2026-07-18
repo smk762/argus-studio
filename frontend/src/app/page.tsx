@@ -25,7 +25,7 @@ import {
 import {
   captionFilesStream,
   captionFolder,
-  captionManifest,
+  captionManifestStream,
   getLensProfiles,
   immichCaptionStream,
   listImmichAlbums,
@@ -226,15 +226,42 @@ export default function Home() {
     if (!manifestFile) return;
     setLoading(true);
     setError(null);
+    setResult(null);
     setBatchResult(null);
+    setBatchSource(manifestFile.name);
+
+    const rows: { rel_path: string; final_caption: string }[] = [];
+    const errors: { rel_path: string; error: string }[] = [];
     try {
-      const data = await captionManifest(manifestFile, { write_sidecar: writeSidecar, write_xmp: writeXmp });
-      setBatchResult(data);
-      setBatchSource(manifestFile.name);
+      const manifestText = await manifestFile.text();
+      // Seed a total from the manifest line count so the bar renders before the
+      // first row lands; the server's authoritative total overrides it below.
+      const total = manifestText.split("\n").filter((l) => l.trim()).length;
+      setProgress({ done: 0, total });
+
+      const summary = await captionManifestStream(
+        manifestText,
+        (p) => {
+          setProgress({ done: p.done, total: p.total });
+          if (p.error) errors.push({ rel_path: p.rel_path, error: p.error });
+          else rows.push({ rel_path: p.rel_path, final_caption: p.final_caption ?? "" });
+          // Publish a growing snapshot so captions stream into the results table.
+          setBatchResult({
+            total: p.total,
+            captioned: rows.length,
+            failed: errors.length,
+            results: [...rows],
+            errors: [...errors],
+          });
+        },
+        { write_sidecar: writeSidecar, write_xmp: writeXmp },
+      );
+      setBatchResult({ ...summary, results: rows, errors });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -577,9 +604,10 @@ export default function Home() {
                   {loading ? <Spinner label="Captioning..." /> : "Caption manifest"}
                 </button>
               </div>
-              <div className="flex flex-wrap gap-5">
+              <div className="flex flex-wrap items-center gap-5">
                 <Toggle checked={writeSidecar} onChange={setWriteSidecar} label="Write .txt sidecars" />
                 <Toggle checked={writeXmp} onChange={setWriteXmp} label="Write .xmp sidecars" />
+                {progress && <ProgressLine done={progress.done} total={progress.total} />}
               </div>
             </div>
           )}
