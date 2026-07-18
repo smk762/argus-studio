@@ -311,6 +311,28 @@ export function proofImageUrl(runId: string, imageId: string): string {
   return `${PROOF_URL}/report/${encodeURIComponent(runId)}/image/${encodeURIComponent(imageId)}`;
 }
 
+/** Seed-free image URL for blind review — by position in the report
+ * (GET /report/{run}/image_at/{index}), since the by-id URL embeds `<run>-<seed>`. */
+export function proofImageAtUrl(runId: string, index: number): string {
+  return `${PROOF_URL}/report/${encodeURIComponent(runId)}/image_at/${index}`;
+}
+
+/** A scorer the proof server can run and whether its deps are installed
+ * (GET /scorers). The learned metrics (identity/clip/aesthetic/safety) need the
+ * `score` extra; `metric` is null for the dedup/diversity passes. */
+export interface ProofScorer {
+  metric: string | null;
+  name: string;
+  available: boolean;
+}
+
+export async function listScorers(signal?: AbortSignal): Promise<ProofScorer[]> {
+  const resp = await fetch(`${PROOF_URL}/scorers`, { signal });
+  if (!resp.ok) return asError(resp);
+  const body = (await resp.json()) as { scorers: ProofScorer[] };
+  return body.scorers;
+}
+
 /** A curator export dir the proof server can evaluate against (GET /exports). */
 export interface ProofExport {
   name: string;

@@ -8,6 +8,7 @@ import {
   imageState,
   METRIC_LABELS,
   presentMetrics,
+  proofImageAtUrl,
   proofImageUrl,
   rejectLabel,
   submitHitl,
@@ -78,7 +79,20 @@ function meanCount(means: MetricScores): number {
  * when live, a placeholder in demo mode or when the file isn't servable. The
  * image itself stays visible in blind mode — only identifying metadata and
  * scores are hidden, since a reviewer has to see the sample to rate it. */
-function SampleImage({ runId, img, hidden, live }: { runId: string; img: ImageScores; hidden: boolean; live: boolean }) {
+function SampleImage({
+  runId,
+  img,
+  index,
+  hidden,
+  live,
+}: {
+  runId: string;
+  img: ImageScores;
+  /** Position in the stored report — used for the seed-free blind-mode URL. */
+  index: number;
+  hidden: boolean;
+  live: boolean;
+}) {
   const [failed, setFailed] = useState(false);
   if (!live || failed) {
     return (
@@ -90,7 +104,7 @@ function SampleImage({ runId, img, hidden, live }: { runId: string; img: ImageSc
   return (
     // eslint-disable-next-line @next/next/no-img-element -- served by the proof API, not a Next asset
     <img
-      src={proofImageUrl(runId, img.image_id)}
+      src={hidden ? proofImageAtUrl(runId, index) : proofImageUrl(runId, img.image_id)}
       alt={hidden ? "blind sample" : `${img.image_id} (seed ${img.seed})`}
       loading="lazy"
       onError={() => setFailed(true)}
@@ -153,6 +167,12 @@ export function ProofBoard({ initialReport, live }: ProofBoardProps) {
     if (needsOnly) idx = idx.filter((i) => imageState(imgs[i]) === "needs_hitl");
     return idx;
   }, [report, blind, needsOnly]);
+
+  // image_id -> position in the stored report, for the seed-free blind image URL.
+  const reportIndexById = useMemo(
+    () => new Map(report.images.map((im, i) => [im.image_id, i])),
+    [report.images],
+  );
 
   const editFor = useCallback(
     (img: ImageScores): HitlEdit => edits.get(img.image_id) ?? { hitl_rating: img.hitl_rating, reject_reasons: img.reject_reasons },
@@ -360,7 +380,13 @@ export function ProofBoard({ initialReport, live }: ProofBoardProps) {
                 focused ? "border-accent-purple/70 bg-surface" : "border-border bg-surface/40"
               }`}
             >
-              <SampleImage runId={report.run_id} img={img} hidden={hidden} live={live} />
+              <SampleImage
+                runId={report.run_id}
+                img={img}
+                index={reportIndexById.get(img.image_id) ?? 0}
+                hidden={hidden}
+                live={live}
+              />
 
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate font-mono text-[11px] text-foreground/80">
