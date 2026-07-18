@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   listExports,
   listProofModels,
+  listScorers,
   runEvalStream,
   type ProofExport,
   type ProofModels,
@@ -79,21 +80,34 @@ export function NewEvaluation({ onComplete }: NewEvaluationProps) {
   const [phase, setPhase] = useState<Phase>("generating");
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
+  // True when the server has no learned scorers installed — a run then scores
+  // nothing and routes every image to manual review (light `server,cli` image).
+  const [scoringUnavailable, setScoringUnavailable] = useState(false);
 
   // Load the pickers when the panel opens; free-text fallbacks cover failures.
   useEffect(() => {
     if (!open) return;
     const ctrl = new AbortController();
     (async () => {
-      try {
-        const [ex, mo] = await Promise.all([listExports(ctrl.signal), listProofModels(ctrl.signal)]);
-        setExports(ex);
-        setModels(mo);
-        setExportName((cur) => cur || (ex[0]?.name ?? ""));
-        setCheckpoint((cur) => cur || (mo.checkpoints[0] ?? ""));
-        setLora((cur) => cur || (mo.loras[0] ?? ""));
-      } catch {
-        // Server may not expose exports/models yet — inputs stay free text.
+      // allSettled: one failing endpoint mustn't discard the others.
+      const [ex, mo, sc] = await Promise.allSettled([
+        listExports(ctrl.signal),
+        listProofModels(ctrl.signal),
+        listScorers(ctrl.signal),
+      ]);
+      if (ex.status === "fulfilled") {
+        setExports(ex.value);
+        setExportName((cur) => cur || (ex.value[0]?.name ?? ""));
+      }
+      if (mo.status === "fulfilled") {
+        setModels(mo.value);
+        setCheckpoint((cur) => cur || (mo.value.checkpoints[0] ?? ""));
+        setLora((cur) => cur || (mo.value.loras[0] ?? ""));
+      }
+      if (sc.status === "fulfilled") {
+        // Warn only when NO learned (metric-bearing) scorer is available.
+        const learned = sc.value.filter((s) => s.metric != null);
+        setScoringUnavailable(learned.length > 0 && learned.every((s) => !s.available));
       }
     })();
     return () => ctrl.abort();
@@ -189,6 +203,14 @@ export function NewEvaluation({ onComplete }: NewEvaluationProps) {
           <Field label="Prompt override (optional — otherwise the export's caption is used)">
             <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="a photo of sks person…" className={inputClass} />
           </Field>
+
+          {scoringUnavailable && (
+            <p className="rounded-lg border border-accent-orange/30 bg-accent-orange/5 px-3 py-2 text-[11px] leading-relaxed text-accent-orange">
+              No learned scorers are installed on this proof server, so a run will generate images but
+              score nothing — every sample lands in manual review. Rebuild the proof image with{" "}
+              <span className="font-mono">PROOF_EXTRAS=server,cli,score</span> to enable identity / quality / safety scoring.
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-4">
             <button
