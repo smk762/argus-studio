@@ -89,9 +89,10 @@ export interface CaptionSummary {
 
 /**
  * Read an NDJSON response line by line, invoking `onLine` with each parsed
- * object (the trailing partial line is buffered until complete).
+ * object (the trailing partial line is buffered until complete). Shared by the
+ * lens caption streams and the proof run stream (proofApi.ts).
  */
-async function readNdjson(resp: Response, onLine: (obj: Record<string, unknown>) => void): Promise<void> {
+export async function readNdjson(resp: Response, onLine: (obj: Record<string, unknown>) => void): Promise<void> {
   if (!resp.body) throw new Error("Response has no body to stream");
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
@@ -122,12 +123,13 @@ async function readNdjson(resp: Response, onLine: (obj: Record<string, unknown>)
 export async function captionManifestStream(
   manifestJsonl: string,
   onProgress: (p: CaptionProgress) => void,
-  opts?: { trigger_word?: string; signal?: AbortSignal } & HybridBalanceParams,
+  opts?: { trigger_word?: string; write_sidecar?: boolean; signal?: AbortSignal } & HybridBalanceParams,
 ): Promise<CaptionSummary> {
   const signal = opts?.signal;
   const form = new FormData();
   form.append("manifest", new Blob([manifestJsonl], { type: "application/x-ndjson" }), "manifest.jsonl");
   if (opts?.trigger_word) form.append("trigger_word", opts.trigger_word);
+  form.append("write_sidecar", String(opts?.write_sidecar ?? true));
   appendHybrid(form, opts);
 
   const resp = await fetch(`${LENS_URL}/caption/manifest/stream`, {

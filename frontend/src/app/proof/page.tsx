@@ -13,6 +13,7 @@ import { IS_LIVE } from "@/lib/curatorEnv";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ProofBoard } from "@/components/proof/ProofBoard";
+import { NewEvaluation } from "@/components/proof/NewEvaluation";
 
 function verdictDot(s: ReportSummary): string {
   if (s.passed) return "bg-accent-green";
@@ -74,6 +75,17 @@ export default function ProofPage() {
     return () => ctrl.abort();
   }, [selected, loadReport]);
 
+  // A finished evaluation run: refresh the run browser and land on the new
+  // scored report for HITL review.
+  const onRunComplete = useCallback(async (runId: string) => {
+    try {
+      setSummaries(await listReports());
+    } catch {
+      // the list refresh is best-effort; the report itself still loads below
+    }
+    setSelected(runId);
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader
@@ -104,7 +116,9 @@ export default function ProofPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+          <div className="space-y-6">
+            {IS_LIVE && <NewEvaluation onComplete={onRunComplete} />}
+            <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
             {/* Run browser */}
             <aside className="space-y-1">
               <div className="mb-2 text-[10px] uppercase tracking-wide text-muted">Runs</div>
@@ -139,6 +153,7 @@ export default function ProofPage() {
               {!loading && !error && !report && summaries.length > 0 && (
                 <p className="py-12 text-center text-sm text-muted">Select a run to review.</p>
               )}
+            </div>
             </div>
           </div>
         )}

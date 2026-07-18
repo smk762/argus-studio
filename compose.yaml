@@ -138,13 +138,20 @@ services:
 
   # ── Post-training evaluation (LoRA in, scored verdicts out) ─────────────
   # Post-training LoRA eval (smk762/argus-studio#6). Serves scored EvalReports on
-  # :8104 (GET /reports, GET/PUT /report/{id}, POST /report/{id}/hitl) — the
-  # backend for the studio /proof review view. Reads the dataset + exports;
-  # writes eval runs + reports under /data/out/proof/.
+  # :8104 (GET /reports, GET/PUT /report/{id}, POST /report/{id}/hitl), triggers
+  # generation+scoring runs (POST /run/stream against the configured backend),
+  # and serves the generated samples (GET /report/{id}/image/{id}) — the backend
+  # for the studio /proof review view. Reads the dataset + exports; writes eval
+  # runs + reports under /data/out/proof/.
   argus-proof:
     profiles: ["proof", "full"]
     build:
       context: ../argus-proof
+      args:
+        # pip extras baked into the image. Default is light (phash dedup only);
+        # "server,cli,score" adds the full scorer stack (identity/quality/safety
+        # — torch, insightface, pyiqa…) at a much larger image size.
+        EXTRAS: ${PROOF_EXTRAS:-server,cli}
     image: argus-proof:latest
     ports:
       - "${PROOF_PORT:-8104}:8104"
@@ -152,6 +159,21 @@ services:
       # Where the report store reads/writes <run_id>.json (under the mounted
       # output volume, so reviews persist across restarts).
       ARGUS_PROOF_REPORTS_DIR: /data/out/proof/reports
+      # Generated runs (<run_id>/manifest.json + images) — also what
+      # GET /report/{run_id}/image/{image_id} serves from.
+      ARGUS_PROOF_RUNS_DIR: /data/out/proof/runs
+      # Curator exports; GET /exports lists dirs with a manifest.jsonl here and
+      # POST /run/stream name-resolves its `export` field under this root.
+      ARGUS_PROOF_EXPORTS_DIR: /data/out
+      # Generation backend: a ComfyUI reachable FROM THE CONTAINER. The default
+      # targets a ComfyUI on the compose host (see extra_hosts below).
+      PROOF_BACKEND: ${PROOF_BACKEND:-comfyui}
+      COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://host.docker.internal:8188}
+      # Checkpoints/LoRAs (mounted below) — resolved + SHA256-pinned into run
+      # manifests, and listed by GET /models (checkpoints/ + loras/ layout).
+      # Two roots (PATH-style) mirror ComfyUI's main + extra_model_paths trees;
+      # with MODELS_EXTRA_DIR unset both point at the same tree (harmless).
+      PROOF_MODELS_DIR: /data/models:/data/models-extra
     volumes:
       # ro: proof only reads the curated source images (score references).
       - ${DATASET_DIR:-./data}:/data/images:ro
@@ -159,6 +181,14 @@ services:
       - ${QUARRY_HOME:-./quarry}:/data/quarry:ro
       # Exports live here; eval runs + reports land under /data/out/proof/.
       - ${OUTPUT_DIR:-./out}:/data/out
+      # ro: the generation engine's model tree(s) (same files ComfyUI loads), so
+      # run manifests pin the exact weights. Point MODELS_DIR (and, if ComfyUI
+      # uses extra_model_paths, MODELS_EXTRA_DIR) at them in .env.
+      - ${MODELS_DIR:-./models}:/data/models:ro
+      - ${MODELS_EXTRA_DIR:-${MODELS_DIR:-./models}}:/data/models-extra:ro
+    extra_hosts:
+      # Reach a ComfyUI running on the compose host at host.docker.internal.
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   # ── Upstream acquisition (run-to-completion job, not a server) ──────────
