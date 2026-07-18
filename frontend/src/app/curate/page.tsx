@@ -24,7 +24,7 @@ import {
   type ImageResult,
   type ScanSummary,
 } from "@/components/curator/types";
-import { getDetectors, getHealth, getScan, scanFolderStream, type ScanProgress } from "@/lib/curatorApi";
+import { getDetectors, getHealth, getScan, scanFolderStream, type Health, type ScanProgress } from "@/lib/curatorApi";
 import { CURATOR_UI_MODE, IS_LIVE, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
 
 type View = "grid" | "clusters";
@@ -62,6 +62,9 @@ export default function CuratePage() {
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState<string | null>(null);
+  // Full /health, fetched once here and passed to ExportPanel (which needs
+  // allow_move / export_root) so the page makes a single health request.
+  const [health, setHealth] = useState<Health | null>(null);
 
   const [filters, setFilters] = useState<CuratorFilters>(defaultFilters());
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -113,7 +116,10 @@ export default function CuratePage() {
     }
     const ctrl = new AbortController();
     getHealth(ctrl.signal)
-      .then((h) => setVersion(h.version))
+      .then((h) => {
+        setHealth(h);
+        setVersion(h.version);
+      })
       .catch(() => setVersion(""));
     return () => ctrl.abort();
   }, []);
@@ -324,7 +330,7 @@ export default function CuratePage() {
               <>
                 <FacetRail summary={summary} filters={filters} onChange={setFilters} visibleCount={filtered.length} />
                 <SelectionInsights summary={summary} selectedResults={selectedResults} />
-                <ExportPanel summary={summary} selectedResults={selectedResults} />
+                <ExportPanel summary={summary} selectedResults={selectedResults} health={health} />
               </>
             )}
           </aside>

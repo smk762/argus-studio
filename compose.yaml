@@ -103,8 +103,19 @@ services:
       - "${CURATOR_PORT:-8101}:8101"
     environment:
       - CURATOR_SOURCE_PATH=/data/images
+      # Required for live-mode export: the server refuses /export outright when
+      # the export root is unset. Matches the /data/out mount below, so the
+      # ExportPanel's default dest resolves as the (root-equal) export root.
+      - CURATOR_EXPORT_PATH=/data/out
       - CURATOR_CACHE_DIR=/root/.cache/argus_curator/scans
       - HF_HOME=/root/.cache/huggingface
+      # The image's default --cors permits only http://localhost:3000. For a
+      # custom port / LAN host / public demo, set the browser origin(s) here.
+      # - CURATOR_CORS_ORIGINS=https://studio.example.com
+      # Destructive mode="move" is rejected unless enabled here. Left off so the
+      # demo can't relocate source images; the ExportPanel disables the option
+      # to match. Uncomment to permit it.
+      # - CURATOR_ALLOW_MOVE=1
     volumes:
       - ${DATASET_DIR:-./data}:/data/images
       # Resolve argus-quarry's published symlinks (they point into the raw pool).

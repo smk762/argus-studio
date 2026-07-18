@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { exportSelectionStream, type ExportProgress } from "@/lib/curatorApi";
+import { exportSelectionStream, type ExportProgress, type Health } from "@/lib/curatorApi";
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
 import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
 import { FORGE_URL, IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
@@ -18,6 +18,8 @@ const HINT_TONE: Record<string, string> = {
 interface Props {
   summary: ScanSummary;
   selectedResults: ImageResult[];
+  /** Curator /health, fetched once by the parent (live only; null until known). */
+  health: Health | null;
 }
 
 type Mode = "copy" | "symlink" | "move";
@@ -49,7 +51,7 @@ function buildManifest(summary: ScanSummary, rows: ImageResult[]): string {
     .join("\n");
 }
 
-export function ExportPanel({ summary, selectedResults }: Props) {
+export function ExportPanel({ summary, selectedResults, health }: Props) {
   const [dest, setDest] = useState(LOCAL_OUTPUT_PATH || "/data/out");
   const [mode, setMode] = useState<Mode>("copy");
   const [preserve, setPreserve] = useState(true);
@@ -65,6 +67,14 @@ export function ExportPanel({ summary, selectedResults }: Props) {
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
   const [forgeRunning, setForgeRunning] = useState(false);
   const [forgeResult, setForgeResult] = useState<ForgeResult | null>(null);
+  // Server capabilities derived from the parent's /health fetch.
+  //   allowMove: true = permitted, false = server rejects move, null = not yet
+  //   known (still loading OR /health failed). Older servers omit allow_move —
+  //   treat that as permitted. The move gate below fails SAFE on null.
+  const allowMove = health ? (health.allow_move ?? true) : null;
+  // Present-and-null export_root means every live export 400s; a missing field
+  // (older server) or a real path is fine.
+  const exportRootUnset = health?.export_root === null;
 
   const count = selectedResults.length;
   const disabled = count === 0 || busy;
@@ -73,7 +83,9 @@ export function ExportPanel({ summary, selectedResults }: Props) {
 
   // Foot-gun warnings for the forge step (degenerate default dest, read-only
   // dataset mount, kohya's non-recursive image glob).
-  const exportRoot = LOCAL_OUTPUT_PATH || "/data/out";
+  // Trailing-slash-normalized so the root-equal compare below matches `d` (which
+  // is also stripped); prefer the server's authoritative root when /health knows it.
+  const exportRoot = (health?.export_root || LOCAL_OUTPUT_PATH || "/data/out").replace(/\/+$/, "");
   const forgeHints: string[] = [];
   if (toForge) {
     const d = dest.trim().replace(/\/+$/, "");
@@ -230,22 +242,42 @@ export function ExportPanel({ summary, selectedResults }: Props) {
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-green/50 focus:outline-none focus:ring-1 focus:ring-accent-green/50 disabled:cursor-not-allowed disabled:opacity-50"
           />
           <div className="flex gap-2">
-            {(["copy", "symlink", "move"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                disabled={busy}
-                className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  mode === m
-                    ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal"
-                    : "border border-border bg-background text-muted hover:text-foreground"
-                }`}
-              >
-                {m}
-              </button>
-            ))}
+            {(["copy", "symlink", "move"] as Mode[]).map((m) => {
+              // The server rejects move with 403 unless started with
+              // --allow-move / CURATOR_ALLOW_MOVE=1. Fail SAFE: disable move
+              // unless health positively permits it (allowMove === true), so a
+              // still-loading or unreachable /health can't leave a destructive
+              // move armed and surface a raw 403 after the user commits.
+              const gated = m === "move" && allowMove !== true;
+              const moveDenied = m === "move" && allowMove === false;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  disabled={busy || gated}
+                  title={
+                    moveDenied
+                      ? "Disabled on this server. Start the curator with --allow-move (CURATOR_ALLOW_MOVE=1) to permit destructive move exports."
+                      : undefined
+                  }
+                  className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    mode === m
+                      ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal"
+                      : "border border-border bg-background text-muted hover:text-foreground"
+                  }`}
+                >
+                  {m}
+                </button>
+              );
+            })}
           </div>
+          {exportRootUnset && (
+            <p className="rounded-lg border border-accent-orange/30 bg-accent-orange/5 px-3 py-2 text-[11px] leading-relaxed text-accent-orange">
+              The curator has no export root configured, so exports will fail.
+              Set <span className="font-mono">CURATOR_EXPORT_PATH</span> on the curator service.
+            </p>
+          )}
           <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
@@ -320,7 +352,7 @@ export function ExportPanel({ summary, selectedResults }: Props) {
           )}
           <button
             type="button"
-            disabled={disabled || !dest.trim()}
+            disabled={disabled || !dest.trim() || exportRootUnset}
             onClick={() => void runLiveExport()}
             className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
