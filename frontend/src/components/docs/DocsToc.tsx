@@ -42,8 +42,9 @@ export function DocsToc() {
   // Scroll-spy: highlight the topmost heading currently inside the top band.
   useEffect(() => {
     if (headings.length === 0) return;
-    // Track which headings are in the band; pick the first in document order,
-    // and clear when none remain so the highlight never sticks past the end.
+    // Band top inset, matched to the sticky header so an anchored heading counts.
+    const TOP_INSET = 80;
+    // Which headings are currently in the band; the first in document order wins.
     const visible = new Set<string>();
     const observer = new IntersectionObserver(
       (entries) => {
@@ -52,10 +53,19 @@ export function DocsToc() {
           else visible.delete(entry.target.id);
         }
         const topmost = headings.find((h) => visible.has(h.id));
-        setActiveId(topmost ? topmost.id : "");
+        setActiveId((prev) => {
+          // A heading is in the band -> it becomes current (no-op if unchanged).
+          if (topmost) return topmost.id;
+          // Nothing in the band: keep the current heading while reading down a
+          // long section, and only drop the highlight once scrolled back above
+          // the first heading, where nothing is "current" over the intro.
+          const first = document.getElementById(headings[0].id);
+          if (first && first.getBoundingClientRect().top > TOP_INSET) return "";
+          return prev;
+        });
       },
       // Trigger as a heading crosses the upper quarter of the viewport.
-      { rootMargin: "-80px 0px -70% 0px", threshold: 0 },
+      { rootMargin: `-${TOP_INSET}px 0px -70% 0px`, threshold: 0 },
     );
     for (const h of headings) {
       const el = document.getElementById(h.id);
