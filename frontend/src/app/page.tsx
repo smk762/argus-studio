@@ -254,7 +254,7 @@ export default function Home() {
             errors: [...errors],
           });
         },
-        { write_sidecar: writeSidecar },
+        { write_sidecar: writeSidecar, write_xmp: writeXmp },
       );
       setBatchResult({ ...summary, results: rows, errors });
     } catch (err) {

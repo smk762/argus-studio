@@ -99,11 +99,24 @@ export function NewEvaluation({ onComplete }: NewEvaluationProps) {
     return () => ctrl.abort();
   }, [open]);
 
-  const seedList = seeds
-    .split(/[\s,]+/)
-    .filter(Boolean)
-    .map(Number)
-    .filter((n) => Number.isInteger(n) && n >= 0);
+  // De-duplicate: the backend keys each generated image by `<run_id>-<seed>`,
+  // so a repeated seed collides (same image_id → duplicate React keys and
+  // shared HITL edits in the board).
+  const seedList = [
+    ...new Set(
+      seeds
+        .split(/[\s,]+/)
+        .filter(Boolean)
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n >= 0),
+    ),
+  ];
+  // Preserve a valid weight of 0 (baseline/ablation); only empty or non-numeric
+  // falls back to 1.0.
+  const loraWeight = weight.trim() !== "" && Number.isFinite(Number(weight)) ? Number(weight) : 1.0;
+  // Floor to a positive integer — the server rejects non-ints and <= 0.
+  const stepsFloor = Math.floor(Number(steps));
+  const stepsVal = Number.isFinite(stepsFloor) && stepsFloor > 0 ? stepsFloor : 25;
   const ready = checkpoint.trim() && lora.trim() && seedList.length > 0 && (exportName || prompt.trim());
 
   const start = async () => {
@@ -116,11 +129,11 @@ export function NewEvaluation({ onComplete }: NewEvaluationProps) {
         {
           lora: lora.trim(),
           base_checkpoint: checkpoint.trim(),
-          lora_weight: Number(weight) || 1.0,
+          lora_weight: loraWeight,
           export: exportName || undefined,
           prompt: prompt.trim() || undefined,
           seeds: seedList,
-          steps: Number(steps) || 25,
+          steps: stepsVal,
         },
         (p: RunEvalProgress) => {
           if (p.type === "start") setProgress({ done: 0, total: p.total ?? seedList.length });
