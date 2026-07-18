@@ -32,16 +32,27 @@ export function DocsToc() {
     }));
     // eslint-disable-next-line react-hooks/set-state-in-effect -- DOM read must run after render
     setHeadings(next);
+    // Drop the previous route's active heading: sibling pages share slug ids
+    // (e.g. every concept page has a "Try it" -> #try-it), so without this a
+    // stale highlight carries over on client navigation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on route change
+    setActiveId("");
   }, [pathname]);
 
-  // Scroll-spy: highlight the last heading scrolled past the top band.
+  // Scroll-spy: highlight the topmost heading currently inside the top band.
   useEffect(() => {
     if (headings.length === 0) return;
+    // Track which headings are in the band; pick the first in document order,
+    // and clear when none remain so the highlight never sticks past the end.
+    const visible = new Set<string>();
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) setActiveId(entry.target.id);
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
         }
+        const topmost = headings.find((h) => visible.has(h.id));
+        setActiveId(topmost ? topmost.id : "");
       },
       // Trigger as a heading crosses the upper quarter of the viewport.
       { rootMargin: "-80px 0px -70% 0px", threshold: 0 },
