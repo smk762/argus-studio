@@ -37,21 +37,23 @@ services:
       context: ./frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
-    # Read at request time, so `docker compose up` picks up .env changes without
-    # a rebuild. The NEXT_PUBLIC_* fallbacks keep pre-#56 .env files working.
-    # An empty value means "same origin" — what argus-halo wants behind Caddy.
+    # Read at request time, so `docker compose up -d frontend` picks up .env
+    # changes without a rebuild. The NEXT_PUBLIC_* fallbacks keep pre-#56 .env
+    # files working.
+    #
+    # `${VAR-default}` (no colon) is deliberate: the `:-` form would replace an
+    # explicitly EMPTY value with the default, and empty is meaningful here — it
+    # means "call this API on the page's own origin", which is what argus-halo
+    # wants behind Caddy. Only an *unset* variable takes the default.
     environment:
-      - ARGUS_LENS_URL=${ARGUS_LENS_URL:-${NEXT_PUBLIC_API_URL:-http://localhost:8100}}
-      - ARGUS_CURATOR_URL=${ARGUS_CURATOR_URL:-${NEXT_PUBLIC_CURATOR_URL:-http://localhost:8101}}
-      - ARGUS_QUARRY_URL=${ARGUS_QUARRY_URL:-${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}}
-      - ARGUS_FORGE_URL=${ARGUS_FORGE_URL:-${NEXT_PUBLIC_FORGE_URL:-http://localhost:8103}}
-      - ARGUS_PROOF_URL=${ARGUS_PROOF_URL:-${NEXT_PUBLIC_PROOF_URL:-http://localhost:8104}}
-      - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE:-${NEXT_PUBLIC_CURATOR_UI_MODE:-demo}}
-      - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH:-${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}}
-      - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH:-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}}
-      # URL the CURATOR CONTAINER uses to reach lens for the export->caption handoff
-      # (server-to-server, so it's the compose service name, not localhost).
-      - ARGUS_LENS_INTERNAL_URL=${ARGUS_LENS_INTERNAL_URL:-${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}}
+      - ARGUS_LENS_URL=${ARGUS_LENS_URL-${NEXT_PUBLIC_API_URL-http://localhost:8100}}
+      - ARGUS_CURATOR_URL=${ARGUS_CURATOR_URL-${NEXT_PUBLIC_CURATOR_URL-http://localhost:8101}}
+      - ARGUS_QUARRY_URL=${ARGUS_QUARRY_URL-${NEXT_PUBLIC_QUARRY_URL-http://localhost:8102}}
+      - ARGUS_FORGE_URL=${ARGUS_FORGE_URL-${NEXT_PUBLIC_FORGE_URL-http://localhost:8103}}
+      - ARGUS_PROOF_URL=${ARGUS_PROOF_URL-${NEXT_PUBLIC_PROOF_URL-http://localhost:8104}}
+      - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE-${NEXT_PUBLIC_CURATOR_UI_MODE-demo}}
+      - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH-${NEXT_PUBLIC_CURATOR_SOURCE_PATH-/data/images}}
+      - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH-/data/out}}
     restart: unless-stopped
 
   argus-lens:

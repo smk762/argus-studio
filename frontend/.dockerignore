@@ -1,0 +1,18 @@
+# Keep the build context to sources. Without this, `COPY . .` in the builder
+# stage overlays the host's node_modules on top of the clean `npm ci` tree from
+# the deps stage — shipping host-arch native binaries (@next/swc-*, lightningcss)
+# into an alpine image, which breaks outright on a cross-arch build.
+node_modules
+.next
+out
+*.tsbuildinfo
+
+# Config belongs to the deployment, not the image (argus-studio#56).
+.env
+.env.*
+
+.git
+.gitignore
+Dockerfile
+.dockerignore
+npm-debug.log*

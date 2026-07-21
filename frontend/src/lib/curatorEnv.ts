@@ -38,16 +38,6 @@ export function lensUrl(): string {
   return runtimeConfig().lensUrl;
 }
 
-/**
- * URL the **curator container** uses to reach argus-lens for the export→caption
- * handoff. This is a server-to-server call made by argus-curator, so in Docker it
- * is the compose service name (e.g. http://argus-lens:8100), not the browser's
- * localhost. Falls back to {@link lensUrl} for host/local dev.
- */
-export function lensInternalUrl(): string {
-  return runtimeConfig().lensInternalUrl;
-}
-
 /** URL the browser uses to reach the argus-quarry API (provenance gallery). */
 export function quarryUrl(): string {
   return runtimeConfig().quarryUrl;

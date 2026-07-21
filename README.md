@@ -72,9 +72,9 @@ docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build
 
 The only cross-service coupling is the **curate → caption handoff**: curator and lens
 share the dataset at `/data/images` (`DATASET_DIR`) so lens can read the manifest's
-`abs_path` entries and write `.txt` sidecars. The curator calls lens server-to-server at
-`ARGUS_LENS_INTERNAL_URL` (the compose service DNS name, not `localhost`). Each
-service still runs perfectly on its own.
+`abs_path` entries and write `.txt` sidecars. The curator calls lens
+server-to-server at the compose service DNS name (`http://argus-lens:8100`), not
+`localhost`. Each service still runs perfectly on its own.
 
 ### Run services individually
 
@@ -227,9 +227,8 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (ExportPanel forge step) |
 | `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
 | `ARGUS_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
-| `ARGUS_CURATOR_SOURCE_PATH` | `/data/images` | Default source path shown in the folder picker (path inside the curator container) |
-| `ARGUS_CURATOR_OUTPUT_PATH` | `/data/out` | Default export destination (path inside the curator container) |
-| `ARGUS_LENS_INTERNAL_URL` | `http://argus-lens:8100` | URL the **curator container** uses to reach lens for the caption handoff (server-to-server) |
+| `ARGUS_CURATOR_SOURCE_PATH` | *(empty)* | Default source path shown in the folder picker (path inside the curator container). `compose.yaml` sets `/data/images` |
+| `ARGUS_CURATOR_OUTPUT_PATH` | *(empty)* | Default export destination (path inside the curator container). `compose.yaml` sets `/data/out` |
 | `DATASET_DIR` | `./data` | Host dir mounted at `/data/images` on **both** curator and lens |
 | `OUTPUT_DIR` | `./out` | Host dir mounted at `/data/out` on curator (exports) |
 | `HF_CACHE_DIR` | `~/.cache/huggingface` | Host Hugging Face cache shared with the backends |
@@ -244,12 +243,25 @@ The `ARGUS_*` frontend variables are resolved **per request** from the container
 environment, not baked into the client bundle, so `docker compose up -d frontend`
 applies a change without a rebuild — one published image deploys to any origin.
 
-Setting an `ARGUS_*_URL` to the **empty string** makes the browser call that API on
-the page's own origin (`/scan/folder` instead of `http://host:8101/scan/folder`),
-which is what you want behind a reverse proxy that fronts the whole suite.
+Behind a reverse proxy, give each service a **path prefix** on the proxy's origin:
+
+```bash
+ARGUS_CURATOR_URL=/api/curator   # browser calls /api/curator/scan/folder
+ARGUS_LENS_URL=/api/lens
+```
+
+An **empty string** means the origin root (`/scan/folder` instead of
+`http://host:8101/scan/folder`). That works for at most one backend: all five
+services expose `/health`, curator and lens both expose `/folders`, and curator
+and quarry both expose `/thumb`, so a shared root is ambiguous. Use prefixes when
+more than one service sits behind the proxy.
 
 The pre-existing `NEXT_PUBLIC_*` names are still honoured as a fallback for older
-`.env` files.
+`.env` files. The one rename that is not a straight prefix swap:
+`NEXT_PUBLIC_API_URL` is now `ARGUS_LENS_URL`.
+
+The repo-root `.env` is read by **`docker compose`**. A host `npm run dev` does
+not see it — put local overrides in `frontend/.env.local`.
 
 ## Parameters
 

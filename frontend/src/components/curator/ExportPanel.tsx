@@ -251,7 +251,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           });
           setForgeResult(forged);
         } catch (err) {
-          problems.push(`Forge failed (argus-forge at ${forgeUrl()}): ${errMsg(err)}`);
+          problems.push(`Forge failed (argus-forge at ${forgeUrl() || "this origin"}): ${errMsg(err)}`);
         } finally {
           setForgeRunning(false);
         }
@@ -353,7 +353,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           </label>
           <label
             className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-            title={`After export, the manifest is streamed to ${lensUrl()}/caption/manifest/stream so you can watch captioning progress image-by-image.`}
+            title={`After export, the manifest is streamed to ${lensUrl() || "this origin"}/caption/manifest/stream so you can watch captioning progress image-by-image.`}
           >
             <input
               type="checkbox"

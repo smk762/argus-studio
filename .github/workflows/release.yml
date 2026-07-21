@@ -4,11 +4,15 @@ name: Release image to GHCR
 # v* tag, for the argus-halo demo to `docker pull` without auth (once the GHCR
 # package is set to public — a one-time step after the first release).
 #
-# NEXT_PUBLIC_* are inlined into the client bundle at BUILD time, so the image
-# is baked for one runtime. Defaults below produce a demo-mode image; override
-# any of them per deployment by setting a repository variable of the same name
-# (Settings → Secrets and variables → Actions → Variables). They are public
-# config by nature — never secrets.
+# The image takes NO build-time configuration (argus-studio#56). Endpoints and
+# the curator UI mode are read from the container's environment on each request,
+# so one published image deploys to any origin — configure it per DEPLOYMENT with
+# `ARGUS_*` env vars (see README "Environment"), not with repository variables.
+#
+# Unset means demo mode against localhost:810x, i.e. the browser expects the
+# argus compose stack on the user's own host (only /curate demo mode is
+# backend-free). The `vars.NEXT_PUBLIC_*` repository variables this workflow used
+# to pass as build-args no longer do anything and can be deleted.
 
 on:
   push:
@@ -64,18 +68,4 @@ jobs:
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # Baked into the client bundle. Unset variables fall back to the
-          # demo-mode defaults (which match the Dockerfile). This is a demo
-          # FRONT-END: with default localhost:810x URLs the browser expects the
-          # argus compose stack on the user's own host (only /curate demo mode
-          # is backend-free). Override the vars for a hosted deployment.
-          build-args: |
-            NEXT_PUBLIC_CURATOR_UI_MODE=${{ vars.NEXT_PUBLIC_CURATOR_UI_MODE || 'demo' }}
-            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:8100' }}
-            NEXT_PUBLIC_CURATOR_URL=${{ vars.NEXT_PUBLIC_CURATOR_URL || 'http://localhost:8101' }}
-            NEXT_PUBLIC_QUARRY_URL=${{ vars.NEXT_PUBLIC_QUARRY_URL || 'http://localhost:8102' }}
-            NEXT_PUBLIC_FORGE_URL=${{ vars.NEXT_PUBLIC_FORGE_URL || 'http://localhost:8103' }}
-            NEXT_PUBLIC_PROOF_URL=${{ vars.NEXT_PUBLIC_PROOF_URL || 'http://localhost:8104' }}
-            NEXT_PUBLIC_LENS_INTERNAL_URL=${{ vars.NEXT_PUBLIC_LENS_INTERNAL_URL }}
-            NEXT_PUBLIC_CURATOR_SOURCE_PATH=${{ vars.NEXT_PUBLIC_CURATOR_SOURCE_PATH }}
-            NEXT_PUBLIC_CURATOR_OUTPUT_PATH=${{ vars.NEXT_PUBLIC_CURATOR_OUTPUT_PATH }}
+          # No build-args: the image takes no build-time configuration at all.
