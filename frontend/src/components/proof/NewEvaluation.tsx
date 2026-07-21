@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CapabilityNotice } from "@/components/CapabilityNotice";
 import {
   listExports,
   listProofModels,
@@ -17,6 +18,13 @@ type Phase = "generating" | "scoring";
 interface NewEvaluationProps {
   /** Called with the stored report's run_id once generation + scoring finish. */
   onComplete: (runId: string) => void;
+  /**
+   * Why this server won't run an evaluation, or `null` when it will. Non-null
+   * keeps the panel visible but sealed — see {@link CapabilityNotice}. Covers
+   * both "refused" (replay mode) and "not yet known" (`/health` still in
+   * flight), which is why it arrives as a reason string rather than a boolean.
+   */
+  disabledReason?: string | null;
 }
 
 const inputClass =
@@ -63,7 +71,7 @@ function NameSelect({
  * seeds/steps, and stream generation + scoring progress (POST /run/stream).
  * On completion the parent lands on the scored report for HITL review.
  */
-export function NewEvaluation({ onComplete }: NewEvaluationProps) {
+export function NewEvaluation({ onComplete, disabledReason = null }: NewEvaluationProps) {
   const [open, setOpen] = useState(false);
   const [exports, setExports] = useState<ProofExport[]>([]);
   const [models, setModels] = useState<ProofModels>({ checkpoints: [], loras: [] });
@@ -167,18 +175,33 @@ export function NewEvaluation({ onComplete }: NewEvaluationProps) {
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
   const selectedExport = exports.find((e) => e.name === exportName);
 
+  const sealed = disabledReason !== null;
+
   return (
     <section className="rounded-xl border border-border bg-surface/50">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full cursor-pointer items-center justify-between px-5 py-3 text-left"
+        disabled={sealed}
+        aria-expanded={open}
+        title={disabledReason ?? undefined}
+        className="flex w-full cursor-pointer items-center justify-between px-5 py-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className="text-sm font-medium text-foreground">New evaluation</span>
-        <span className="text-xs text-muted">{open ? "Hide" : "Generate + score a LoRA sample grid"}</span>
+        <span className="text-xs text-muted">
+          {sealed ? "Unavailable" : open ? "Hide" : "Generate + score a LoRA sample grid"}
+        </span>
       </button>
 
-      {open && (
+      {/* Sealed: say why in place of the form, so the capability is legible
+          rather than the panel just being unresponsive to a click. */}
+      {sealed && (
+        <div className="border-t border-border px-5 py-4">
+          <CapabilityNotice reason={disabledReason} />
+        </div>
+      )}
+
+      {open && !sealed && (
         <div className="space-y-4 border-t border-border px-5 py-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Export (prompt source)">

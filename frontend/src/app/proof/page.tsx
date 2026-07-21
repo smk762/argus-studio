@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  allowsEval,
   getProofHealth,
   getReport,
   listReports,
   type EvalReport,
+  type ProofHealth,
   type ReportSummary,
 } from "@/lib/proofApi";
+import { capabilityReason, type Capability } from "@/lib/capabilities";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { isLive } from "@/lib/curatorEnv";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -29,7 +32,20 @@ export default function ProofPage() {
   const [report, setReport] = useState<EvalReport | null>(isLive() ? null : DEMO_REPORT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // null until /health answers; drives the run affordance (#66). Deliberately
+  // NOT isLive(): that is the curator SPA's mode and says nothing about whether
+  // argus-proof will accept a run. On the demo host the two disagree.
+  const [health, setHealth] = useState<ProofHealth | null>(null);
   const unreachable = version === "";
+
+  // Demo mode has no backend at all, so it is a settled `false` rather than an
+  // unresolved `null` — the review still works, it just recomputes locally.
+  const writable: Capability = isLive() ? allowsEval(health) : false;
+
+  const evalDisabledReason = capabilityReason(
+    writable,
+    "Live evaluation is disabled on this host — it generates images on a GPU. Browse the stored reports below and review them by hand.",
+  );
 
   // Live: reachability + the run list. Demo needs no backend.
   useEffect(() => {
@@ -37,8 +53,9 @@ export default function ProofPage() {
     const ctrl = new AbortController();
     (async () => {
       try {
-        const [health, list] = await Promise.all([getProofHealth(ctrl.signal), listReports(ctrl.signal)]);
-        setVersion(health.version);
+        const [h, list] = await Promise.all([getProofHealth(ctrl.signal), listReports(ctrl.signal)]);
+        setVersion(h.version);
+        setHealth(h);
         setSummaries(list);
         if (list.length > 0) setSelected(list[0].run_id);
       } catch {
@@ -117,7 +134,7 @@ export default function ProofPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {isLive() && <NewEvaluation onComplete={onRunComplete} />}
+            {isLive() && <NewEvaluation onComplete={onRunComplete} disabledReason={evalDisabledReason} />}
             <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
             {/* Run browser */}
             <aside className="space-y-1">
@@ -148,7 +165,12 @@ export default function ProofPage() {
               {loading && <p className="py-12 text-center text-sm text-muted">Loading report…</p>}
               {error && <p className="py-12 text-center text-sm text-accent-red">{error}</p>}
               {!loading && !error && report && (
-                <ProofBoard key={report.run_id} initialReport={report} live={isLive()} />
+                <ProofBoard
+                  key={report.run_id}
+                  initialReport={report}
+                  live={isLive()}
+                  canWrite={writable}
+                />
               )}
               {!loading && !error && !report && summaries.length > 0 && (
                 <p className="py-12 text-center text-sm text-muted">Select a run to review.</p>

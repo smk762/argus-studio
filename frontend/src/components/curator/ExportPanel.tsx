@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  allowsMove,
   exportSelectionStream,
   exportedAbsPath,
   type ExportProgress,
@@ -11,6 +12,7 @@ import {
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
 import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
 import { forgeUrl, isLive, lensUrl, localOutputPath, localSourcePath } from "@/lib/curatorEnv";
+import { permits } from "@/lib/capabilities";
 import { basename, normalizeRoot } from "@/lib/path";
 import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
@@ -129,11 +131,9 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
   const [forgeRunning, setForgeRunning] = useState(false);
   const [forgeResult, setForgeResult] = useState<ForgeResult | null>(null);
-  // Server capabilities derived from the parent's /health fetch.
-  //   allowMove: true = permitted, false = server rejects move, null = not yet
-  //   known (still loading OR /health failed). Older servers omit allow_move —
-  //   treat that as permitted. The move gate below fails SAFE on null.
-  const allowMove = health ? (health.allow_move ?? true) : null;
+  // Server capability derived from the parent's /health fetch (#66). The move
+  // gate below fails SAFE on the not-yet-known `null` via permits().
+  const allowMove = allowsMove(health);
   // Present-and-null export_root means every live export 400s; a missing field
   // (older server) or a real path is fine.
   const exportRootUnset = health?.export_root === null;
@@ -311,7 +311,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
               // unless health positively permits it (allowMove === true), so a
               // still-loading or unreachable /health can't leave a destructive
               // move armed and surface a raw 403 after the user commits.
-              const gated = m === "move" && allowMove !== true;
+              const gated = m === "move" && !permits(allowMove);
               const moveDenied = m === "move" && allowMove === false;
               return (
                 <button

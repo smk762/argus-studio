@@ -1,6 +1,7 @@
 /** Thin client for the argus-curator API (:8101). */
 
 import { curatorUrl } from "@/lib/curatorEnv";
+import { capabilityOf, type Capability } from "@/lib/capabilities";
 import type {
   CuratorConfig,
   Detectors,
@@ -95,6 +96,18 @@ export interface Health {
   export_root?: string | null;
   /** Whether the server permits destructive `mode: "move"` exports. */
   allow_move?: boolean;
+}
+
+/**
+ * Whether this server permits destructive `mode: "move"` exports.
+ *
+ * Legacy `true`: servers predating `--allow-move` / `CURATOR_ALLOW_MOVE` always
+ * permitted move. The *caller* is what fails safe here — {@link permits} treats
+ * the still-loading `null` as "no", so an unreachable `/health` can't leave a
+ * destructive move armed.
+ */
+export function allowsMove(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.allow_move, true);
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<Health> {

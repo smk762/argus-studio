@@ -8,6 +8,7 @@
 
 import { proofUrl } from "@/lib/curatorEnv";
 import { asError } from "@/lib/apiError";
+import { capabilityOf, type Capability } from "@/lib/capabilities";
 import { readNdjson } from "@/lib/lensApi";
 
 // --- wire types (mirror argus_proof.models) --------------------------------
@@ -268,6 +269,22 @@ export interface ProofHealth {
   status: string;
   service: string;
   version: string;
+  /**
+   * Replay/demo mode (argus-proof#45): stored reports are still served, but live
+   * evaluation and every report write return 403. Set via `--read-only` /
+   * `$ARGUS_PROOF_READ_ONLY` on a GPU-less host. Older servers omit it.
+   */
+  read_only?: boolean;
+}
+
+/**
+ * Whether this server will accept a live evaluation run and HITL writes.
+ *
+ * Legacy `true`: a server old enough to omit `read_only` predates replay mode,
+ * so it could only ever have been writable.
+ */
+export function allowsEval(health: ProofHealth | null): Capability {
+  return capabilityOf(health, (h) => (h.read_only === undefined ? undefined : !h.read_only), true);
 }
 
 export async function getProofHealth(signal?: AbortSignal): Promise<ProofHealth> {

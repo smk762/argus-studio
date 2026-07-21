@@ -18,6 +18,7 @@ import {
   type MetricScores,
   type RejectReasonCode,
 } from "@/lib/proofApi";
+import { permits, type Capability } from "@/lib/capabilities";
 import { StarRating } from "@/components/proof/StarRating";
 import { RejectReasonPicker } from "@/components/proof/RejectReasonPicker";
 
@@ -115,10 +116,23 @@ function SampleImage({
 
 interface ProofBoardProps {
   initialReport: EvalReport;
+  /** Backend reachable: images stream from the server rather than placeholders. */
   live: boolean;
+  /**
+   * Whether the server accepts `POST /hitl`. Distinct from {@link live}: a
+   * replay-mode proof host (argus-proof#45) serves stored reports and their
+   * images perfectly well but 403s every write (#66). Review then stays fully
+   * usable and recomputes locally, exactly as demo mode does — it just can't
+   * persist.
+   *
+   * Tri-state on purpose. `null` (still asking `/health`) must not collapse into
+   * `false`, or a save landing in that window would quietly apply locally and
+   * the reviewer would believe work was persisted that never left the browser.
+   */
+  canWrite: Capability;
 }
 
-export function ProofBoard({ initialReport, live }: ProofBoardProps) {
+export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
   const [report, setReport] = useState<EvalReport>(initialReport);
   const [edits, setEdits] = useState<Map<string, HitlEdit>>(new Map());
   const [rater, setRater] = useState("");
@@ -237,9 +251,10 @@ export function ProofBoard({ initialReport, live }: ProofBoardProps) {
     setSaving(true);
     setSaveError(null);
     try {
-      // Demo persists exactly the preview the reviewer is looking at (`view`);
-      // live sends the edits and adopts the server's authoritative recompute.
-      const updated = live
+      // Writable: send the edits and adopt the server's authoritative recompute.
+      // Otherwise (demo, or a read-only host) keep exactly the preview the
+      // reviewer is looking at (`view`), which is the same recompute run locally.
+      const updated = permits(canWrite)
         ? await submitHitl(report.run_id, { rater: rater || null, updates: editsToUpdates(edits) })
         : view;
       setReport(updated);
@@ -351,10 +366,10 @@ export function ProofBoard({ initialReport, live }: ProofBoardProps) {
           <button
             type="button"
             onClick={save}
-            disabled={!dirty || saving}
+            disabled={!dirty || saving || canWrite === null}
             className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {saving ? "Saving…" : live ? "Save review" : "Apply review"}
+            {saving ? "Saving…" : canWrite === null ? "Checking…" : canWrite ? "Save review" : "Apply review"}
           </button>
         </div>
       </section>
