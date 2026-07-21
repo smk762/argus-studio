@@ -25,7 +25,7 @@ import {
   type ScanSummary,
 } from "@/components/curator/types";
 import { getDetectors, getHealth, getScan, scanFolderStream, type Health, type ScanProgress } from "@/lib/curatorApi";
-import { CURATOR_UI_MODE, IS_LIVE, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
+import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 
 type View = "grid" | "clusters";
 
@@ -56,7 +56,7 @@ function defaultSelection(summary: ScanSummary): Set<string> {
 
 export default function CuratePage() {
   const [config, setConfig] = useState<CuratorConfig>(defaultCuratorConfig());
-  const [folderPath, setFolderPath] = useState(() => (IS_LIVE ? LOCAL_SOURCE_PATH : ""));
+  const [folderPath, setFolderPath] = useState(() => (isLive() ? localSourcePath() : ""));
   const [summary, setSummary] = useState<ScanSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
@@ -77,14 +77,14 @@ export default function CuratePage() {
 
   // Deep link from /gallery: ?folder=<path> preselects the scan folder.
   useEffect(() => {
-    if (!IS_LIVE) return;
+    if (!isLive()) return;
     const folder = new URLSearchParams(window.location.search).get("folder");
     if (folder) setFolderPath(folder);
   }, []);
 
   // Live extras: detector capabilities + recent-scan history (localStorage).
   useEffect(() => {
-    if (!IS_LIVE) return;
+    if (!isLive()) return;
     setHistory(loadHistory());
     const ctrl = new AbortController();
     getDetectors(ctrl.signal)
@@ -110,7 +110,7 @@ export default function CuratePage() {
 
   // Version banner (live) — reachability check.
   useEffect(() => {
-    if (!IS_LIVE) {
+    if (!isLive()) {
       setVersion("sample");
       return;
     }
@@ -133,7 +133,7 @@ export default function CuratePage() {
 
   // Demo mode: load the bundled read-only sample once.
   useEffect(() => {
-    if (IS_LIVE || loadedSample.current) return;
+    if (isLive() || loadedSample.current) return;
     loadedSample.current = true;
     (async () => {
       setLoading(true);
@@ -151,7 +151,7 @@ export default function CuratePage() {
 
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!IS_LIVE || !folderPath.trim()) return;
+    if (!isLive() || !folderPath.trim()) return;
     setError(null);
     setProgress(null);
     setLoading(true);
@@ -223,17 +223,17 @@ export default function CuratePage() {
           >
             <span
               className={`rounded border px-2 py-0.5 text-[9px] uppercase tracking-wider ${
-                IS_LIVE
+                isLive()
                   ? "border-accent-teal/40 bg-accent-teal/10 text-accent-teal"
                   : "border-accent-purple/40 bg-accent-purple/10 text-accent-purple"
               }`}
               title={
-                IS_LIVE
-                  ? "NEXT_PUBLIC_CURATOR_UI_MODE=live — real scans against the curator host."
-                  : "NEXT_PUBLIC_CURATOR_UI_MODE=demo — read-only bundled sample."
+                isLive()
+                  ? "ARGUS_CURATOR_UI_MODE=live — real scans against the curator host."
+                  : "ARGUS_CURATOR_UI_MODE=demo — read-only bundled sample."
               }
             >
-              {IS_LIVE ? "Live" : "Demo sample"}
+              {isLive() ? "Live" : "Demo sample"}
             </span>
           </ApiVersionBadge>
         }
@@ -242,7 +242,7 @@ export default function CuratePage() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
           <aside className="space-y-4">
-            {IS_LIVE ? (
+            {isLive() ? (
               <>
               <form onSubmit={handleScan} className="space-y-4">
                 <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
@@ -325,7 +325,7 @@ export default function CuratePage() {
                 <p className="text-[11px] leading-relaxed text-muted">
                   A pre-computed scan (2 identities, a near-duplicate pair, some rejects). Explore the facets, cluster
                   review, and manifest export read-only. Set{" "}
-                  <span className="font-mono text-foreground/80">NEXT_PUBLIC_CURATOR_UI_MODE=live</span> to run real
+                  <span className="font-mono text-foreground/80">ARGUS_CURATOR_UI_MODE=live</span> to run real
                   scans.
                 </p>
               </div>
@@ -416,7 +416,7 @@ export default function CuratePage() {
             >
               argus-curator
             </a>{" "}
-            · mode: {CURATOR_UI_MODE}
+            · mode: {curatorUiMode()}
           </>
         }
         right="MIT License"

@@ -6,7 +6,7 @@
  * verdict. Follows the forgeApi.ts / galleryApi.ts pattern.
  */
 
-import { PROOF_URL } from "@/lib/curatorEnv";
+import { proofUrl } from "@/lib/curatorEnv";
 import { asError } from "@/lib/apiError";
 import { readNdjson } from "@/lib/lensApi";
 
@@ -271,14 +271,14 @@ export interface ProofHealth {
 }
 
 export async function getProofHealth(signal?: AbortSignal): Promise<ProofHealth> {
-  const resp = await fetch(`${PROOF_URL}/health`, { signal });
+  const resp = await fetch(`${proofUrl()}/health`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
 
 /** List stored reports (GET /reports). */
 export async function listReports(signal?: AbortSignal): Promise<ReportSummary[]> {
-  const resp = await fetch(`${PROOF_URL}/reports`, { signal });
+  const resp = await fetch(`${proofUrl()}/reports`, { signal });
   if (!resp.ok) return asError(resp);
   const body = (await resp.json()) as { reports: ReportSummary[] };
   return body.reports;
@@ -286,14 +286,14 @@ export async function listReports(signal?: AbortSignal): Promise<ReportSummary[]
 
 /** Fetch one scored report (GET /report/{run_id}). */
 export async function getReport(runId: string, signal?: AbortSignal): Promise<EvalReport> {
-  const resp = await fetch(`${PROOF_URL}/report/${encodeURIComponent(runId)}`, { signal });
+  const resp = await fetch(`${proofUrl()}/report/${encodeURIComponent(runId)}`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
 
 /** Apply a HITL review and get the recomputed report (POST /report/{id}/hitl). */
 export async function submitHitl(runId: string, req: HitlRequest, signal?: AbortSignal): Promise<EvalReport> {
-  const resp = await fetch(`${PROOF_URL}/report/${encodeURIComponent(runId)}/hitl`, {
+  const resp = await fetch(`${proofUrl()}/report/${encodeURIComponent(runId)}/hitl`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
@@ -308,13 +308,13 @@ export async function submitHitl(runId: string, req: HitlRequest, signal?: Abort
 /** The URL a generated sample is served from (GET /report/{run}/image/{id}).
  * Ids only — the server resolves them under its runs root, never a client path. */
 export function proofImageUrl(runId: string, imageId: string): string {
-  return `${PROOF_URL}/report/${encodeURIComponent(runId)}/image/${encodeURIComponent(imageId)}`;
+  return `${proofUrl()}/report/${encodeURIComponent(runId)}/image/${encodeURIComponent(imageId)}`;
 }
 
 /** Seed-free image URL for blind review — by position in the report
  * (GET /report/{run}/image_at/{index}), since the by-id URL embeds `<run>-<seed>`. */
 export function proofImageAtUrl(runId: string, index: number): string {
-  return `${PROOF_URL}/report/${encodeURIComponent(runId)}/image_at/${index}`;
+  return `${proofUrl()}/report/${encodeURIComponent(runId)}/image_at/${index}`;
 }
 
 /** A scorer the proof server can run and whether its deps are installed
@@ -327,7 +327,7 @@ export interface ProofScorer {
 }
 
 export async function listScorers(signal?: AbortSignal): Promise<ProofScorer[]> {
-  const resp = await fetch(`${PROOF_URL}/scorers`, { signal });
+  const resp = await fetch(`${proofUrl()}/scorers`, { signal });
   if (!resp.ok) return asError(resp);
   const body = (await resp.json()) as { scorers: ProofScorer[] };
   return body.scorers;
@@ -342,7 +342,7 @@ export interface ProofExport {
 }
 
 export async function listExports(signal?: AbortSignal): Promise<ProofExport[]> {
-  const resp = await fetch(`${PROOF_URL}/exports`, { signal });
+  const resp = await fetch(`${proofUrl()}/exports`, { signal });
   if (!resp.ok) return asError(resp);
   const body = (await resp.json()) as { exports: ProofExport[] };
   return body.exports;
@@ -355,7 +355,7 @@ export interface ProofModels {
 }
 
 export async function listProofModels(signal?: AbortSignal): Promise<ProofModels> {
-  const resp = await fetch(`${PROOF_URL}/models`, { signal });
+  const resp = await fetch(`${proofUrl()}/models`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
@@ -406,7 +406,7 @@ export async function runEvalStream(
   onProgress: (p: RunEvalProgress) => void,
   signal?: AbortSignal,
 ): Promise<ReportSummary> {
-  const resp = await fetch(`${PROOF_URL}/run/stream`, {
+  const resp = await fetch(`${proofUrl()}/run/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),

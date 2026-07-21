@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { DropZone } from "@/components/DropZone";
 import { uploadImages } from "@/lib/curatorApi";
 import { immichPullStream, listImmichAlbums, type ImmichAlbum } from "@/lib/lensApi";
-import { LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
+import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
 
 /** Join a dataset-relative folder onto the curator container's source path. */
 function absSourcePath(rel: string): string {
   const clean = rel.replace(/^\/+|\/+$/g, "");
-  return LOCAL_SOURCE_PATH ? joinPath(LOCAL_SOURCE_PATH, clean) : clean;
+  return localSourcePath() ? joinPath(localSourcePath(), clean) : clean;
 }
 
 const isImageFile = (f: File) => f.type.startsWith("image/");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IS_LIVE } from "@/lib/curatorEnv";
+import { isLive } from "@/lib/curatorEnv";
 import { thumbUrl } from "@/lib/curatorApi";
 import { basename } from "@/lib/path";
 
@@ -43,7 +43,7 @@ export function ThumbImage({
   objectPosition,
 }: Props) {
   const [failed, setFailed] = useState(false);
-  const showImg = IS_LIVE && !failed;
+  const showImg = isLive() && !failed;
   const seed = faceCluster ?? relPath;
   const hue = hueFor(seed);
   const base = basename(relPath);

@@ -2,7 +2,7 @@
 
 import { asError } from "@/lib/apiError";
 
-export const QUARRY_URL = process.env.NEXT_PUBLIC_QUARRY_URL ?? "http://localhost:8102";
+import { quarryUrl } from "@/lib/curatorEnv";
 
 export interface QuarryHealth {
   status: string;
@@ -12,7 +12,7 @@ export interface QuarryHealth {
 }
 
 export async function getQuarryHealth(signal?: AbortSignal): Promise<QuarryHealth> {
-  const resp = await fetch(`${QUARRY_URL}/health`, { signal });
+  const resp = await fetch(`${quarryUrl()}/health`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
@@ -28,7 +28,7 @@ export interface QuarryStats {
 }
 
 export async function getQuarryStats(signal?: AbortSignal): Promise<QuarryStats> {
-  const resp = await fetch(`${QUARRY_URL}/stats`, { signal });
+  const resp = await fetch(`${quarryUrl()}/stats`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
@@ -41,7 +41,7 @@ export interface QuarrySubject {
 
 export async function listQuarrySubjects(category?: string, signal?: AbortSignal): Promise<QuarrySubject[]> {
   const params = new URLSearchParams(category ? { category } : {});
-  const resp = await fetch(`${QUARRY_URL}/subjects?${params.toString()}`, { signal });
+  const resp = await fetch(`${quarryUrl()}/subjects?${params.toString()}`, { signal });
   if (!resp.ok) return asError(resp);
   const data: { subjects: QuarrySubject[] } = await resp.json();
   return data.subjects;
@@ -92,12 +92,12 @@ export async function listQuarryPhotos(filters: QuarryPhotoFilters, signal?: Abo
   if (filters.source) params.set("source", filters.source);
   params.set("limit", String(filters.limit ?? 60));
   params.set("offset", String(filters.offset ?? 0));
-  const resp = await fetch(`${QUARRY_URL}/photos?${params.toString()}`, { signal });
+  const resp = await fetch(`${quarryUrl()}/photos?${params.toString()}`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
 
 /** Build a /thumb URL for a pooled photograph. */
 export function quarryThumbUrl(id: number, size = 384): string {
-  return `${QUARRY_URL}/thumb?id=${id}&size=${size}`;
+  return `${quarryUrl()}/thumb?id=${id}&size=${size}`;
 }

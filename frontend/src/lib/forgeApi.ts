@@ -6,7 +6,7 @@
  */
 
 import type { TargetCategory, TargetProfile } from "@/components/curator/types";
-import { FORGE_URL } from "@/lib/curatorEnv";
+import { forgeUrl } from "@/lib/curatorEnv";
 import { asError } from "@/lib/apiError";
 
 export type TrainerId = "kohya" | "onetrainer" | "diffusers";
@@ -105,7 +105,7 @@ export interface ForgeResult {
  * returns file contents without touching the filesystem.
  */
 export async function forgeConfig(req: ForgeRequest, signal?: AbortSignal): Promise<ForgeResult> {
-  const resp = await fetch(`${FORGE_URL}/config`, {
+  const resp = await fetch(`${forgeUrl()}/config`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),

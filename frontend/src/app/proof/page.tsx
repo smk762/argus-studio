@@ -9,7 +9,7 @@ import {
   type ReportSummary,
 } from "@/lib/proofApi";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
-import { IS_LIVE } from "@/lib/curatorEnv";
+import { isLive } from "@/lib/curatorEnv";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ProofBoard } from "@/components/proof/ProofBoard";
@@ -23,17 +23,17 @@ function verdictDot(s: ReportSummary): string {
 
 export default function ProofPage() {
   // version: null = loading, "" = unreachable, "demo", or a real version string.
-  const [version, setVersion] = useState<string | null>(IS_LIVE ? null : "demo");
-  const [summaries, setSummaries] = useState<ReportSummary[]>(IS_LIVE ? [] : [DEMO_SUMMARY]);
-  const [selected, setSelected] = useState<string | null>(IS_LIVE ? null : DEMO_REPORT.run_id);
-  const [report, setReport] = useState<EvalReport | null>(IS_LIVE ? null : DEMO_REPORT);
+  const [version, setVersion] = useState<string | null>(isLive() ? null : "demo");
+  const [summaries, setSummaries] = useState<ReportSummary[]>(isLive() ? [] : [DEMO_SUMMARY]);
+  const [selected, setSelected] = useState<string | null>(isLive() ? null : DEMO_REPORT.run_id);
+  const [report, setReport] = useState<EvalReport | null>(isLive() ? null : DEMO_REPORT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const unreachable = version === "";
 
   // Live: reachability + the run list. Demo needs no backend.
   useEffect(() => {
-    if (!IS_LIVE) return;
+    if (!isLive()) return;
     const ctrl = new AbortController();
     (async () => {
       try {
@@ -51,7 +51,7 @@ export default function ProofPage() {
   // Load the selected run's report, aborting a slower in-flight fetch so a quick
   // run switch can't land an earlier response over the current selection.
   const loadReport = useCallback(async (runId: string, signal?: AbortSignal) => {
-    if (!IS_LIVE) {
+    if (!isLive()) {
       setReport(DEMO_REPORT);
       return;
     }
@@ -117,7 +117,7 @@ export default function ProofPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {IS_LIVE && <NewEvaluation onComplete={onRunComplete} />}
+            {isLive() && <NewEvaluation onComplete={onRunComplete} />}
             <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
             {/* Run browser */}
             <aside className="space-y-1">
@@ -148,7 +148,7 @@ export default function ProofPage() {
               {loading && <p className="py-12 text-center text-sm text-muted">Loading report…</p>}
               {error && <p className="py-12 text-center text-sm text-accent-red">{error}</p>}
               {!loading && !error && report && (
-                <ProofBoard key={report.run_id} initialReport={report} live={IS_LIVE} />
+                <ProofBoard key={report.run_id} initialReport={report} live={isLive()} />
               )}
               {!loading && !error && !report && summaries.length > 0 && (
                 <p className="py-12 text-center text-sm text-muted">Select a run to review.</p>

@@ -32,9 +32,7 @@ import {
   listLensFolders,
   type ImmichAlbum,
 } from "@/lib/lensApi";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
+import { lensUrl } from "@/lib/curatorEnv";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
 
@@ -104,8 +102,8 @@ export default function Home() {
         // Version from /health (newer lens), backend readiness from /backends;
         // tolerate either being missing so older servers still show status.
         const [healthResp, backendsResp] = await Promise.allSettled([
-          fetch(`${API_URL}/health`),
-          fetch(`${API_URL}/backends`),
+          fetch(`${lensUrl()}/health`),
+          fetch(`${lensUrl()}/backends`),
         ]);
         let version = "";
         if (healthResp.status === "fulfilled" && healthResp.value.ok) {
@@ -167,7 +165,7 @@ export default function Home() {
         ...hybridRequestFields(hybrid),
       };
 
-      const resp = await fetch(`${API_URL}/caption/url`, {
+      const resp = await fetch(`${lensUrl()}/caption/url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
