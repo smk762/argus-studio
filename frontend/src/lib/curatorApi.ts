@@ -18,43 +18,69 @@ import { joinPath } from "@/lib/path";
  * consumes, so no downstream ever branches on curator version or rebuilds a
  * server path — that compat concern lives here, at the wire seam.
  */
-export interface NormalizedExportResult extends ExportResult {
+export interface NormalizedExportResult extends Omit<ExportResult, "exported_paths"> {
   /**
-   * rel_path -> exported_path (posix, relative to `dest`), for every file the
-   * handoff manifest should carry. Always present: manifest-1.0 curators omit
-   * `exported_paths`, so we synthesize an identity map over `selected_rel_paths`
-   * (the legacy "whole selection" fallback). A 2.0 curator's map is used as-is —
-   * including an empty one from a zero-transfer export, which must stay empty.
+   * rel_path -> exported_path (posix, relative to `dest`). **Partial**: a
+   * missing key means "not in the handoff manifest", which is why the value
+   * type is nullable — callers must handle the miss, and the type checker
+   * holds them to it.
+   *
+   * A 2.0 curator's map is used as-is, including an empty one from a
+   * zero-transfer export (detected by *presence*, so that stays empty rather
+   * than being misread as 1.0). For 1.0 curators see {@link manifestGap}.
    */
-  exported_paths: Record<string, string>;
+  exported_paths: Record<string, string | undefined>;
   /**
-   * rel_path -> absolute on-disk path of the transferred file, but ONLY for
-   * modes that relocate it away from its source (move), where the source no
-   * longer exists. Joined here — the seam that owns the curator's dest layout —
-   * so no UI string-builds a server path. Other modes leave no entry: the
-   * original source stays authoritative and the caller keeps the image's own
-   * abs_path.
+   * Non-null when the seam could NOT establish a trustworthy rel -> exported
+   * map, carrying a human-readable reason. Callers must skip the downstream
+   * handoff and surface this instead of shipping fabricated locators.
+   *
+   * The one case today: a manifest-1.0 curator that flattened the export. It
+   * never reported where files landed, and a flattened export de-collides
+   * basenames into `stem-<hash>.ext`, which is unguessable from here.
    */
-  exported_abs_paths: Record<string, string>;
+  manifestGap: string | null;
 }
 
 /**
- * Fold a raw curator ExportResult into {@link NormalizedExportResult}: fill in
- * `exported_paths` for legacy curators and resolve move-mode absolute paths, so
- * the manifest-version and path-layout rules stop leaking into components.
+ * Fold a raw curator ExportResult into {@link NormalizedExportResult}, so the
+ * manifest-version rules stop leaking into components.
  */
-export function normalizeExportResult(result: ExportResult): NormalizedExportResult {
+export function normalizeExportResult(result: ExportResult, req: ExportRequest): NormalizedExportResult {
   // Detect legacy (manifest 1.0) by presence, not emptiness — a zero-transfer
   // 2.0 export legitimately sends an empty map and must not be misread as 1.0.
-  const exported_paths =
-    result.exported_paths ?? Object.fromEntries(result.selected_rel_paths.map((rel) => [rel, rel]));
-  // Only move relocates files; resolve those absolutes from `dest`. Copy/symlink
-  // keep the source in place, so they get no entry (source stays authoritative).
-  const exported_abs_paths =
-    result.mode === "move"
-      ? Object.fromEntries(Object.entries(exported_paths).map(([rel, ep]) => [rel, joinPath(result.dest, ep)]))
-      : {};
-  return { ...result, exported_paths, exported_abs_paths };
+  if (result.exported_paths) {
+    return { ...result, exported_paths: result.exported_paths, manifestGap: null };
+  }
+  if (!req.preserve_structure) {
+    return {
+      ...result,
+      exported_paths: {},
+      manifestGap:
+        "this curator predates manifest 2.0 and did not report where a flattened export wrote each file",
+    };
+  }
+  // Structure preserved, so the curator wrote each file at its own rel_path.
+  // `selected_rel_paths` is optional in the published wire schema; treat an
+  // absent one as an empty selection rather than throwing after the transfer.
+  const selected = result.selected_rel_paths ?? [];
+  return {
+    ...result,
+    exported_paths: Object.fromEntries(selected.map((rel) => [rel, rel])),
+    manifestGap: null,
+  };
+}
+
+/**
+ * Absolute on-disk path of an exported file, or null when the caller should
+ * keep the image's own `abs_path`. Only `move` relocates a file away from its
+ * source, so only move resolves a new absolute — joined here, the seam that
+ * owns the curator's `dest` layout, so no UI string-builds a server path.
+ */
+export function exportedAbsPath(result: NormalizedExportResult, relPath: string): string | null {
+  if (result.mode !== "move") return null;
+  const exported = result.exported_paths[relPath];
+  return exported == null ? null : joinPath(result.dest, exported);
 }
 
 export interface Health {
@@ -125,6 +151,59 @@ export async function getScan(scanId: string, limit = 10000, signal?: AbortSigna
   return resp.json();
 }
 
+/**
+ * Drive one of the curator's SSE endpoints to completion: dispatch every
+ * `progress` frame to `onProgress` and resolve with the `complete` payload.
+ * `label` names the operation in error messages ("Scan", "Export").
+ *
+ * Uses fetch + ReadableStream rather than EventSource so callers can POST a
+ * request body.
+ */
+async function readSseStream<TProgress, TComplete>(
+  body: ReadableStream<Uint8Array>,
+  onProgress: (p: TProgress) => void,
+  label: string,
+): Promise<TComplete> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let complete: TComplete | null = null;
+
+  // Returns the `complete` payload when this frame carried one. Kept as a
+  // return value rather than a captured assignment so the narrowing below
+  // sees it — TypeScript does not track writes made inside a closure.
+  const handleFrame = (frame: string): TComplete | undefined => {
+    let event = "message";
+    let data = "";
+    for (const line of frame.split("\n")) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      else if (line.startsWith("data:")) data += line.slice(5).trim();
+    }
+    if (!data) return undefined;
+    const payload = JSON.parse(data);
+    if (event === "progress") onProgress(payload as TProgress);
+    else if (event === "complete") return payload as TComplete;
+    else if (event === "error") throw new Error(payload?.detail ?? `${label} failed`);
+    return undefined;
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // SSE frames are separated by a blank line; keep the trailing partial.
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      if (frame.trim()) complete = handleFrame(frame) ?? complete;
+    }
+  }
+  if (buffer.trim()) complete = handleFrame(buffer) ?? complete;
+
+  if (complete === null) throw new Error(`${label} stream ended without a result`);
+  return complete;
+}
+
 export type ScanPhase = "collecting" | "scoring" | "faces" | "clustering";
 
 export interface ScanProgress {
@@ -133,11 +212,7 @@ export interface ScanProgress {
   total: number;
 }
 
-/**
- * Stream a scan over SSE (POST /scan/folder/stream), invoking `onProgress` for
- * each progress frame and resolving with the final ScanSummary. Uses fetch +
- * ReadableStream (not EventSource) so we can POST the scan config body.
- */
+/** Stream a scan over SSE (POST /scan/folder/stream), resolving with the final ScanSummary. */
 export async function scanFolderStream(
   folder: string,
   cfg: CuratorConfig,
@@ -151,51 +226,7 @@ export async function scanFolderStream(
     signal,
   });
   if (!resp.ok || !resp.body) return asError(resp);
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let summary: ScanSummary | null = null;
-
-  const handleFrame = (frame: string) => {
-    let event = "message";
-    let data = "";
-    for (const line of frame.split("\n")) {
-      if (line.startsWith("event:")) event = line.slice(6).trim();
-      else if (line.startsWith("data:")) data += line.slice(5).trim();
-    }
-    if (!data) return;
-    const payload = JSON.parse(data);
-    if (event === "progress") onProgress(payload as ScanProgress);
-    else if (event === "complete") summary = payload as ScanSummary;
-    else if (event === "error") throw new Error(payload?.detail ?? "Scan failed");
-  };
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    // SSE frames are separated by a blank line; keep the trailing partial.
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() ?? "";
-    for (const frame of frames) {
-      if (frame.trim()) handleFrame(frame);
-    }
-  }
-  if (buffer.trim()) handleFrame(buffer);
-
-  if (!summary) throw new Error("Scan stream ended without a result");
-  return summary;
-}
-
-export async function exportSelection(req: ExportRequest): Promise<NormalizedExportResult> {
-  const resp = await fetch(`${CURATOR_URL}/export`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
-  });
-  if (!resp.ok) return asError(resp);
-  return normalizeExportResult(await resp.json());
+  return readSseStream<ScanProgress, ScanSummary>(resp.body, onProgress, "Scan");
 }
 
 export interface ExportProgress {
@@ -205,8 +236,8 @@ export interface ExportProgress {
 }
 
 /**
- * Stream an export over SSE (POST /export/stream), invoking `onProgress` for
- * each file-transfer frame and resolving with the final ExportResult.
+ * Stream an export over SSE (POST /export/stream), resolving with the final
+ * result already normalized to the manifest-2.0 shape the app consumes.
  */
 export async function exportSelectionStream(
   req: ExportRequest,
@@ -220,40 +251,8 @@ export async function exportSelectionStream(
     signal,
   });
   if (!resp.ok || !resp.body) return asError(resp);
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let result: ExportResult | null = null;
-
-  const handleFrame = (frame: string) => {
-    let event = "message";
-    let data = "";
-    for (const line of frame.split("\n")) {
-      if (line.startsWith("event:")) event = line.slice(6).trim();
-      else if (line.startsWith("data:")) data += line.slice(5).trim();
-    }
-    if (!data) return;
-    const payload = JSON.parse(data);
-    if (event === "progress") onProgress(payload as ExportProgress);
-    else if (event === "complete") result = payload as ExportResult;
-    else if (event === "error") throw new Error(payload?.detail ?? "Export failed");
-  };
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() ?? "";
-    for (const frame of frames) {
-      if (frame.trim()) handleFrame(frame);
-    }
-  }
-  if (buffer.trim()) handleFrame(buffer);
-
-  if (!result) throw new Error("Export stream ended without a result");
-  return normalizeExportResult(result);
+  const result = await readSseStream<ExportProgress, ExportResult>(resp.body, onProgress, "Export");
+  return normalizeExportResult(result, req);
 }
 
 /** Build a /thumb URL for a scanned image (live mode only). */

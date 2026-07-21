@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { ThumbImage } from "./ThumbImage";
 import { faceFocalPoint, type ImageResult } from "./types";
+import { basename } from "@/lib/path";
 
 interface Props {
   scanId: string;
@@ -89,7 +90,7 @@ export function ClusterReviewLane({ scanId, results, selected, onToggle }: Props
                     </span>
                   </div>
                   <div className="truncate p-1.5 font-mono text-[9px] text-muted" title={m.rel_path}>
-                    {m.rel_path.split("/").pop()}
+                    {basename(m.rel_path)}
                   </div>
                 </button>
               );

@@ -35,7 +35,6 @@ export function DocsToc() {
     // Drop the previous route's active heading: sibling pages share slug ids
     // (e.g. every concept page has a "Try it" -> #try-it), so without this a
     // stale highlight carries over on client navigation.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on route change
     setActiveId("");
   }, [pathname]);
 

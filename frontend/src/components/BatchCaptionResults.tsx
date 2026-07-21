@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BatchCaptionResult } from "@/types";
 import { toJsonl } from "@/lib/jsonl";
+import { downloadText } from "@/lib/download";
 
 interface Props {
   result: BatchCaptionResult;
@@ -26,15 +27,7 @@ export function BatchCaptionResults({ result, source }: Props) {
     }
   };
 
-  const download = () => {
-    const blob = new Blob([asJsonl], { type: "application/x-ndjson" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "captions.jsonl";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const download = () => downloadText("captions.jsonl", asJsonl + "\n", "application/x-ndjson");
 
   return (
     <div className="space-y-4">

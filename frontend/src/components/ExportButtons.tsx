@@ -1,22 +1,11 @@
 "use client";
 
 import type { CaptionResult } from "@/types";
+import { downloadText } from "@/lib/download";
 
 interface ExportButtonsProps {
   result: CaptionResult;
   imageUrl: string;
-}
-
-function downloadBlob(content: string, filename: string, mime: string) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 function escapeCSV(value: string): string {
@@ -78,12 +67,11 @@ function resultToCSV(result: CaptionResult, imageUrl: string): string {
 export function ExportButtons({ result, imageUrl }: ExportButtonsProps) {
   const handleJSON = () => {
     const data = JSON.stringify({ image_url: imageUrl, ...result }, null, 2);
-    downloadBlob(data, "argus-lens-result.json", "application/json");
+    downloadText("argus-lens-result.json", data, "application/json");
   };
 
   const handleCSV = () => {
-    const csv = resultToCSV(result, imageUrl);
-    downloadBlob(csv, "argus-lens-result.csv", "text/csv");
+    downloadText("argus-lens-result.csv", resultToCSV(result, imageUrl), "text/csv");
   };
 
   return (

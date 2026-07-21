@@ -65,10 +65,10 @@ export function SelectionInsights({ summary, selectedResults }: Props) {
     let closeUp = 0;
     let medium = 0;
     let wide = 0;
-    let noFaceScale = 0;
     for (const r of selectedResults) {
       const area = primaryFaceArea(r);
-      if (area == null) noFaceScale += 1;
+      // No detected face — shot scale is unknown, so it lands in no bucket.
+      if (area == null) continue;
       else if (area >= 0.12) closeUp += 1;
       else if (area >= 0.03) medium += 1;
       else wide += 1;
