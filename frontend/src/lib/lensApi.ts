@@ -4,7 +4,7 @@ import type { FolderListing } from "@/components/curator/types";
 import type { BatchCaptionResult, CaptionFolderRequest, CaptionResult } from "@/types";
 import { asError } from "@/lib/apiError";
 
-const LENS_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
+import { lensUrl } from "@/lib/curatorEnv";
 
 /**
  * Server-side captioning profiles (GET /profiles). Only the hybrid tag↔prose
@@ -19,7 +19,7 @@ export interface LensProfiles {
 
 /** Fetch the lens captioning profiles, including hybrid tag↔prose presets (GET /profiles). */
 export async function getLensProfiles(signal?: AbortSignal): Promise<LensProfiles> {
-  const resp = await fetch(`${LENS_URL}/profiles`, { signal });
+  const resp = await fetch(`${lensUrl()}/profiles`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
@@ -41,14 +41,14 @@ function appendHybrid(fd: FormData, opts?: HybridBalanceParams): void {
 /** Browse folders under the lens --source-root (GET /folders). */
 export async function listLensFolders(path = "", signal?: AbortSignal): Promise<FolderListing> {
   const params = new URLSearchParams(path ? { path } : {});
-  const resp = await fetch(`${LENS_URL}/folders?${params.toString()}`, { signal });
+  const resp = await fetch(`${lensUrl()}/folders?${params.toString()}`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
 
 /** Batch-caption every image in a server-side folder (POST /caption/folder). */
 export async function captionFolder(req: CaptionFolderRequest): Promise<BatchCaptionResult> {
-  const resp = await fetch(`${LENS_URL}/caption/folder`, {
+  const resp = await fetch(`${lensUrl()}/caption/folder`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
@@ -68,7 +68,7 @@ export async function captionManifest(
   fd.append("write_sidecar", String(opts?.write_sidecar ?? true));
   fd.append("write_xmp", String(opts?.write_xmp ?? false));
   appendHybrid(fd, opts);
-  const resp = await fetch(`${LENS_URL}/caption/manifest`, { method: "POST", body: fd });
+  const resp = await fetch(`${lensUrl()}/caption/manifest`, { method: "POST", body: fd });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
@@ -133,7 +133,7 @@ export async function captionManifestStream(
   form.append("write_xmp", String(opts?.write_xmp ?? false));
   appendHybrid(form, opts);
 
-  const resp = await fetch(`${LENS_URL}/caption/manifest/stream`, {
+  const resp = await fetch(`${lensUrl()}/caption/manifest/stream`, {
     method: "POST",
     body: form,
     signal,
@@ -182,7 +182,7 @@ export async function captionFilesStream(
   if (params.target_backend) fd.append("target_backend", params.target_backend);
   appendHybrid(fd, params);
 
-  const resp = await fetch(`${LENS_URL}/caption/stream`, { method: "POST", body: fd, signal });
+  const resp = await fetch(`${lensUrl()}/caption/stream`, { method: "POST", body: fd, signal });
   if (!resp.ok) return asError(resp);
 
   const rows: UploadCaptionRow[] = [];
@@ -204,7 +204,7 @@ export interface ImmichAlbum {
 
 /** List Immich albums (GET /immich/albums). Requires IMMICH_URL/IMMICH_API_KEY on lens. */
 export async function listImmichAlbums(signal?: AbortSignal): Promise<ImmichAlbum[]> {
-  const resp = await fetch(`${LENS_URL}/immich/albums`, { signal });
+  const resp = await fetch(`${lensUrl()}/immich/albums`, { signal });
   if (!resp.ok) return asError(resp);
   const data: { albums: ImmichAlbum[] } = await resp.json();
   return data.albums;
@@ -242,7 +242,7 @@ export async function immichCaptionStream(
   onProgress: (p: ImmichCaptionProgress) => void,
   signal?: AbortSignal,
 ): Promise<CaptionSummary> {
-  const resp = await fetch(`${LENS_URL}/immich/caption/stream`, {
+  const resp = await fetch(`${lensUrl()}/immich/caption/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
@@ -289,7 +289,7 @@ export async function immichPullStream(
   onProgress: (p: ImmichPullProgress) => void,
   signal?: AbortSignal,
 ): Promise<ImmichPullResult> {
-  const resp = await fetch(`${LENS_URL}/immich/pull`, {
+  const resp = await fetch(`${lensUrl()}/immich/pull`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),

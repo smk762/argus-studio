@@ -1,46 +1,74 @@
 /**
- * Curator SPA mode + path defaults, baked in at build time (NEXT_PUBLIC_*).
+ * Named accessors over the per-request {@link runtimeConfig}.
  *
+ * These are **functions**, not consts, because the config is resolved at
+ * request time rather than baked into the bundle (see lib/runtimeConfig.ts and
+ * argus-studio#56). A module-scope const would capture whatever was known when
+ * the module first evaluated, which on the client is before the layout has
+ * injected the real values.
+ *
+ * Curator SPA modes:
  *   demo (default) — read-only bundled sample scan; no backend required. Ideal
  *                    for the public GitHub demo.
- *   live           — real scans/exports against NEXT_PUBLIC_CURATOR_URL using
- *                    folder paths on the curator host (e.g. Docker volumes).
- *
- * `local` is accepted as a legacy alias for `live`.
+ *   live           — real scans/exports against the curator URL using folder
+ *                    paths on the curator host (e.g. Docker volumes).
  */
-export type CuratorUiMode = "demo" | "live";
 
-const raw = (process.env.NEXT_PUBLIC_CURATOR_UI_MODE ?? "demo").toLowerCase();
+import { runtimeConfig, type CuratorUiMode } from "@/lib/runtimeConfig";
 
-export const CURATOR_UI_MODE: CuratorUiMode =
-  raw === "live" || raw === "local" ? "live" : "demo";
+export type { CuratorUiMode };
 
-export const IS_LIVE = CURATOR_UI_MODE === "live";
+/** Which curator SPA mode this deployment runs in. */
+export function curatorUiMode(): CuratorUiMode {
+  return runtimeConfig().curatorUiMode;
+}
+
+/** True when the curator SPA should talk to real backends instead of the sample. */
+export function isLive(): boolean {
+  return curatorUiMode() === "live";
+}
 
 /** URL the browser uses to reach the argus-curator API. */
-export const CURATOR_URL =
-  process.env.NEXT_PUBLIC_CURATOR_URL ?? "http://localhost:8101";
+export function curatorUrl(): string {
+  return runtimeConfig().curatorUrl;
+}
 
 /** URL the browser uses to reach the argus-lens API. */
-export const LENS_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
+export function lensUrl(): string {
+  return runtimeConfig().lensUrl;
+}
 
 /**
  * URL the **curator container** uses to reach argus-lens for the export→caption
  * handoff. This is a server-to-server call made by argus-curator, so in Docker it
  * is the compose service name (e.g. http://argus-lens:8100), not the browser's
- * localhost. Falls back to {@link LENS_URL} for host/local dev.
+ * localhost. Falls back to {@link lensUrl} for host/local dev.
  */
-export const LENS_INTERNAL_URL =
-  process.env.NEXT_PUBLIC_LENS_INTERNAL_URL ?? LENS_URL;
+export function lensInternalUrl(): string {
+  return runtimeConfig().lensInternalUrl;
+}
+
+/** URL the browser uses to reach the argus-quarry API (provenance gallery). */
+export function quarryUrl(): string {
+  return runtimeConfig().quarryUrl;
+}
 
 /** URL the browser uses to reach the argus-forge API (training-config bridge). */
-export const FORGE_URL = process.env.NEXT_PUBLIC_FORGE_URL ?? "http://localhost:8103";
+export function forgeUrl(): string {
+  return runtimeConfig().forgeUrl;
+}
 
 /** URL the browser uses to reach the argus-proof API (post-training eval). */
-export const PROOF_URL = process.env.NEXT_PUBLIC_PROOF_URL ?? "http://localhost:8104";
+export function proofUrl(): string {
+  return runtimeConfig().proofUrl;
+}
 
 /** Scan input directory as seen by argus-curator (container path under Docker). */
-export const LOCAL_SOURCE_PATH = process.env.NEXT_PUBLIC_CURATOR_SOURCE_PATH ?? "";
+export function localSourcePath(): string {
+  return runtimeConfig().curatorSourcePath;
+}
 
 /** Export target directory on the curator host. */
-export const LOCAL_OUTPUT_PATH = process.env.NEXT_PUBLIC_CURATOR_OUTPUT_PATH ?? "";
+export function localOutputPath(): string {
+  return runtimeConfig().curatorOutputPath;
+}

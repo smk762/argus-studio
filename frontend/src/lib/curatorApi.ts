@@ -1,6 +1,6 @@
 /** Thin client for the argus-curator API (:8101). */
 
-import { CURATOR_URL } from "@/lib/curatorEnv";
+import { curatorUrl } from "@/lib/curatorEnv";
 import type {
   CuratorConfig,
   Detectors,
@@ -98,26 +98,26 @@ export interface Health {
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<Health> {
-  const resp = await fetch(`${CURATOR_URL}/health`, { signal });
+  const resp = await fetch(`${curatorUrl()}/health`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
 
 export async function getDetectors(signal?: AbortSignal): Promise<Detectors> {
-  const resp = await fetch(`${CURATOR_URL}/detectors`, { signal });
+  const resp = await fetch(`${curatorUrl()}/detectors`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
 
 export async function listFolders(path = "", signal?: AbortSignal): Promise<FolderListing> {
   const params = new URLSearchParams(path ? { path } : {});
-  const resp = await fetch(`${CURATOR_URL}/folders?${params.toString()}`, { signal });
+  const resp = await fetch(`${curatorUrl()}/folders?${params.toString()}`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
 
 export async function scanFolder(folder: string, cfg: CuratorConfig): Promise<ScanSummary> {
-  const resp = await fetch(`${CURATOR_URL}/scan/folder`, {
+  const resp = await fetch(`${curatorUrl()}/scan/folder`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(buildScanBody(folder, cfg)),
@@ -138,7 +138,7 @@ export async function uploadImages(files: File[], folder: string): Promise<Uploa
   const fd = new FormData();
   for (const f of files) fd.append("files", f);
   fd.append("folder", folder);
-  const resp = await fetch(`${CURATOR_URL}/upload`, { method: "POST", body: fd });
+  const resp = await fetch(`${curatorUrl()}/upload`, { method: "POST", body: fd });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
@@ -146,7 +146,7 @@ export async function uploadImages(files: File[], folder: string): Promise<Uploa
 /** Reload a persisted scan by id (GET /scan/{scan_id}). */
 export async function getScan(scanId: string, limit = 10000, signal?: AbortSignal): Promise<ScanSummary> {
   const params = new URLSearchParams({ limit: String(limit) });
-  const resp = await fetch(`${CURATOR_URL}/scan/${encodeURIComponent(scanId)}?${params.toString()}`, { signal });
+  const resp = await fetch(`${curatorUrl()}/scan/${encodeURIComponent(scanId)}?${params.toString()}`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
@@ -219,7 +219,7 @@ export async function scanFolderStream(
   onProgress: (p: ScanProgress) => void,
   signal?: AbortSignal,
 ): Promise<ScanSummary> {
-  const resp = await fetch(`${CURATOR_URL}/scan/folder/stream`, {
+  const resp = await fetch(`${curatorUrl()}/scan/folder/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(buildScanBody(folder, cfg)),
@@ -244,7 +244,7 @@ export async function exportSelectionStream(
   onProgress: (p: ExportProgress) => void,
   signal?: AbortSignal,
 ): Promise<NormalizedExportResult> {
-  const resp = await fetch(`${CURATOR_URL}/export/stream`, {
+  const resp = await fetch(`${curatorUrl()}/export/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
@@ -258,5 +258,5 @@ export async function exportSelectionStream(
 /** Build a /thumb URL for a scanned image (live mode only). */
 export function thumbUrl(scanId: string, relPath: string): string {
   const params = new URLSearchParams({ scan_id: scanId, path: relPath });
-  return `${CURATOR_URL}/thumb?${params.toString()}`;
+  return `${curatorUrl()}/thumb?${params.toString()}`;
 }

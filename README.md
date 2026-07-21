@@ -36,7 +36,7 @@ docker compose up --build                    # frontend only (demo mode, no back
 docker compose --profile curator up --build  # frontend + argus-curator
 docker compose --profile lens    up --build  # frontend + argus-lens
 docker compose --profile gallery up --build  # argus-quarry: acquire PD/CC0 images -> DATASET_DIR
-NEXT_PUBLIC_CURATOR_UI_MODE=live \
+ARGUS_CURATOR_UI_MODE=live \
 docker compose --profile forge   up --build  # frontend + curator + argus-forge (training configs)
 docker compose --profile proof   up --build  # frontend + argus-proof (post-training LoRA evaluation)
 docker compose --profile full    up --build  # whole suite
@@ -48,9 +48,9 @@ docker compose --profile full    up --build  # whole suite
 | `curator` | frontend + argus-curator | Scanning / exporting datasets |
 | `lens` | frontend + argus-lens | Captioning against a running engine |
 | `gallery` | argus-quarry (acquisition job) + argus-quarry-server | Acquiring PD/CC0 images with provenance into `DATASET_DIR`, browsable at `/gallery` |
-| `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers). Set `NEXT_PUBLIC_CURATOR_UI_MODE=live` — the forge step lives in the live-mode export flow |
+| `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers). Set `ARGUS_CURATOR_UI_MODE=live` — the forge step lives in the live-mode export flow |
 | `proof` | frontend + argus-proof | Post-training LoRA evaluation ([epic](https://github.com/smk762/argus-studio/issues/6)): review scored eval runs at `/proof` — pass/fail verdict, per-metric scores, and a keyboard-first HITL review (5-star + structured reject reasons, blind mode) against argus-proof on :8104 |
-| `full` | frontend + curator + lens + quarry server + forge + proof | End-to-end acquire → curate → caption → forge → evaluate (set `NEXT_PUBLIC_CURATOR_UI_MODE=live`) |
+| `full` | frontend + curator + lens + quarry server + forge + proof | End-to-end acquire → curate → caption → forge → evaluate (set `ARGUS_CURATOR_UI_MODE=live`) |
 
 **argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
 public-domain / CC0 images from open archives with full provenance and licence
@@ -73,7 +73,7 @@ docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build
 The only cross-service coupling is the **curate → caption handoff**: curator and lens
 share the dataset at `/data/images` (`DATASET_DIR`) so lens can read the manifest's
 `abs_path` entries and write `.txt` sidecars. The curator calls lens server-to-server at
-`NEXT_PUBLIC_LENS_INTERNAL_URL` (the compose service DNS name, not `localhost`). Each
+`ARGUS_LENS_INTERNAL_URL` (the compose service DNS name, not `localhost`). Each
 service still runs perfectly on its own.
 
 ### Run services individually
@@ -86,7 +86,7 @@ pip install argus-lens[server,local]
 argus-lens serve --cors --port 8100
 ```
 
-If you are developing **argus-lens locally**, rebuild the wheel and reinstall into the same environment you use for `serve` (the demo always talks to whatever is running on `NEXT_PUBLIC_API_URL`). Targets use [uv](https://docs.astral.sh/uv/) so installs work on PEP 668 (externally managed) system Pythons:
+If you are developing **argus-lens locally**, rebuild the wheel and reinstall into the same environment you use for `serve` (the demo always talks to whatever is running on `ARGUS_LENS_URL`). Targets use [uv](https://docs.astral.sh/uv/) so installs work on PEP 668 (externally managed) system Pythons:
 
 ```bash
 cd ../argus-lens
@@ -118,18 +118,18 @@ images land in **Upload**, a `.jsonl` lands in **Curate manifest**):
 
 ### Curator SPA (`/curate`)
 
-The curator UI calls `NEXT_PUBLIC_CURATOR_URL` (default `http://localhost:8101`). Run the FastAPI app from [argus-curator](https://github.com/smk762/argus-curator) in another terminal.
+The curator UI calls `ARGUS_CURATOR_URL` (default `http://localhost:8101`). Run the FastAPI app from [argus-curator](https://github.com/smk762/argus-curator) in another terminal.
 
 In live mode the page also offers:
 
 - **Add images to dataset** — drag-and-drop images into a folder under the shared dataset (`POST /upload` on the curator), or pull an Immich album into it via argus-lens (`POST /immich/pull`); the target folder is pre-filled for scanning.
 - **Recent scans** — reopen a persisted scan (`GET /scan/{scan_id}`) without rescanning; history is kept in the browser.
 - **Detector badges** — what the curator backend can actually do (`GET /detectors`: torch / cuda / clip / faces / onnx), so greyed-out options explain themselves.
-- **Forge training config** — after export (and captioning), [argus-forge](https://github.com/smk762/argus-forge) turns the export into a ready-to-run LoRA config for kohya sd-scripts, OneTrainer, or diffusers (`POST /config` on `NEXT_PUBLIC_FORGE_URL`, default `http://localhost:8103`), seeded from the same selection-insight heuristics the panel displays. Demo mode offers a client-side kohya TOML download instead. Two caveats when forge runs in Docker: the generated configs reference **container paths** (`/data/out/…`), so substitute your `OUTPUT_DIR` (and prefer `copy`-mode exports over `symlink`) when running `train.sh` on the host; and if you run forge outside compose, start it with `argus-forge serve --cors` so the browser can reach it.
+- **Forge training config** — after export (and captioning), [argus-forge](https://github.com/smk762/argus-forge) turns the export into a ready-to-run LoRA config for kohya sd-scripts, OneTrainer, or diffusers (`POST /config` on `ARGUS_FORGE_URL`, default `http://localhost:8103`), seeded from the same selection-insight heuristics the panel displays. Demo mode offers a client-side kohya TOML download instead. Two caveats when forge runs in Docker: the generated configs reference **container paths** (`/data/out/…`), so substitute your `OUTPUT_DIR` (and prefer `copy`-mode exports over `symlink`) when running `train.sh` on the host; and if you run forge outside compose, start it with `argus-forge serve --cors` so the browser can reach it.
 
 ### Gallery (`/gallery`)
 
-A read-only view over [argus-quarry](https://github.com/smk762/argus-quarry)'s provenance database (`NEXT_PUBLIC_QUARRY_URL`, default `http://localhost:8102`): pool stats, licence/source/category/subject filters, thumbnails, and a per-image provenance card (source page, photographer, attribution, SHA256). Every photo links straight into `/curate` with its published subject folder preselected. Run the server with the `gallery` profile, or standalone:
+A read-only view over [argus-quarry](https://github.com/smk762/argus-quarry)'s provenance database (`ARGUS_QUARRY_URL`, default `http://localhost:8102`): pool stats, licence/source/category/subject filters, thumbnails, and a per-image provenance card (source page, photographer, attribution, SHA256). Every photo links straight into `/curate` with its published subject folder preselected. Run the server with the `gallery` profile, or standalone:
 
 ```bash
 pip install "argus-quarry[server]"
@@ -182,7 +182,7 @@ Open [http://localhost:3000](http://localhost:3000) (captioning) or [http://loca
 
 ### Proof (`/proof`)
 
-Review post-training LoRA evaluation runs from [argus-proof](https://github.com/smk762/argus-proof) (`NEXT_PUBLIC_PROOF_URL`, default `http://localhost:8104`). A run browser lists scored runs; the selected run shows its pass/fail **verdict**, group-collapsed pass-rate, per-metric means (identity / adherence / quality / preference / safety), diversity, and scorer provenance. Below it is the **human-in-the-loop review**: a keyboard-first grid (`1`–`5` rate, `0` clear, arrows move) with a 5-star rating and a structured, multi-label reject taxonomy (deformation / decoherence / ID-not-applied / …) captured as structured codes, not free text. **Blind mode** hides each sample's checkpoint/weight/epoch/seed and randomises order to remove expectation bias, revealing provenance after you rate; the borderline (needs-review) band is surfaced first via the automated pre-pass. Saving folds the ratings + reasons + rater id back into the report and recomputes the verdict (`POST /report/{id}/hitl`). Demo mode reviews a bundled sample report with no backend; run the server with the `proof` profile, or standalone:
+Review post-training LoRA evaluation runs from [argus-proof](https://github.com/smk762/argus-proof) (`ARGUS_PROOF_URL`, default `http://localhost:8104`). A run browser lists scored runs; the selected run shows its pass/fail **verdict**, group-collapsed pass-rate, per-metric means (identity / adherence / quality / preference / safety), diversity, and scorer provenance. Below it is the **human-in-the-loop review**: a keyboard-first grid (`1`–`5` rate, `0` clear, arrows move) with a 5-star rating and a structured, multi-label reject taxonomy (deformation / decoherence / ID-not-applied / …) captured as structured codes, not free text. **Blind mode** hides each sample's checkpoint/weight/epoch/seed and randomises order to remove expectation bias, revealing provenance after you rate; the borderline (needs-review) band is surfaced first via the automated pre-pass. Saving folds the ratings + reasons + rater id back into the report and recomputes the verdict (`POST /report/{id}/hitl`). Demo mode reviews a bundled sample report with no backend; run the server with the `proof` profile, or standalone:
 
 ```bash
 pip install "argus-proof[server]"
@@ -221,15 +221,15 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 
 | Variable | Default | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8100` | URL the **browser** uses to reach the argus-lens API |
-| `NEXT_PUBLIC_CURATOR_URL` | `http://localhost:8101` | URL the **browser** uses to reach the argus-curator API (`/curate`) |
-| `NEXT_PUBLIC_QUARRY_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
-| `NEXT_PUBLIC_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (ExportPanel forge step) |
-| `NEXT_PUBLIC_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
-| `NEXT_PUBLIC_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
-| `NEXT_PUBLIC_CURATOR_SOURCE_PATH` | `/data/images` | Default source path shown in the folder picker (path inside the curator container) |
-| `NEXT_PUBLIC_CURATOR_OUTPUT_PATH` | `/data/out` | Default export destination (path inside the curator container) |
-| `NEXT_PUBLIC_LENS_INTERNAL_URL` | `http://argus-lens:8100` | URL the **curator container** uses to reach lens for the caption handoff (server-to-server) |
+| `ARGUS_LENS_URL` | `http://localhost:8100` | URL the **browser** uses to reach the argus-lens API |
+| `ARGUS_CURATOR_URL` | `http://localhost:8101` | URL the **browser** uses to reach the argus-curator API (`/curate`) |
+| `ARGUS_QUARRY_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
+| `ARGUS_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (ExportPanel forge step) |
+| `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
+| `ARGUS_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
+| `ARGUS_CURATOR_SOURCE_PATH` | `/data/images` | Default source path shown in the folder picker (path inside the curator container) |
+| `ARGUS_CURATOR_OUTPUT_PATH` | `/data/out` | Default export destination (path inside the curator container) |
+| `ARGUS_LENS_INTERNAL_URL` | `http://argus-lens:8100` | URL the **curator container** uses to reach lens for the caption handoff (server-to-server) |
 | `DATASET_DIR` | `./data` | Host dir mounted at `/data/images` on **both** curator and lens |
 | `OUTPUT_DIR` | `./out` | Host dir mounted at `/data/out` on curator (exports) |
 | `HF_CACHE_DIR` | `~/.cache/huggingface` | Host Hugging Face cache shared with the backends |
@@ -240,7 +240,16 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |
 | `QUARRY_SERVER_PORT` / `FORGE_PORT` / `PROOF_PORT` | `8102` / `8103` / `8104` | Host ports |
 
-`NEXT_PUBLIC_*` values are inlined when the client bundle is built. After changing them in `.env`, run `docker compose build --no-cache` (or restart `npm run dev` locally) so the container image picks up the new values.
+The `ARGUS_*` frontend variables are resolved **per request** from the container's
+environment, not baked into the client bundle, so `docker compose up -d frontend`
+applies a change without a rebuild — one published image deploys to any origin.
+
+Setting an `ARGUS_*_URL` to the **empty string** makes the browser call that API on
+the page's own origin (`/scan/folder` instead of `http://host:8101/scan/folder`),
+which is what you want behind a reverse proxy that fronts the whole suite.
+
+The pre-existing `NEXT_PUBLIC_*` names are still honoured as a fallback for older
+`.env` files.
 
 ## Parameters
 

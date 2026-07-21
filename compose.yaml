@@ -8,7 +8,7 @@
 #   docker compose --profile gallery up --build    # run argus-quarry: acquire -> DATASET_DIR
 #   docker compose --profile forge   up --build    # frontend + curator + argus-forge
 #                                                   # (training configs; needs
-#                                                   #  NEXT_PUBLIC_CURATOR_UI_MODE=live)
+#                                                   #  ARGUS_CURATOR_UI_MODE=live)
 #   docker compose --profile proof   up --build    # frontend + argus-proof
 #                                                   # (post-training LoRA evaluation)
 #   docker compose --profile full    up --build    # whole suite
@@ -35,30 +35,23 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8100}
-        NEXT_PUBLIC_CURATOR_URL: ${NEXT_PUBLIC_CURATOR_URL:-http://localhost:8101}
-        NEXT_PUBLIC_CURATOR_UI_MODE: ${NEXT_PUBLIC_CURATOR_UI_MODE:-demo}
-        NEXT_PUBLIC_CURATOR_SOURCE_PATH: ${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}
-        NEXT_PUBLIC_CURATOR_OUTPUT_PATH: ${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
-        NEXT_PUBLIC_QUARRY_URL: ${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}
-        NEXT_PUBLIC_FORGE_URL: ${NEXT_PUBLIC_FORGE_URL:-http://localhost:8103}
-        NEXT_PUBLIC_PROOF_URL: ${NEXT_PUBLIC_PROOF_URL:-http://localhost:8104}
-        # URL the CURATOR CONTAINER uses to reach lens for the export->caption handoff
-        # (server-to-server, so it's the compose service name, not localhost).
-        NEXT_PUBLIC_LENS_INTERNAL_URL: ${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
+    # Read at request time, so `docker compose up` picks up .env changes without
+    # a rebuild. The NEXT_PUBLIC_* fallbacks keep pre-#56 .env files working.
+    # An empty value means "same origin" — what argus-halo wants behind Caddy.
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8100}
-      - NEXT_PUBLIC_CURATOR_URL=${NEXT_PUBLIC_CURATOR_URL:-http://localhost:8101}
-      - NEXT_PUBLIC_CURATOR_UI_MODE=${NEXT_PUBLIC_CURATOR_UI_MODE:-demo}
-      - NEXT_PUBLIC_CURATOR_SOURCE_PATH=${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}
-      - NEXT_PUBLIC_CURATOR_OUTPUT_PATH=${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}
-      - NEXT_PUBLIC_QUARRY_URL=${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}
-      - NEXT_PUBLIC_FORGE_URL=${NEXT_PUBLIC_FORGE_URL:-http://localhost:8103}
-      - NEXT_PUBLIC_PROOF_URL=${NEXT_PUBLIC_PROOF_URL:-http://localhost:8104}
-      - NEXT_PUBLIC_LENS_INTERNAL_URL=${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}
+      - ARGUS_LENS_URL=${ARGUS_LENS_URL:-${NEXT_PUBLIC_API_URL:-http://localhost:8100}}
+      - ARGUS_CURATOR_URL=${ARGUS_CURATOR_URL:-${NEXT_PUBLIC_CURATOR_URL:-http://localhost:8101}}
+      - ARGUS_QUARRY_URL=${ARGUS_QUARRY_URL:-${NEXT_PUBLIC_QUARRY_URL:-http://localhost:8102}}
+      - ARGUS_FORGE_URL=${ARGUS_FORGE_URL:-${NEXT_PUBLIC_FORGE_URL:-http://localhost:8103}}
+      - ARGUS_PROOF_URL=${ARGUS_PROOF_URL:-${NEXT_PUBLIC_PROOF_URL:-http://localhost:8104}}
+      - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE:-${NEXT_PUBLIC_CURATOR_UI_MODE:-demo}}
+      - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH:-${NEXT_PUBLIC_CURATOR_SOURCE_PATH:-/data/images}}
+      - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH:-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH:-/data/out}}
+      # URL the CURATOR CONTAINER uses to reach lens for the export->caption handoff
+      # (server-to-server, so it's the compose service name, not localhost).
+      - ARGUS_LENS_INTERNAL_URL=${ARGUS_LENS_INTERNAL_URL:-${NEXT_PUBLIC_LENS_INTERNAL_URL:-http://argus-lens:8100}}
     restart: unless-stopped
 
   argus-lens:

@@ -10,7 +10,7 @@ import {
 } from "@/lib/curatorApi";
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
 import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
-import { FORGE_URL, IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
+import { forgeUrl, isLive, lensUrl, localOutputPath, localSourcePath } from "@/lib/curatorEnv";
 import { basename, normalizeRoot } from "@/lib/path";
 import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
@@ -114,7 +114,7 @@ function demoManifestRows(summary: ScanSummary, rows: ImageResult[]): ManifestRo
 }
 
 export function ExportPanel({ summary, selectedResults, health }: Props) {
-  const [dest, setDest] = useState(LOCAL_OUTPUT_PATH || "/data/out");
+  const [dest, setDest] = useState(localOutputPath() || "/data/out");
   const [mode, setMode] = useState<Mode>("copy");
   const [preserve, setPreserve] = useState(true);
   const [toCaption, setToCaption] = useState(false);
@@ -147,8 +147,8 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   // dataset mount, kohya's non-recursive image glob).
   // Trailing-slash-normalized so the root-equal compare below matches `d` (which
   // is also stripped); prefer the server's authoritative root when /health knows it.
-  const exportRoot = normalizeRoot(health?.export_root || LOCAL_OUTPUT_PATH || "/data/out");
-  const sourceRoot = normalizeRoot(LOCAL_SOURCE_PATH);
+  const exportRoot = normalizeRoot(health?.export_root || localOutputPath() || "/data/out");
+  const sourceRoot = normalizeRoot(localSourcePath());
   const forgeHints: string[] = [];
   if (toForge) {
     const d = normalizeRoot(dest.trim());
@@ -251,7 +251,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           });
           setForgeResult(forged);
         } catch (err) {
-          problems.push(`Forge failed (argus-forge at ${FORGE_URL}): ${errMsg(err)}`);
+          problems.push(`Forge failed (argus-forge at ${forgeUrl()}): ${errMsg(err)}`);
         } finally {
           setForgeRunning(false);
         }
@@ -289,7 +289,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
         {sizeHint.text}
       </p>
 
-      {IS_LIVE ? (
+      {isLive() ? (
         <>
           <p className="text-[11px] leading-relaxed text-muted">
             Transfers the selected images to a folder on the curator host and writes{" "}
@@ -353,7 +353,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           </label>
           <label
             className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-            title={`After export, the manifest is streamed to ${LENS_URL}/caption/manifest/stream so you can watch captioning progress image-by-image.`}
+            title={`After export, the manifest is streamed to ${lensUrl()}/caption/manifest/stream so you can watch captioning progress image-by-image.`}
           >
             <input
               type="checkbox"
