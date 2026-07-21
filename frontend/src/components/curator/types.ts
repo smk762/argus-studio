@@ -8,10 +8,15 @@
 
 /**
  * Version of the argus-curator handoff manifest. Mirrors
- * `argus_curator.models.MANIFEST_VERSION`; stamped on each row of the demo
- * manifest so its shape matches what a live curator export writes.
+ * `argus_curator.models.MANIFEST_VERSION`; stamped on each row we build so the
+ * payload matches what a live curator export writes.
+ *
+ * 2.0: rows exist only for files whose transfer actually succeeded, and each
+ * carries `exported_path` — the normative locator. Consumers must use it rather
+ * than re-deriving a destination from `rel_path` (flattened exports de-collide
+ * basenames, so the two can differ).
  */
-export const MANIFEST_VERSION = "1.0";
+export const MANIFEST_VERSION = "2.0";
 
 export type TargetStyle = "photo" | "anime";
 export type TargetCategory = "identity" | "wardrobe" | "pose_composition" | "setting";
@@ -158,6 +163,29 @@ export interface ExportResult {
   mode: string;
   selected_rel_paths: string[];
   captioned: boolean;
+  /**
+   * rel_path -> the path actually written under `dest` (posix, relative to it),
+   * for the files whose transfer succeeded. Manifest 2.0; absent on older
+   * curators.
+   */
+  exported_paths?: Record<string, string>;
+}
+
+/**
+ * One JSONL handoff-manifest row — mirrors `argus_curator.models.ManifestRow`
+ * (published as ManifestRow in the curator's schema/curator-wire.schema.json).
+ */
+export interface ManifestRow {
+  manifest_version: string;
+  rel_path: string;
+  abs_path: string;
+  /** Posix, relative to the export root. The normative locator (manifest 2.0). */
+  exported_path: string;
+  target_profile: TargetProfile;
+  primary_face_cluster: string | null;
+  primary_face_pose: FacePose | null;
+  score: number;
+  similar_group: number;
 }
 
 export interface Detectors {

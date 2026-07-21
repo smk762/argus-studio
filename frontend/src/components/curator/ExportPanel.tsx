@@ -6,7 +6,14 @@ import { captionManifestStream, type CaptionProgress, type CaptionSummary } from
 import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
 import { FORGE_URL, IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
 import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
-import { MANIFEST_VERSION, datasetSizeStatus, type ExportResult, type ImageResult, type ScanSummary } from "./types";
+import {
+  MANIFEST_VERSION,
+  datasetSizeStatus,
+  type ExportResult,
+  type ImageResult,
+  type ManifestRow,
+  type ScanSummary,
+} from "./types";
 
 const HINT_TONE: Record<string, string> = {
   empty: "border-border bg-background/60 text-muted",
@@ -33,22 +40,56 @@ const slugify = (s: string) =>
 
 const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** Build the JSONL manifest client-side (used for the demo-mode download). */
-function buildManifest(summary: ScanSummary, rows: ImageResult[]): string {
+const manifestRow = (
+  summary: ScanSummary,
+  r: ImageResult,
+  exportedPath: string,
+  absPath: string,
+): ManifestRow => ({
+  manifest_version: MANIFEST_VERSION,
+  rel_path: r.rel_path,
+  abs_path: absPath,
+  exported_path: exportedPath,
+  target_profile: summary.target_profile,
+  primary_face_cluster: r.primary_face_cluster,
+  primary_face_pose: r.primary_face_pose,
+  score: Number(r.score.toFixed(4)),
+  similar_group: r.similar_group,
+});
+
+const toJsonl = (rows: ManifestRow[]): string => rows.map((r) => JSON.stringify(r)).join("\n");
+
+/**
+ * Manifest rows for a completed live export (manifest 2.0): only the files whose
+ * transfer actually succeeded, each stamped with the `exported_path` the curator
+ * reported. In move mode the sources no longer exist, so `abs_path` references
+ * the transferred file — otherwise lens fails every row.
+ *
+ * Older curators (manifest 1.0) report no `exported_paths`; fall back to the
+ * whole selection so captioning still works instead of sending an empty payload.
+ */
+function exportManifestRows(summary: ScanSummary, rows: ImageResult[], result: ExportResult): ManifestRow[] {
+  // manifest 1.0 curators omit exported_paths entirely; a 2.0 curator always
+  // sends it (possibly empty when nothing transferred). Detect the legacy shape
+  // by presence, not emptiness — otherwise a zero-transfer 2.0 export is misread
+  // as 1.0 and the whole selection gets captioned instead of nothing.
+  const exported = result.exported_paths;
+  const root = result.dest.replace(/\/+$/, "");
   return rows
-    .map((r) =>
-      JSON.stringify({
-        manifest_version: MANIFEST_VERSION,
-        rel_path: r.rel_path,
-        abs_path: r.abs_path,
-        target_profile: summary.target_profile,
-        primary_face_cluster: r.primary_face_cluster,
-        primary_face_pose: r.primary_face_pose,
-        score: Number(r.score.toFixed(4)),
-        similar_group: r.similar_group,
-      }),
-    )
-    .join("\n");
+    .filter((r) => exported == null || exported[r.rel_path] != null)
+    .map((r) => {
+      const exportedPath = exported?.[r.rel_path] ?? r.rel_path;
+      const absPath = result.mode === "move" ? `${root}/${exportedPath}` : r.abs_path;
+      return manifestRow(summary, r, exportedPath, absPath);
+    });
+}
+
+/**
+ * The manifest a live structure-preserving export would write, for the demo
+ * download — same 2.0 shape, so the file you download matches what lens receives.
+ */
+function demoManifestRows(summary: ScanSummary, rows: ImageResult[]): ManifestRow[] {
+  return rows.map((r) => manifestRow(summary, r, r.rel_path, r.abs_path));
 }
 
 export function ExportPanel({ summary, selectedResults, health }: Props) {
@@ -119,27 +160,26 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
     try {
       // 1) Transfer files (+ manifest/report) on the curator, streaming
       // progress. A failure here is fatal — the later steps need the export.
-      try {
-        const res = await exportSelectionStream(
-          {
-            scan_id: summary.scan_id,
-            selection: selectedResults.map((r) => r.rel_path),
-            dest: dest.trim(),
-            mode,
-            preserve_structure: preserve,
-            min_score: 0,
-            include_rejected: true,
-            keep_similar: true,
-            write_manifest: true,
-            caption_url: null, // captioning is orchestrated below for live progress
-          },
-          setTransfer,
-        );
-        setResult(res);
-      } catch (err) {
+      const exported = await exportSelectionStream(
+        {
+          scan_id: summary.scan_id,
+          selection: selectedResults.map((r) => r.rel_path),
+          dest: dest.trim(),
+          mode,
+          preserve_structure: preserve,
+          min_score: 0,
+          include_rejected: true,
+          keep_similar: true,
+          write_manifest: true,
+          caption_url: null, // captioning is orchestrated below for live progress
+        },
+        setTransfer,
+      ).catch((err: unknown) => {
         setError(`Export failed (argus-curator): ${errMsg(err)}`);
-        return;
-      }
+        return null;
+      });
+      if (exported === null) return;
+      setResult(exported);
 
       // 2) Optionally caption via argus-lens, streaming per-image progress.
       // Non-fatal: forge handles caption-less exports (trigger fallback +
@@ -147,7 +187,17 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       // move mode the sources are gone and this run is the only chance.
       if (toCaption) {
         try {
-          const jsonl = buildManifest(summary, selectedResults);
+          // Manifest 2.0, built from the export result so the payload matches
+          // the manifest.jsonl the curator wrote (transferred rows only) and, in
+          // move mode, points at the exported files rather than vanished sources.
+          const rows = exportManifestRows(summary, selectedResults, exported);
+          if (rows.length === 0 && exported.copied > 0) {
+            // A non-empty export that yields no manifest rows means the curator's
+            // exported_paths keys didn't line up with the selection — surface it
+            // instead of silently streaming an empty payload lens no-ops on.
+            throw new Error("export transferred files but none matched the manifest — nothing to caption");
+          }
+          const jsonl = toJsonl(rows);
           const sum = await captionManifestStream(jsonl, setCaption, {
             trigger_word: toForge ? trigger.trim() : undefined,
           });
@@ -201,7 +251,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   };
 
   const downloadManifest = () => {
-    const jsonl = buildManifest(summary, selectedResults);
+    const jsonl = toJsonl(demoManifestRows(summary, selectedResults));
     downloadText("manifest.jsonl", jsonl + "\n", "application/x-ndjson");
   };
 
@@ -401,8 +451,8 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
         <>
           <p className="text-[11px] leading-relaxed text-muted">
             Read-only sample. Download the{" "}
-            <span className="font-mono text-foreground/80">manifest.jsonl</span> that a live export would hand to
-            argus-lens.
+            <span className="font-mono text-foreground/80">manifest.jsonl</span> that a live structure-preserving
+            export would hand to argus-lens.
           </p>
           <button
             type="button"
@@ -453,8 +503,8 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           {captionSummary && (
             <div className="text-accent-purple">
               Captioned {captionSummary.captioned}/{captionSummary.total} with argus-lens
-              {captionSummary.failed > 0 ? ` (${captionSummary.failed} failed)` : ""} — .txt sidecars written next to
-              each source image.
+              {captionSummary.failed > 0 ? ` (${captionSummary.failed} failed)` : ""} — .txt sidecars written{" "}
+              {result?.mode === "move" ? "into the export folder" : "next to each source image"}.
             </div>
           )}
           {forgeResult && (
