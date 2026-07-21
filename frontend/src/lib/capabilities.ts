@@ -35,18 +35,25 @@ export function permits(capability: Capability): boolean {
 /**
  * Read a capability from a health payload that may predate the field.
  *
- * `health` is `null` while loading or when the fetch failed -> `null`. An older
+ * `health` is nullish while loading or when the fetch failed -> `null`. An older
  * server that omits the field falls back to `legacy`, which should be whatever
  * that server's behaviour was before it could advertise: permissive for
  * capabilities that were always allowed, restrictive for ones that were not.
+ *
+ * `read` must yield an actual boolean to be believed. `resp.json()` is unvalidated
+ * `any`, so a field the server encodes as JSON `null` (an unresolved config value)
+ * would otherwise sail past a `?? legacy` — `null ?? true` is `true` — and arm a
+ * destructive control on a server that never said yes. Anything that is not a
+ * boolean is treated as "did not advertise" and falls back to `legacy`.
  */
 export function capabilityOf<T>(
-  health: T | null,
-  read: (health: T) => boolean | undefined,
+  health: T | null | undefined,
+  read: (health: T) => unknown,
   legacy: boolean,
 ): Capability {
-  if (health === null) return null;
-  return read(health) ?? legacy;
+  if (health == null) return null;
+  const value = read(health);
+  return typeof value === "boolean" ? value : legacy;
 }
 
 /**

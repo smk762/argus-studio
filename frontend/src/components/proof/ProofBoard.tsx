@@ -7,6 +7,7 @@ import {
   editsToUpdates,
   imageState,
   METRIC_LABELS,
+  normalizeEdits,
   presentMetrics,
   proofImageAtUrl,
   proofImageUrl,
@@ -19,6 +20,7 @@ import {
   type RejectReasonCode,
 } from "@/lib/proofApi";
 import { permits, type Capability } from "@/lib/capabilities";
+import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { StarRating } from "@/components/proof/StarRating";
 import { RejectReasonPicker } from "@/components/proof/RejectReasonPicker";
 
@@ -116,18 +118,22 @@ function SampleImage({
 
 interface ProofBoardProps {
   initialReport: EvalReport;
-  /** Backend reachable: images stream from the server rather than placeholders. */
+  /**
+   * This deployment talks to real backends rather than rendering the bundled
+   * sample, so images stream from the proof server instead of placeholders.
+   * Note this is the SPA's own mode, not a probe of the server.
+   */
   live: boolean;
   /**
    * Whether the server accepts `POST /hitl`. Distinct from {@link live}: a
    * replay-mode proof host (argus-proof#45) serves stored reports and their
-   * images perfectly well but 403s every write (#66). Review then stays fully
-   * usable and recomputes locally, exactly as demo mode does — it just can't
-   * persist.
+   * images perfectly well but 403s every write (#66). Rating stays fully usable
+   * there and the preview still recomputes — only the save is withheld, because
+   * on a live host a local "save" that clears the dirty state is indistinguishable
+   * from a real one and the reviewer would believe work was persisted.
    *
-   * Tri-state on purpose. `null` (still asking `/health`) must not collapse into
-   * `false`, or a save landing in that window would quietly apply locally and
-   * the reviewer would believe work was persisted that never left the browser.
+   * Tri-state on purpose: `null` (still asking `/health`) must not read as
+   * permission, and must not read as refusal either.
    */
   canWrite: Capability;
 }
@@ -247,18 +253,38 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
 
   const dirty = edits.size > 0;
 
+  // Demo mode has no server at all, so folding the review into the local report
+  // is honest and stays. A *live* host that refuses writes is different: there is
+  // a real server holding the real report, and committing a client recompute
+  // there would clear the dirty state and repaint as a successful save while
+  // nothing left the browser. So the write is offered only when it can actually
+  // happen, and the refusal is explained rather than silently absorbed.
+  const localApply = !live;
+  const writeRefused = live && canWrite === false;
+  const writeUnknown = live && canWrite === null;
+  const canSave = localApply || permits(canWrite);
+
   const save = async () => {
     setSaving(true);
     setSaveError(null);
+    // Snapshot what this click commits. A rating made while the POST is in flight
+    // is not part of it and must survive, so clear only the keys actually sent
+    // rather than dropping the whole map on resolve.
+    const sent = edits;
     try {
       // Writable: send the edits and adopt the server's authoritative recompute.
-      // Otherwise (demo, or a read-only host) keep exactly the preview the
-      // reviewer is looking at (`view`), which is the same recompute run locally.
+      // Demo: apply the same edits locally, laundered identically (normalizeEdits
+      // mirrors what editsToUpdates strips) so the two paths can't diverge.
       const updated = permits(canWrite)
-        ? await submitHitl(report.run_id, { rater: rater || null, updates: editsToUpdates(edits) })
-        : view;
+        ? await submitHitl(report.run_id, { rater: rater || null, updates: editsToUpdates(sent) })
+        : applyEdits(report, normalizeEdits(sent), rater || null);
       setReport(updated);
-      setEdits(new Map());
+      setEdits((cur) => {
+        if (cur === sent) return new Map();
+        const next = new Map(cur);
+        for (const id of sent.keys()) next.delete(id);
+        return next;
+      });
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save review");
     } finally {
@@ -362,17 +388,37 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
         )}
         <div className="ml-auto flex items-center gap-3">
           {saveError && <span className="text-xs text-accent-red">{saveError}</span>}
-          {dirty && <span className="text-xs text-muted">{edits.size} unsaved</span>}
+          {dirty && (
+            <span className="text-xs text-muted">
+              {edits.size} {writeRefused ? "not saved" : "unsaved"}
+            </span>
+          )}
           <button
             type="button"
             onClick={save}
-            disabled={!dirty || saving || canWrite === null}
+            disabled={!dirty || saving || !canSave}
             className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {saving ? "Saving…" : canWrite === null ? "Checking…" : canWrite ? "Save review" : "Apply review"}
+            {saving ? "Saving…" : localApply ? "Apply review" : writeUnknown ? "Checking…" : "Save review"}
           </button>
         </div>
       </section>
+
+      {/* A live host that refuses writes says so once, up front. Without this the
+          only cue was the button's verb, and a reviewer could rate a whole run
+          believing it had been persisted. */}
+      {writeRefused && (
+        <CapabilityNotice
+          reason={
+            <>
+              This argus-proof host is in replay mode and refuses review writes, so ratings cannot be
+              saved. Rate freely — the verdict and aggregates below update as you go — but they are
+              recomputed in your browser at the default thresholds, are not the server&apos;s scoring, and
+              are lost when you reload.
+            </>
+          }
+        />
+      )}
       <p className="-mt-3 text-[11px] text-muted/70">
         Keyboard: <kbd className="rounded bg-surface-hover px-1">1</kbd>–<kbd className="rounded bg-surface-hover px-1">5</kbd> rate ·{" "}
         <kbd className="rounded bg-surface-hover px-1">0</kbd> clear · <kbd className="rounded bg-surface-hover px-1">←</kbd>

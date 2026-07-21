@@ -110,6 +110,21 @@ export function allowsMove(health: Health | null): Capability {
   return capabilityOf(health, (h) => h.allow_move, true);
 }
 
+/**
+ * Whether this server has an export root configured, i.e. whether a live export
+ * can succeed at all.
+ *
+ * Same tri-state as {@link allowsMove}, and for the same reason: reading
+ * `health?.export_root === null` directly fails **open** while `/health` is in
+ * flight (`undefined === null` is false), so the export button stayed armed on a
+ * server that 400s every export. `null` (unknown) now disables it like any other
+ * unresolved capability. A missing field is an older server that predates the
+ * export root and is fine, so absence reads as permitted.
+ */
+export function allowsExport(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.export_root !== null, true);
+}
+
 export async function getHealth(signal?: AbortSignal): Promise<Health> {
   const resp = await fetch(`${curatorUrl()}/health`, { signal });
   if (!resp.ok) return asError(resp);

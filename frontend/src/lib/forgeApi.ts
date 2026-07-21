@@ -127,7 +127,14 @@ export async function getForgeHealth(signal?: AbortSignal): Promise<ForgeHealth>
  * training is GPU work that fails slowly and expensively when wrongly offered.
  */
 export function allowsTraining(health: ForgeHealth | null): Capability {
-  return capabilityOf(health, (h) => (h.training === undefined ? undefined : h.training === "enabled"), false);
+  // Only the two values forge actually advertises are believed; an absent field
+  // (or a value a future forge adds) falls back to `legacy` rather than being
+  // read as a settled refusal.
+  return capabilityOf(
+    health,
+    (h) => (h.training === "enabled" ? true : h.training === "disabled" ? false : undefined),
+    false,
+  );
 }
 
 /**

@@ -251,15 +251,28 @@ export function applyEdits(report: EvalReport, edits: Map<string, HitlEdit>, rat
   };
 }
 
-/** Collect reviewer edits into the wire shape POST /report/{id}/hitl expects.
- * Machine-generated notes (the gate's ``auto: …`` explanations that seed the
- * picker on an auto-failed image) are dropped, so a reason the reviewer endorses
- * isn't recorded as if a human typed that note. */
+/** Drop the gate's machine-generated ``auto: …`` note from a reason the reviewer
+ * merely endorsed, so it isn't recorded as if a human typed it. */
+function stripAutoNote(r: RejectReason): RejectReason {
+  return r.note?.startsWith("auto:") ? { code: r.code } : r;
+}
+
+/** The same laundering {@link editsToUpdates} applies before sending, for callers
+ * that apply edits locally instead. Both paths must agree: otherwise a locally
+ * applied review records machine explanations under the reviewer's name, while
+ * the identical review sent to the server does not. */
+export function normalizeEdits(edits: Map<string, HitlEdit>): Map<string, HitlEdit> {
+  return new Map(
+    [...edits.entries()].map(([id, e]) => [id, { ...e, reject_reasons: e.reject_reasons.map(stripAutoNote) }]),
+  );
+}
+
+/** Collect reviewer edits into the wire shape POST /report/{id}/hitl expects. */
 export function editsToUpdates(edits: Map<string, HitlEdit>): HitlImageUpdate[] {
   return [...edits.entries()].map(([image_id, e]) => ({
     image_id,
     hitl_rating: e.hitl_rating,
-    reject_reasons: e.reject_reasons.map((r) => (r.note?.startsWith("auto:") ? { code: r.code } : r)),
+    reject_reasons: e.reject_reasons.map(stripAutoNote),
   }));
 }
 
@@ -284,7 +297,11 @@ export interface ProofHealth {
  * so it could only ever have been writable.
  */
 export function allowsEval(health: ProofHealth | null): Capability {
-  return capabilityOf(health, (h) => (h.read_only === undefined ? undefined : !h.read_only), true);
+  // `read_only` is the inverse of the capability, so map it explicitly: returning
+  // `undefined` for anything non-boolean is what lets `legacy` apply, whereas a
+  // bare `!h.read_only` would turn an absent field into a hard `true` and make
+  // the legacy argument unreachable.
+  return capabilityOf(health, (h) => (typeof h.read_only === "boolean" ? !h.read_only : undefined), true);
 }
 
 export async function getProofHealth(signal?: AbortSignal): Promise<ProofHealth> {
