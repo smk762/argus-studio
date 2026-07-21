@@ -69,13 +69,16 @@ const toJsonl = (rows: ManifestRow[]): string => rows.map((r) => JSON.stringify(
  * whole selection so captioning still works instead of sending an empty payload.
  */
 function exportManifestRows(summary: ScanSummary, rows: ImageResult[], result: ExportResult): ManifestRow[] {
-  const exported = result.exported_paths ?? {};
-  const legacy = Object.keys(exported).length === 0;
+  // manifest 1.0 curators omit exported_paths entirely; a 2.0 curator always
+  // sends it (possibly empty when nothing transferred). Detect the legacy shape
+  // by presence, not emptiness — otherwise a zero-transfer 2.0 export is misread
+  // as 1.0 and the whole selection gets captioned instead of nothing.
+  const exported = result.exported_paths;
   const root = result.dest.replace(/\/+$/, "");
   return rows
-    .filter((r) => legacy || exported[r.rel_path] != null)
+    .filter((r) => exported == null || exported[r.rel_path] != null)
     .map((r) => {
-      const exportedPath = exported[r.rel_path] ?? r.rel_path;
+      const exportedPath = exported?.[r.rel_path] ?? r.rel_path;
       const absPath = result.mode === "move" ? `${root}/${exportedPath}` : r.abs_path;
       return manifestRow(summary, r, exportedPath, absPath);
     });
@@ -187,7 +190,14 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           // Manifest 2.0, built from the export result so the payload matches
           // the manifest.jsonl the curator wrote (transferred rows only) and, in
           // move mode, points at the exported files rather than vanished sources.
-          const jsonl = toJsonl(exportManifestRows(summary, selectedResults, exported));
+          const rows = exportManifestRows(summary, selectedResults, exported);
+          if (rows.length === 0 && exported.copied > 0) {
+            // A non-empty export that yields no manifest rows means the curator's
+            // exported_paths keys didn't line up with the selection — surface it
+            // instead of silently streaming an empty payload lens no-ops on.
+            throw new Error("export transferred files but none matched the manifest — nothing to caption");
+          }
+          const jsonl = toJsonl(rows);
           const sum = await captionManifestStream(jsonl, setCaption, {
             trigger_word: toForge ? trigger.trim() : undefined,
           });
@@ -441,8 +451,8 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
         <>
           <p className="text-[11px] leading-relaxed text-muted">
             Read-only sample. Download the{" "}
-            <span className="font-mono text-foreground/80">manifest.jsonl</span> that a live export would hand to
-            argus-lens.
+            <span className="font-mono text-foreground/80">manifest.jsonl</span> that a live structure-preserving
+            export would hand to argus-lens.
           </p>
           <button
             type="button"
@@ -493,8 +503,8 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           {captionSummary && (
             <div className="text-accent-purple">
               Captioned {captionSummary.captioned}/{captionSummary.total} with argus-lens
-              {captionSummary.failed > 0 ? ` (${captionSummary.failed} failed)` : ""} — .txt sidecars written next to
-              each source image.
+              {captionSummary.failed > 0 ? ` (${captionSummary.failed} failed)` : ""} — .txt sidecars written{" "}
+              {result?.mode === "move" ? "into the export folder" : "next to each source image"}.
             </div>
           )}
           {forgeResult && (
