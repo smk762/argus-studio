@@ -1,15 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { exportSelectionStream, type ExportProgress, type Health } from "@/lib/curatorApi";
+import {
+  exportSelectionStream,
+  type ExportProgress,
+  type Health,
+  type NormalizedExportResult,
+} from "@/lib/curatorApi";
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
 import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
 import { FORGE_URL, IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
+import { normalizeRoot } from "@/lib/path";
+import { toJsonl } from "@/lib/jsonl";
 import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
 import {
   MANIFEST_VERSION,
   datasetSizeStatus,
-  type ExportResult,
   type ImageResult,
   type ManifestRow,
   type ScanSummary,
@@ -40,56 +46,61 @@ const slugify = (s: string) =>
 
 const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-const manifestRow = (
-  summary: ScanSummary,
-  r: ImageResult,
-  exportedPath: string,
-  absPath: string,
-): ManifestRow => ({
-  manifest_version: MANIFEST_VERSION,
-  rel_path: r.rel_path,
-  abs_path: absPath,
-  exported_path: exportedPath,
-  target_profile: summary.target_profile,
-  primary_face_cluster: r.primary_face_cluster,
-  primary_face_pose: r.primary_face_pose,
-  score: Number(r.score.toFixed(4)),
-  similar_group: r.similar_group,
-});
-
-const toJsonl = (rows: ManifestRow[]): string => rows.map((r) => JSON.stringify(r)).join("\n");
+/** One file's locators within a manifest, or null to drop it from the manifest. */
+type RowLocator = { exportedPath: string; absPath: string } | null;
 
 /**
- * Manifest rows for a completed live export (manifest 2.0): only the files whose
- * transfer actually succeeded, each stamped with the `exported_path` the curator
- * reported. In move mode the sources no longer exist, so `abs_path` references
- * the transferred file — otherwise lens fails every row.
- *
- * Older curators (manifest 1.0) report no `exported_paths`; fall back to the
- * whole selection so captioning still works instead of sending an empty payload.
+ * Build manifest 2.0 rows for `rows`, resolving each image's `exported_path`
+ * and `abs_path` via `locate` (return null to omit a file). The single place
+ * ImageResult -> ManifestRow happens, shared by the live-export and demo paths.
  */
-function exportManifestRows(summary: ScanSummary, rows: ImageResult[], result: ExportResult): ManifestRow[] {
-  // manifest 1.0 curators omit exported_paths entirely; a 2.0 curator always
-  // sends it (possibly empty when nothing transferred). Detect the legacy shape
-  // by presence, not emptiness — otherwise a zero-transfer 2.0 export is misread
-  // as 1.0 and the whole selection gets captioned instead of nothing.
-  const exported = result.exported_paths;
-  const root = result.dest.replace(/\/+$/, "");
-  return rows
-    .filter((r) => exported == null || exported[r.rel_path] != null)
-    .map((r) => {
-      const exportedPath = exported?.[r.rel_path] ?? r.rel_path;
-      const absPath = result.mode === "move" ? `${root}/${exportedPath}` : r.abs_path;
-      return manifestRow(summary, r, exportedPath, absPath);
-    });
+function buildManifestRows(
+  summary: ScanSummary,
+  rows: ImageResult[],
+  locate: (r: ImageResult) => RowLocator,
+): ManifestRow[] {
+  return rows.flatMap((r) => {
+    const loc = locate(r);
+    if (!loc) return [];
+    return [
+      {
+        manifest_version: MANIFEST_VERSION,
+        rel_path: r.rel_path,
+        abs_path: loc.absPath,
+        exported_path: loc.exportedPath,
+        target_profile: summary.target_profile,
+        primary_face_cluster: r.primary_face_cluster,
+        primary_face_pose: r.primary_face_pose,
+        score: Number(r.score.toFixed(4)),
+        similar_group: r.similar_group,
+      },
+    ];
+  });
+}
+
+/**
+ * Manifest rows for a completed live export: only the files whose transfer the
+ * curator reported (normalized `exported_paths`, so this no longer knows about
+ * manifest versions), each stamped with its reported `exported_path`. In move
+ * mode the sources are gone, so the seam-resolved absolute is used; otherwise
+ * the source image stays authoritative — either way, no path is rebuilt here.
+ */
+function exportManifestRows(summary: ScanSummary, rows: ImageResult[], result: NormalizedExportResult): ManifestRow[] {
+  return buildManifestRows(summary, rows, (r) => {
+    const exportedPath = result.exported_paths[r.rel_path];
+    if (exportedPath == null) return null; // not transferred — drop it
+    return { exportedPath, absPath: result.exported_abs_paths[r.rel_path] ?? r.abs_path };
+  });
 }
 
 /**
  * The manifest a live structure-preserving export would write, for the demo
- * download — same 2.0 shape, so the file you download matches what lens receives.
+ * download — same 2.0 shape (no relocation, so `exported_path` mirrors
+ * `rel_path` and the source stays authoritative), so the file you download
+ * matches what lens receives.
  */
 function demoManifestRows(summary: ScanSummary, rows: ImageResult[]): ManifestRow[] {
-  return rows.map((r) => manifestRow(summary, r, r.rel_path, r.abs_path));
+  return buildManifestRows(summary, rows, (r) => ({ exportedPath: r.rel_path, absPath: r.abs_path }));
 }
 
 export function ExportPanel({ summary, selectedResults, health }: Props) {
@@ -102,7 +113,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   const [trigger, setTrigger] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<ExportResult | null>(null);
+  const [result, setResult] = useState<NormalizedExportResult | null>(null);
   const [transfer, setTransfer] = useState<ExportProgress | null>(null);
   const [caption, setCaption] = useState<CaptionProgress | null>(null);
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
@@ -126,10 +137,10 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   // dataset mount, kohya's non-recursive image glob).
   // Trailing-slash-normalized so the root-equal compare below matches `d` (which
   // is also stripped); prefer the server's authoritative root when /health knows it.
-  const exportRoot = (health?.export_root || LOCAL_OUTPUT_PATH || "/data/out").replace(/\/+$/, "");
+  const exportRoot = normalizeRoot(health?.export_root || LOCAL_OUTPUT_PATH || "/data/out");
   const forgeHints: string[] = [];
   if (toForge) {
-    const d = dest.trim().replace(/\/+$/, "");
+    const d = normalizeRoot(dest.trim());
     if (d === exportRoot) {
       forgeHints.push(
         `Destination is the shared export root, so forge derives the trigger ("${d.split("/").pop()}") and sizes params from everything in it. Use a subfolder like ${exportRoot}/my-subject.`,

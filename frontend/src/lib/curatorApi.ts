@@ -11,6 +11,51 @@ import type {
 } from "@/components/curator/types";
 import { buildScanBody } from "@/components/curator/types";
 import { asError } from "@/lib/apiError";
+import { joinPath } from "@/lib/path";
+
+/**
+ * An {@link ExportResult} normalized to the manifest-2.0 shape the app
+ * consumes, so no downstream ever branches on curator version or rebuilds a
+ * server path — that compat concern lives here, at the wire seam.
+ */
+export interface NormalizedExportResult extends ExportResult {
+  /**
+   * rel_path -> exported_path (posix, relative to `dest`), for every file the
+   * handoff manifest should carry. Always present: manifest-1.0 curators omit
+   * `exported_paths`, so we synthesize an identity map over `selected_rel_paths`
+   * (the legacy "whole selection" fallback). A 2.0 curator's map is used as-is —
+   * including an empty one from a zero-transfer export, which must stay empty.
+   */
+  exported_paths: Record<string, string>;
+  /**
+   * rel_path -> absolute on-disk path of the transferred file, but ONLY for
+   * modes that relocate it away from its source (move), where the source no
+   * longer exists. Joined here — the seam that owns the curator's dest layout —
+   * so no UI string-builds a server path. Other modes leave no entry: the
+   * original source stays authoritative and the caller keeps the image's own
+   * abs_path.
+   */
+  exported_abs_paths: Record<string, string>;
+}
+
+/**
+ * Fold a raw curator ExportResult into {@link NormalizedExportResult}: fill in
+ * `exported_paths` for legacy curators and resolve move-mode absolute paths, so
+ * the manifest-version and path-layout rules stop leaking into components.
+ */
+export function normalizeExportResult(result: ExportResult): NormalizedExportResult {
+  // Detect legacy (manifest 1.0) by presence, not emptiness — a zero-transfer
+  // 2.0 export legitimately sends an empty map and must not be misread as 1.0.
+  const exported_paths =
+    result.exported_paths ?? Object.fromEntries(result.selected_rel_paths.map((rel) => [rel, rel]));
+  // Only move relocates files; resolve those absolutes from `dest`. Copy/symlink
+  // keep the source in place, so they get no entry (source stays authoritative).
+  const exported_abs_paths =
+    result.mode === "move"
+      ? Object.fromEntries(Object.entries(exported_paths).map(([rel, ep]) => [rel, joinPath(result.dest, ep)]))
+      : {};
+  return { ...result, exported_paths, exported_abs_paths };
+}
 
 export interface Health {
   status: string;
@@ -143,14 +188,14 @@ export async function scanFolderStream(
   return summary;
 }
 
-export async function exportSelection(req: ExportRequest): Promise<ExportResult> {
+export async function exportSelection(req: ExportRequest): Promise<NormalizedExportResult> {
   const resp = await fetch(`${CURATOR_URL}/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   });
   if (!resp.ok) return asError(resp);
-  return resp.json();
+  return normalizeExportResult(await resp.json());
 }
 
 export interface ExportProgress {
@@ -167,7 +212,7 @@ export async function exportSelectionStream(
   req: ExportRequest,
   onProgress: (p: ExportProgress) => void,
   signal?: AbortSignal,
-): Promise<ExportResult> {
+): Promise<NormalizedExportResult> {
   const resp = await fetch(`${CURATOR_URL}/export/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -208,7 +253,7 @@ export async function exportSelectionStream(
   if (buffer.trim()) handleFrame(buffer);
 
   if (!result) throw new Error("Export stream ended without a result");
-  return result;
+  return normalizeExportResult(result);
 }
 
 /** Build a /thumb URL for a scanned image (live mode only). */

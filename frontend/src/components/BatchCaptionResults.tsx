@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { BatchCaptionResult } from "@/types";
+import { toJsonl } from "@/lib/jsonl";
 
 interface Props {
   result: BatchCaptionResult;
@@ -13,7 +14,7 @@ interface Props {
 export function BatchCaptionResults({ result, source }: Props) {
   const [copied, setCopied] = useState(false);
 
-  const asJsonl = result.results.map((r) => JSON.stringify(r)).join("\n");
+  const asJsonl = toJsonl(result.results);
 
   const copyAll = async () => {
     try {

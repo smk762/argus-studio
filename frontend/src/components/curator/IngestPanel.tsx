@@ -5,12 +5,12 @@ import { DropZone } from "@/components/DropZone";
 import { uploadImages } from "@/lib/curatorApi";
 import { immichPullStream, listImmichAlbums, type ImmichAlbum } from "@/lib/lensApi";
 import { LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
+import { joinPath } from "@/lib/path";
 
 /** Join a dataset-relative folder onto the curator container's source path. */
 function absSourcePath(rel: string): string {
   const clean = rel.replace(/^\/+|\/+$/g, "");
-  if (!LOCAL_SOURCE_PATH) return clean;
-  return `${LOCAL_SOURCE_PATH.replace(/\/+$/, "")}/${clean}`;
+  return LOCAL_SOURCE_PATH ? joinPath(LOCAL_SOURCE_PATH, clean) : clean;
 }
 
 const isImageFile = (f: File) => f.type.startsWith("image/");
