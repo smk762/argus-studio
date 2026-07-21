@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  allowsExport,
+  allowsMove,
   exportSelectionStream,
   exportedAbsPath,
   type ExportProgress,
@@ -9,8 +11,18 @@ import {
   type NormalizedExportResult,
 } from "@/lib/curatorApi";
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
-import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
+import {
+  allowsTraining,
+  forgeConfig,
+  getForgeHealth,
+  TRAINER_LABELS,
+  type ForgeHealth,
+  type ForgeResult,
+  type TrainerId,
+} from "@/lib/forgeApi";
 import { forgeUrl, isLive, lensUrl, localOutputPath, localSourcePath } from "@/lib/curatorEnv";
+import { capabilityReason, permits } from "@/lib/capabilities";
+import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { basename, normalizeRoot } from "@/lib/path";
 import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
@@ -129,14 +141,35 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
   const [forgeRunning, setForgeRunning] = useState(false);
   const [forgeResult, setForgeResult] = useState<ForgeResult | null>(null);
-  // Server capabilities derived from the parent's /health fetch.
-  //   allowMove: true = permitted, false = server rejects move, null = not yet
-  //   known (still loading OR /health failed). Older servers omit allow_move —
-  //   treat that as permitted. The move gate below fails SAFE on null.
-  const allowMove = health ? (health.allow_move ?? true) : null;
-  // Present-and-null export_root means every live export 400s; a missing field
-  // (older server) or a real path is fine.
-  const exportRootUnset = health?.export_root === null;
+  // Server capabilities derived from the parent's /health fetch (#66). Both gates
+  // below fail SAFE on the not-yet-known `null` via permits().
+  const allowMove = allowsMove(health);
+  const canExport = allowsExport(health);
+  const exportRootUnset = canExport === false;
+
+  // argus-forge advertises whether it will actually train. This needs its own
+  // probe: it is a different service from the curator, so the parent's /health
+  // says nothing about it.
+  const [forgeHealth, setForgeHealth] = useState<ForgeHealth | null>(null);
+  useEffect(() => {
+    if (!isLive()) return;
+    const ctrl = new AbortController();
+    getForgeHealth(ctrl.signal)
+      .then((h) => {
+        if (!ctrl.signal.aborted) setForgeHealth(h);
+      })
+      .catch(() => {
+        /* leaves the capability unknown, which permits() treats as "no" */
+      });
+    return () => ctrl.abort();
+  }, []);
+  const canTrain = allowsTraining(forgeHealth);
+  const forgeRefused = canTrain === false;
+  const forgeReason = capabilityReason(
+    canTrain,
+    "argus-forge has training disabled on this host, so it would render a config without writing it.",
+    "Checking whether this argus-forge will write a training config…",
+  );
 
   const count = selectedResults.length;
   const disabled = count === 0 || busy;
@@ -231,8 +264,10 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       }
 
       // 3) Optionally forge a training config. Runs after captioning so forge
-      // can collect the fresh .txt sidecars into the export dir.
-      if (toForge) {
+      // can collect the fresh .txt sidecars into the export dir. Gated on the
+      // capability as well as the checkbox: `toForge` may have been ticked
+      // before /health answered, and a refusing forge silently dry-runs.
+      if (toForge && permits(canTrain)) {
         setForgeRunning(true);
         try {
           const forged = await forgeConfig({
@@ -311,19 +346,23 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
               // unless health positively permits it (allowMove === true), so a
               // still-loading or unreachable /health can't leave a destructive
               // move armed and surface a raw 403 after the user commits.
-              const gated = m === "move" && allowMove !== true;
-              const moveDenied = m === "move" && allowMove === false;
+              const gated = m === "move" && !permits(allowMove);
+              // capabilityReason covers BOTH negative cases: without it the
+              // not-yet-known `null` produced a greyed button with no tooltip at
+              // all, so a curator whose /health never answered left the control
+              // dead and unexplained for the whole session.
+              const moveReason = capabilityReason(
+                allowMove,
+                "Disabled on this server. Start the curator with --allow-move (CURATOR_ALLOW_MOVE=1) to permit destructive move exports.",
+                "Checking whether this server permits destructive move exports…",
+              );
               return (
                 <button
                   key={m}
                   type="button"
                   onClick={() => setMode(m)}
                   disabled={busy || gated}
-                  title={
-                    moveDenied
-                      ? "Disabled on this server. Start the curator with --allow-move (CURATOR_ALLOW_MOVE=1) to permit destructive move exports."
-                      : undefined
-                  }
+                  title={m === "move" ? (moveReason ?? undefined) : undefined}
                   className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     mode === m
                       ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal"
@@ -336,10 +375,14 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
             })}
           </div>
           {exportRootUnset && (
-            <p className="rounded-lg border border-accent-orange/30 bg-accent-orange/5 px-3 py-2 text-[11px] leading-relaxed text-accent-orange">
-              The curator has no export root configured, so exports will fail.
-              Set <span className="font-mono">CURATOR_EXPORT_PATH</span> on the curator service.
-            </p>
+            <CapabilityNotice
+              reason={
+                <>
+                  The curator has no export root configured, so exports will fail. Set{" "}
+                  <span className="font-mono">CURATOR_EXPORT_PATH</span> on the curator service.
+                </>
+              }
+            />
           )}
           <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
             <input
@@ -366,17 +409,37 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           </label>
           <label
             className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-            title="After export (and captioning), argus-forge turns the manifest + sidecars into a ready-to-run training config under <dest>/forge/."
+            title={
+              forgeReason ??
+              "After export (and captioning), argus-forge turns the manifest + sidecars into a ready-to-run training config under <dest>/forge/."
+            }
           >
             <input
               type="checkbox"
-              checked={toForge}
+              checked={toForge && permits(canTrain)}
               onChange={(e) => setToForge(e.target.checked)}
-              disabled={busy}
+              disabled={busy || !permits(canTrain)}
               className="h-4 w-4 cursor-pointer accent-accent-orange disabled:cursor-not-allowed disabled:opacity-50"
             />
             Then forge training config
           </label>
+          {/* A forge running with allow_run=False rewrites POST /config to
+              dry_run and still answers 200, so the panel would report a forged
+              config at an out_dir that was never written. ForgeResult carries no
+              dry_run field, so the response cannot reveal it — the capability
+              probe is the only way to know. */}
+          {forgeRefused && (
+            <CapabilityNotice
+              reason={
+                <>
+                  This argus-forge host has training disabled, so it renders configs without writing
+                  them. Start forge with training enabled (unset{" "}
+                  <span className="font-mono">ARGUS_FORGE_READONLY</span>) to write a training config
+                  into the export.
+                </>
+              }
+            />
+          )}
           {toForge && (
             <div className="space-y-2 rounded-lg border border-border bg-background/50 p-2.5">
               <div className="flex gap-2">
@@ -415,7 +478,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           )}
           <button
             type="button"
-            disabled={disabled || !dest.trim() || exportRootUnset}
+            disabled={disabled || !dest.trim() || !permits(canExport)}
             onClick={() => void runLiveExport()}
             className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >

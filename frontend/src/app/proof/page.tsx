@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  allowsEval,
   getProofHealth,
   getReport,
   listReports,
   type EvalReport,
+  type ProofHealth,
   type ReportSummary,
 } from "@/lib/proofApi";
+import { type Capability } from "@/lib/capabilities";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { isLive } from "@/lib/curatorEnv";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -22,36 +25,60 @@ function verdictDot(s: ReportSummary): string {
 }
 
 export default function ProofPage() {
+  // Resolved once per render: isLive() reads the per-request runtime config, and
+  // the fallback path when the injected global is missing rebuilds the whole
+  // config on every call.
+  const live = isLive();
   // version: null = loading, "" = unreachable, "demo", or a real version string.
-  const [version, setVersion] = useState<string | null>(isLive() ? null : "demo");
-  const [summaries, setSummaries] = useState<ReportSummary[]>(isLive() ? [] : [DEMO_SUMMARY]);
-  const [selected, setSelected] = useState<string | null>(isLive() ? null : DEMO_REPORT.run_id);
-  const [report, setReport] = useState<EvalReport | null>(isLive() ? null : DEMO_REPORT);
+  const [version, setVersion] = useState<string | null>(live ? null : "demo");
+  const [summaries, setSummaries] = useState<ReportSummary[]>(live ? [] : [DEMO_SUMMARY]);
+  const [selected, setSelected] = useState<string | null>(live ? null : DEMO_REPORT.run_id);
+  const [report, setReport] = useState<EvalReport | null>(live ? null : DEMO_REPORT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // null until /health answers; drives the run affordance (#66). Deliberately
+  // NOT isLive(): that is the curator SPA's mode and says nothing about whether
+  // argus-proof will accept a run. On the demo host the two disagree.
+  const [health, setHealth] = useState<ProofHealth | null>(null);
   const unreachable = version === "";
+
+  // Demo mode has no backend at all, so it is a settled `false` rather than an
+  // unresolved `null` — the review still works, it just recomputes locally.
+  const writable: Capability = live ? allowsEval(health) : false;
+
+  const evalDeniedReason =
+    "Live evaluation is disabled on this host — it generates images on a GPU. Browse the stored reports below; ratings are previewed locally but this host won't persist them.";
 
   // Live: reachability + the run list. Demo needs no backend.
   useEffect(() => {
-    if (!isLive()) return;
+    if (!live) return;
     const ctrl = new AbortController();
     (async () => {
-      try {
-        const [health, list] = await Promise.all([getProofHealth(ctrl.signal), listReports(ctrl.signal)]);
-        setVersion(health.version);
-        setSummaries(list);
-        if (list.length > 0) setSelected(list[0].run_id);
-      } catch {
-        if (!ctrl.signal.aborted) setVersion("");
+      // allSettled, not all: a failing /reports must not discard a /health that
+      // answered. Coupling them meant one broken endpoint hid the whole page
+      // behind "server is not running" AND threw away the capability probe the
+      // run/save gating depends on.
+      const [h, list] = await Promise.allSettled([getProofHealth(ctrl.signal), listReports(ctrl.signal)]);
+      if (ctrl.signal.aborted) return;
+      if (h.status === "fulfilled") {
+        setVersion(h.value.version);
+        setHealth(h.value);
       }
+      if (list.status === "fulfilled") {
+        setSummaries(list.value);
+        if (list.value.length > 0) setSelected(list.value[0].run_id);
+      }
+      // Only a failed /health means "not running" — that is the reachability
+      // probe. A healthy server with a broken /reports still renders.
+      if (h.status === "rejected") setVersion("");
     })();
     return () => ctrl.abort();
-  }, []);
+  }, [live]);
 
   // Load the selected run's report, aborting a slower in-flight fetch so a quick
   // run switch can't land an earlier response over the current selection.
   const loadReport = useCallback(async (runId: string, signal?: AbortSignal) => {
-    if (!isLive()) {
+    if (!live) {
       setReport(DEMO_REPORT);
       return;
     }
@@ -66,7 +93,7 @@ export default function ProofPage() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [live]);
 
   useEffect(() => {
     if (!selected) return;
@@ -117,7 +144,9 @@ export default function ProofPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {isLive() && <NewEvaluation onComplete={onRunComplete} />}
+            {live && (
+              <NewEvaluation onComplete={onRunComplete} canRun={writable} deniedReason={evalDeniedReason} />
+            )}
             <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
             {/* Run browser */}
             <aside className="space-y-1">
@@ -148,7 +177,12 @@ export default function ProofPage() {
               {loading && <p className="py-12 text-center text-sm text-muted">Loading report…</p>}
               {error && <p className="py-12 text-center text-sm text-accent-red">{error}</p>}
               {!loading && !error && report && (
-                <ProofBoard key={report.run_id} initialReport={report} live={isLive()} />
+                <ProofBoard
+                  key={report.run_id}
+                  initialReport={report}
+                  live={live}
+                  canWrite={writable}
+                />
               )}
               {!loading && !error && !report && summaries.length > 0 && (
                 <p className="py-12 text-center text-sm text-muted">Select a run to review.</p>

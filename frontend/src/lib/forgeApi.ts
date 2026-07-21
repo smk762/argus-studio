@@ -8,6 +8,7 @@
 import type { TargetCategory, TargetProfile } from "@/components/curator/types";
 import { forgeUrl } from "@/lib/curatorEnv";
 import { asError } from "@/lib/apiError";
+import { capabilityOf, type Capability } from "@/lib/capabilities";
 
 export type TrainerId = "kohya" | "onetrainer" | "diffusers";
 
@@ -96,6 +97,44 @@ export interface ForgeResult {
   output_name: string;
   captions_collected: number;
   warnings: string[];
+}
+
+export interface ForgeHealth {
+  status: string;
+  service: string;
+  version: string;
+  /** Absolute export root forge contains `export_dir` under, or null if unset. */
+  export_root?: string | null;
+  /**
+   * `"disabled"` on a demo-safe host (argus-forge#16): `POST /config` still
+   * renders configs, but live `POST /run` training returns 403. Lets a client
+   * drop its train affordance up front rather than learn from the 403.
+   */
+  training?: "enabled" | "disabled";
+}
+
+export async function getForgeHealth(signal?: AbortSignal): Promise<ForgeHealth> {
+  const resp = await fetch(`${forgeUrl()}/health`, { signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/**
+ * Whether this forge server will run training locally.
+ *
+ * Legacy `false`: unlike proof's read-only flag, a server omitting `training`
+ * predates the run registry entirely, so there is nothing to enable — and
+ * training is GPU work that fails slowly and expensively when wrongly offered.
+ */
+export function allowsTraining(health: ForgeHealth | null): Capability {
+  // Only the two values forge actually advertises are believed; an absent field
+  // (or a value a future forge adds) falls back to `legacy` rather than being
+  // read as a settled refusal.
+  return capabilityOf(
+    health,
+    (h) => (h.training === "enabled" ? true : h.training === "disabled" ? false : undefined),
+    false,
+  );
 }
 
 /**
