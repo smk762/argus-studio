@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { exportSelectionStream, type ExportProgress, type Health } from "@/lib/curatorApi";
+import {
+  exportSelectionStream,
+  exportedAbsPath,
+  type ExportProgress,
+  type Health,
+  type NormalizedExportResult,
+} from "@/lib/curatorApi";
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
 import { forgeConfig, TRAINER_LABELS, type ForgeResult, type TrainerId } from "@/lib/forgeApi";
 import { FORGE_URL, IS_LIVE, LENS_URL, LOCAL_OUTPUT_PATH, LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
+import { basename, normalizeRoot } from "@/lib/path";
+import { toJsonl } from "@/lib/jsonl";
+import { downloadText } from "@/lib/download";
 import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
 import {
   MANIFEST_VERSION,
   datasetSizeStatus,
-  type ExportResult,
   type ImageResult,
   type ManifestRow,
   type ScanSummary,
@@ -40,6 +48,7 @@ const slugify = (s: string) =>
 
 const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
+/** The single place ImageResult -> ManifestRow happens. */
 const manifestRow = (
   summary: ScanSummary,
   r: ImageResult,
@@ -57,36 +66,48 @@ const manifestRow = (
   similar_group: r.similar_group,
 });
 
-const toJsonl = (rows: ManifestRow[]): string => rows.map((r) => JSON.stringify(r)).join("\n");
+/**
+ * Manifest rows for a completed live export: the files the curator reported a
+ * destination for (normalized `exported_paths`, so this no longer knows about
+ * manifest versions), each stamped with that reported `exported_path`. The
+ * absolute comes from the seam — in move mode the sources are gone, otherwise
+ * the source image stays authoritative — so no path is rebuilt here.
+ *
+ * Rows can be fewer than the selection (untransferred files are dropped) or,
+ * against a manifest-1.0 curator, more than were actually copied — see
+ * `manifestHandoffProblem`, which is what decides whether this is usable.
+ */
+function exportManifestRows(summary: ScanSummary, rows: ImageResult[], result: NormalizedExportResult): ManifestRow[] {
+  const out: ManifestRow[] = [];
+  for (const r of rows) {
+    const exportedPath = result.exported_paths[r.rel_path];
+    if (exportedPath == null) continue; // not transferred — drop it
+    out.push(manifestRow(summary, r, exportedPath, exportedAbsPath(result, r.rel_path) ?? r.abs_path));
+  }
+  return out;
+}
 
 /**
- * Manifest rows for a completed live export (manifest 2.0): only the files whose
- * transfer actually succeeded, each stamped with the `exported_path` the curator
- * reported. In move mode the sources no longer exist, so `abs_path` references
- * the transferred file — otherwise lens fails every row.
+ * Why this export can't be handed to argus-lens, or null when it can.
  *
- * Older curators (manifest 1.0) report no `exported_paths`; fall back to the
- * whole selection so captioning still works instead of sending an empty payload.
+ * Checked before lens is involved, so a curator-side or compat problem is
+ * never reported as an argus-lens failure.
  */
-function exportManifestRows(summary: ScanSummary, rows: ImageResult[], result: ExportResult): ManifestRow[] {
-  // manifest 1.0 curators omit exported_paths entirely; a 2.0 curator always
-  // sends it (possibly empty when nothing transferred). Detect the legacy shape
-  // by presence, not emptiness — otherwise a zero-transfer 2.0 export is misread
-  // as 1.0 and the whole selection gets captioned instead of nothing.
-  const exported = result.exported_paths;
-  const root = result.dest.replace(/\/+$/, "");
-  return rows
-    .filter((r) => exported == null || exported[r.rel_path] != null)
-    .map((r) => {
-      const exportedPath = exported?.[r.rel_path] ?? r.rel_path;
-      const absPath = result.mode === "move" ? `${root}/${exportedPath}` : r.abs_path;
-      return manifestRow(summary, r, exportedPath, absPath);
-    });
+function manifestHandoffProblem(result: NormalizedExportResult, rowCount: number): string | null {
+  if (result.manifestGap) return result.manifestGap;
+  if (result.copied === 0) return `the curator transferred no files (${result.skipped} skipped)`;
+  if (rowCount === 0) return "the export transferred files but none matched the manifest";
+  if (rowCount < result.copied) {
+    return `only ${rowCount} of ${result.copied} transferred files matched the manifest`;
+  }
+  return null;
 }
 
 /**
  * The manifest a live structure-preserving export would write, for the demo
- * download — same 2.0 shape, so the file you download matches what lens receives.
+ * download — same 2.0 shape (no relocation, so `exported_path` mirrors
+ * `rel_path` and the source stays authoritative), so the file you download
+ * matches what lens receives.
  */
 function demoManifestRows(summary: ScanSummary, rows: ImageResult[]): ManifestRow[] {
   return rows.map((r) => manifestRow(summary, r, r.rel_path, r.abs_path));
@@ -102,7 +123,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   const [trigger, setTrigger] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<ExportResult | null>(null);
+  const [result, setResult] = useState<NormalizedExportResult | null>(null);
   const [transfer, setTransfer] = useState<ExportProgress | null>(null);
   const [caption, setCaption] = useState<CaptionProgress | null>(null);
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
@@ -126,16 +147,17 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   // dataset mount, kohya's non-recursive image glob).
   // Trailing-slash-normalized so the root-equal compare below matches `d` (which
   // is also stripped); prefer the server's authoritative root when /health knows it.
-  const exportRoot = (health?.export_root || LOCAL_OUTPUT_PATH || "/data/out").replace(/\/+$/, "");
+  const exportRoot = normalizeRoot(health?.export_root || LOCAL_OUTPUT_PATH || "/data/out");
+  const sourceRoot = normalizeRoot(LOCAL_SOURCE_PATH);
   const forgeHints: string[] = [];
   if (toForge) {
-    const d = dest.trim().replace(/\/+$/, "");
+    const d = normalizeRoot(dest.trim());
     if (d === exportRoot) {
       forgeHints.push(
-        `Destination is the shared export root, so forge derives the trigger ("${d.split("/").pop()}") and sizes params from everything in it. Use a subfolder like ${exportRoot}/my-subject.`,
+        `Destination is the shared export root, so forge derives the trigger ("${basename(d)}") and sizes params from everything in it. Use a subfolder like ${exportRoot}/my-subject.`,
       );
     }
-    if (LOCAL_SOURCE_PATH && (d === LOCAL_SOURCE_PATH || d.startsWith(`${LOCAL_SOURCE_PATH}/`))) {
+    if (sourceRoot && (d === sourceRoot || d.startsWith(`${sourceRoot}/`))) {
       forgeHints.push(
         "Destination is inside the dataset tree, which argus-forge mounts read-only — the forge step will fail. Export under the output dir instead.",
       );
@@ -186,24 +208,25 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       // warning), so a lens outage shouldn't cost the training config — in
       // move mode the sources are gone and this run is the only chance.
       if (toCaption) {
-        try {
-          // Manifest 2.0, built from the export result so the payload matches
-          // the manifest.jsonl the curator wrote (transferred rows only) and, in
-          // move mode, points at the exported files rather than vanished sources.
-          const rows = exportManifestRows(summary, selectedResults, exported);
-          if (rows.length === 0 && exported.copied > 0) {
-            // A non-empty export that yields no manifest rows means the curator's
-            // exported_paths keys didn't line up with the selection — surface it
-            // instead of silently streaming an empty payload lens no-ops on.
-            throw new Error("export transferred files but none matched the manifest — nothing to caption");
+        // Manifest 2.0, built from the export result so the payload matches the
+        // manifest.jsonl the curator wrote (transferred rows only) and, in move
+        // mode, points at the exported files rather than vanished sources.
+        // Validated before lens is called: an empty or partial payload is a
+        // curator/compat problem and must not be blamed on argus-lens, and
+        // streaming it anyway would have lens no-op into a "0/0" success.
+        const rows = exportManifestRows(summary, selectedResults, exported);
+        const gap = manifestHandoffProblem(exported, rows.length);
+        if (gap) {
+          problems.push(`Captioning skipped: ${gap}`);
+        } else {
+          try {
+            const sum = await captionManifestStream(toJsonl(rows), setCaption, {
+              trigger_word: toForge ? trigger.trim() : undefined,
+            });
+            setCaptionSummary(sum);
+          } catch (err) {
+            problems.push(`Captioning failed (argus-lens): ${errMsg(err)}`);
           }
-          const jsonl = toJsonl(rows);
-          const sum = await captionManifestStream(jsonl, setCaption, {
-            trigger_word: toForge ? trigger.trim() : undefined,
-          });
-          setCaptionSummary(sum);
-        } catch (err) {
-          problems.push(`Captioning failed (argus-lens): ${errMsg(err)}`);
         }
       }
 
@@ -213,7 +236,10 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
         setForgeRunning(true);
         try {
           const forged = await forgeConfig({
-            export_dir: dest.trim(),
+            // The server's resolved destination, not the raw input: the curator
+            // contains `dest` under its export root, so a relative entry lands
+            // somewhere forge would otherwise resolve against its own cwd.
+            export_dir: exported.dest,
             trainer,
             trigger: trigger.trim() || null,
             // Pair the output name with the trigger (like demo mode does);
@@ -235,19 +261,6 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
     } finally {
       setBusy(false);
     }
-  };
-
-  const downloadText = (filename: string, text: string, mime: string) => {
-    const blob = new Blob([text], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
   };
 
   const downloadManifest = () => {

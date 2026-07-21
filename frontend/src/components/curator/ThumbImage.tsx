@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IS_LIVE } from "@/lib/curatorEnv";
 import { thumbUrl } from "@/lib/curatorApi";
+import { basename } from "@/lib/path";
 
 /** Deterministic hue from a string (stable per face cluster / path). */
 function hueFor(seed: string): number {
@@ -45,7 +46,7 @@ export function ThumbImage({
   const showImg = IS_LIVE && !failed;
   const seed = faceCluster ?? relPath;
   const hue = hueFor(seed);
-  const base = relPath.split("/").pop() ?? relPath;
+  const base = basename(relPath);
   const fitClass = fit === "contain" ? "object-contain" : "object-cover";
 
   if (showImg) {

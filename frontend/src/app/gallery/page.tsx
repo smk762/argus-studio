@@ -16,6 +16,7 @@ import {
   type QuarrySubject,
 } from "@/lib/galleryApi";
 import { LOCAL_SOURCE_PATH } from "@/lib/curatorEnv";
+import { joinPath } from "@/lib/path";
 
 const PAGE_SIZE = 60;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -32,8 +33,7 @@ const NO_FILTERS: Filters = { category: "", subject: "", licence: "", source: ""
 /** Dataset path (as the curator sees it) where quarry publishes this photo's subject. */
 function curateFolderFor(photo: QuarryPhoto): string {
   const rel = `${photo.category}/${photo.subject}`;
-  if (!LOCAL_SOURCE_PATH) return rel;
-  return `${LOCAL_SOURCE_PATH.replace(/\/+$/, "")}/${rel}`;
+  return LOCAL_SOURCE_PATH ? joinPath(LOCAL_SOURCE_PATH, rel) : rel;
 }
 
 function formatBytes(n: number): string {

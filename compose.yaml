@@ -85,6 +85,11 @@ services:
     volumes:
       # Shared dataset (RW so lens can write caption sidecars next to source images).
       - ${DATASET_DIR:-./data}:/data/images
+      # Curator's export root. A move-mode export deletes the sources, so the
+      # handoff manifest points at the transferred files under here — without
+      # this mount lens cannot open a single row of a move export. RW so the
+      # .txt sidecars land next to the exported images.
+      - ${OUTPUT_DIR:-./out}:/data/out
       # Resolve argus-quarry's published symlinks (they point into the raw pool).
       # Harmless if the gallery profile isn't used; required when it is (unless
       # quarry published with --copy).

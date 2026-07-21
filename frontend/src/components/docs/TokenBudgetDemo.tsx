@@ -32,14 +32,15 @@ export function TokenBudgetDemo() {
   // Assemble the fragments highest-priority-first, stopping the moment the
   // budget overflows — a caption is truncated at the tail, never packed
   // greedily, so once one fragment is dropped every lower-priority one is too.
-  let spent = 0;
-  let overflowed = false;
-  const rows = FRAGMENTS.map((f) => {
-    const fits = !overflowed && spent + f.tokens <= budget;
+  // A plain loop rather than a mutating `map` callback: the running totals stay
+  // local to the loop instead of being reassigned from inside a closure.
+  const rows: ((typeof FRAGMENTS)[number] & { fits: boolean })[] = [];
+  for (let spent = 0, i = 0; i < FRAGMENTS.length; i++) {
+    const f = FRAGMENTS[i];
+    const fits = spent + f.tokens <= budget && (i === 0 || rows[i - 1].fits);
     if (fits) spent += f.tokens;
-    else overflowed = true;
-    return { ...f, fits };
-  });
+    rows.push({ ...f, fits });
+  }
   const dropped = rows.filter((r) => !r.fits).length;
 
   return (
