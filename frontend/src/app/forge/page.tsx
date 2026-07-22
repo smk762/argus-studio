@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
+import { StageHandoff } from "@/components/StageHandoff";
 import {
   allowsTraining,
   forgeConfig,
@@ -369,6 +370,22 @@ export default function ForgePage() {
           />
         )}
 
+        {/* A hand-off aimed at a demo-mode build: there is no forge to inspect
+            the path with, so say the path was dropped rather than letting the
+            estimate below look like it describes that export. The trigger word
+            still carries — the client-side builder uses it. */}
+        {!live && deepLinked && (
+          <CapabilityNotice
+            reason={
+              <>
+                Arrived from an export{dirTrimmed ? <> at <span className="font-mono">{dirTrimmed}</span></> : null},
+                but this build is in demo mode and has no argus-forge to read it. The config below is built from the
+                image-count estimate instead.
+              </>
+            }
+          />
+        )}
+
         {!live && (
           <CapabilityNotice
             reason={
@@ -667,6 +684,12 @@ export default function ForgePage() {
                 </pre>
               </div>
             ))}
+
+            {/* Last stage-to-stage link in the pipeline (#67). Offered for a
+                preview and in demo mode too: it is plain navigation, and the
+                run browser on /proof is worth reaching whether or not this
+                particular config was written to disk. */}
+            <StageHandoff href="/proof" tone="green" label="Evaluate a trained LoRA in Proof" />
           </section>
         )}
 

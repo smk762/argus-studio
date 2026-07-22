@@ -17,6 +17,7 @@ import { captionManifestStream, type CaptionProgress, type CaptionSummary } from
 import { isLive, lensUrl, localOutputPath, localSourcePath } from "@/lib/curatorEnv";
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
+import { StageHandoff } from "@/components/StageHandoff";
 import { joinPath, normalizeRoot } from "@/lib/path";
 import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
@@ -333,6 +334,11 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       : null;
   const handoffAtRoot = !!result && result.copied > 0 && normalizeRoot(result.dest) === exportRoot;
 
+  // Which stage comes next for THIS export. While captioning is still streaming
+  // there is no summary yet, so fall back to the intent — otherwise the link
+  // would offer to caption an export that is being captioned as it renders.
+  const handoffCaptioned = captionSummary ? captionSummary.captioned > 0 : toCaption && !manifestProblem;
+
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between">
@@ -580,31 +586,40 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
               {result?.mode === "move" ? "into the export folder" : "next to each source image"}.
             </div>
           )}
-          {/* The handoff: carry the server-resolved dest (not the raw input —
-              the curator rewrites it under its export root) so /forge inspects
-              exactly what landed, plus the trigger the captions were written
-              with, so forge does not slugify the folder name into a token that
-              appears in none of them.
+          {/* The handoff, to whichever stage this export is actually ready for
+              (#67). Either way it carries the server-resolved dest, not the raw
+              input — the curator rewrites it under its export root, so only the
+              resolved path names what landed.
 
-              Withheld while `busy`: captioning is still streaming at this point
-              and navigating away would abort it. */}
-          {handoffDest && (
-            <Link
-              href={`/forge?export=${encodeURIComponent(handoffDest)}${
-                trigger.trim() ? `&trigger=${encodeURIComponent(trigger.trim())}` : ""
-              }`}
-              aria-disabled={busy || undefined}
-              tabIndex={busy ? -1 : undefined}
-              onClick={(e) => {
-                if (busy) e.preventDefault();
-              }}
-              className={`inline-block rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-3 py-1.5 text-xs font-medium text-accent-amber transition-colors ${
-                busy ? "pointer-events-none opacity-40" : "hover:bg-accent-amber/20"
-              }`}
-            >
-              {busy ? "Configure training in Forge (after captioning)…" : "Configure training in Forge →"}
-            </Link>
-          )}
+              Withheld while `busy`: the export, and then captioning, are still
+              streaming at this point and navigating away would abort them. */}
+          {handoffDest &&
+            (handoffCaptioned ? (
+              <StageHandoff
+                href={`/forge?export=${encodeURIComponent(handoffDest)}${
+                  trigger.trim() ? `&trigger=${encodeURIComponent(trigger.trim())}` : ""
+                }`}
+                tone="amber"
+                // The trigger rides along so forge does not slugify the folder
+                // name into a token that appears in none of the captions.
+                label="Configure training in Forge"
+                disabled={busy}
+                disabledLabel="Configure training in Forge (after captioning)…"
+              />
+            ) : (
+              // No captions in the export, so forge is the wrong next stage —
+              // it would size a dataset whose caption count is zero. Send the
+              // visitor to argus-lens instead, carrying the export folder and
+              // the category the scan was profiled for so the sidecars come
+              // back written for the same LoRA type.
+              <StageHandoff
+                href={`/?folder=${encodeURIComponent(handoffDest)}&category=${encodeURIComponent(category)}`}
+                tone="purple"
+                label="Caption the export in Lens"
+                disabled={busy}
+                disabledLabel="Caption the export in Lens (export still running)…"
+              />
+            ))}
           {/* Say why the hand-off is missing rather than silently dropping the
               affordance — the same reason capabilityReason exists for the
               controls above. */}

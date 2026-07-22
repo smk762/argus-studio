@@ -15,6 +15,7 @@ import { ParamInfo } from "@/components/ParamInfo";
 import { BatchCaptionResults } from "@/components/BatchCaptionResults";
 import { FolderPicker } from "@/components/curator/FolderPicker";
 import { DropZone } from "@/components/DropZone";
+import { StageHandoff } from "@/components/StageHandoff";
 import {
   HybridBalance,
   hybridRequestFields,
@@ -75,6 +76,11 @@ export default function Home() {
   const [result, setResult] = useState<CaptionResult | null>(null);
   const [batchResult, setBatchResult] = useState<BatchCaptionResult | null>(null);
   const [batchSource, setBatchSource] = useState("");
+  // The host folder the last batch wrote .txt sidecars into, or null when the
+  // last batch has nothing forge could read (a manifest/upload/Immich run, or a
+  // folder run with sidecars off). Drives the hand-off to /forge (#67); kept
+  // separate from `batchSource`, which is a human label and set by every mode.
+  const [captionedFolder, setCaptionedFolder] = useState<string | null>(null);
   const [analyzedUrl, setAnalyzedUrl] = useState("");
   // Remembers the last single-image caption so it can be re-run with a new balance.
   const [lastSingle, setLastSingle] = useState<
@@ -93,6 +99,22 @@ export default function Home() {
 
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+  }, []);
+
+  // Deep link from a finished curator export that was not captioned (#67):
+  // /?folder=<dir>&category=<target_category>. Only prefills — nothing runs
+  // until the visitor presses Caption folder, since a batch write into someone
+  // else's export should not be one click away from a pasted URL.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const folder = params.get("folder");
+    if (!folder) return;
+    setFolderPath(folder);
+    setMode("folder");
+    // Validated against the known set: the value is echoed straight into the
+    // caption request, and an unknown category would have lens reject the batch.
+    const category = params.get("category");
+    if (category && TARGET_CATEGORIES.some((c) => c.value === category)) setTargetCategory(category);
   }, []);
 
   useEffect(() => {
@@ -199,6 +221,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setBatchResult(null);
+    setCaptionedFolder(null);
     try {
       const data = await captionFolder({
         folder: folderPath.trim(),
@@ -213,6 +236,9 @@ export default function Home() {
       });
       setBatchResult(data);
       setBatchSource(folderPath.trim());
+      // Sidecars are what forge sizes a dataset from: without them the folder
+      // has images and no captions, and the next stage has nothing to read.
+      if (writeSidecar && data.captioned > 0) setCaptionedFolder(folderPath.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -226,6 +252,7 @@ export default function Home() {
     setError(null);
     setResult(null);
     setBatchResult(null);
+    setCaptionedFolder(null);
     setBatchSource(manifestFile.name);
 
     const rows: { rel_path: string; final_caption: string }[] = [];
@@ -269,6 +296,7 @@ export default function Home() {
     setError(null);
     setResult(null);
     setBatchResult(null);
+    setCaptionedFolder(null);
     setProgress({ done: 0, total: files.length });
     try {
       const rows = await captionFilesStream(
@@ -707,6 +735,20 @@ export default function Home() {
         {/* Batch results (folder / manifest) */}
         {mode !== "url" && batchResult && (
           <BatchCaptionResults result={batchResult} source={batchSource} />
+        )}
+
+        {/* Next stage: a captioned folder on the lens host is exactly what forge
+            wants. No trigger word rides along — this page does not write one
+            into the captions, so forge's own slug of the folder name is as good
+            a guess as any, and its placeholder shows what that will be. */}
+        {captionedFolder && (
+          <div className="mt-4">
+            <StageHandoff
+              href={`/forge?export=${encodeURIComponent(captionedFolder)}`}
+              tone="amber"
+              label="Configure training in Forge"
+            />
+          </div>
         )}
 
         {/* Single-image result (URL mode, or a one-file upload) */}
