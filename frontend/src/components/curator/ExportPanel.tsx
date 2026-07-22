@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useState } from "react";
 import {
   allowsExport,
   allowsMove,
@@ -13,19 +14,10 @@ import {
   type NormalizedExportResult,
 } from "@/lib/curatorApi";
 import { captionManifestStream, type CaptionProgress, type CaptionSummary } from "@/lib/lensApi";
-import {
-  allowsTraining,
-  forgeConfig,
-  getForgeHealth,
-  TRAINER_LABELS,
-  type ForgeHealth,
-  type ForgeResult,
-  type TrainerId,
-} from "@/lib/forgeApi";
-import { forgeUrl, isLive, lensUrl, localOutputPath, localSourcePath } from "@/lib/curatorEnv";
+import { isLive, lensUrl, localOutputPath, localSourcePath } from "@/lib/curatorEnv";
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
-import { basename, joinPath, normalizeRoot } from "@/lib/path";
+import { joinPath, normalizeRoot } from "@/lib/path";
 import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
 import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
@@ -52,13 +44,6 @@ interface Props {
 }
 
 type Mode = "copy" | "symlink" | "move";
-
-/** Filename-safe slug, mirroring argus-forge's slugify (core.py). */
-const slugify = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-+|-+$)/g, "");
 
 const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -168,8 +153,6 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   const [mode, setMode] = useState<Mode>("copy");
   const [preserve, setPreserve] = useState(true);
   const [toCaption, setToCaption] = useState(false);
-  const [toForge, setToForge] = useState(false);
-  const [trainer, setTrainer] = useState<TrainerId>("kohya");
   const [trigger, setTrigger] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,8 +160,6 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   const [transfer, setTransfer] = useState<ExportProgress | null>(null);
   const [caption, setCaption] = useState<CaptionProgress | null>(null);
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
-  const [forgeRunning, setForgeRunning] = useState(false);
-  const [forgeResult, setForgeResult] = useState<ForgeResult | null>(null);
   // Why the completed export's manifest could not be handed downstream, or null.
   // Held in state so the result panel can contradict its own success line rather
   // than reporting a green "Copied N images" for an export nothing can consume.
@@ -195,56 +176,38 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   const manifestOk = speaksSupportedManifest(health);
   const manifestDenied = manifestOk === false;
 
-  // argus-forge advertises whether it will actually train. This needs its own
-  // probe: it is a different service from the curator, so the parent's /health
-  // says nothing about it.
-  const [forgeHealth, setForgeHealth] = useState<ForgeHealth | null>(null);
-  useEffect(() => {
-    if (!isLive()) return;
-    const ctrl = new AbortController();
-    getForgeHealth(ctrl.signal)
-      .then((h) => {
-        if (!ctrl.signal.aborted) setForgeHealth(h);
-      })
-      .catch(() => {
-        /* leaves the capability unknown, which permits() treats as "no" */
-      });
-    return () => ctrl.abort();
-  }, []);
-  const canTrain = allowsTraining(forgeHealth);
-  const forgeRefused = canTrain === false;
-  const forgeReason = capabilityReason(
-    canTrain,
-    "argus-forge has training disabled on this host, so it would render a config without writing it.",
-    "Checking whether this argus-forge will write a training config…",
-  );
+  // No forge probe here any more: this panel exports, and /forge configures
+  // training (argus-studio#78). Two entry points to POST /config meant two
+  // trainer lists with different authority and two writers of the same
+  // <export>/forge/<trainer>/ directory, silently overwriting each other.
 
   const count = selectedResults.length;
   const disabled = count === 0 || busy;
   const category = summary.target_profile.target_category;
   const sizeHint = datasetSizeStatus(count, category);
 
-  // Foot-gun warnings for the forge step (degenerate default dest, read-only
-  // dataset mount, kohya's non-recursive image glob).
+  // Foot-gun warnings about the destination itself. These used to be gated on
+  // the forge checkbox; they apply to any export that will later be trained on,
+  // which is every export, so they are unconditional now.
   // Trailing-slash-normalized so the root-equal compare below matches `d` (which
   // is also stripped); prefer the server's authoritative root when /health knows it.
   const exportRoot = normalizeRoot(health?.export_root || localOutputPath() || "/data/out");
   const sourceRoot = normalizeRoot(localSourcePath());
-  const forgeHints: string[] = [];
-  if (toForge) {
+  const exportHints: string[] = [];
+  {
     const d = normalizeRoot(dest.trim());
-    if (d === exportRoot) {
-      forgeHints.push(
-        `Destination is the shared export root, so forge derives the trigger ("${basename(d)}") and sizes params from everything in it. Use a subfolder like ${exportRoot}/my-subject.`,
+    if (d && d === exportRoot) {
+      exportHints.push(
+        `Destination is the shared export root, so every export lands in one folder — and argus-forge refuses the root outright. Use a subfolder like ${exportRoot}/my-subject.`,
       );
     }
-    if (sourceRoot && (d === sourceRoot || d.startsWith(`${sourceRoot}/`))) {
-      forgeHints.push(
-        "Destination is inside the dataset tree, which argus-forge mounts read-only — the forge step will fail. Export under the output dir instead.",
+    if (sourceRoot && d && (d === sourceRoot || d.startsWith(`${sourceRoot}/`))) {
+      exportHints.push(
+        "Destination is inside the dataset tree, which argus-forge mounts read-only — a training config cannot be written there. Export under the output dir instead.",
       );
     }
-    if (trainer === "kohya" && preserve) {
-      forgeHints.push(
+    if (preserve) {
+      exportHints.push(
         "kohya sd-scripts reads images from the export root only — uncheck “Preserve folder structure” if your selection includes subfolders.",
       );
     }
@@ -257,8 +220,6 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
     setTransfer(null);
     setCaption(null);
     setCaptionSummary(null);
-    setForgeRunning(false);
-    setForgeResult(null);
     setManifestProblem(null);
     const problems: string[] = [];
     // Snapshot what this run exports. Both are live props and the results grid
@@ -307,9 +268,8 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       setManifestProblem(handoffGap);
 
       // 2) Optionally caption via argus-lens, streaming per-image progress.
-      // Non-fatal: forge handles caption-less exports (trigger fallback +
-      // warning), so a lens outage shouldn't cost the training config — in
-      // move mode the sources are gone and this run is the only chance.
+      // Non-fatal, but in move mode the sources are gone and this run is the
+      // only chance, so a lens outage is reported rather than retried.
       if (toCaption) {
         // Validated above: an empty or partial payload is a curator/compat
         // problem and must not be blamed on argus-lens, and streaming it anyway
@@ -319,7 +279,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
         } else {
           try {
             const sum = await captionManifestStream(toJsonl(rows), setCaption, {
-              trigger_word: toForge ? trigger.trim() : undefined,
+              trigger_word: trigger.trim() || undefined,
             });
             setCaptionSummary(sum);
           } catch (err) {
@@ -328,39 +288,10 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
         }
       }
 
-      // 3) Optionally forge a training config. Runs after captioning so forge
-      // can collect the fresh .txt sidecars into the export dir. Gated on the
-      // capability as well as the checkbox: `toForge` may have been ticked
-      // before /health answered, and a refusing forge silently dry-runs. Also
-      // gated on the manifest handoff: forge reads the manifest this export
-      // wrote, so pointing it at one this app declared unreadable would build a
-      // training config over a contract neither end agrees on.
-      if (toForge && handoffGap) {
-        problems.push("Training config skipped");
-      } else if (toForge && permits(canTrain)) {
-        setForgeRunning(true);
-        try {
-          const forged = await forgeConfig({
-            // The server's resolved destination, not the raw input: the curator
-            // contains `dest` under its export root, so a relative entry lands
-            // somewhere forge would otherwise resolve against its own cwd.
-            export_dir: exported.dest,
-            trainer,
-            trigger: trigger.trim() || null,
-            // Pair the output name with the trigger (like demo mode does);
-            // otherwise forge falls back to slugifying the export dir name.
-            output_name: trigger.trim() ? `${slugify(trigger)}-lora` : null,
-            // Don't leave the category to manifest sniffing — send what the
-            // panel's own suggestions were computed from.
-            category,
-          });
-          setForgeResult(forged);
-        } catch (err) {
-          problems.push(`Forge failed (argus-forge at ${forgeUrl() || "this origin"}): ${errMsg(err)}`);
-        } finally {
-          setForgeRunning(false);
-        }
-      }
+      // The training config is NOT forged here — /forge owns that now
+      // (argus-studio#78). The success panel links there with this export's
+      // server-resolved dest, so the config is rendered once, against a trainer
+      // list the server actually advertises.
 
       if (problems.length > 0) setError(problems.join(" — "));
     } finally {
@@ -490,74 +421,25 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
             />
             Then caption with argus-lens
           </label>
-          <label
-            className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-            title={
-              forgeReason ??
-              "After export (and captioning), argus-forge turns the manifest + sidecars into a ready-to-run training config under <dest>/forge/."
-            }
-          >
+          {/* The trigger belongs to captioning: argus-lens is what consumes it.
+              It used to live under the forge checkbox, which meant a caption-only
+              export silently dropped it. */}
+          {toCaption && (
             <input
-              type="checkbox"
-              checked={toForge && permits(canTrain)}
-              onChange={(e) => setToForge(e.target.checked)}
-              disabled={busy || !permits(canTrain)}
-              className="h-4 w-4 cursor-pointer accent-accent-orange disabled:cursor-not-allowed disabled:opacity-50"
-            />
-            Then forge training config
-          </label>
-          {/* A forge running with allow_run=False rewrites POST /config to
-              dry_run and still answers 200, so the panel would report a forged
-              config at an out_dir that was never written. ForgeResult carries no
-              dry_run field, so the response cannot reveal it — the capability
-              probe is the only way to know. */}
-          {forgeRefused && (
-            <CapabilityNotice
-              reason={
-                <>
-                  This argus-forge host has training disabled, so it renders configs without writing
-                  them. Start forge with training enabled (unset{" "}
-                  <span className="font-mono">ARGUS_FORGE_READONLY</span>) to write a training config
-                  into the export.
-                </>
-              }
+              type="text"
+              value={trigger}
+              onChange={(e) => setTrigger(e.target.value)}
+              disabled={busy}
+              placeholder="Trigger word (optional — prepended to each caption)"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-purple/50 focus:outline-none focus:ring-1 focus:ring-accent-purple/50 disabled:cursor-not-allowed disabled:opacity-50"
             />
           )}
-          {toForge && (
-            <div className="space-y-2 rounded-lg border border-border bg-background/50 p-2.5">
-              <div className="flex gap-2">
-                {(Object.keys(TRAINER_LABELS) as TrainerId[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTrainer(t)}
-                    disabled={busy}
-                    className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                      trainer === t
-                        ? "border border-accent-orange/40 bg-accent-orange/20 text-accent-orange"
-                        : "border border-border bg-background text-muted hover:text-foreground"
-                    }`}
-                  >
-                    {TRAINER_LABELS[t]}
-                  </button>
-                ))}
-              </div>
-              <input
-                type="text"
-                value={trigger}
-                onChange={(e) => setTrigger(e.target.value)}
-                disabled={busy}
-                placeholder="Trigger word (default: export folder name)"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-orange/50 focus:outline-none focus:ring-1 focus:ring-accent-orange/50 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              {forgeHints.length > 0 && (
-                <ul className="space-y-1 text-[11px] leading-relaxed text-accent-orange/90">
-                  {forgeHints.map((h, i) => (
-                    <li key={i}>! {h}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          {exportHints.length > 0 && (
+            <ul className="space-y-1 text-[11px] leading-relaxed text-accent-orange/90">
+              {exportHints.map((h, i) => (
+                <li key={i}>! {h}</li>
+              ))}
+            </ul>
           )}
           <button
             type="button"
@@ -565,14 +447,10 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
             onClick={() => void runLiveExport()}
             className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy
-              ? "Working…"
-              : `Export ${count}${toCaption ? " + caption" : ""}${toForge ? " + forge" : ""}${
-                  !toCaption && !toForge ? " + manifest" : ""
-                }`}
+            {busy ? "Working…" : `Export ${count}${toCaption ? " + caption" : " + manifest"}`}
           </button>
 
-          {busy && (transfer || caption || forgeRunning) && (
+          {busy && (transfer || caption) && (
             <div className="space-y-3 rounded-lg border border-border bg-background/50 p-3">
               {transfer && (
                 <PhaseBar
@@ -590,17 +468,6 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
                   tone="purple"
                   pending={!caption && !!transfer && transfer.done >= transfer.total}
                   detail={caption?.rel_path}
-                />
-              )}
-              {toForge && (
-                <PhaseBar
-                  label={`Forging ${TRAINER_LABELS[trainer]} config`}
-                  done={forgeResult ? 1 : 0}
-                  total={1}
-                  tone="orange"
-                  pending={!forgeRunning && !forgeResult}
-                  indeterminate={forgeRunning}
-                  detail={forgeRunning ? "collecting caption sidecars + rendering configs…" : undefined}
                 />
               )}
             </div>
@@ -626,8 +493,12 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
               Forge kohya config (demo)
             </span>
             <p className="text-[11px] leading-relaxed text-muted">
-              The suggested params above, rendered as kohya sd-scripts TOML client-side. A live run calls{" "}
-              <span className="font-mono text-foreground/80">argus-forge</span> instead — which also handles
+              The suggested params above, rendered as kohya sd-scripts TOML client-side.{" "}
+              <Link href="/forge" className="text-accent-amber underline-offset-2 hover:underline">
+                Forge
+              </Link>{" "}
+              does the same against a real export — and on a live host calls{" "}
+              <span className="font-mono text-foreground/80">argus-forge</span>, which also handles
               OneTrainer/diffusers and collects caption sidecars.
             </p>
             <div className="flex gap-2">
@@ -680,24 +551,16 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
               {result?.mode === "move" ? "into the export folder" : "next to each source image"}.
             </div>
           )}
-          {forgeResult && (
-            <div className="space-y-1">
-              <div className="text-accent-orange">
-                Forged {TRAINER_LABELS[forgeResult.trainer]} config ({forgeResult.params.images} images ×{" "}
-                {forgeResult.params.repeats} repeats × {forgeResult.params.epochs} epochs ≈{" "}
-                {forgeResult.params.total_steps.toLocaleString()} samples
-                {forgeResult.captions_collected > 0
-                  ? `, ${forgeResult.captions_collected} captions collected`
-                  : ""}
-                ).
-              </div>
-              <div className="break-all font-mono text-[11px] text-foreground/80">{forgeResult.out_dir}</div>
-              {forgeResult.warnings.map((w, i) => (
-                <div key={i} className="text-[11px] text-accent-orange/80">
-                  ! {w}
-                </div>
-              ))}
-            </div>
+          {/* The handoff: carry the server-resolved dest (not the raw input —
+              the curator rewrites it under its export root) so /forge inspects
+              exactly what landed, without the user retyping a server path. */}
+          {!manifestProblem && (
+            <Link
+              href={`/forge?export=${encodeURIComponent(result.dest)}`}
+              className="inline-block rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-3 py-1.5 text-xs font-medium text-accent-amber transition-colors hover:bg-accent-amber/20"
+            >
+              Configure training in Forge →
+            </Link>
           )}
         </div>
       )}
