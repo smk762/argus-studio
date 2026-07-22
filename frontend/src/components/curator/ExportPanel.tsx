@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   allowsExport,
   allowsMove,
@@ -176,42 +176,48 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   const manifestOk = speaksSupportedManifest(health);
   const manifestDenied = manifestOk === false;
 
-  // No forge probe here any more: this panel exports, and /forge configures
-  // training (argus-studio#78). Two entry points to POST /config meant two
-  // trainer lists with different authority and two writers of the same
-  // <export>/forge/<trainer>/ directory, silently overwriting each other.
+  // This panel exports; /forge configures training (argus-studio#78). Two entry
+  // points to POST /config meant two trainer lists with different authority and
+  // two writers of the same <export>/forge/<trainer>/ directory.
+  //
+  // The captioning stream can outlive the panel: the hand-off Link sits in the
+  // same success box, so a click mid-run would client-navigate away and leave
+  // the request resolving onto an unmounted tree, dropping the summary and any
+  // lens error on the floor. It gets a signal, and the Link is `busy`-gated.
+  const captionCtrl = useRef<AbortController | null>(null);
+  useEffect(() => () => captionCtrl.current?.abort(), []);
 
   const count = selectedResults.length;
   const disabled = count === 0 || busy;
   const category = summary.target_profile.target_category;
   const sizeHint = datasetSizeStatus(count, category);
 
-  // Foot-gun warnings about the destination itself. These used to be gated on
-  // the forge checkbox; they apply to any export that will later be trained on,
-  // which is every export, so they are unconditional now.
-  // Trailing-slash-normalized so the root-equal compare below matches `d` (which
-  // is also stripped); prefer the server's authoritative root when /health knows it.
+  // Foot-gun warnings about the destination itself. These describe what the
+  // *curator* will do with `dest` — this panel only ever sees the curator's
+  // /health, so it must not assert argus-forge's own containment rules (forge
+  // resolves its export root independently, and /forge checks it there).
+  //
+  // Trailing-slash-normalized so the root-equal compare matches `destRoot`
+  // (also stripped); prefer the server's authoritative root when /health knows it.
   const exportRoot = normalizeRoot(health?.export_root || localOutputPath() || "/data/out");
   const sourceRoot = normalizeRoot(localSourcePath());
+  const destRoot = normalizeRoot(dest.trim());
   const exportHints: string[] = [];
-  {
-    const d = normalizeRoot(dest.trim());
-    if (d && d === exportRoot) {
-      exportHints.push(
-        `Destination is the shared export root, so every export lands in one folder — and argus-forge refuses the root outright. Use a subfolder like ${exportRoot}/my-subject.`,
-      );
-    }
-    if (sourceRoot && d && (d === sourceRoot || d.startsWith(`${sourceRoot}/`))) {
-      exportHints.push(
-        "Destination is inside the dataset tree, which argus-forge mounts read-only — a training config cannot be written there. Export under the output dir instead.",
-      );
-    }
-    if (preserve) {
-      exportHints.push(
-        "kohya sd-scripts reads images from the export root only — uncheck “Preserve folder structure” if your selection includes subfolders.",
-      );
-    }
+  if (destRoot && destRoot === exportRoot) {
+    exportHints.push(
+      `Destination is the shared export root, so every export lands in one folder with nothing to tell them apart — and a trainer cannot be pointed at "one dataset". Use a subfolder like ${exportRoot}/my-subject.`,
+    );
   }
+  if (sourceRoot && destRoot && (destRoot === sourceRoot || destRoot.startsWith(`${sourceRoot}/`))) {
+    exportHints.push(
+      "Destination is inside the dataset tree, which is not under the curator's export root — this export will be refused. Export under the output dir instead.",
+    );
+  }
+  // No kohya "flatten your export" hint: argus-forge's kohya emitter writes one
+  // [[datasets.subsets]] per image-bearing directory precisely so a structure-
+  // preserving export trains, and OneTrainer/diffusers recurse natively. The
+  // advice was obsolete, and following it makes the curator flatten and rename
+  // colliding basenames — irreversible under mode: "move".
 
   const runLiveExport = async () => {
     setBusy(true);
@@ -221,7 +227,6 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
     setCaption(null);
     setCaptionSummary(null);
     setManifestProblem(null);
-    const problems: string[] = [];
     // Snapshot what this run exports. Both are live props and the results grid
     // stays interactive while the transfer streams: changing the selection would
     // otherwise make the row count disagree with the server's `copied` and
@@ -253,47 +258,44 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       if (exported === null) return;
       setResult(exported);
 
-      // The manifest handoff is validated ONCE, for every downstream consumer.
-      // Scoping this to the caption branch meant an unreadable manifest was
-      // silently ignored whenever captioning was unticked: the panel rendered a
-      // plain success and still handed the export to forge, which then built a
-      // training config over a contract this app had just declared it cannot
-      // interpret. `rows` is built once here for the same reason.
+      // Whether this export's manifest can be handed to argus-lens, decided
+      // once and surfaced by the result panel (NOT via setError — the transfer
+      // itself succeeded, and a red failure box over "Copied N images" said the
+      // same thing twice in a tone the panel below immediately walked back).
+      //
       // Rows come from the export result, so the payload matches the
       // manifest.jsonl the curator wrote (transferred rows only) and, in move
       // mode, points at the exported files rather than vanished sources.
       const rows = exportManifestRows(runSummary, runResults, exported);
       const handoffGap = manifestHandoffProblem(exported, rows.length);
-      if (handoffGap) problems.push(`Manifest handoff unusable: ${handoffGap}`);
       setManifestProblem(handoffGap);
 
       // 2) Optionally caption via argus-lens, streaming per-image progress.
       // Non-fatal, but in move mode the sources are gone and this run is the
       // only chance, so a lens outage is reported rather than retried.
-      if (toCaption) {
-        // Validated above: an empty or partial payload is a curator/compat
-        // problem and must not be blamed on argus-lens, and streaming it anyway
-        // would have lens no-op into a "0/0" success.
-        if (handoffGap) {
-          problems.push("Captioning skipped");
-        } else {
-          try {
-            const sum = await captionManifestStream(toJsonl(rows), setCaption, {
-              trigger_word: trigger.trim() || undefined,
-            });
-            setCaptionSummary(sum);
-          } catch (err) {
-            problems.push(`Captioning failed (argus-lens): ${errMsg(err)}`);
-          }
+      // Validated above: an empty or partial payload is a curator/compat problem
+      // and must not be blamed on argus-lens, and streaming it anyway would have
+      // lens no-op into a "0/0" success. The skip is reported by the result
+      // panel's manifest note, not as a second error string.
+      if (toCaption && !handoffGap) {
+        const ctrl = new AbortController();
+        captionCtrl.current = ctrl;
+        try {
+          const sum = await captionManifestStream(toJsonl(rows), setCaption, {
+            trigger_word: trigger.trim() || undefined,
+            signal: ctrl.signal,
+          });
+          setCaptionSummary(sum);
+        } catch (err) {
+          if (!ctrl.signal.aborted) setError(`Captioning failed (argus-lens): ${errMsg(err)}`);
+        } finally {
+          if (captionCtrl.current === ctrl) captionCtrl.current = null;
         }
       }
 
-      // The training config is NOT forged here — /forge owns that now
-      // (argus-studio#78). The success panel links there with this export's
-      // server-resolved dest, so the config is rendered once, against a trainer
-      // list the server actually advertises.
-
-      if (problems.length > 0) setError(problems.join(" — "));
+      // The training config is forged by /forge, which the success panel links
+      // to with this export's server-resolved dest and the trigger the captions
+      // were written with.
     } finally {
       setBusy(false);
     }
@@ -311,6 +313,25 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
         : buildKohyaConfigToml(count, category, "my_subject-lora");
     downloadText(file, text, "application/toml");
   };
+
+  // Where /forge should be pointed for this export, or null when there is
+  // nothing worth pointing it at.
+  //
+  // Compared against the SERVER-resolved `result.dest`, not the raw input: the
+  // curator contains `dest` under its export root, so "." or a relative entry
+  // resolves to the root itself — which forge refuses outright, and which the
+  // raw-string hint above would never have matched. Offering the link anyway
+  // landed the default configuration (dest === export root) on a /forge with
+  // both Inspect and Generate permanently disabled.
+  //
+  // A row-matching gap does NOT block it: forge parses the export's manifest
+  // itself and sizes from what is on disk, so those are argus-lens problems.
+  // An unreadable manifest *version* still does — forge may not read it either.
+  const handoffDest =
+    result && result.copied > 0 && !result.manifestGap && normalizeRoot(result.dest) !== exportRoot
+      ? result.dest
+      : null;
+  const handoffAtRoot = !!result && result.copied > 0 && normalizeRoot(result.dest) === exportRoot;
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
@@ -391,7 +412,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
                 <>
                   This curator writes manifest{" "}
                   <span className="font-mono">{health?.manifest_version}</span>, which this app cannot
-                  read — nothing could be handed to argus-lens or argus-forge afterwards. Export is
+                  read — the export could not be handed to argus-lens afterwards. Export is
                   disabled rather than refused after the files have already moved. Upgrade the
                   curator, or the studio, so the two agree.
                 </>
@@ -422,17 +443,22 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
             Then caption with argus-lens
           </label>
           {/* The trigger belongs to captioning: argus-lens is what consumes it.
-              It used to live under the forge checkbox, which meant a caption-only
-              export silently dropped it. */}
+              It rides along to /forge on the hand-off so the training config
+              names the same token the sidecars were written with. */}
           {toCaption && (
-            <input
-              type="text"
-              value={trigger}
-              onChange={(e) => setTrigger(e.target.value)}
-              disabled={busy}
-              placeholder="Trigger word (optional — prepended to each caption)"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-purple/50 focus:outline-none focus:ring-1 focus:ring-accent-purple/50 disabled:cursor-not-allowed disabled:opacity-50"
-            />
+            <label className="block space-y-1">
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted">
+                Trigger word (optional)
+              </span>
+              <input
+                type="text"
+                value={trigger}
+                onChange={(e) => setTrigger(e.target.value)}
+                disabled={busy}
+                placeholder="Prepended to each caption, e.g. sks-jane"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent-purple/50 focus:outline-none focus:ring-1 focus:ring-accent-purple/50 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </label>
           )}
           {exportHints.length > 0 && (
             <ul className="space-y-1 text-[11px] leading-relaxed text-accent-orange/90">
@@ -447,7 +473,10 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
             onClick={() => void runLiveExport()}
             className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "Working…" : `Export ${count}${toCaption ? " + caption" : " + manifest"}`}
+            {/* The manifest is written on every run (write_manifest: true), so
+                it is stated unconditionally — the old ternary implied ticking
+                the caption box traded it away. */}
+            {busy ? "Working…" : `Export ${count} + manifest${toCaption ? " + caption" : ""}`}
           </button>
 
           {busy && (transfer || caption) && (
@@ -538,7 +567,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           {manifestProblem && (
             <div className="text-accent-orange/90">
               The files were transferred, but this app could not use the manifest: {manifestProblem}.
-              Captioning and the training config were skipped.
+              {toCaption ? " Captioning was skipped." : ""}
             </div>
           )}
           {result.manifest_path && (
@@ -553,14 +582,38 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           )}
           {/* The handoff: carry the server-resolved dest (not the raw input —
               the curator rewrites it under its export root) so /forge inspects
-              exactly what landed, without the user retyping a server path. */}
-          {!manifestProblem && (
+              exactly what landed, plus the trigger the captions were written
+              with, so forge does not slugify the folder name into a token that
+              appears in none of them.
+
+              Withheld while `busy`: captioning is still streaming at this point
+              and navigating away would abort it. */}
+          {handoffDest && (
             <Link
-              href={`/forge?export=${encodeURIComponent(result.dest)}`}
-              className="inline-block rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-3 py-1.5 text-xs font-medium text-accent-amber transition-colors hover:bg-accent-amber/20"
+              href={`/forge?export=${encodeURIComponent(handoffDest)}${
+                trigger.trim() ? `&trigger=${encodeURIComponent(trigger.trim())}` : ""
+              }`}
+              aria-disabled={busy || undefined}
+              tabIndex={busy ? -1 : undefined}
+              onClick={(e) => {
+                if (busy) e.preventDefault();
+              }}
+              className={`inline-block rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-3 py-1.5 text-xs font-medium text-accent-amber transition-colors ${
+                busy ? "pointer-events-none opacity-40" : "hover:bg-accent-amber/20"
+              }`}
             >
-              Configure training in Forge →
+              {busy ? "Configure training in Forge (after captioning)…" : "Configure training in Forge →"}
             </Link>
+          )}
+          {/* Say why the hand-off is missing rather than silently dropping the
+              affordance — the same reason capabilityReason exists for the
+              controls above. */}
+          {handoffAtRoot && (
+            <div className="text-accent-orange/90">
+              Exported to the shared export root, so there is no single dataset folder to train on —
+              argus-forge refuses the root itself. Re-export into a subfolder like{" "}
+              <span className="font-mono">{exportRoot}/my-subject</span> to configure training.
+            </div>
           )}
         </div>
       )}
@@ -568,16 +621,16 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   );
 }
 
-const BAR_TONE: Record<string, { bar: string; text: string }> = {
+const BAR_TONE: Record<PhaseTone, { bar: string; text: string }> = {
   teal: { bar: "bg-accent-teal", text: "text-accent-teal" },
   purple: { bar: "bg-accent-purple", text: "text-accent-purple" },
-  orange: { bar: "bg-accent-orange", text: "text-accent-orange" },
 };
 
+type PhaseTone = "teal" | "purple";
+
 /**
- * A labelled progress bar for one export/caption/forge phase. `pending` =
- * queued behind an earlier phase ("waiting…"); `indeterminate` = actively
- * running but without granular progress (a single long request).
+ * A labelled progress bar for one export or caption phase. `pending` = queued
+ * behind an earlier phase ("waiting…").
  */
 function PhaseBar({
   label,
@@ -585,15 +638,13 @@ function PhaseBar({
   total,
   tone,
   pending = false,
-  indeterminate = false,
   detail,
 }: {
   label: string;
   done: number;
   total: number;
-  tone: "teal" | "purple" | "orange";
+  tone: PhaseTone;
   pending?: boolean;
-  indeterminate?: boolean;
   detail?: string;
 }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -603,19 +654,15 @@ function PhaseBar({
       <div className="flex items-baseline justify-between gap-2 text-[11px]">
         <span className="text-foreground/85">{label}</span>
         <span className={`shrink-0 font-mono tabular-nums ${t.text}`}>
-          {pending
-            ? "waiting…"
-            : indeterminate
-              ? "running…"
-              : `${done.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`}
+          {pending ? "waiting…" : `${done.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`}
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
         <div
           className={`h-full rounded-full transition-all duration-300 ease-out ${t.bar} ${
-            pending || indeterminate ? "animate-pulse" : ""
+            pending ? "animate-pulse" : ""
           }`}
-          style={{ width: pending ? "10%" : indeterminate ? "60%" : `${pct}%` }}
+          style={{ width: pending ? "10%" : `${pct}%` }}
         />
       </div>
       {detail && <p className="truncate font-mono text-[10px] text-muted">{detail}</p>}
