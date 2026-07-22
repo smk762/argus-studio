@@ -93,8 +93,9 @@ services:
     restart: unless-stopped
 
   argus-curator:
-    # Also in the forge profile: the ExportPanel's forge step is only reachable
-    # through a live-mode export, which needs the curator.
+    # Also in the forge profile: /forge trains on a curator export, and the
+    # export flow hands off to it. /forge itself works without the curator —
+    # point it at any export dir under the shared root.
     profiles: ["curator", "forge", "full"]
     build:
       context: ../argus-curator
@@ -129,7 +130,7 @@ services:
   # ── Training bridge (export -> ready-to-run LoRA training configs) ──────
   # Consumes a curator export (images + manifest.jsonl + .txt sidecars) and
   # writes kohya / OneTrainer / diffusers configs under <export>/forge/.
-  # Used by the /curate ExportPanel's "Then forge training config" step.
+  # Backs the /forge page, which the /curate export flow links to on success.
   argus-forge:
     profiles: ["forge", "full"]
     build:
