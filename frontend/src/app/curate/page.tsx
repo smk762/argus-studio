@@ -26,6 +26,7 @@ import {
 } from "@/components/curator/types";
 import { getDetectors, getHealth, getScan, scanFolderStream, type Health, type ScanProgress } from "@/lib/curatorApi";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
+import { useDeepLink } from "@/lib/deepLink";
 
 type View = "grid" | "clusters";
 
@@ -76,11 +77,11 @@ export default function CuratePage() {
   const loadedSample = useRef(false);
 
   // Deep link from /gallery: ?folder=<path> preselects the scan folder.
-  useEffect(() => {
+  useDeepLink((params) => {
     if (!isLive()) return;
-    const folder = new URLSearchParams(window.location.search).get("folder");
+    const folder = params.get("folder");
     if (folder) setFolderPath(folder);
-  }, []);
+  });
 
   // Live extras: detector capabilities + recent-scan history (localStorage).
   useEffect(() => {

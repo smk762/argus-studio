@@ -597,13 +597,11 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           {handoffDest &&
             (handoffCaptioned ? (
               <StageHandoff
+                // The trigger rides along so forge does not slugify the folder
+                // name into a token that appears in none of the captions.
                 href={`/forge?export=${encodeURIComponent(handoffDest)}${
                   trigger.trim() ? `&trigger=${encodeURIComponent(trigger.trim())}` : ""
                 }`}
-                tone="amber"
-                // The trigger rides along so forge does not slugify the folder
-                // name into a token that appears in none of the captions.
-                label="Configure training in Forge"
                 disabled={busy}
                 disabledLabel="Configure training in Forge (after captioning)…"
               />
@@ -615,8 +613,6 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
               // back written for the same LoRA type.
               <StageHandoff
                 href={`/?folder=${encodeURIComponent(handoffDest)}&category=${encodeURIComponent(LENS_CATEGORY[category])}`}
-                tone="purple"
-                label="Caption the export in Lens"
                 disabled={busy}
                 disabledLabel="Caption the export in Lens (export still running)…"
               />

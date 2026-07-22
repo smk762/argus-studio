@@ -21,6 +21,7 @@ import {
 } from "@/lib/forgeApi";
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { isLive, localOutputPath } from "@/lib/curatorEnv";
+import { useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { basename, normalizeRoot } from "@/lib/path";
 import {
@@ -221,8 +222,7 @@ export default function ForgePage() {
   // folder name instead would put a token in class_tokens, the sample prompts
   // and the README that appears in none of the captions (argus-studio#78).
   const [deepLinked, setDeepLinked] = useState(false);
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+  useDeepLink((params) => {
     const dir = params.get("export");
     const trig = params.get("trigger");
     if (trig) setTrigger(trig);
@@ -230,7 +230,7 @@ export default function ForgePage() {
       setExportDir(dir);
       setDeepLinked(true);
     }
-  }, []);
+  });
 
   // One in-flight request at a time; a superseded or unmounted one is aborted so
   // its response can never land over inputs the user has since changed.
@@ -685,7 +685,7 @@ export default function ForgePage() {
                 preview and in demo mode too: it is plain navigation, and the
                 run browser on /proof is worth reaching whether or not this
                 particular config was written to disk. */}
-            <StageHandoff href="/proof" tone="green" label="Evaluate a trained LoRA in Proof" />
+            <StageHandoff href="/proof" />
           </section>
         )}
 
