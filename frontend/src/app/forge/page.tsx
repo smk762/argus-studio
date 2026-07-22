@@ -370,26 +370,22 @@ export default function ForgePage() {
           />
         )}
 
-        {/* A hand-off aimed at a demo-mode build: there is no forge to inspect
-            the path with, so say the path was dropped rather than letting the
-            estimate below look like it describes that export. The trigger word
-            still carries — the client-side builder uses it. */}
-        {!live && deepLinked && (
-          <CapabilityNotice
-            reason={
-              <>
-                Arrived from an export{dirTrimmed ? <> at <span className="font-mono">{dirTrimmed}</span></> : null},
-                but this build is in demo mode and has no argus-forge to read it. The config below is built from the
-                image-count estimate instead.
-              </>
-            }
-          />
-        )}
-
+        {/* One demo-mode notice. When the visitor arrived from an export
+            (deepLinked) it leads with the fact the path was dropped — there is
+            no forge to inspect it with, so the estimate below does not describe
+            that export — then explains demo mode. The trigger word still carries;
+            the client-side builder uses it. */}
         {!live && (
           <CapabilityNotice
             reason={
               <>
+                {deepLinked && (
+                  <>
+                    Arrived from an export{dirTrimmed ? <> at <span className="font-mono">{dirTrimmed}</span></> : null},
+                    but this build has no argus-forge to read it, so the config below is built from the image-count
+                    estimate instead.{" "}
+                  </>
+                )}
                 Demo mode: configs are built in your browser from the same sizing heuristics, for kohya only.
                 Set <span className="font-mono">ARGUS_CURATOR_UI_MODE=live</span> and run argus-forge to inspect a
                 real export and emit all three trainers.

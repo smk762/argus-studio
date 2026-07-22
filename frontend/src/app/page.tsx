@@ -111,8 +111,9 @@ export default function Home() {
     if (!folder) return;
     setFolderPath(folder);
     setMode("folder");
-    // Validated against the known set: the value is echoed straight into the
-    // caption request, and an unknown category would have lens reject the batch.
+    // The curator hands off a lens-valid value (its LENS_CATEGORY map bridges
+    // the two taxonomies); still validate, because a hand-edited URL could carry
+    // anything and the value is echoed straight into the caption request.
     const category = params.get("category");
     if (category && TARGET_CATEGORIES.some((c) => c.value === category)) setTargetCategory(category);
   }, []);
@@ -217,14 +218,18 @@ export default function Home() {
   };
 
   const runFolder = async () => {
-    if (!folderPath.trim()) return;
+    // Snapshot the path for this run: the input stays editable while captioning
+    // streams, so reading state again after the await could label the results
+    // (and the /forge hand-off) with a folder the user has since typed over.
+    const folder = folderPath.trim();
+    if (!folder) return;
     setLoading(true);
     setError(null);
     setBatchResult(null);
     setCaptionedFolder(null);
     try {
       const data = await captionFolder({
-        folder: folderPath.trim(),
+        folder,
         recursive,
         write_sidecar: writeSidecar,
         write_xmp: writeXmp,
@@ -235,10 +240,10 @@ export default function Home() {
         ...hybridRequestFields(hybrid),
       });
       setBatchResult(data);
-      setBatchSource(folderPath.trim());
+      setBatchSource(folder);
       // Sidecars are what forge sizes a dataset from: without them the folder
       // has images and no captions, and the next stage has nothing to read.
-      if (writeSidecar && data.captioned > 0) setCaptionedFolder(folderPath.trim());
+      if (writeSidecar && data.captioned > 0) setCaptionedFolder(folder);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -346,6 +351,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setBatchResult(null);
+    setCaptionedFolder(null);
     setProgress(null);
     const rows: { rel_path: string; final_caption: string }[] = [];
     const errors: { rel_path: string; error: string }[] = [];
@@ -447,6 +453,10 @@ export default function Home() {
                 onClick={() => {
                   setMode(m);
                   setError(null);
+                  // The /forge hand-off belongs to the folder batch that set it;
+                  // drop it when the user moves to a different input mode so it
+                  // can't point at a folder no longer on screen.
+                  setCaptionedFolder(null);
                 }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                   mode === m ? "bg-accent-purple text-white" : "text-muted hover:text-foreground"

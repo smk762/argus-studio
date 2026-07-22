@@ -53,7 +53,7 @@ export function Nav({ active }: { active: string }) {
               : "rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
           }
         >
-          {n.stage && (
+          {n.stage != null && (
             <span aria-hidden className="mr-1.5 font-mono text-[10px] text-muted/70">
               {n.stage}
             </span>

@@ -40,6 +40,11 @@ export function StageHandoff({
   return (
     <Link
       href={href}
+      // These are end-of-stage affordances most visitors never take, and a
+      // disabled one guards an in-flight stream — so don't let Next prefetch the
+      // destination's RSC payload on viewport entry (it ignores the disabled
+      // state and would contend with that stream).
+      prefetch={false}
       aria-disabled={disabled || undefined}
       tabIndex={disabled ? -1 : undefined}
       onClick={(e) => {

@@ -23,6 +23,7 @@ import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
 import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
 import {
+  LENS_CATEGORY,
   MANIFEST_VERSION,
   datasetSizeStatus,
   type ImageResult,
@@ -613,7 +614,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
               // the category the scan was profiled for so the sidecars come
               // back written for the same LoRA type.
               <StageHandoff
-                href={`/?folder=${encodeURIComponent(handoffDest)}&category=${encodeURIComponent(category)}`}
+                href={`/?folder=${encodeURIComponent(handoffDest)}&category=${encodeURIComponent(LENS_CATEGORY[category])}`}
                 tone="purple"
                 label="Caption the export in Lens"
                 disabled={busy}
