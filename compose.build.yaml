@@ -1,0 +1,50 @@
+# Build-from-local-source override.
+#
+# The base compose.yaml runs the backends from their published GHCR images.
+# Layer this file to build them from the sibling checkouts instead — the
+# `build:` blocks here pair with the base `image:` names, so a `--build` run
+# tags each source build under its GHCR name locally (nothing is pushed).
+#
+#   docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
+#
+# Requires the sibling repos checked out next to this one:
+#   ../argus-curator  ../argus-lens  ../argus-quarry  ../argus-forge  ../argus-proof
+#
+# Layers cleanly with compose.gpu.yaml (add -f compose.gpu.yaml as well).
+# (frontend is always built from ./frontend in the base file — not repeated here.)
+services:
+  argus-lens:
+    build:
+      context: ../argus-lens
+      dockerfile: Dockerfile.standalone
+      args:
+        EXTRAS: ${LENS_EXTRAS:-server,local}
+
+  argus-curator:
+    build:
+      context: ../argus-curator
+
+  argus-forge:
+    build:
+      context: ../argus-forge
+
+  argus-proof:
+    build:
+      context: ../argus-proof
+      args:
+        # pip extras baked into the image. Default is light (phash dedup only);
+        # "server,cli,score" adds the full scorer stack (identity/quality/safety
+        # — torch, insightface, pyiqa…) at a much larger image size.
+        EXTRAS: ${PROOF_EXTRAS:-server,cli}
+
+  # The acquisition job and the provenance server build from the same repo; the
+  # server needs the [server] extra, the job runs the default entrypoint.
+  argus-quarry:
+    build:
+      context: ../argus-quarry
+
+  argus-quarry-server:
+    build:
+      context: ../argus-quarry
+      args:
+        EXTRAS: cli,phash,server

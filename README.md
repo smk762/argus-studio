@@ -17,29 +17,43 @@ Designed as a living onboarding document -- every parameter includes an inline e
 ### Whole suite in one stack (recommended)
 
 The suite repos are designed to run together but stay loosely coupled — bring up
-only what you need with compose **profiles**. Clone them as siblings first:
+only what you need with compose **profiles**. By default the backends run from
+their **published GHCR images**, so no sibling checkouts are needed:
 
 ```bash
-git clone https://github.com/smk762/argus-lens ../argus-lens
-git clone https://github.com/smk762/argus-curator ../argus-curator
-git clone https://github.com/smk762/argus-quarry ../argus-quarry   # optional: gallery profile
-git clone https://github.com/smk762/argus-forge ../argus-forge     # optional: forge profile
-git clone https://github.com/smk762/argus-proof ../argus-proof     # optional: proof profile
-# (this repo is argus-studio)
+git clone https://github.com/smk762/argus-studio   # this repo
+cd argus-studio
 cp .env.example .env      # set DATASET_DIR / OUTPUT_DIR, choose UI mode, etc.
 ```
 
-Then, from this repo root:
+Then, from this repo root (`frontend` builds locally; the backends pull GHCR images):
 
 ```bash
-docker compose up --build                    # frontend only (demo mode, no backend)
-docker compose --profile curator up --build  # frontend + argus-curator
-docker compose --profile lens    up --build  # frontend + argus-lens
-docker compose --profile gallery up --build  # argus-quarry: acquire PD/CC0 images -> DATASET_DIR
+docker compose up                    # frontend only (demo mode, no backend)
+docker compose --profile curator up  # frontend + argus-curator
+docker compose --profile lens    up  # frontend + argus-lens
+docker compose --profile gallery up  # argus-quarry: acquire PD/CC0 images -> DATASET_DIR
 ARGUS_CURATOR_UI_MODE=live \
-docker compose --profile forge   up --build  # frontend + curator + argus-forge (training configs)
-docker compose --profile proof   up --build  # frontend + argus-proof (post-training LoRA evaluation)
-docker compose --profile full    up --build  # whole suite
+docker compose --profile forge   up  # frontend + curator + argus-forge (training configs)
+docker compose --profile proof   up  # frontend + argus-proof (post-training LoRA evaluation)
+docker compose --profile full    up  # whole suite (pull + run GHCR images)
+docker compose --profile full    pull  # refresh the images to the current *_TAG
+```
+
+Pin a specific released version with the `*_TAG` vars in `.env`
+(`CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG`, default `latest`).
+
+**Build from local source instead** — clone the sibling repos and layer the build
+override, which re-adds each backend's `build:` context:
+
+```bash
+git clone https://github.com/smk762/argus-lens    ../argus-lens
+git clone https://github.com/smk762/argus-curator ../argus-curator
+git clone https://github.com/smk762/argus-quarry  ../argus-quarry   # gallery profile
+git clone https://github.com/smk762/argus-forge   ../argus-forge    # forge profile
+git clone https://github.com/smk762/argus-proof   ../argus-proof    # proof profile
+
+docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
 ```
 
 | Profile | Services started | Use it for |
@@ -59,15 +73,15 @@ records, grouped into LoRA-training categories (`identity` / `wardrobe` /
 tree into `DATASET_DIR`. Run it first, then curate the published images:
 
 ```bash
-docker compose --profile gallery up --build   # fetch -> pool -> publish DATASET_DIR
-docker compose --profile curator up --build   # then scan/curate on /curate
+docker compose --profile gallery up   # fetch -> pool -> publish DATASET_DIR
+docker compose --profile curator up   # then scan/curate on /curate
 ```
 
 **NVIDIA GPUs** (optional, needs the NVIDIA Container Toolkit): layer the override so
 the base stack still runs on CPU-only machines.
 
 ```bash
-docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build
+docker compose -f compose.yaml -f compose.gpu.yaml --profile full up
 ```
 
 The only cross-service coupling is the **curate → caption handoff**: curator and lens
