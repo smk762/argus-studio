@@ -15,73 +15,92 @@ import { asError } from "@/lib/apiError";
 import { joinPath } from "@/lib/path";
 
 /**
- * An {@link ExportResult} normalized to the manifest-2.0 shape the app
- * consumes, so no downstream ever branches on curator version or rebuilds a
- * server path — that compat concern lives here, at the wire seam.
+ * The manifest major this app understands. The curator declares its version on
+ * every {@link ExportResult}; anything outside this major is refused via
+ * {@link NormalizedExportResult.manifestGap} rather than mishandled. Within the
+ * major, fields are only ever added, so a newer minor stays readable.
  */
-export interface NormalizedExportResult extends Omit<ExportResult, "exported_paths"> {
+export const SUPPORTED_MANIFEST_MAJOR = 2;
+
+/**
+ * Major of a declared `manifest_version` (`"2.1"` -> 2), or `null` when it is
+ * absent or unparseable. A manifest-1.0 curator never sent the field at all, so
+ * an absent version reads as unsupported — which is the correct answer.
+ */
+function manifestMajor(version: string | undefined): number | null {
+  if (!version) return null;
+  const major = Number.parseInt(version.split(".")[0], 10);
+  return Number.isInteger(major) ? major : null;
+}
+
+/**
+ * An {@link ExportResult} the app can consume without knowing the curator's
+ * version — that compat concern lives here, at the wire seam. Since curator
+ * manifest 2.1 the server publishes both the rel and absolute locators for
+ * every transferred file, so this no longer reconstructs anything; it just
+ * refuses a manifest major it doesn't understand.
+ */
+export interface NormalizedExportResult extends Omit<ExportResult, "exported_paths" | "exported_abs_paths"> {
   /**
-   * rel_path -> exported_path (posix, relative to `dest`). **Partial**: a
-   * missing key means "not in the handoff manifest", which is why the value
-   * type is nullable — callers must handle the miss, and the type checker
-   * holds them to it.
-   *
-   * A 2.0 curator's map is used as-is, including an empty one from a
-   * zero-transfer export (detected by *presence*, so that stays empty rather
-   * than being misread as 1.0). For 1.0 curators see {@link manifestGap}.
+   * rel_path -> path written under `dest` (posix, relative to it). **Partial**:
+   * a missing key means the file was not transferred (source vanished or the
+   * copy failed), which is why the value is nullable — callers must handle the
+   * miss and the type checker holds them to it. Empty from a zero-transfer
+   * export, which is a valid state, not a gap.
    */
   exported_paths: Record<string, string | undefined>;
+  /** The same mapping, absolute — see {@link exportedAbsPath}. Same partiality. */
+  exported_abs_paths: Record<string, string | undefined>;
   /**
-   * Non-null when the seam could NOT establish a trustworthy rel -> exported
-   * map, carrying a human-readable reason. Callers must skip the downstream
-   * handoff and surface this instead of shipping fabricated locators.
-   *
-   * The one case today: a manifest-1.0 curator that flattened the export. It
-   * never reported where files landed, and a flattened export de-collides
-   * basenames into `stem-<hash>.ext`, which is unguessable from here.
+   * Non-null when the curator's declared manifest major is not
+   * {@link SUPPORTED_MANIFEST_MAJOR}, carrying a human-readable reason. Callers
+   * must skip the downstream handoff and surface this rather than ship locators
+   * from a contract they can't interpret.
    */
   manifestGap: string | null;
 }
 
 /**
  * Fold a raw curator ExportResult into {@link NormalizedExportResult}, so the
- * manifest-version rules stop leaking into components.
+ * manifest-version rules stop leaking into components. Refuses an unknown major
+ * outright — including a pre-2.0 curator, which declared no version.
  */
-export function normalizeExportResult(result: ExportResult, req: ExportRequest): NormalizedExportResult {
-  // Detect legacy (manifest 1.0) by presence, not emptiness — a zero-transfer
-  // 2.0 export legitimately sends an empty map and must not be misread as 1.0.
-  if (result.exported_paths) {
-    return { ...result, exported_paths: result.exported_paths, manifestGap: null };
-  }
-  if (!req.preserve_structure) {
+export function normalizeExportResult(result: ExportResult): NormalizedExportResult {
+  const major = manifestMajor(result.manifest_version);
+  if (major !== SUPPORTED_MANIFEST_MAJOR) {
+    const speaks = result.manifest_version ?? "a pre-2.0 manifest";
     return {
       ...result,
       exported_paths: {},
+      exported_abs_paths: {},
       manifestGap:
-        "this curator predates manifest 2.0 and did not report where a flattened export wrote each file",
+        `this curator speaks manifest ${speaks}, but this app handles ${SUPPORTED_MANIFEST_MAJOR}.x — ` +
+        "upgrade the curator, or the studio, so the two agree",
     };
   }
-  // Structure preserved, so the curator wrote each file at its own rel_path.
-  // `selected_rel_paths` is optional in the published wire schema; treat an
-  // absent one as an empty selection rather than throwing after the transfer.
-  const selected = result.selected_rel_paths ?? [];
   return {
     ...result,
-    exported_paths: Object.fromEntries(selected.map((rel) => [rel, rel])),
+    exported_paths: result.exported_paths ?? {},
+    exported_abs_paths: result.exported_abs_paths ?? {},
     manifestGap: null,
   };
 }
 
 /**
- * Absolute on-disk path of an exported file, or null when the caller should
- * keep the image's own `abs_path`. Only `move` relocates a file away from its
- * source, so only move resolves a new absolute — joined here, the seam that
- * owns the curator's `dest` layout, so no UI string-builds a server path.
+ * Absolute on-disk location of a transferred file, or null when it was not in
+ * the handoff manifest. Mode-agnostic: the curator reports where every file
+ * landed regardless of copy/symlink/move, so the caller — not this accessor —
+ * decides whether it wants that location or the image's own source `abs_path`.
+ *
+ * Prefers the server's `exported_abs_paths`; falls back to joining `dest` onto
+ * the relative locator, mirroring the curator's own resolution for the rare
+ * 2.0-minor server that reported rel paths but not absolute ones.
  */
 export function exportedAbsPath(result: NormalizedExportResult, relPath: string): string | null {
-  if (result.mode !== "move") return null;
-  const exported = result.exported_paths[relPath];
-  return exported == null ? null : joinPath(result.dest, exported);
+  const abs = result.exported_abs_paths[relPath];
+  if (abs != null) return abs;
+  const rel = result.exported_paths[relPath];
+  return rel == null ? null : joinPath(result.dest, rel);
 }
 
 export interface Health {
@@ -96,6 +115,13 @@ export interface Health {
   export_root?: string | null;
   /** Whether the server permits destructive `mode: "move"` exports. */
   allow_move?: boolean;
+  /**
+   * The manifest contract version this curator writes (e.g. `"2.1"`), declared
+   * separately from `version` since the two move independently. Absent on a
+   * pre-2.0 curator. Lets a client refuse an unsupported major up front rather
+   * than at export time — see {@link SUPPORTED_MANIFEST_MAJOR}.
+   */
+  manifest_version?: string;
 }
 
 /**
@@ -265,7 +291,7 @@ export interface ExportProgress {
 
 /**
  * Stream an export over SSE (POST /export/stream), resolving with the final
- * result already normalized to the manifest-2.0 shape the app consumes.
+ * result normalized so the app never branches on the curator's manifest version.
  */
 export async function exportSelectionStream(
   req: ExportRequest,
@@ -280,7 +306,7 @@ export async function exportSelectionStream(
   });
   if (!resp.ok || !resp.body) return asError(resp);
   const result = await readSseStream<ExportProgress, ExportResult>(resp.body, onProgress, "Export");
-  return normalizeExportResult(result, req);
+  return normalizeExportResult(result);
 }
 
 /** Build a /thumb URL for a scanned image (live mode only). */

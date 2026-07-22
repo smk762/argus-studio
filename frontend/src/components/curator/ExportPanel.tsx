@@ -65,12 +65,14 @@ const manifestRow = (
   summary: ScanSummary,
   r: ImageResult,
   exportedPath: string,
+  exportedAbs: string,
   absPath: string,
 ): ManifestRow => ({
   manifest_version: MANIFEST_VERSION,
   rel_path: r.rel_path,
   abs_path: absPath,
   exported_path: exportedPath,
+  exported_abs_path: exportedAbs,
   target_profile: summary.target_profile,
   primary_face_cluster: r.primary_face_cluster,
   primary_face_pose: r.primary_face_pose,
@@ -81,20 +83,26 @@ const manifestRow = (
 /**
  * Manifest rows for a completed live export: the files the curator reported a
  * destination for (normalized `exported_paths`, so this no longer knows about
- * manifest versions), each stamped with that reported `exported_path`. The
- * absolute comes from the seam — in move mode the sources are gone, otherwise
- * the source image stays authoritative — so no path is rebuilt here.
+ * manifest versions), each stamped with its reported `exported_path` and the
+ * absolute the curator published for it — no path is rebuilt here.
  *
- * Rows can be fewer than the selection (untransferred files are dropped) or,
- * against a manifest-1.0 curator, more than were actually copied — see
- * `manifestHandoffProblem`, which is what decides whether this is usable.
+ * `abs_path` stays mode-dependent to match the curator's own manifest: under
+ * move the source is gone so the row reads from the destination, otherwise the
+ * still-present source image stays authoritative (argus-lens opens by abs_path).
+ *
+ * Rows can be fewer than the selection when a file wasn't transferred — see
+ * `manifestHandoffProblem`, which decides whether the handoff is usable.
  */
 function exportManifestRows(summary: ScanSummary, rows: ImageResult[], result: NormalizedExportResult): ManifestRow[] {
   const out: ManifestRow[] = [];
   for (const r of rows) {
     const exportedPath = result.exported_paths[r.rel_path];
     if (exportedPath == null) continue; // not transferred — drop it
-    out.push(manifestRow(summary, r, exportedPath, exportedAbsPath(result, r.rel_path) ?? r.abs_path));
+    // Absolute written location; falls back to the source only if the curator
+    // somehow omitted it for this row.
+    const exportedAbs = exportedAbsPath(result, r.rel_path) ?? r.abs_path;
+    const absPath = result.mode === "move" ? exportedAbs : r.abs_path;
+    out.push(manifestRow(summary, r, exportedPath, exportedAbs, absPath));
   }
   return out;
 }
@@ -117,12 +125,12 @@ function manifestHandoffProblem(result: NormalizedExportResult, rowCount: number
 
 /**
  * The manifest a live structure-preserving export would write, for the demo
- * download — same 2.0 shape (no relocation, so `exported_path` mirrors
- * `rel_path` and the source stays authoritative), so the file you download
- * matches what lens receives.
+ * download — nothing relocates, so `exported_path` mirrors `rel_path` and the
+ * source is authoritative for both the readable and the absolute locator, so
+ * the file you download matches what lens receives.
  */
 function demoManifestRows(summary: ScanSummary, rows: ImageResult[]): ManifestRow[] {
-  return rows.map((r) => manifestRow(summary, r, r.rel_path, r.abs_path));
+  return rows.map((r) => manifestRow(summary, r, r.rel_path, r.abs_path, r.abs_path));
 }
 
 export function ExportPanel({ summary, selectedResults, health }: Props) {
