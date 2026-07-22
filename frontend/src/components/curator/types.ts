@@ -258,6 +258,22 @@ export const TARGET_CATEGORIES: TargetCategory[] = [
   "setting",
 ];
 
+/**
+ * Curator category -> argus-lens caption category (argus-studio#67 hand-off).
+ *
+ * The two steps profile on related-but-different axes: curator has one
+ * `pose_composition` bucket where lens splits pose/framing finer, so a raw
+ * hand-off of `pose_composition` is a value lens does not know and would drop.
+ * Map it to lens's nearest concept (`pose_gaze`) so `/?category=` always
+ * carries a value the caption page accepts.
+ */
+export const LENS_CATEGORY: Record<TargetCategory, string> = {
+  identity: "identity",
+  wardrobe: "wardrobe",
+  pose_composition: "pose_gaze",
+  setting: "setting",
+};
+
 export const CATEGORY_LABELS: Record<TargetCategory, string> = {
   identity: "Identity",
   wardrobe: "Wardrobe",

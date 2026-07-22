@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
+import { StageHandoff } from "@/components/StageHandoff";
 import {
   allowsTraining,
   forgeConfig,
@@ -369,10 +370,22 @@ export default function ForgePage() {
           />
         )}
 
+        {/* One demo-mode notice. When the visitor arrived from an export
+            (deepLinked) it leads with the fact the path was dropped — there is
+            no forge to inspect it with, so the estimate below does not describe
+            that export — then explains demo mode. The trigger word still carries;
+            the client-side builder uses it. */}
         {!live && (
           <CapabilityNotice
             reason={
               <>
+                {deepLinked && (
+                  <>
+                    Arrived from an export{dirTrimmed ? <> at <span className="font-mono">{dirTrimmed}</span></> : null},
+                    but this build has no argus-forge to read it, so the config below is built from the image-count
+                    estimate instead.{" "}
+                  </>
+                )}
                 Demo mode: configs are built in your browser from the same sizing heuristics, for kohya only.
                 Set <span className="font-mono">ARGUS_CURATOR_UI_MODE=live</span> and run argus-forge to inspect a
                 real export and emit all three trainers.
@@ -667,6 +680,12 @@ export default function ForgePage() {
                 </pre>
               </div>
             ))}
+
+            {/* Last stage-to-stage link in the pipeline (#67). Offered for a
+                preview and in demo mode too: it is plain navigation, and the
+                run browser on /proof is worth reaching whether or not this
+                particular config was written to disk. */}
+            <StageHandoff href="/proof" tone="green" label="Evaluate a trained LoRA in Proof" />
           </section>
         )}
 
