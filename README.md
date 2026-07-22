@@ -48,7 +48,7 @@ docker compose --profile full    up --build  # whole suite
 | `curator` | frontend + argus-curator | Scanning / exporting datasets |
 | `lens` | frontend + argus-lens | Captioning against a running engine |
 | `gallery` | argus-quarry (acquisition job) + argus-quarry-server | Acquiring PD/CC0 images with provenance into `DATASET_DIR`, browsable at `/gallery` |
-| `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers). Set `ARGUS_CURATOR_UI_MODE=live` — the forge step lives in the live-mode export flow |
+| `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers) at `/forge`. Set `ARGUS_CURATOR_UI_MODE=live` for the export flow that hands off to it; `/forge` also takes an export dir typed by hand |
 | `proof` | frontend + argus-proof | Post-training LoRA evaluation ([epic](https://github.com/smk762/argus-studio/issues/6)): review scored eval runs at `/proof` — pass/fail verdict, per-metric scores, and a keyboard-first HITL review (5-star + structured reject reasons, blind mode) against argus-proof on :8104 |
 | `full` | frontend + curator + lens + quarry server + forge + proof | End-to-end acquire → curate → caption → forge → evaluate (set `ARGUS_CURATOR_UI_MODE=live`) |
 
@@ -224,7 +224,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_LENS_URL` | `http://localhost:8100` | URL the **browser** uses to reach the argus-lens API |
 | `ARGUS_CURATOR_URL` | `http://localhost:8101` | URL the **browser** uses to reach the argus-curator API (`/curate`) |
 | `ARGUS_QUARRY_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
-| `ARGUS_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (ExportPanel forge step) |
+| `ARGUS_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (`/forge`) |
 | `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
 | `ARGUS_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
 | `ARGUS_CURATOR_SOURCE_PATH` | *(empty)* | Default source path shown in the folder picker (path inside the curator container). `compose.yaml` sets `/data/images` |

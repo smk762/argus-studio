@@ -213,10 +213,22 @@ export default function ForgePage() {
     return () => ctrl.abort();
   }, [live]);
 
-  // Deep link from a completed export (#67): /forge?export=<dir>.
+  // Deep link from a completed export (#67): /forge?export=<dir>&trigger=<word>.
+  //
+  // The trigger rides along because argus-lens has already written it verbatim
+  // into every caption sidecar. Letting forge fall back to slugifying the export
+  // folder name instead would put a token in class_tokens, the sample prompts
+  // and the README that appears in none of the captions (argus-studio#78).
+  const [deepLinked, setDeepLinked] = useState(false);
   useEffect(() => {
-    const dir = new URLSearchParams(window.location.search).get("export");
-    if (dir) setExportDir(dir);
+    const params = new URLSearchParams(window.location.search);
+    const dir = params.get("export");
+    const trig = params.get("trigger");
+    if (trig) setTrigger(trig);
+    if (dir) {
+      setExportDir(dir);
+      setDeepLinked(true);
+    }
   }, []);
 
   // One in-flight request at a time; a superseded or unmounted one is aborted so
@@ -257,6 +269,19 @@ export default function ForgePage() {
       },
     );
   }, [run, inspectKey, dirTrimmed, category]);
+
+  // Inspect straight away when arriving from a finished export. The hand-off
+  // link is labelled "Configure training in Forge", so landing the user on a
+  // prefilled-but-otherwise-empty page makes it look like the link did nothing —
+  // and hides whether forge can even see the path the curator reported. Fires
+  // once, and not for a directory the page would refuse anyway.
+  const autoInspected = useRef(false);
+  useEffect(() => {
+    if (!live || !deepLinked || autoInspected.current) return;
+    if (!dirTrimmed || atRoot) return;
+    autoInspected.current = true;
+    void inspect();
+  }, [live, deepLinked, dirTrimmed, atRoot, inspect]);
 
   const generate = useCallback(() => {
     const key = configKey;
