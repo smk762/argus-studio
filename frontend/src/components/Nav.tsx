@@ -26,7 +26,10 @@ function isActive(href: string, active: string): boolean {
  */
 export function Nav({ active }: { active: string }) {
   return (
-    <nav className="flex items-center gap-1">
+    // Six tabs no longer fit a narrow viewport, and this sits in a
+    // justify-between header beside the title block and the version badge:
+    // without wrapping, the labels overflow the sticky header.
+    <nav className="flex flex-wrap items-center justify-end gap-1">
       {NAV.map((n) => (
         <Link
           key={n.href}

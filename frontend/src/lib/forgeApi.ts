@@ -84,7 +84,22 @@ export interface TrainerInfo {
 export async function listTrainers(signal?: AbortSignal): Promise<TrainerInfo[]> {
   const resp = await fetch(`${forgeUrl()}/trainers`, { signal });
   if (!resp.ok) return asError(resp);
-  return resp.json();
+  const body: unknown = await resp.json();
+  // `resp.json()` is unvalidated: a proxy or an older build answering with an
+  // object (or a bare string, whose `.length` also passes a naive check) would
+  // otherwise reach `trainers.map` and throw during render. Keep only entries
+  // shaped like a TrainerInfo, so the caller's `.files`/`.label` are real.
+  if (!Array.isArray(body)) return [];
+  return body.filter(
+    (t): t is TrainerInfo =>
+      typeof t === "object" && t !== null && typeof (t as TrainerInfo).id === "string",
+  ).map((t) => ({
+    ...t,
+    label: typeof t.label === "string" && t.label ? t.label : t.id,
+    files: Array.isArray(t.files) ? t.files : [],
+    notes: typeof t.notes === "string" ? t.notes : "",
+    entrypoint: typeof t.entrypoint === "string" ? t.entrypoint : null,
+  }));
 }
 
 export interface InspectRequest {

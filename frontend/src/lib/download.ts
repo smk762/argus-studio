@@ -17,5 +17,8 @@ export function downloadText(filename: string, content: string, mime: string): v
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Revoked on a later task, not in this one: the click only *schedules* the
+  // download, and Firefox aborts a large blob whose object URL was already
+  // revoked by the time it starts reading.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
