@@ -67,6 +67,62 @@ export interface ForgeDatasetInfo {
   suggested: ForgeTrainingParams;
 }
 
+/**
+ * A trainer forge can emit for, as advertised by `GET /trainers` — the
+ * authoritative list, so the UI stops hardcoding what the server supports.
+ * `files` names what a config run writes; `entrypoint` is the runnable script
+ * among them, or null when the trainer is driven by its own UI.
+ */
+export interface TrainerInfo {
+  id: TrainerId;
+  label: string;
+  files: string[];
+  notes: string;
+  entrypoint: string | null;
+}
+
+export async function listTrainers(signal?: AbortSignal): Promise<TrainerInfo[]> {
+  const resp = await fetch(`${forgeUrl()}/trainers`, { signal });
+  if (!resp.ok) return asError(resp);
+  const body: unknown = await resp.json();
+  // `resp.json()` is unvalidated: a proxy or an older build answering with an
+  // object (or a bare string, whose `.length` also passes a naive check) would
+  // otherwise reach `trainers.map` and throw during render. Keep only entries
+  // shaped like a TrainerInfo, so the caller's `.files`/`.label` are real.
+  if (!Array.isArray(body)) return [];
+  return body.filter(
+    (t): t is TrainerInfo =>
+      typeof t === "object" && t !== null && typeof (t as TrainerInfo).id === "string",
+  ).map((t) => ({
+    ...t,
+    label: typeof t.label === "string" && t.label ? t.label : t.id,
+    files: Array.isArray(t.files) ? t.files : [],
+    notes: typeof t.notes === "string" ? t.notes : "",
+    entrypoint: typeof t.entrypoint === "string" ? t.entrypoint : null,
+  }));
+}
+
+export interface InspectRequest {
+  export_dir: string;
+  category?: TargetCategory | null;
+}
+
+/**
+ * Inspect an export without generating anything (POST /inspect): image and
+ * caption counts, manifest state, and the training params forge would suggest.
+ * Read-only, so it is safe on a demo-safe host.
+ */
+export async function inspectExport(req: InspectRequest, signal?: AbortSignal): Promise<ForgeDatasetInfo> {
+  const resp = await fetch(`${forgeUrl()}/inspect`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    signal,
+  });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
 export interface ForgeRequest {
   export_dir: string;
   trainer: TrainerId;

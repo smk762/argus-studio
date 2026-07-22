@@ -86,3 +86,35 @@ no_half_vae = true
 logging_dir = ${s(`${DEMO_IMAGE_DIR}/forge/kohya/logs`)}
 `;
 }
+
+/**
+ * Trigger token argus-forge would derive from a name, mirroring
+ * `argus_forge.core.slugify` (`My Set!` -> `my_set`). Kept here so the UI can
+ * show the token that will actually be written rather than the raw text — the
+ * two differ for any name with spaces, capitals or punctuation.
+ */
+export function forgeSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/(^_+|_+$)/g, "") || "dataset";
+}
+
+/**
+ * The kohya pair a demo-mode config run produces.
+ *
+ * Owns the trigger/output-name distinction the two builders take: the dataset
+ * config gets the *trigger* token (kohya's `class_tokens`) while the training
+ * config gets the *output name* (the .safetensors filename). Passing the
+ * trigger to both — which is easy to do, since the signatures are structurally
+ * identical — names the checkpoint after the token, and diverges from what a
+ * live forge writes (`<slug>-lora`, argus_forge.core).
+ */
+export function demoKohyaFiles(
+  count: number,
+  category: TargetCategory,
+  trigger: string,
+): { name: string; content: string }[] {
+  const token = forgeSlug(trigger);
+  return [
+    { name: "dataset.toml", content: buildKohyaDatasetToml(count, category, token) },
+    { name: "config.toml", content: buildKohyaConfigToml(count, category, `${token}-lora`) },
+  ];
+}
