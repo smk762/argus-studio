@@ -6,6 +6,8 @@ import {
   allowsMove,
   exportSelectionStream,
   exportedAbsPath,
+  exportedRelPath,
+  speaksSupportedManifest,
   type ExportProgress,
   type Health,
   type NormalizedExportResult,
@@ -23,7 +25,7 @@ import {
 import { forgeUrl, isLive, lensUrl, localOutputPath, localSourcePath } from "@/lib/curatorEnv";
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
-import { basename, normalizeRoot } from "@/lib/path";
+import { basename, joinPath, normalizeRoot } from "@/lib/path";
 import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
 import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
@@ -61,18 +63,30 @@ const slugify = (s: string) =>
 const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /** The single place ImageResult -> ManifestRow happens. */
-const manifestRow = (
-  summary: ScanSummary,
-  r: ImageResult,
-  exportedPath: string,
-  exportedAbs: string,
-  absPath: string,
-): ManifestRow => ({
-  manifest_version: MANIFEST_VERSION,
+/**
+ * The locators for one row. Named rather than positional: `exportedPath`,
+ * `exportedAbs` and the source are all `string`, so a positional signature lets
+ * a transposition type-check silently and ship a manifest argus-lens opens at
+ * the wrong file.
+ *
+ * `moved` (not a pre-computed `absPath`) keeps the two-locator rule inside the
+ * one function that builds rows: under `mode: "move"` the source is deleted, so
+ * the readable location is the written one; otherwise the source stands.
+ */
+interface RowLocators {
+  exportedPath: string;
+  exportedAbs: string;
+  moved: boolean;
+  /** Version the *curator* declared for this export; the demo path stamps its own. */
+  manifestVersion: string;
+}
+
+const manifestRow = (summary: ScanSummary, r: ImageResult, loc: RowLocators): ManifestRow => ({
+  manifest_version: loc.manifestVersion,
   rel_path: r.rel_path,
-  abs_path: absPath,
-  exported_path: exportedPath,
-  exported_abs_path: exportedAbs,
+  abs_path: loc.moved ? loc.exportedAbs : r.abs_path,
+  exported_path: loc.exportedPath,
+  exported_abs_path: loc.exportedAbs,
   target_profile: summary.target_profile,
   primary_face_cluster: r.primary_face_cluster,
   primary_face_pose: r.primary_face_pose,
@@ -95,14 +109,19 @@ const manifestRow = (
  */
 function exportManifestRows(summary: ScanSummary, rows: ImageResult[], result: NormalizedExportResult): ManifestRow[] {
   const out: ManifestRow[] = [];
+  const moved = result.mode === "move";
+  // The curator's own declared version, not this app's constant: the row's
+  // content is the server's, so the stamp must be too. Falls back to what we
+  // build against only for a 2.0 curator, which declares it per row but not on
+  // the result.
+  const manifestVersion = result.manifest_version ?? MANIFEST_VERSION;
   for (const r of rows) {
-    const exportedPath = result.exported_paths[r.rel_path];
-    if (exportedPath == null) continue; // not transferred — drop it
-    // Absolute written location; falls back to the source only if the curator
-    // somehow omitted it for this row.
-    const exportedAbs = exportedAbsPath(result, r.rel_path) ?? r.abs_path;
-    const absPath = result.mode === "move" ? exportedAbs : r.abs_path;
-    out.push(manifestRow(summary, r, exportedPath, exportedAbs, absPath));
+    const exportedPath = exportedRelPath(result, r.rel_path);
+    const exportedAbs = exportedAbsPath(result, r.rel_path);
+    // Not transferred (or reported with an empty locator) — drop it rather than
+    // emit a row naming the export directory itself.
+    if (exportedPath === null || exportedAbs === null) continue;
+    out.push(manifestRow(summary, r, { exportedPath, exportedAbs, moved, manifestVersion }));
   }
   return out;
 }
@@ -125,12 +144,23 @@ function manifestHandoffProblem(result: NormalizedExportResult, rowCount: number
 
 /**
  * The manifest a live structure-preserving export would write, for the demo
- * download — nothing relocates, so `exported_path` mirrors `rel_path` and the
- * source is authoritative for both the readable and the absolute locator, so
- * the file you download matches what lens receives.
+ * download. Nothing relocates, so `exported_path` mirrors `rel_path` and
+ * `abs_path` stays the source — but `exported_abs_path` must still name where
+ * the export *would write*, under the destination root. Pointing it at the
+ * source instead produced a self-contradictory row (a relative locator under the
+ * export root beside an absolute in the source tree), which is exactly what the
+ * 2.1 field exists to rule out, and made the download not match what lens
+ * receives from a live run.
  */
-function demoManifestRows(summary: ScanSummary, rows: ImageResult[]): ManifestRow[] {
-  return rows.map((r) => manifestRow(summary, r, r.rel_path, r.abs_path, r.abs_path));
+function demoManifestRows(summary: ScanSummary, rows: ImageResult[], dest: string): ManifestRow[] {
+  return rows.map((r) =>
+    manifestRow(summary, r, {
+      exportedPath: r.rel_path,
+      exportedAbs: joinPath(dest, r.rel_path),
+      moved: false,
+      manifestVersion: MANIFEST_VERSION,
+    }),
+  );
 }
 
 export function ExportPanel({ summary, selectedResults, health }: Props) {
@@ -149,11 +179,21 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
   const [forgeRunning, setForgeRunning] = useState(false);
   const [forgeResult, setForgeResult] = useState<ForgeResult | null>(null);
+  // Why the completed export's manifest could not be handed downstream, or null.
+  // Held in state so the result panel can contradict its own success line rather
+  // than reporting a green "Copied N images" for an export nothing can consume.
+  const [manifestProblem, setManifestProblem] = useState<string | null>(null);
   // Server capabilities derived from the parent's /health fetch (#66). Both gates
   // below fail SAFE on the not-yet-known `null` via permits().
   const allowMove = allowsMove(health);
   const canExport = allowsExport(health);
   const exportRootUnset = canExport === false;
+  // Checked BEFORE the export, not after: normalizeExportResult can only refuse
+  // once the transfer has finished, and under move that is after every source
+  // file has been deleted. /health advertises the version, so an unreadable
+  // curator can be refused while the files are still where they started.
+  const manifestOk = speaksSupportedManifest(health);
+  const manifestDenied = manifestOk === false;
 
   // argus-forge advertises whether it will actually train. This needs its own
   // probe: it is a different service from the curator, so the parent's /health
@@ -219,14 +259,22 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
     setCaptionSummary(null);
     setForgeRunning(false);
     setForgeResult(null);
+    setManifestProblem(null);
     const problems: string[] = [];
+    // Snapshot what this run exports. Both are live props and the results grid
+    // stays interactive while the transfer streams: changing the selection would
+    // otherwise make the row count disagree with the server's `copied` and
+    // trigger a bogus "only N of M matched" refusal, and re-scanning mid-export
+    // would silently stamp every row with a different scan's target_profile.
+    const runSummary = summary;
+    const runResults = selectedResults;
     try {
       // 1) Transfer files (+ manifest/report) on the curator, streaming
       // progress. A failure here is fatal — the later steps need the export.
       const exported = await exportSelectionStream(
         {
-          scan_id: summary.scan_id,
-          selection: selectedResults.map((r) => r.rel_path),
+          scan_id: runSummary.scan_id,
+          selection: runResults.map((r) => r.rel_path),
           dest: dest.trim(),
           mode,
           preserve_structure: preserve,
@@ -244,21 +292,30 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       if (exported === null) return;
       setResult(exported);
 
+      // The manifest handoff is validated ONCE, for every downstream consumer.
+      // Scoping this to the caption branch meant an unreadable manifest was
+      // silently ignored whenever captioning was unticked: the panel rendered a
+      // plain success and still handed the export to forge, which then built a
+      // training config over a contract this app had just declared it cannot
+      // interpret. `rows` is built once here for the same reason.
+      // Rows come from the export result, so the payload matches the
+      // manifest.jsonl the curator wrote (transferred rows only) and, in move
+      // mode, points at the exported files rather than vanished sources.
+      const rows = exportManifestRows(runSummary, runResults, exported);
+      const handoffGap = manifestHandoffProblem(exported, rows.length);
+      if (handoffGap) problems.push(`Manifest handoff unusable: ${handoffGap}`);
+      setManifestProblem(handoffGap);
+
       // 2) Optionally caption via argus-lens, streaming per-image progress.
       // Non-fatal: forge handles caption-less exports (trigger fallback +
       // warning), so a lens outage shouldn't cost the training config — in
       // move mode the sources are gone and this run is the only chance.
       if (toCaption) {
-        // Manifest 2.0, built from the export result so the payload matches the
-        // manifest.jsonl the curator wrote (transferred rows only) and, in move
-        // mode, points at the exported files rather than vanished sources.
-        // Validated before lens is called: an empty or partial payload is a
-        // curator/compat problem and must not be blamed on argus-lens, and
-        // streaming it anyway would have lens no-op into a "0/0" success.
-        const rows = exportManifestRows(summary, selectedResults, exported);
-        const gap = manifestHandoffProblem(exported, rows.length);
-        if (gap) {
-          problems.push(`Captioning skipped: ${gap}`);
+        // Validated above: an empty or partial payload is a curator/compat
+        // problem and must not be blamed on argus-lens, and streaming it anyway
+        // would have lens no-op into a "0/0" success.
+        if (handoffGap) {
+          problems.push("Captioning skipped");
         } else {
           try {
             const sum = await captionManifestStream(toJsonl(rows), setCaption, {
@@ -274,8 +331,13 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       // 3) Optionally forge a training config. Runs after captioning so forge
       // can collect the fresh .txt sidecars into the export dir. Gated on the
       // capability as well as the checkbox: `toForge` may have been ticked
-      // before /health answered, and a refusing forge silently dry-runs.
-      if (toForge && permits(canTrain)) {
+      // before /health answered, and a refusing forge silently dry-runs. Also
+      // gated on the manifest handoff: forge reads the manifest this export
+      // wrote, so pointing it at one this app declared unreadable would build a
+      // training config over a contract neither end agrees on.
+      if (toForge && handoffGap) {
+        problems.push("Training config skipped");
+      } else if (toForge && permits(canTrain)) {
         setForgeRunning(true);
         try {
           const forged = await forgeConfig({
@@ -307,7 +369,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   };
 
   const downloadManifest = () => {
-    const jsonl = toJsonl(demoManifestRows(summary, selectedResults));
+    const jsonl = toJsonl(demoManifestRows(summary, selectedResults, dest.trim() || "/data/out"));
     downloadText("manifest.jsonl", jsonl + "\n", "application/x-ndjson");
   };
 
@@ -388,6 +450,19 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
                 <>
                   The curator has no export root configured, so exports will fail. Set{" "}
                   <span className="font-mono">CURATOR_EXPORT_PATH</span> on the curator service.
+                </>
+              }
+            />
+          )}
+          {manifestDenied && (
+            <CapabilityNotice
+              reason={
+                <>
+                  This curator writes manifest{" "}
+                  <span className="font-mono">{health?.manifest_version}</span>, which this app cannot
+                  read — nothing could be handed to argus-lens or argus-forge afterwards. Export is
+                  disabled rather than refused after the files have already moved. Upgrade the
+                  curator, or the studio, so the two agree.
                 </>
               }
             />
@@ -486,7 +561,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           )}
           <button
             type="button"
-            disabled={disabled || !dest.trim() || !permits(canExport)}
+            disabled={disabled || !dest.trim() || !permits(canExport) || manifestDenied}
             onClick={() => void runLiveExport()}
             className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -576,11 +651,25 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
         <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-2.5 text-xs text-accent-red">{error}</div>
       )}
       {result && (
-        <div className="space-y-1 rounded-lg border border-accent-green/30 bg-accent-green/5 p-3 text-xs">
-          <div className="text-accent-green">
+        <div
+          className={`space-y-1 rounded-lg border p-3 text-xs ${
+            manifestProblem
+              ? "border-accent-orange/30 bg-accent-orange/5"
+              : "border-accent-green/30 bg-accent-green/5"
+          }`}
+        >
+          <div className={manifestProblem ? "text-accent-orange" : "text-accent-green"}>
             {result.mode === "move" ? "Moved" : result.mode === "symlink" ? "Symlinked" : "Copied"} {result.copied} images
             {result.skipped > 0 ? ` (${result.skipped} skipped)` : ""}.
           </div>
+          {/* The transfer succeeded but nothing downstream can read it — say so
+              here rather than letting a green box imply the handoff worked. */}
+          {manifestProblem && (
+            <div className="text-accent-orange/90">
+              The files were transferred, but this app could not use the manifest: {manifestProblem}.
+              Captioning and the training config were skipped.
+            </div>
+          )}
           {result.manifest_path && (
             <div className="break-all font-mono text-[11px] text-foreground/80">{result.manifest_path}</div>
           )}

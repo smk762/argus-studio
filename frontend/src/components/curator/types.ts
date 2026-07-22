@@ -144,6 +144,9 @@ export interface ScanSummary {
   returned: number;
 }
 
+/** Transfer modes the curator accepts. Only `move` relocates (deletes) the source. */
+export type ExportMode = "copy" | "symlink" | "move";
+
 export interface ExportRequest {
   scan_id?: string | null;
   selection?: string[] | null;
@@ -162,22 +165,31 @@ export interface ExportRequest {
 
 export interface ExportResult {
   /**
-   * Manifest contract version this curator writes (e.g. `"2.1"`), declared
-   * whether or not a manifest was requested. Absent on a pre-2.0 curator — the
-   * seam refuses that rather than sniffing which fields are present.
+   * Manifest contract version this curator writes (e.g. `"2.1"`). Added to this
+   * payload *with* 2.1 — a manifest-2.0 curator declares the version on each
+   * manifest row but not here — so its absence does NOT mean pre-2.0, and the
+   * seam falls back to the presence of `exported_paths` to tell 2.x from 1.x.
    */
   manifest_version?: string;
   manifest_path: string | null;
   copied: number;
   skipped: number;
   dest: string;
-  mode: string;
-  selected_rel_paths: string[];
+  /** Union rather than `string`: the two-locator rule below branches on it. */
+  mode: ExportMode;
+  /**
+   * What the selection *chose*, before transfer — a file here can still be
+   * missing from `exported_paths` because its source vanished or the copy
+   * failed. Mirrors the curator's field; no consumer, and deliberately not one:
+   * use `exported_paths` for what actually landed.
+   */
+  selected_rel_paths?: string[];
   captioned: boolean;
   /**
    * rel_path -> the path actually written under `dest` (posix, relative to it),
-   * for the files whose transfer succeeded. Manifest 2.0+; absent on older
-   * curators, so the seam treats a missing map as empty.
+   * for the files whose transfer succeeded. Manifest 2.0+. Its *presence* is
+   * what distinguishes a 2.x result from a pre-2.0 one, which is why the seam
+   * refuses rather than defaulting when it is missing.
    */
   exported_paths?: Record<string, string>;
   /**

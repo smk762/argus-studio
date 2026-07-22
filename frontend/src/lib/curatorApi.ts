@@ -10,28 +10,38 @@ import type {
   FolderListing,
   ScanSummary,
 } from "@/components/curator/types";
-import { buildScanBody } from "@/components/curator/types";
+import { buildScanBody, MANIFEST_VERSION } from "@/components/curator/types";
 import { asError } from "@/lib/apiError";
 import { joinPath } from "@/lib/path";
 
 /**
- * The manifest major this app understands. The curator declares its version on
- * every {@link ExportResult}; anything outside this major is refused via
- * {@link NormalizedExportResult.manifestGap} rather than mishandled. Within the
- * major, fields are only ever added, so a newer minor stays readable.
+ * Major of a declared `manifest_version` (`"2.1"` -> 2), or `null` when it is
+ * absent or not a plain numeric major.
+ *
+ * Strict on purpose, and deliberately the same rule argus-forge applies
+ * (`models.manifest_major`, a bare `split(".", 1)[0]` matched against a set):
+ * `Number.parseInt` prefix-parses, so `"02.1"`, `"2beta"` and `" 2.1"` would all
+ * read as 2 here while forge refuses them, and the two services would disagree
+ * about the same manifest. Only `/^\d+$/` counts as a declaration.
+ *
+ * `version` is typed `string | undefined` but arrives from an unvalidated
+ * `resp.json()`, so a curator or proxy emitting a JSON *number* would make a
+ * bare `.split` throw inside the seam — after the export has already run. Any
+ * non-string is treated as "not declared" rather than crashing.
  */
-export const SUPPORTED_MANIFEST_MAJOR = 2;
+export function manifestMajor(version: unknown): number | null {
+  if (typeof version !== "string") return null;
+  const head = version.split(".")[0];
+  return /^\d+$/.test(head) ? Number(head) : null;
+}
 
 /**
- * Major of a declared `manifest_version` (`"2.1"` -> 2), or `null` when it is
- * absent or unparseable. A manifest-1.0 curator never sent the field at all, so
- * an absent version reads as unsupported — which is the correct answer.
+ * The manifest major this app understands, derived from the version it stamps so
+ * the two cannot drift: bumping {@link MANIFEST_VERSION} for a new major is the
+ * single edit. Within a major, fields are only ever added, so a newer minor
+ * stays readable.
  */
-function manifestMajor(version: string | undefined): number | null {
-  if (!version) return null;
-  const major = Number.parseInt(version.split(".")[0], 10);
-  return Number.isInteger(major) ? major : null;
-}
+export const SUPPORTED_MANIFEST_MAJOR = manifestMajor(MANIFEST_VERSION) ?? 2;
 
 /**
  * An {@link ExportResult} the app can consume without knowing the curator's
@@ -62,21 +72,37 @@ export interface NormalizedExportResult extends Omit<ExportResult, "exported_pat
 
 /**
  * Fold a raw curator ExportResult into {@link NormalizedExportResult}, so the
- * manifest-version rules stop leaking into components. Refuses an unknown major
- * outright — including a pre-2.0 curator, which declared no version.
+ * manifest-version rules stop leaking into components.
+ *
+ * Version first, presence second — both are needed, because `manifest_version`
+ * arrived on `ExportResult` *later than* the 2.0 contract it describes. A
+ * manifest-2.0 curator declares the version on each manifest row but not on the
+ * result, while still publishing the normative `exported_paths` map; branching
+ * on the declared major alone would refuse that server as "pre-2.0" even though
+ * it supplies exactly what this seam consumes. So an undeclared version falls
+ * back to the presence of `exported_paths`, which is the one thing that actually
+ * distinguishes a 2.x result from a 1.x one.
  */
 export function normalizeExportResult(result: ExportResult): NormalizedExportResult {
   const major = manifestMajor(result.manifest_version);
-  if (major !== SUPPORTED_MANIFEST_MAJOR) {
-    const speaks = result.manifest_version ?? "a pre-2.0 manifest";
-    return {
-      ...result,
-      exported_paths: {},
-      exported_abs_paths: {},
-      manifestGap:
-        `this curator speaks manifest ${speaks}, but this app handles ${SUPPORTED_MANIFEST_MAJOR}.x — ` +
-        "upgrade the curator, or the studio, so the two agree",
-    };
+  const refuse = (reason: string): NormalizedExportResult => ({
+    ...result,
+    exported_paths: {},
+    exported_abs_paths: {},
+    manifestGap: reason,
+  });
+
+  if (major !== null && major !== SUPPORTED_MANIFEST_MAJOR) {
+    return refuse(
+      `this curator writes manifest ${result.manifest_version}, but this app reads ` +
+        `${SUPPORTED_MANIFEST_MAJOR}.x — upgrade the curator, or the studio, so the two agree`,
+    );
+  }
+  if (major === null && result.exported_paths === undefined) {
+    return refuse(
+      "this curator predates manifest 2.0: it did not report where the export wrote each file, " +
+        "and those destinations cannot be reconstructed from here — upgrade the curator",
+    );
   }
   return {
     ...result,
@@ -93,14 +119,32 @@ export function normalizeExportResult(result: ExportResult): NormalizedExportRes
  * decides whether it wants that location or the image's own source `abs_path`.
  *
  * Prefers the server's `exported_abs_paths`; falls back to joining `dest` onto
- * the relative locator, mirroring the curator's own resolution for the rare
- * 2.0-minor server that reported rel paths but not absolute ones.
+ * the relative locator, mirroring the curator's own resolution for a manifest-2.0
+ * server, which reports rel paths but not absolute ones. `result.dest` is the
+ * curator's own resolved root (it rewrites the requested dest under its export
+ * root before transferring, and reports the resolved value), so the join lands
+ * where the server actually wrote.
+ *
+ * Empty strings are treated as absent, not as answers — the curator's own writer
+ * does the same (`abs_paths.get(rel) or ...`). Accepting `""` here would stamp an
+ * empty locator into the row, and argus-lens rejects a row whose `abs_path` is
+ * falsy, so every image would fail after the sources were already relocated.
  */
 export function exportedAbsPath(result: NormalizedExportResult, relPath: string): string | null {
   const abs = result.exported_abs_paths[relPath];
-  if (abs != null) return abs;
-  const rel = result.exported_paths[relPath];
-  return rel == null ? null : joinPath(result.dest, rel);
+  if (abs) return abs;
+  const rel = exportedRelPath(result, relPath);
+  return rel === null ? null : joinPath(result.dest, rel);
+}
+
+/**
+ * The relative locator for a transferred file, or null when it was not in the
+ * handoff manifest. An empty value counts as absent for the same reason as in
+ * {@link exportedAbsPath} — a `""` rel path would join to the export directory
+ * itself and present a directory as the file's location.
+ */
+export function exportedRelPath(result: NormalizedExportResult, relPath: string): string | null {
+  return result.exported_paths[relPath] || null;
 }
 
 export interface Health {
@@ -149,6 +193,31 @@ export function allowsMove(health: Health | null): Capability {
  */
 export function allowsExport(health: Health | null): Capability {
   return capabilityOf(health, (h) => h.export_root !== null, true);
+}
+
+/**
+ * Whether this curator writes a manifest major this app can read.
+ *
+ * The point of asking `/health` is timing: {@link normalizeExportResult} can only
+ * refuse *after* `POST /export/stream` has finished, by which point a
+ * `mode: "move"` export has already deleted every source file — the compat gate
+ * would sit below the destructive operation it guards. Checking the advertised
+ * version up front lets the export be refused before anything moves.
+ *
+ * Legacy `true`: a curator that omits the field may still be a manifest-2.0
+ * server (the field postdates that contract), and those export fine — refusing
+ * them here would ground a working deployment. The post-export check in
+ * {@link normalizeExportResult} still catches the genuinely unreadable ones.
+ */
+export function speaksSupportedManifest(health: Health | null): Capability {
+  return capabilityOf(
+    health,
+    (h) => {
+      const major = manifestMajor(h.manifest_version);
+      return major === null ? undefined : major === SUPPORTED_MANIFEST_MAJOR;
+    },
+    true,
+  );
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<Health> {
@@ -241,18 +310,28 @@ async function readSseStream<TProgress, TComplete>(
     return undefined;
   };
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    // SSE frames are separated by a blank line; keep the trailing partial.
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() ?? "";
-    for (const frame of frames) {
-      if (frame.trim()) complete = handleFrame(frame) ?? complete;
+  // An `event: error` frame (or a JSON.parse failure on a truncated tail) throws
+  // out of handleFrame. Without this finally the reader keeps its lock and the
+  // response body is never cancelled, so each failed export leaks a dangling
+  // stream — a handful of retries exhaust the browser's per-host connection pool
+  // and every later curator request hangs.
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // SSE frames are separated by a blank line; keep the trailing partial.
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() ?? "";
+      for (const frame of frames) {
+        if (frame.trim()) complete = handleFrame(frame) ?? complete;
+      }
     }
+    if (buffer.trim()) complete = handleFrame(buffer) ?? complete;
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
-  if (buffer.trim()) complete = handleFrame(buffer) ?? complete;
 
   if (complete === null) throw new Error(`${label} stream ended without a result`);
   return complete;
