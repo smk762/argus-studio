@@ -11,12 +11,17 @@
  * `argus_curator.models.MANIFEST_VERSION`; stamped on each row we build so the
  * payload matches what a live curator export writes.
  *
- * 2.0: rows exist only for files whose transfer actually succeeded, and each
- * carries `exported_path` — the normative locator. Consumers must use it rather
+ * Rows exist only for files whose transfer actually succeeded, and each carries
+ * `exported_path` — the normative relative locator. Consumers must use it rather
  * than re-deriving a destination from `rel_path` (flattened exports de-collide
  * basenames, so the two can differ).
+ *
+ * 2.1 adds `exported_abs_path` per row (and `exported_abs_paths` on the result),
+ * so a row is self-contained: the manifest is often read outside the export root
+ * it was written into (argus-lens receives it as an upload), and nothing else in
+ * the row names that root to join `exported_path` onto. Major stays 2 — additive.
  */
-export const MANIFEST_VERSION = "2.0";
+export const MANIFEST_VERSION = "2.1";
 
 export type TargetStyle = "photo" | "anime";
 export type TargetCategory = "identity" | "wardrobe" | "pose_composition" | "setting";
@@ -139,6 +144,9 @@ export interface ScanSummary {
   returned: number;
 }
 
+/** Transfer modes the curator accepts. Only `move` relocates (deletes) the source. */
+export type ExportMode = "copy" | "symlink" | "move";
+
 export interface ExportRequest {
   scan_id?: string | null;
   selection?: string[] | null;
@@ -156,19 +164,40 @@ export interface ExportRequest {
 }
 
 export interface ExportResult {
+  /**
+   * Manifest contract version this curator writes (e.g. `"2.1"`). Added to this
+   * payload *with* 2.1 — a manifest-2.0 curator declares the version on each
+   * manifest row but not here — so its absence does NOT mean pre-2.0, and the
+   * seam falls back to the presence of `exported_paths` to tell 2.x from 1.x.
+   */
+  manifest_version?: string;
   manifest_path: string | null;
   copied: number;
   skipped: number;
   dest: string;
-  mode: string;
-  selected_rel_paths: string[];
+  /** Union rather than `string`: the two-locator rule below branches on it. */
+  mode: ExportMode;
+  /**
+   * What the selection *chose*, before transfer — a file here can still be
+   * missing from `exported_paths` because its source vanished or the copy
+   * failed. Mirrors the curator's field; no consumer, and deliberately not one:
+   * use `exported_paths` for what actually landed.
+   */
+  selected_rel_paths?: string[];
   captioned: boolean;
   /**
    * rel_path -> the path actually written under `dest` (posix, relative to it),
-   * for the files whose transfer succeeded. Manifest 2.0; absent on older
-   * curators.
+   * for the files whose transfer succeeded. Manifest 2.0+. Its *presence* is
+   * what distinguishes a 2.x result from a pre-2.0 one, which is why the seam
+   * refuses rather than defaulting when it is missing.
    */
   exported_paths?: Record<string, string>;
+  /**
+   * The same mapping, absolute — so a consumer never joins `dest` itself (a
+   * flattened export de-collides basenames into `stem-<hash>.ext`, which no
+   * client can reproduce). Manifest 2.1; absent on a 2.0 curator.
+   */
+  exported_abs_paths?: Record<string, string>;
 }
 
 /**
@@ -178,9 +207,16 @@ export interface ExportResult {
 export interface ManifestRow {
   manifest_version: string;
   rel_path: string;
+  /**
+   * Where the image can be *read*. Under `mode: "move"` the source was deleted,
+   * so this is the destination (equals `exported_abs_path`); otherwise it is the
+   * still-present source. argus-lens opens rows strictly by this field.
+   */
   abs_path: string;
-  /** Posix, relative to the export root. The normative locator (manifest 2.0). */
+  /** Posix, relative to the export root. The normative relative locator. */
   exported_path: string;
+  /** Absolute location of the written file, so the row stands alone (2.1). */
+  exported_abs_path: string;
   target_profile: TargetProfile;
   primary_face_cluster: string | null;
   primary_face_pose: FacePose | null;
