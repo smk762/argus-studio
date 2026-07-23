@@ -17,7 +17,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
     <div className="flex min-h-screen flex-col">
       <SiteHeader
         active="/docs"
-        logo={{ letter: "A", tone: "purple" }}
+        logo={{ letter: "A" }}
         title="Argus Studio Docs"
         subtitle="Interactive handbook for the suite"
       />

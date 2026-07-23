@@ -342,7 +342,7 @@ export default function ForgePage() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader
         active="/forge"
-        logo={{ letter: "F", tone: "amber" }}
+        logo={{ letter: "F" }}
         title="Argus Forge"
         subtitle="Turn a curated export into a ready-to-run LoRA training config"
         badge={

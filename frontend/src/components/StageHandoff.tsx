@@ -21,6 +21,11 @@ const TONE: Record<StageTone, string> = {
  * overridden; the context a stage carries forward (an export path, a trigger
  * word) still lives in the caller's `href`.
  *
+ * If `href` resolves to no pipeline stage (an off-pipeline or sub-route target),
+ * the hand-off falls back to a neutral accent and a generic label and warns in
+ * dev — it never throws, so one mistyped href can't crash the whole route. Pass
+ * `tone`/`label` explicitly to hand off to a destination outside the pipeline.
+ *
  * `disabled` keeps the link on screen but inert, for the window where the next
  * stage exists but leaving would break this one: the curator's export panel
  * shows its hand-off while captioning is still streaming, and a client-side
@@ -48,8 +53,14 @@ export function StageHandoff({
   className?: string;
 }) {
   const dest = stageFor(href);
-  const resolvedTone = tone ?? dest.tone;
-  const resolvedLabel = label ?? dest.handoff ?? dest.label;
+  if (process.env.NODE_ENV !== "production" && !dest && (tone == null || label == null)) {
+    console.warn(
+      `StageHandoff: no pipeline stage owns "${href}". Falling back to a default ` +
+        "accent/label; pass `tone` and `label` explicitly for an off-pipeline destination.",
+    );
+  }
+  const resolvedTone = tone ?? dest?.tone ?? "purple";
+  const resolvedLabel = label ?? dest?.handoff ?? dest?.label ?? "Continue";
   return (
     <Link
       href={href}

@@ -434,7 +434,7 @@ export default function Home() {
     >
       <SiteHeader
         active="/"
-        logo={{ letter: "A", tone: "purple" }}
+        logo={{ letter: "A" }}
         title="Argus Lens"
         subtitle="Structured image captioning for training & generation"
         badge={<ApiVersionBadge label="argus-lens" version={lensVersion} />}

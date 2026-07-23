@@ -120,7 +120,7 @@ export default function GalleryPage() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader
         active="/gallery"
-        logo={{ letter: "Q", tone: "amber" }}
+        logo={{ letter: "Q" }}
         title="Argus Quarry"
         subtitle="Provenance-first PD/CC0 acquisition pool"
         badge={<ApiVersionBadge label="argus-quarry" version={version} prefix="v" />}

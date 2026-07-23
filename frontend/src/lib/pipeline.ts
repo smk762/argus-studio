@@ -38,13 +38,17 @@ export const PIPELINE: readonly PipelineStage[] = [
 export const STAGE_COUNT = PIPELINE.filter((s) => s.stage != null).length;
 
 /**
- * The stage that owns a route, looked up by its base href (the part before any
- * query string). Throws on an unknown href so a typo surfaces immediately as an
- * error rather than a silently mis-coloured or unlabelled hand-off.
+ * The stage that owns a route, looked up by its base href — the path with any
+ * query string (`?…`), hash fragment (`#…`) or trailing slash stripped, so an
+ * ordinary link target like `/proof#runs` or `/curate/` still resolves.
+ *
+ * Returns `undefined` for an href that maps to no stage (a typo, a sub-route
+ * like `/proof/run/1`, or an off-pipeline destination) so the caller can degrade
+ * to a plain link — a cosmetic accent/label lookup must not crash the whole
+ * route at render time.
  */
-export function stageFor(href: string): PipelineStage {
-  const base = href.split("?")[0];
-  const found = PIPELINE.find((s) => s.href === base);
-  if (!found) throw new Error(`No pipeline stage for href: ${href}`);
-  return found;
+export function stageFor(href: string): PipelineStage | undefined {
+  const path = href.split(/[?#]/)[0];
+  const base = path.length > 1 ? path.replace(/\/+$/, "") : path;
+  return PIPELINE.find((s) => s.href === base);
 }

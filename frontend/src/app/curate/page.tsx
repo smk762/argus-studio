@@ -213,7 +213,7 @@ export default function CuratePage() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader
         active="/curate"
-        logo={{ letter: "C", tone: "teal" }}
+        logo={{ letter: "C" }}
         title="Argus Curator"
         subtitle="Curate by quality and by face, then caption with argus-lens"
         badge={
