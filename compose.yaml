@@ -122,9 +122,12 @@ services:
       - CURATOR_EXPORT_PATH=/data/out
       - CURATOR_CACHE_DIR=/root/.cache/argus_curator/scans
       - HF_HOME=/root/.cache/huggingface
-      # The image's default --cors permits only http://localhost:3000. For a
-      # custom port / LAN host / public demo, set the browser origin(s) here.
-      # - CURATOR_CORS_ORIGINS=https://studio.example.com
+      # The image's default --cors permits only http://localhost:3000, which is
+      # reproduced here as the fallback. Browsing from another machine? Add that
+      # browser origin in .env, comma-separated, e.g.
+      #   CURATOR_CORS_ORIGINS=http://localhost:3000,http://192.168.1.39:3000
+      # (The argus-halo demo is same-origin behind Caddy and never needs this.)
+      - CURATOR_CORS_ORIGINS=${CURATOR_CORS_ORIGINS:-http://localhost:3000}
       # Destructive mode="move" is rejected unless enabled here. Left off so the
       # demo can't relocate source images; the ExportPanel disables the option
       # to match. Uncomment to permit it.
@@ -150,6 +153,10 @@ services:
     image: ghcr.io/smk762/argus-forge:${FORGE_TAG:-latest}
     ports:
       - "${FORGE_PORT:-8103}:8103"
+    environment:
+      # Same deal as CURATOR_CORS_ORIGINS above: default mirrors the image's
+      # --cors (localhost:3000); add other browser origins comma-separated.
+      - FORGE_CORS_ORIGINS=${FORGE_CORS_ORIGINS:-http://localhost:3000}
     volumes:
       # ro: only read here — source images + the caption sidecars lens wrote
       # next to them (forge copies those into the export dir).
