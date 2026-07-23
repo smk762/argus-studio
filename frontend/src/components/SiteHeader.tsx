@@ -1,11 +1,9 @@
 import type { ReactNode } from "react";
 import { Nav } from "@/components/Nav";
-
-/** Accent used for a tool's square logo badge; keyed to the design tokens. */
-export type LogoTone = "purple" | "teal" | "amber" | "green";
+import { stageFor, type StageTone } from "@/lib/pipeline";
 
 // Full class strings (not interpolated fragments) so Tailwind's JIT keeps them.
-const LOGO_TONES: Record<LogoTone, { box: string; text: string }> = {
+const LOGO_TONES: Record<StageTone, { box: string; text: string }> = {
   purple: { box: "border-accent-purple/40 bg-accent-purple/20", text: "text-accent-purple" },
   teal: { box: "border-accent-teal/40 bg-accent-teal/20", text: "text-accent-teal" },
   amber: { box: "border-accent-amber/40 bg-accent-amber/20", text: "text-accent-amber" },
@@ -25,15 +23,18 @@ export function SiteHeader({
   subtitle,
   badge,
 }: {
-  /** Current route path, forwarded to {@link Nav} for tab highlighting. */
+  /** Current route path, forwarded to {@link Nav} for tab highlighting and used
+   *  to resolve this page's accent from the one PIPELINE definition. */
   active: string;
-  logo: { letter: string; tone: LogoTone };
+  logo: { letter: string };
   title: string;
   subtitle: string;
   /** Per-page API/version status pill rendered at the right edge. */
   badge?: ReactNode;
 }) {
-  const tone = LOGO_TONES[logo.tone];
+  // The badge accent is the stage's own pipeline tone, so a page's colour is
+  // defined once (in PIPELINE) rather than re-stated at every SiteHeader call.
+  const tone = LOGO_TONES[stageFor(active)?.tone ?? "purple"];
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-surface/50 backdrop-blur-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">

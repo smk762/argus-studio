@@ -117,7 +117,7 @@ export default function ProofPage() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader
         active="/proof"
-        logo={{ letter: "P", tone: "green" }}
+        logo={{ letter: "P" }}
         title="Argus Proof"
         subtitle="Post-training LoRA evaluation & review"
         badge={

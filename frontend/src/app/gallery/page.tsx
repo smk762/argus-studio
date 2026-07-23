@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
+import { StageHandoff } from "@/components/StageHandoff";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import {
@@ -120,7 +120,7 @@ export default function GalleryPage() {
     <div className="flex min-h-screen flex-col">
       <SiteHeader
         active="/gallery"
-        logo={{ letter: "Q", tone: "amber" }}
+        logo={{ letter: "Q" }}
         title="Argus Quarry"
         subtitle="Provenance-first PD/CC0 acquisition pool"
         badge={<ApiVersionBadge label="argus-quarry" version={version} prefix="v" />}
@@ -334,12 +334,10 @@ export default function GalleryPage() {
                 >
                   View source page ↗
                 </a>
-                <Link
+                <StageHandoff
                   href={`/curate?folder=${encodeURIComponent(curateFolderFor(detail))}`}
-                  className="block w-full rounded-lg bg-accent-teal/20 px-4 py-2 text-center text-xs font-semibold text-accent-teal transition-colors hover:bg-accent-teal/30"
-                >
-                  Curate this subject →
-                </Link>
+                  className="block w-full text-center"
+                />
               </div>
             </div>
           </div>

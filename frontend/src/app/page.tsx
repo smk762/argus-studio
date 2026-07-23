@@ -16,6 +16,7 @@ import { BatchCaptionResults } from "@/components/BatchCaptionResults";
 import { FolderPicker } from "@/components/curator/FolderPicker";
 import { DropZone } from "@/components/DropZone";
 import { StageHandoff } from "@/components/StageHandoff";
+import { useDeepLink } from "@/lib/deepLink";
 import {
   HybridBalance,
   hybridRequestFields,
@@ -105,8 +106,7 @@ export default function Home() {
   // /?folder=<dir>&category=<target_category>. Only prefills — nothing runs
   // until the visitor presses Caption folder, since a batch write into someone
   // else's export should not be one click away from a pasted URL.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+  useDeepLink((params) => {
     const folder = params.get("folder");
     if (!folder) return;
     setFolderPath(folder);
@@ -116,7 +116,7 @@ export default function Home() {
     // anything and the value is echoed straight into the caption request.
     const category = params.get("category");
     if (category && TARGET_CATEGORIES.some((c) => c.value === category)) setTargetCategory(category);
-  }, []);
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -434,7 +434,7 @@ export default function Home() {
     >
       <SiteHeader
         active="/"
-        logo={{ letter: "A", tone: "purple" }}
+        logo={{ letter: "A" }}
         title="Argus Lens"
         subtitle="Structured image captioning for training & generation"
         badge={<ApiVersionBadge label="argus-lens" version={lensVersion} />}
@@ -753,11 +753,7 @@ export default function Home() {
             a guess as any, and its placeholder shows what that will be. */}
         {captionedFolder && (
           <div className="mt-4">
-            <StageHandoff
-              href={`/forge?export=${encodeURIComponent(captionedFolder)}`}
-              tone="amber"
-              label="Configure training in Forge"
-            />
+            <StageHandoff href={`/forge?export=${encodeURIComponent(captionedFolder)}`} />
           </div>
         )}
 

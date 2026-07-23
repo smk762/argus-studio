@@ -1,24 +1,5 @@
 import Link from "next/link";
-
-/**
- * The suite's top-level views, in pipeline order (#67) — acquire, curate,
- * caption, configure, evaluate — not in the order the pages happened to be
- * built. `stage` numbers the five that are pipeline steps; /docs is a reference
- * surface and sits outside the sequence.
- *
- * "/" stays the caption tool even though it is stage 3: it is argus-lens, the
- * suite's front door, and moving it would break every existing link.
- */
-const NAV = [
-  { href: "/gallery", label: "Gallery", stage: 1 },
-  { href: "/curate", label: "Curate", stage: 2 },
-  { href: "/", label: "Caption", stage: 3 },
-  { href: "/forge", label: "Forge", stage: 4 },
-  { href: "/proof", label: "Proof", stage: 5 },
-  { href: "/docs", label: "Docs", stage: null },
-] as const;
-
-const STAGES = NAV.filter((n) => n.stage !== null).length;
+import { PIPELINE, STAGE_COUNT } from "@/lib/pipeline";
 
 /** True when `active` (the current route) should highlight the tab `href`. */
 function isActive(href: string, active: string): boolean {
@@ -29,10 +10,11 @@ function isActive(href: string, active: string): boolean {
 }
 
 /**
- * Shared top-nav used by every page's header. `active` is the current route's
- * path (e.g. "/proof" or "/docs/captioning/target-category"); the matching tab
- * renders as the highlighted pill. Centralizing it here keeps the pages from
- * drifting when a tab is added or restyled.
+ * Shared top-nav used by every page's header, ordered by the pipeline (#67).
+ * `active` is the current route's path (e.g. "/proof" or "/docs/captioning/
+ * target-category"); the matching tab renders as the highlighted pill. The tab
+ * list, order and stage numbers all come from the one PIPELINE definition, so
+ * pages can't drift when a stage is added or restyled.
  */
 export function Nav({ active }: { active: string }) {
   return (
@@ -40,13 +22,13 @@ export function Nav({ active }: { active: string }) {
     // justify-between header beside the title block and the version badge:
     // without wrapping, the labels overflow the sticky header.
     <nav className="flex flex-wrap items-center justify-end gap-1">
-      {NAV.map((n) => (
+      {PIPELINE.map((n) => (
         <Link
           key={n.href}
           href={n.href}
           // The digit is decoration for a sighted reader scanning the row; a
           // screen reader gets the position spelled out instead of a bare "1".
-          aria-label={n.stage ? `${n.label} — pipeline stage ${n.stage} of ${STAGES}` : undefined}
+          aria-label={n.stage != null ? `${n.label} — pipeline stage ${n.stage} of ${STAGE_COUNT}` : undefined}
           className={
             isActive(n.href, active)
               ? "rounded-lg border border-border bg-surface-hover px-3 py-1.5 text-sm text-foreground"
