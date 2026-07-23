@@ -17,3 +17,8 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local-only compose tweaks + env backups
+compose.override.yaml
+.env.bak-*
+quarry/

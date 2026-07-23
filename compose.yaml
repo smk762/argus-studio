@@ -224,6 +224,10 @@ services:
     image: ghcr.io/smk762/argus-quarry:${QUARRY_TAG:-latest}
     environment:
       - QUARRY_HOME=/data/quarry
+      # --export publishes to $DATASET_DIR *as seen inside the container* (the
+      # CLI falls back to ./data otherwise, which lands in the container FS and
+      # is lost). Must match the /data/images mount below.
+      - DATASET_DIR=/data/images
       - QUARRY_MAX_GB=${QUARRY_MAX_GB:-40}         # total raw-pool ceiling; 0 = unlimited
       - COMMONS_USER_AGENT=${COMMONS_USER_AGENT:-argus-quarry/0.2 (contact@example.com)}
     volumes:
