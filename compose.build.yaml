@@ -1,0 +1,63 @@
+# Build-from-local-source override.
+#
+# The base compose.yaml runs the backends from their published GHCR images.
+# Layer this file to build them from the sibling checkouts instead — the
+# `build:` blocks here pair with the base `image:` names, so a `--build` run
+# tags each source build under its GHCR name locally (nothing is pushed).
+#
+#   docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
+#
+# ALWAYS pass `--build` on this path. Because the source build reuses the base
+# `image:` tag, build and pull modes share one local tag: a plain `up` (no
+# `--build`) reuses whatever `<svc>:<tag>` is already cached — the pulled
+# published image if you ran the base path before, or a stale prior source
+# build. `docker compose … pull` restores the published image.
+#
+# Requires the sibling repos checked out next to this one:
+#   ../argus-curator  ../argus-lens  ../argus-quarry  ../argus-forge  ../argus-proof
+#
+# Layers cleanly with compose.gpu.yaml (add -f compose.gpu.yaml as well).
+# (frontend is always built from ./frontend in the base file — not repeated here.)
+#
+# MAINTENANCE: every backend needs BOTH its `image:` in compose.yaml and a
+# matching `build:` here. A backend missing an entry below silently pulls its
+# published image on this path instead of building from source.
+services:
+  argus-lens:
+    build:
+      context: ../argus-lens
+      dockerfile: Dockerfile.standalone
+      args:
+        EXTRAS: ${LENS_EXTRAS:-server,local}
+
+  argus-curator:
+    build:
+      context: ../argus-curator
+
+  argus-forge:
+    build:
+      context: ../argus-forge
+
+  argus-proof:
+    build:
+      context: ../argus-proof
+      args:
+        # pip extras baked into the image. Default is light (phash dedup only);
+        # "server,cli,score" adds the full scorer stack (identity/quality/safety
+        # — torch, insightface, pyiqa…) at a much larger image size.
+        EXTRAS: ${PROOF_EXTRAS:-server,cli}
+
+  # Both quarry services build from the same repo and tag the same image; they
+  # differ only in the `command:` set in compose.yaml (the job runs `run …`, the
+  # server runs `serve …`). The quarry Dockerfile already defaults
+  # EXTRAS=cli,phash,server, so no build arg is needed for the job — the explicit
+  # EXTRAS on the server below just documents the [server] dependency it relies on.
+  argus-quarry:
+    build:
+      context: ../argus-quarry
+
+  argus-quarry-server:
+    build:
+      context: ../argus-quarry
+      args:
+        EXTRAS: cli,phash,server

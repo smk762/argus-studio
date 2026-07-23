@@ -1,28 +1,41 @@
 # Argus suite — one stack, loosely coupled.
 #
-# The services are independent; pick what you need with profiles:
+# By DEFAULT the backends run from their published GHCR images, so no sibling
+# repos need to be checked out. The services are independent; pick what you need
+# with profiles:
 #
-#   docker compose up --build                      # frontend only (demo mode, no backend)
-#   docker compose --profile curator up --build    # frontend + argus-curator
-#   docker compose --profile lens    up --build    # frontend + argus-lens
-#   docker compose --profile gallery up --build    # run argus-quarry: acquire -> DATASET_DIR
-#   docker compose --profile forge   up --build    # frontend + curator + argus-forge
-#                                                   # (training configs; needs
-#                                                   #  ARGUS_CURATOR_UI_MODE=live)
-#   docker compose --profile proof   up --build    # frontend + argus-proof
-#                                                   # (post-training LoRA evaluation)
-#   docker compose --profile full    up --build    # whole suite
+#   docker compose up                        # frontend only (demo mode, no backend)
+#   docker compose --profile curator up      # frontend + argus-curator
+#   docker compose --profile lens    up      # frontend + argus-lens
+#   docker compose --profile gallery up      # run argus-quarry: acquire -> DATASET_DIR
+#   docker compose --profile forge   up      # frontend + curator + argus-forge
+#                                            # (training configs; needs
+#                                            #  ARGUS_CURATOR_UI_MODE=live)
+#   docker compose --profile proof   up      # frontend + argus-proof
+#                                            # (post-training LoRA evaluation)
+#   docker compose --profile full    up      # whole suite (pulls any MISSING images, then runs)
+#   docker compose --profile full    pull    # refresh images to the current *_TAG
+#                                            # (`up` will NOT re-pull a tag already cached locally)
 #
-# NVIDIA GPUs (optional): add the override file, e.g.
-#   docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build
+# Pin a specific released version with the *_TAG vars in .env (default `latest`):
+#   CURATOR_TAG / LENS_TAG / QUARRY_TAG / FORGE_TAG / PROOF_TAG.
+# (Only `frontend` is always built locally from ./frontend — it is this repo,
+# argus-studio, and has no published image yet.)
+#
+# BUILD FROM LOCAL SOURCE (sibling repos checked out) — layer the override that
+# re-adds each backend's `build:` context. Requires ../argus-{curator,lens,...}:
+#   docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
+#
+# NVIDIA GPUs (optional): add the override file — layers on either path, e.g.
+#   docker compose -f compose.yaml -f compose.gpu.yaml --profile full up
 #
 # argus-quarry (gallery profile) is the upstream *producer*: a run-to-completion
 # job that acquires PD/CC0 images into its own pool — grouped into LoRA-training
 # categories (identity / wardrobe / setting / concept) since quarry 0.2 — and
 # publishes a curator-ready <category>/<subject>/ tree into DATASET_DIR.
 # curator/lens then consume that view:
-#   docker compose --profile gallery up --build     # fetch -> pool -> publish DATASET_DIR
-#   docker compose --profile curator up --build      # then curate the published images
+#   docker compose --profile gallery up     # fetch -> pool -> publish DATASET_DIR
+#   docker compose --profile curator up     # then curate the published images
 #
 # Cross-service coupling is limited to shared volumes: argus-curator and
 # argus-lens share the dataset at /data/images (lens reads the manifest's
@@ -33,6 +46,10 @@ name: argus-suite
 
 services:
   frontend:
+    # The one always-local build (argus-studio has no published image yet). `up`
+    # builds it on first run but does NOT rebuild on source change — re-run with
+    # `up --build` (or `docker compose build frontend`) after editing ./frontend
+    # or pulling new code, otherwise the previously built image is reused.
     build:
       context: ./frontend
     ports:
@@ -58,12 +75,9 @@ services:
 
   argus-lens:
     profiles: ["lens", "full"]
-    build:
-      context: ../argus-lens
-      dockerfile: Dockerfile.standalone
-      args:
-        EXTRAS: ${LENS_EXTRAS:-server,local}
-    image: argus-lens:standalone
+    # Default: pull the published standalone image (baked EXTRAS=server,local).
+    # For a source build (or a different LENS_EXTRAS) add compose.build.yaml.
+    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-latest}
     ports:
       - "${LENS_PORT:-8100}:8100"
     environment:
@@ -97,9 +111,7 @@ services:
     # export flow hands off to it. /forge itself works without the curator —
     # point it at any export dir under the shared root.
     profiles: ["curator", "forge", "full"]
-    build:
-      context: ../argus-curator
-    image: argus-curator:latest
+    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-latest}
     ports:
       - "${CURATOR_PORT:-8101}:8101"
     environment:
@@ -133,9 +145,9 @@ services:
   # Backs the /forge page, which the /curate export flow links to on success.
   argus-forge:
     profiles: ["forge", "full"]
-    build:
-      context: ../argus-forge
-    image: argus-forge:latest
+    # Demo-safe by default: the image refuses live POST /run training unless
+    # explicitly enabled (needs a GPU + sd-scripts). See argus-halo#7.
+    image: ghcr.io/smk762/argus-forge:${FORGE_TAG:-latest}
     ports:
       - "${FORGE_PORT:-8103}:8103"
     volumes:
@@ -157,14 +169,10 @@ services:
   # runs + reports under /data/out/proof/.
   argus-proof:
     profiles: ["proof", "full"]
-    build:
-      context: ../argus-proof
-      args:
-        # pip extras baked into the image. Default is light (phash dedup only);
-        # "server,cli,score" adds the full scorer stack (identity/quality/safety
-        # — torch, insightface, pyiqa…) at a much larger image size.
-        EXTRAS: ${PROOF_EXTRAS:-server,cli}
-    image: argus-proof:latest
+    # Default: pull the published image (baked EXTRAS=server,cli). For the full
+    # scorer stack (PROOF_EXTRAS=server,cli,score) build via compose.build.yaml.
+    # Demo-safe: live GPU eval (POST /run/stream) 403s by default (argus-halo#7).
+    image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-latest}
     ports:
       - "${PROOF_PORT:-8104}:8104"
     environment:
@@ -211,9 +219,9 @@ services:
   # the command below to harvest a single category instead of all four.
   argus-quarry:
     profiles: ["gallery"]
-    build:
-      context: ../argus-quarry
-    image: argus-quarry:latest
+    # Same published image as argus-quarry-server (baked EXTRAS=cli,phash,server);
+    # here it runs the acquisition job via the command override below.
+    image: ghcr.io/smk762/argus-quarry:${QUARRY_TAG:-latest}
     environment:
       - QUARRY_HOME=/data/quarry
       - QUARRY_MAX_GB=${QUARRY_MAX_GB:-40}         # total raw-pool ceiling; 0 = unlimited
@@ -232,11 +240,7 @@ services:
   # sqlite provenance DB, plus pooled-image thumbnails. Read-only by design.
   argus-quarry-server:
     profiles: ["gallery", "full"]
-    build:
-      context: ../argus-quarry
-      args:
-        EXTRAS: cli,phash,server
-    image: argus-quarry:server
+    image: ghcr.io/smk762/argus-quarry:${QUARRY_TAG:-latest}
     ports:
       - "${QUARRY_SERVER_PORT:-8102}:8102"
     environment:

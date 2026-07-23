@@ -4,7 +4,7 @@ Guidance for AI agents working in this repo. Human-facing usage lives in [README
 
 ## What this is
 
-The Argus suite's **web UI + compose orchestration hub**. A Next.js frontend on **:3000** that ties the backend services together and a root `compose.yaml` that builds them from sibling repos. This is **not** a pip package like the rest of the suite — there is no backend code here. The frontend renders JSON it fetches from five HTTP services (each in its own repo):
+The Argus suite's **web UI + compose orchestration hub**. A Next.js frontend on **:3000** that ties the backend services together and a root `compose.yaml` that runs them from published GHCR images by default (with an opt-in `compose.build.yaml` to build from sibling repos). This is **not** a pip package like the rest of the suite — there is no backend code here. The frontend renders JSON it fetches from five HTTP services (each in its own repo):
 
 | Service | Port | UI surface | Repo |
 |---|---|---|---|
@@ -37,19 +37,25 @@ npm run dev            # next dev on :3000
 npm run build          # next build (output: "standalone")
 npm run lint           # eslint
 
-# Whole stack via Docker, from repo root — pick backends with profiles:
-docker compose up --build                       # frontend only (demo mode, no backend)
-docker compose --profile curator up --build     # + argus-curator
-docker compose --profile lens    up --build     # + argus-lens
-docker compose --profile gallery up --build     # argus-quarry acquisition job -> DATASET_DIR
+# Whole stack via Docker, from repo root — backends run from published GHCR
+# images by default; pick which with profiles:
+docker compose up                       # frontend only (demo mode, no backend)
+docker compose --profile curator up     # + argus-curator
+docker compose --profile lens    up     # + argus-lens
+docker compose --profile gallery up     # argus-quarry acquisition job -> DATASET_DIR
 ARGUS_CURATOR_UI_MODE=live \
-  docker compose --profile forge up --build      # + curator + forge
-docker compose --profile proof   up --build     # + argus-proof
-docker compose --profile full    up --build     # everything
-docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build   # + GPUs
+  docker compose --profile forge up      # + curator + forge
+docker compose --profile proof   up     # + argus-proof
+docker compose --profile full    up     # everything (pulls any MISSING images, then runs)
+docker compose --profile full    pull   # refresh images to the current *_TAG
+docker compose -f compose.yaml -f compose.gpu.yaml --profile full up            # + GPUs
+
+# Build the backends from local source instead (opt-in): clone the sibling
+# repos next to this one, then layer the build override.
+docker compose -f compose.yaml -f compose.build.yaml --profile full up --build  # from source
 ```
 
-Backends build from **sibling checkouts** (`../argus-lens`, etc.); clone them next to this repo before using a profile.
+Backends default to **published GHCR images** — no sibling checkouts needed. To build from source instead, clone the siblings (`../argus-lens`, etc.) next to this repo and add `-f compose.build.yaml … up --build`. `frontend` is the exception: it has no published image, so it always builds from `./frontend` — re-run with `--build` after changing frontend source (a plain `up` reuses the existing image). `up` also does **not** re-pull an image already cached under a mutable tag like `latest`; use `docker compose … pull` to refresh.
 
 ## Conventions & gotchas
 

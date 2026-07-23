@@ -265,8 +265,10 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
               reason={
                 <>
                   No learned scorers are installed on this proof server, so a run will generate images but
-                  score nothing — every sample lands in manual review. Rebuild the proof image with{" "}
-                  <span className="font-mono">PROOF_EXTRAS=server,cli,score</span> to enable identity / quality / safety scoring.
+                  score nothing — every sample lands in manual review. The published image ships without the
+                  scorer stack; to enable identity / quality / safety scoring, build proof from source with{" "}
+                  <span className="font-mono">PROOF_EXTRAS=server,cli,score</span> (add{" "}
+                  <span className="font-mono">-f compose.build.yaml</span> to your compose command).
                 </>
               }
             />
