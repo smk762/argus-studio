@@ -13,8 +13,9 @@
 #                                            #  ARGUS_CURATOR_UI_MODE=live)
 #   docker compose --profile proof   up      # frontend + argus-proof
 #                                            # (post-training LoRA evaluation)
-#   docker compose --profile full    up      # whole suite (pull + run GHCR images)
-#   docker compose --profile full    pull    # refresh the images
+#   docker compose --profile full    up      # whole suite (pulls any MISSING images, then runs)
+#   docker compose --profile full    pull    # refresh images to the current *_TAG
+#                                            # (`up` will NOT re-pull a tag already cached locally)
 #
 # Pin a specific released version with the *_TAG vars in .env (default `latest`):
 #   CURATOR_TAG / LENS_TAG / QUARRY_TAG / FORGE_TAG / PROOF_TAG.
@@ -33,8 +34,8 @@
 # categories (identity / wardrobe / setting / concept) since quarry 0.2 — and
 # publishes a curator-ready <category>/<subject>/ tree into DATASET_DIR.
 # curator/lens then consume that view:
-#   docker compose --profile gallery up --build     # fetch -> pool -> publish DATASET_DIR
-#   docker compose --profile curator up --build      # then curate the published images
+#   docker compose --profile gallery up     # fetch -> pool -> publish DATASET_DIR
+#   docker compose --profile curator up     # then curate the published images
 #
 # Cross-service coupling is limited to shared volumes: argus-curator and
 # argus-lens share the dataset at /data/images (lens reads the manifest's
@@ -45,6 +46,10 @@ name: argus-suite
 
 services:
   frontend:
+    # The one always-local build (argus-studio has no published image yet). `up`
+    # builds it on first run but does NOT rebuild on source change — re-run with
+    # `up --build` (or `docker compose build frontend`) after editing ./frontend
+    # or pulling new code, otherwise the previously built image is reused.
     build:
       context: ./frontend
     ports:

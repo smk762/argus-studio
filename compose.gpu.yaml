@@ -1,6 +1,10 @@
 # Optional NVIDIA GPU override. Requires the NVIDIA Container Toolkit on the host.
 #
-#   docker compose -f compose.yaml -f compose.gpu.yaml --profile full up --build
+#   docker compose -f compose.yaml -f compose.gpu.yaml --profile full up
+#
+# Layers on the default (published-image) path. To build the GPU backends from
+# source instead, add the build override too:
+#   docker compose -f compose.yaml -f compose.build.yaml -f compose.gpu.yaml --profile full up --build
 #
 # Kept separate so the base stack runs on any machine (CPU-only, no toolkit).
 services:

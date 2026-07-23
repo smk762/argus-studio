@@ -7,11 +7,21 @@
 #
 #   docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
 #
+# ALWAYS pass `--build` on this path. Because the source build reuses the base
+# `image:` tag, build and pull modes share one local tag: a plain `up` (no
+# `--build`) reuses whatever `<svc>:<tag>` is already cached — the pulled
+# published image if you ran the base path before, or a stale prior source
+# build. `docker compose … pull` restores the published image.
+#
 # Requires the sibling repos checked out next to this one:
 #   ../argus-curator  ../argus-lens  ../argus-quarry  ../argus-forge  ../argus-proof
 #
 # Layers cleanly with compose.gpu.yaml (add -f compose.gpu.yaml as well).
 # (frontend is always built from ./frontend in the base file — not repeated here.)
+#
+# MAINTENANCE: every backend needs BOTH its `image:` in compose.yaml and a
+# matching `build:` here. A backend missing an entry below silently pulls its
+# published image on this path instead of building from source.
 services:
   argus-lens:
     build:
@@ -37,8 +47,11 @@ services:
         # — torch, insightface, pyiqa…) at a much larger image size.
         EXTRAS: ${PROOF_EXTRAS:-server,cli}
 
-  # The acquisition job and the provenance server build from the same repo; the
-  # server needs the [server] extra, the job runs the default entrypoint.
+  # Both quarry services build from the same repo and tag the same image; they
+  # differ only in the `command:` set in compose.yaml (the job runs `run …`, the
+  # server runs `serve …`). The quarry Dockerfile already defaults
+  # EXTRAS=cli,phash,server, so no build arg is needed for the job — the explicit
+  # EXTRAS on the server below just documents the [server] dependency it relies on.
   argus-quarry:
     build:
       context: ../argus-quarry

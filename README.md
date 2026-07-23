@@ -182,7 +182,7 @@ Then launch the demo frontend:
 ```bash
 # Docker (recommended)
 cp .env.example .env
-docker compose up --build
+docker compose up          # add --build to rebuild the frontend after source changes
 ```
 
 ```bash
@@ -225,7 +225,7 @@ curate → caption → forge handoff ("full" profile):
 Immich (optional):  argus-lens ⇄ IMMICH_URL  (album captioning, write-back, pull-to-dataset)
 ```
 
-Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `argus-lens` and `argus-curator` HTTP servers and renders results. No backend code lives in this repo — the suite `compose.yaml` builds the backends from their sibling repositories.
+Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `argus-lens` and `argus-curator` HTTP servers and renders results. No backend code lives in this repo — the suite `compose.yaml` runs the backends from published GHCR images by default (or builds them from their sibling repositories when you layer `compose.build.yaml`).
 
 - **Frontend** — Next.js 15 (App Router) + Tailwind CSS v4, dark theme
 - **Captioning server** — `argus-lens[server]` (see [argus-lens](https://github.com/smk762/argus-lens))
@@ -249,7 +249,9 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_BACKEND` | `hybrid` | argus-lens captioning backend |
 | `IMMICH_URL` / `IMMICH_API_KEY` | _(unset)_ | Enable the Immich integration on argus-lens (album captioning + pull-to-dataset) |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
-| `LENS_EXTRAS` | `server,local` | pip extras baked into the standalone lens image (`server,openai,replicate` for cloud-only) |
+| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` | `latest` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys |
+| `LENS_EXTRAS` | `server,local` | pip extras for a **source build** only (`-f compose.build.yaml`); ignored on the default pull path (`server,openai,replicate` for a cloud-only image) |
+| `PROOF_EXTRAS` | `server,cli` | pip extras for a **source build** only (`-f compose.build.yaml`); `server,cli,score` adds the identity/quality/safety scorer stack |
 | `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |
 | `QUARRY_SERVER_PORT` / `FORGE_PORT` / `PROOF_PORT` | `8102` / `8103` / `8104` | Host ports |
 
