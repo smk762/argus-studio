@@ -1,6 +1,6 @@
 /**
  * The Argus suite as one ordered pipeline (#67): acquire, curate, caption,
- * configure, evaluate. This is the single source of truth for the nav order,
+ * configure, evaluate, bake. This is the single source of truth for the nav order,
  * the stage numbers, and the accent + call-to-action a hand-off carries when it
  * leads to a stage — so a stage's identity is stated once here instead of being
  * re-typed at every `<Nav>` tab and every `<StageHandoff>` call site.
@@ -31,6 +31,7 @@ export const PIPELINE: readonly PipelineStage[] = [
   { href: "/", label: "Caption", stage: 3, tone: "purple", handoff: "Caption the export in Lens" },
   { href: "/forge", label: "Forge", stage: 4, tone: "amber", handoff: "Configure training in Forge" },
   { href: "/proof", label: "Proof", stage: 5, tone: "green", handoff: "Evaluate a trained LoRA in Proof" },
+  { href: "/atlas", label: "Atlas", stage: 6, tone: "teal", handoff: "Bake a map in Atlas" },
   { href: "/docs", label: "Docs", stage: null, tone: "purple" },
 ] as const;
 

@@ -44,6 +44,8 @@ export interface RuntimeConfig {
   forgeUrl: string;
   /** Browser-facing argus-proof API base (post-training eval). */
   proofUrl: string;
+  /** Browser-facing argus-atlas API base (georeferenced map bake). */
+  atlasUrl: string;
   /** `demo` = bundled read-only sample, `live` = real backends. */
   curatorUiMode: CuratorUiMode;
   /** Scan input directory as seen by argus-curator (container path under Docker). */
@@ -160,6 +162,7 @@ export function resolveRuntimeConfig(
     quarryUrl: resolveBase(source, ["ARGUS_QUARRY_URL", "NEXT_PUBLIC_QUARRY_URL"], "http://localhost:8102"),
     forgeUrl: resolveBase(source, ["ARGUS_FORGE_URL", "NEXT_PUBLIC_FORGE_URL"], "http://localhost:8103"),
     proofUrl: resolveBase(source, ["ARGUS_PROOF_URL", "NEXT_PUBLIC_PROOF_URL"], "http://localhost:8104"),
+    atlasUrl: resolveBase(source, ["ARGUS_ATLAS_URL", "NEXT_PUBLIC_ATLAS_URL"], "http://localhost:8105"),
     curatorUiMode: resolveUiMode(
       firstNonEmpty(source, ["ARGUS_CURATOR_UI_MODE", "NEXT_PUBLIC_CURATOR_UI_MODE"]),
     ),

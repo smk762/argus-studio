@@ -14,7 +14,7 @@
 # build. `docker compose … pull` restores the published image.
 #
 # Requires the sibling repos checked out next to this one:
-#   ../argus-curator  ../argus-lens  ../argus-quarry  ../argus-forge  ../argus-proof
+#   ../argus-curator  ../argus-lens  ../argus-quarry  ../argus-forge  ../argus-proof  ../argus-atlas
 #
 # Layers cleanly with compose.gpu.yaml (add -f compose.gpu.yaml as well).
 # (frontend is always built from ./frontend in the base file — not repeated here.)
@@ -46,6 +46,14 @@ services:
         # "server,cli,score" adds the full scorer stack (identity/quality/safety
         # — torch, insightface, pyiqa…) at a much larger image size.
         EXTRAS: ${PROOF_EXTRAS:-server,cli}
+
+  # GDAL comes from the osgeo/gdal base image, so no system-package build arg;
+  # EXTRAS selects the pip extras (server,cli,tiles is what the published image ships).
+  argus-atlas:
+    build:
+      context: ../argus-atlas
+      args:
+        EXTRAS: ${ATLAS_EXTRAS:-server,cli,tiles}
 
   # Both quarry services build from the same repo and tag the same image; they
   # differ only in the `command:` set in compose.yaml (the job runs `run …`, the
