@@ -37,6 +37,8 @@ npm install
 npm run dev            # next dev on :3000
 npm run build          # next build (output: "standalone")
 npm run lint           # eslint
+npm run typecheck      # tsc --noEmit
+npm test               # vitest run (unit tests: src/**/*.test.ts)
 
 # Whole stack via Docker, from repo root — backends run from published GHCR
 # images by default; pick which with profiles:
@@ -57,6 +59,8 @@ docker compose -f compose.yaml -f compose.gpu.yaml --profile full up            
 docker compose -f compose.yaml -f compose.build.yaml --profile full up --build  # from source
 ```
 
+`node`/`npm` may not be on the dev host's PATH; the same commands run in the Dockerfile's base image, e.g. `docker run --rm -v "$PWD":/app -v studio-nm:/app/node_modules -w /app node:22.23.4-alpine sh -c "npm ci && npm test"` from `frontend/` (the named volume keeps the container's `node_modules` off the host's).
+
 Backends default to **published GHCR images** — no sibling checkouts needed. To build from source instead, clone the siblings (`../argus-lens`, etc.) next to this repo and add `-f compose.build.yaml … up --build`. `frontend` is the exception: it has no published image, so it always builds from `./frontend` — re-run with `--build` after changing frontend source (a plain `up` reuses the existing image). `up` also does **not** re-pull an image already cached under a mutable tag like `latest`; use `docker compose … pull` to refresh.
 
 ## Conventions & gotchas
@@ -67,8 +71,9 @@ Backends default to **published GHCR images** — no sibling checkouts needed. T
 - **Empty URL = same origin; unset = localhost dev default.** An explicitly empty `ARGUS_*_URL` makes clients build relative paths (for a reverse proxy). A path prefix (`/api/curator`) is how you put more than one backend behind one origin — the six services share `/health`, `/folders`, `/thumb`, so at most one can live at the root.
 - **`demo` vs `live`.** `ARGUS_CURATOR_UI_MODE=demo` (default) serves a bundled read-only sample with no backend; `live` talks to the real curator. The `/forge` export handoff needs `live`. `local` is a legacy alias for `live`.
 - **The repo-root `.env` is read by `docker compose` only.** A host `npm run dev` does not see it — put local overrides in `frontend/.env.local`. Legacy `NEXT_PUBLIC_*` names are still honoured as fallbacks; `NEXT_PUBLIC_API_URL` is now `ARGUS_LENS_URL`.
+- **Tests cover `src/lib`'s pure logic, not components** (vitest, node environment, `@/` aliased in `vitest.config.ts`). Put a `*.test.ts` next to the module; the wire seams (`normalizeExportResult`, `manifestMajor`), capability readers and `resolveRuntimeConfig` are the contracts worth pinning. There is no DOM test setup.
 - **Container vs host paths:** forge/curator configs reference container paths (`/data/out`, `/data/images`); when running a forged `train.sh` on the host, substitute your `OUTPUT_DIR`/`DATASET_DIR`. Shared volumes are the only cross-service coupling — don't assume `localhost` inside compose (services use DNS names like `http://argus-lens:8100`).
 
 ## CI / release
 
-`release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
+`ci.yml` gates every PR and push to `main`: `npm ci`, lint, typecheck, `npm test` in `frontend/`. `release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
