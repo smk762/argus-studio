@@ -1,7 +1,7 @@
 /** Thin client for the argus-curator API (:8101). */
 
 import { curatorUrl } from "@/lib/curatorEnv";
-import { capabilityOf, type Capability } from "@/lib/capabilities";
+import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import type {
   CuratorConfig,
   Detectors,
@@ -222,10 +222,17 @@ export function speaksSupportedManifest(health: Health | null): Capability {
   );
 }
 
-export async function getHealth(signal?: AbortSignal): Promise<Health> {
+async function fetchHealth(signal?: AbortSignal): Promise<Health> {
   const resp = await fetch(`${curatorUrl()}/health`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+/** The posture {@link exportSelectionStream} gates on. */
+const curatorHealth = healthMemo(fetchHealth);
+
+export async function getHealth(signal?: AbortSignal): Promise<Health> {
+  return curatorHealth.remember(await fetchHealth(signal));
 }
 
 export async function getDetectors(signal?: AbortSignal): Promise<Detectors> {
@@ -379,6 +386,28 @@ export async function exportSelectionStream(
   onProgress: (p: ExportProgress) => void,
   signal?: AbortSignal,
 ): Promise<NormalizedExportResult> {
+  // Manifest first: it is the only check that must precede a move, since the
+  // post-export refusal in normalizeExportResult lands after the sources are gone.
+  await requireCapability(
+    curatorHealth,
+    speaksSupportedManifest,
+    `This curator writes a manifest major this app can't read (it reads ${SUPPORTED_MANIFEST_MAJOR}.x); upgrade one side so they agree.`,
+    signal,
+  );
+  await requireCapability(
+    curatorHealth,
+    allowsExport,
+    "This curator has no export root configured, so it refuses every export (set ARGUS_CURATOR_EXPORT_ROOT).",
+    signal,
+  );
+  if (req.mode === "move") {
+    await requireCapability(
+      curatorHealth,
+      allowsMove,
+      "This curator refuses destructive move exports (start it with --allow-move / CURATOR_ALLOW_MOVE=1).",
+      signal,
+    );
+  }
   const resp = await fetch(`${curatorUrl()}/export/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

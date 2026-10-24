@@ -1,6 +1,7 @@
 /** Thin client for the argus-quarry provenance API (:8102): the pool, plus the public-domain archives. */
 
 import { asError } from "@/lib/apiError";
+import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import { readNdjson } from "@/lib/lensApi";
 
 import { quarryUrl } from "@/lib/curatorEnv";
@@ -14,10 +15,25 @@ export interface QuarryHealth {
   fetch_allowed?: boolean;
 }
 
-export async function getQuarryHealth(signal?: AbortSignal): Promise<QuarryHealth> {
+async function fetchQuarryHealth(signal?: AbortSignal): Promise<QuarryHealth> {
   const resp = await fetch(`${quarryUrl()}/health`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+/** The posture {@link fetchSlice} gates on. */
+const quarryHealth = healthMemo(fetchQuarryHealth);
+
+export async function getQuarryHealth(signal?: AbortSignal): Promise<QuarryHealth> {
+  return quarryHealth.remember(await fetchQuarryHealth(signal));
+}
+
+/**
+ * Whether this server lands archive slices itself (`QUARRY_ALLOW_FETCH=1`).
+ * Legacy `false`: a quarry that omits the field predates the fetch route.
+ */
+export function allowsFetch(health: QuarryHealth | null): Capability {
+  return capabilityOf(health, (h) => h.fetch_allowed, false);
 }
 
 export interface QuarryStats {
@@ -298,14 +314,20 @@ export interface SliceFetchFrame {
 
 /**
  * Land a slice in the pool, streaming progress. Rejects on a streamed `error`
- * frame; a 403 (fetch disabled on this host) rejects with the server's detail,
- * which the caller avoids by checking `fetch_allowed` first.
+ * frame, and with {@link CapabilityRefused} before any request when the host
+ * has fetch disabled (the page offers slice.json + the CLI command instead).
  */
 export async function fetchSlice(
   spec: SliceSpec,
   onFrame: (frame: SliceFetchFrame) => void,
   signal?: AbortSignal,
 ): Promise<Record<string, number | boolean>> {
+  await requireCapability(
+    quarryHealth,
+    allowsFetch,
+    "This argus-quarry server doesn't land slices itself (QUARRY_ALLOW_FETCH is off); download slice.json and run the CLI command instead.",
+    signal,
+  );
   const resp = await fetch(`${quarryUrl()}/archives/${encodeURIComponent(spec.archive)}/fetch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
