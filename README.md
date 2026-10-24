@@ -130,6 +130,10 @@ images land in **Upload**, a `.jsonl` lands in **Curate manifest**):
 - **Immich** — batch-caption an album on your [Immich](https://immich.app) photo server (`POST /immich/caption/stream`), optionally writing each caption back to the asset's description in Immich. Requires `IMMICH_URL` / `IMMICH_API_KEY` on the argus-lens server.
 - **Curate manifest** — upload a `manifest.jsonl` produced by `/curate` (`POST /caption/manifest`); each row's `target_profile` is applied per image. Images must be reachable at their `abs_path` (the shared `/data/images` mount).
 
+A single-image result shows every caption variant. Newer argus-lens releases add a **`training_prose`** variant (the training caption as sentences, for Flux / SD3) and a headcount from `metadata.subjects`; a multi-person image, or one where the tags and prose disagree on the count, is flagged for face ID in `/curate`. Older lens servers simply don't show either.
+
+**WD14 tags + an Ollama VLM for prose.** In the suite compose, set `ARGUS_BACKEND=hybrid:wd14+openai-compat` with `ARGUS_OPENAI_COMPAT_BASE_URL` / `ARGUS_OPENAI_COMPAT_MODEL` (e.g. `http://<ollama-host>:11434/v1`, `qwen3-vl:8b`). Compose also forwards `WD14_MODEL_REPO`, the optional LLM rewrite (`ARGUS_REFINE_*`), and `ARGUS_IDLE_UNLOAD_S` for sharing a GPU with ComfyUI. `.env.example` lists them all. Large-library curation (`workflows/curate_index.py`) is a CLI workflow in the argus-lens repo, not a page here.
+
 ### Curator SPA (`/curate`)
 
 The curator UI calls `ARGUS_CURATOR_URL` (default `http://localhost:8101`). Run the FastAPI app from [argus-curator](https://github.com/smk762/argus-curator) in another terminal.

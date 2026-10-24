@@ -91,6 +91,28 @@ services:
       - LENS_SOURCE_PATH=/data/images
       - HF_HOME=/root/.cache/huggingface
       - HF_TRUST_REMOTE_CODE=${HF_TRUST_REMOTE_CODE:-false}
+      # Prose from an OpenAI-compatible server (Ollama, vLLM, LM Studio), used by
+      # ARGUS_BACKEND=openai-compat or hybrid:wd14+openai-compat. The URL is
+      # reached FROM THE CONTAINER: a LAN host by IP, or this compose host as
+      # http://host.docker.internal:11434/v1 (see extra_hosts below).
+      - ARGUS_OPENAI_COMPAT_BASE_URL=${ARGUS_OPENAI_COMPAT_BASE_URL:-}
+      - ARGUS_OPENAI_COMPAT_MODEL=${ARGUS_OPENAI_COMPAT_MODEL:-}
+      - ARGUS_OPENAI_COMPAT_API_KEY=${ARGUS_OPENAI_COMPAT_API_KEY:-}
+      - ARGUS_OPENAI_COMPAT_PROMPT=${ARGUS_OPENAI_COMPAT_PROMPT:-}
+      # Which WD v3 tagger to use (default SmilingWolf/wd-vit-tagger-v3). A
+      # non-default repo downloads into its own subdir of the WD14 cache below.
+      - WD14_MODEL_REPO=${WD14_MODEL_REPO:-}
+      # Optional LLM rewrite of assembled captions; a rewrite is kept only if it
+      # passes lens's post-check. Unset ARGUS_REFINE_MODEL = off.
+      - ARGUS_REFINE_MODEL=${ARGUS_REFINE_MODEL:-}
+      - ARGUS_REFINE_BASE_URL=${ARGUS_REFINE_BASE_URL:-}
+      - ARGUS_REFINE_API_KEY=${ARGUS_REFINE_API_KEY:-}
+      - ARGUS_REFINE_VARIANTS=${ARGUS_REFINE_VARIANTS:-}
+      # Sharing the GPU with ComfyUI: free lens's VRAM after N idle seconds.
+      # (ARGUS_GPU_COORDINATOR=lease only serialises argus jobs; ComfyUI does
+      # not take the lease.)
+      - ARGUS_IDLE_UNLOAD_S=${ARGUS_IDLE_UNLOAD_S:-}
+      - ARGUS_GPU_COORDINATOR=${ARGUS_GPU_COORDINATOR:-none}
     volumes:
       # Shared dataset (RW so lens can write caption sidecars next to source images).
       - ${DATASET_DIR:-./data}:/data/images
@@ -104,6 +126,11 @@ services:
       # quarry published with --copy).
       - ${QUARRY_HOME:-./quarry}:/data/quarry:ro
       - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
+      # WD14 tagger weights. RW so a new WD14_MODEL_REPO can download into it.
+      - ${WD14_CACHE_DIR:-${HOME}/.cache/wd14_tagger}:/root/.cache/wd14_tagger
+    extra_hosts:
+      # Reach an Ollama (or other OpenAI-compatible server) on the compose host.
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   argus-curator:

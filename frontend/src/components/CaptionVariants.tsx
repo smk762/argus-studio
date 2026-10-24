@@ -16,6 +16,13 @@ const VARIANT_STYLES: Record<string, VariantStyle> = {
     border: "border-l-accent-red",
     labelColor: "text-accent-red",
   },
+  // Sentence-form training caption for T5-encoder models (argus-lens#53):
+  // identity removed at the phrase level and sized to the T5 token budget.
+  training_prose: {
+    label: "TRAINING PROSE (FLUX / SD3)",
+    border: "border-l-accent-red/60",
+    labelColor: "text-accent-red/80",
+  },
   zeroshot: {
     label: "ZERO-SHOT",
     border: "border-l-accent-teal",
@@ -66,6 +73,7 @@ const VARIANT_STYLES: Record<string, VariantStyle> = {
 
 const VARIANT_ORDER = [
   "training",
+  "training_prose",
   "zeroshot",
   "identity",
   "wardrobe",
