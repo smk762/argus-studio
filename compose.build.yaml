@@ -54,9 +54,9 @@ services:
 
   # Both quarry services build from the same repo and tag the same image; they
   # differ only in the `command:` set in compose.yaml (the job runs `run …`, the
-  # server runs `serve …`). The quarry Dockerfile already defaults
-  # EXTRAS=cli,phash,server, so no build arg is needed for the job — the explicit
-  # EXTRAS on the server below just documents the [server] dependency it relies on.
+  # server runs `serve …`). Neither passes EXTRAS: the quarry Dockerfile's
+  # default (cli,phash,server,archives) is what both need, and a pinned list
+  # here goes stale (one without `archives` drops duckdb and breaks Sources).
   argus-quarry:
     build:
       context: ../argus-quarry
@@ -64,5 +64,3 @@ services:
   argus-quarry-server:
     build:
       context: ../argus-quarry
-      args:
-        EXTRAS: cli,phash,server
