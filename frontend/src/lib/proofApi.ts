@@ -8,7 +8,7 @@
 
 import { proofUrl } from "@/lib/curatorEnv";
 import { asError } from "@/lib/apiError";
-import { capabilityOf, type Capability } from "@/lib/capabilities";
+import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import { readNdjson } from "@/lib/lensApi";
 
 // --- wire types (mirror argus_proof.models) --------------------------------
@@ -304,10 +304,19 @@ export function allowsEval(health: ProofHealth | null): Capability {
   return capabilityOf(health, (h) => (typeof h.read_only === "boolean" ? !h.read_only : undefined), true);
 }
 
-export async function getProofHealth(signal?: AbortSignal): Promise<ProofHealth> {
+async function fetchProofHealth(signal?: AbortSignal): Promise<ProofHealth> {
   const resp = await fetch(`${proofUrl()}/health`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+/** The posture {@link submitHitl} and {@link runEvalStream} gate on. */
+const proofHealth = healthMemo(fetchProofHealth);
+
+const READ_ONLY = "This argus-proof server is read-only (replay mode): stored reports are served, but runs and reviews are refused.";
+
+export async function getProofHealth(signal?: AbortSignal): Promise<ProofHealth> {
+  return proofHealth.remember(await fetchProofHealth(signal));
 }
 
 /** List stored reports (GET /reports). */
@@ -327,6 +336,7 @@ export async function getReport(runId: string, signal?: AbortSignal): Promise<Ev
 
 /** Apply a HITL review and get the recomputed report (POST /report/{id}/hitl). */
 export async function submitHitl(runId: string, req: HitlRequest, signal?: AbortSignal): Promise<EvalReport> {
+  await requireCapability(proofHealth, allowsEval, READ_ONLY, signal);
   const resp = await fetch(`${proofUrl()}/report/${encodeURIComponent(runId)}/hitl`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -440,6 +450,7 @@ export async function runEvalStream(
   onProgress: (p: RunEvalProgress) => void,
   signal?: AbortSignal,
 ): Promise<ReportSummary> {
+  await requireCapability(proofHealth, allowsEval, READ_ONLY, signal);
   const resp = await fetch(`${proofUrl()}/run/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

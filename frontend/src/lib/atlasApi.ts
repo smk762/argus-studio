@@ -11,7 +11,7 @@
 
 import { atlasUrl } from "@/lib/curatorEnv";
 import { asError } from "@/lib/apiError";
-import { capabilityOf, type Capability } from "@/lib/capabilities";
+import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import { readNdjson } from "@/lib/lensApi";
 
 // --- wire types (mirror argus_atlas.models) --------------------------------
@@ -186,10 +186,17 @@ export function allowsBake(health: AtlasHealth | null): Capability {
 
 // --- reads -------------------------------------------------------------------
 
-export async function getAtlasHealth(signal?: AbortSignal): Promise<AtlasHealth> {
+async function fetchAtlasHealth(signal?: AbortSignal): Promise<AtlasHealth> {
   const resp = await fetch(`${atlasUrl()}/health`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+/** The posture {@link bakeStream} gates on. */
+const atlasHealth = healthMemo(fetchAtlasHealth);
+
+export async function getAtlasHealth(signal?: AbortSignal): Promise<AtlasHealth> {
+  return atlasHealth.remember(await fetchAtlasHealth(signal));
 }
 
 export async function listPresets(signal?: AbortSignal): Promise<AtlasPreset[]> {
@@ -287,6 +294,12 @@ export async function bakeStream(
   onProgress: (p: BakeProgress) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  await requireCapability(
+    atlasHealth,
+    allowsBake,
+    "Baking is off on this argus-atlas host (set ATLAS_ALLOW_BAKE=1 on a GPU host to enable it).",
+    signal,
+  );
   const resp = await fetch(`${atlasUrl()}/bake/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
