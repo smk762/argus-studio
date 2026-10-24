@@ -37,10 +37,29 @@ interface Form {
   minShort: number;
   orientation: "" | "landscape" | "portrait" | "square";
   sizedOnly: boolean;
+  tone: "" | "bw" | "color";
+  medium: string;
+  yearMin: string;
+  yearMax: string;
   sort: "shuffle" | "largest";
 }
 
-const EMPTY_FORM: Form = { q: "", exclude: "", collection: "", licence: "", minShort: 0, orientation: "", sizedOnly: false, sort: "shuffle" };
+const EMPTY_FORM: Form = { q: "", exclude: "", collection: "", licence: "", minShort: 0, orientation: "", sizedOnly: false, tone: "", medium: "", yearMin: "", yearMax: "", sort: "shuffle" };
+
+const MEDIUM_LABELS: Record<string, string> = {
+  photo: "photograph",
+  painting: "painting",
+  drawing: "drawing / illustration",
+  print: "print / engraving",
+  map: "map",
+  text: "text / document",
+  object: "object / sculpture",
+};
+
+function year(v: string): number | undefined {
+  const n = Number(v.trim());
+  return v.trim() !== "" && Number.isInteger(n) ? n : undefined;
+}
 
 function toQuery(f: Form): ArchiveQuery {
   return {
@@ -51,6 +70,10 @@ function toQuery(f: Form): ArchiveQuery {
     min_short_side: f.minShort || undefined,
     orientation: f.orientation || undefined,
     sized_only: f.sizedOnly || undefined,
+    tone: f.tone || undefined,
+    mediums: f.medium ? [f.medium] : undefined,
+    year_min: year(f.yearMin),
+    year_max: year(f.yearMax),
     sort: f.sort,
   };
 }
@@ -263,6 +286,64 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
                 known size only
               </label>
             )}
+            {facets?.tones && facets.tones.length > 0 && (
+              <select
+                value={form.tone}
+                onChange={(e) => apply({ tone: e.target.value as Form["tone"] })}
+                title="Read from the caption; images whose caption doesn't say are left out when set"
+                className={selectClass}
+              >
+                <option value="">any tone</option>
+                {facets.tones.map((t) => (
+                  <option key={t.name} value={t.name}>
+                    {t.name === "bw" ? "black & white" : "colour"} ({t.count.toLocaleString()})
+                  </option>
+                ))}
+              </select>
+            )}
+            {facets?.mediums && facets.mediums.length > 1 && (
+              <select
+                value={form.medium}
+                onChange={(e) => apply({ medium: e.target.value })}
+                title="Read from the caption's opening words, e.g. 'The image shows a painting of…'"
+                className={selectClass}
+              >
+                <option value="">any medium</option>
+                {facets.mediums.map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {MEDIUM_LABELS[m.name] ?? m.name} ({m.count.toLocaleString()})
+                  </option>
+                ))}
+              </select>
+            )}
+            {facets?.dated ? (
+              <span
+                className="flex items-center gap-1 text-xs text-muted"
+                title={`Only ${facets.dated.toLocaleString()} captions mention a year; a range matches only those.`}
+              >
+                year
+                <input
+                  value={form.yearMin}
+                  onChange={(e) => apply({ yearMin: e.target.value }, false)}
+                  onBlur={() => apply({})}
+                  placeholder={String(facets.year_range?.[0] ?? "from")}
+                  inputMode="numeric"
+                  aria-label="year from"
+                  className={`${inputClass} w-20`}
+                />
+                –
+                <input
+                  value={form.yearMax}
+                  onChange={(e) => apply({ yearMax: e.target.value }, false)}
+                  onBlur={() => apply({})}
+                  placeholder={String(facets.year_range?.[1] ?? "to")}
+                  inputMode="numeric"
+                  aria-label="year to"
+                  className={`${inputClass} w-20`}
+                />
+                <span className="text-[10px] text-muted/70">({compact(facets.dated)} dated)</span>
+              </span>
+            ) : null}
             <select value={form.sort} onChange={(e) => apply({ sort: e.target.value as Form["sort"] })} className={selectClass}>
               <option value="shuffle">shuffled</option>
               <option value="largest">largest first</option>
@@ -547,6 +628,18 @@ function ItemDetail({ archive, item, onClose }: { archive: string; item: Archive
             {item.collection && <Row label={archive === "megalith" ? "Flickr user" : "Institution"} value={item.collection} />}
             <Row label="Size" value={item.width ? `${item.width}×${item.height}` : "unknown"} />
             {item.mime && <Row label="Type" value={item.mime} />}
+            {(item.medium || item.tone || item.year) && (
+              <Row
+                label="From caption"
+                value={[
+                  item.medium && (MEDIUM_LABELS[item.medium] ?? item.medium),
+                  item.tone && (item.tone === "bw" ? "black & white" : "colour"),
+                  item.year && String(item.year),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              />
+            )}
             <Row label="ID" value={item.id} mono />
           </dl>
           <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="block truncate text-accent-amber hover:text-accent-amber/80">

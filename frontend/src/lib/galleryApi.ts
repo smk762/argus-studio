@@ -147,6 +147,13 @@ export interface ArchiveFacets {
   collections: FacetCount[];
   licences: FacetCount[];
   mimes: FacetCount[];
+  /** Caption-derived tone counts (bw / color); absent on older quarry. */
+  tones?: FacetCount[];
+  /** Caption-derived medium counts (photo, painting, drawing, print, map, text, object). */
+  mediums?: FacetCount[];
+  /** Items whose caption mentions a year, and the range of those years. */
+  dated?: number;
+  year_range?: [number, number] | null;
 }
 
 export async function getArchiveFacets(name: string, signal?: AbortSignal): Promise<ArchiveFacets> {
@@ -168,6 +175,12 @@ export interface ArchiveQuery {
   min_short_side?: number;
   orientation?: "landscape" | "portrait" | "square";
   sized_only?: boolean;
+  /** Caption-derived; items whose caption doesn't say are excluded. */
+  tone?: "bw" | "color";
+  mediums?: string[];
+  /** A caption-mentioned year in range; undated items never match. */
+  year_min?: number;
+  year_max?: number;
   ids?: string[];
   sort?: "shuffle" | "largest";
 }
@@ -185,6 +198,10 @@ export interface ArchiveItem {
   /** PD12M institution or Flickr owner account. */
   collection: string | null;
   mime: string | null;
+  /** Caption-derived cues (null when the caption doesn't say). */
+  tone?: "bw" | "color" | null;
+  medium?: string | null;
+  year?: number | null;
 }
 
 export interface ArchivePage {
@@ -207,6 +224,10 @@ function archiveParams(query: ArchiveQuery): URLSearchParams {
   if (query.min_short_side) p.set("min_short_side", String(query.min_short_side));
   if (query.orientation) p.set("orientation", query.orientation);
   if (query.sized_only) p.set("sized_only", "true");
+  if (query.tone) p.set("tone", query.tone);
+  if (query.mediums?.length) p.set("medium", query.mediums.join(","));
+  if (query.year_min != null) p.set("year_min", String(query.year_min));
+  if (query.year_max != null) p.set("year_max", String(query.year_max));
   if (query.ids?.length) p.set("ids", query.ids.join(","));
   if (query.sort) p.set("sort", query.sort);
   return p;
