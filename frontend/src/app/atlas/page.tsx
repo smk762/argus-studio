@@ -127,7 +127,8 @@ export default function AtlasPage() {
             )}
             <NewCanvas inputs={inputs} onCreated={(id) => void refresh(id)} />
             <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-              <aside className="space-y-1">
+              {/* Scrolls on its own beside the job view: a working host holds dozens of canvases. */}
+              <aside className="space-y-1 lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
                 <div className="mb-2 text-[10px] uppercase tracking-wide text-muted">Canvases</div>
                 {jobs.length === 0 && version !== null && <p className="text-sm text-muted">No jobs yet.</p>}
                 {jobs.map((j) => (
