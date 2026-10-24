@@ -82,7 +82,9 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
       try {
         const l = await listArchives(ctrl.signal);
         setListing(l);
-        const first = l.archives.find((a) => a.indexed) ?? l.archives[0];
+        // PD12M first when it's ready: per-image licence + institution make it the structured set.
+        const first =
+          l.archives.find((a) => a.indexed && a.name === "pd12m") ?? l.archives.find((a) => a.indexed) ?? l.archives[0];
         if (first) setArchive(first.name);
       } catch (err) {
         if (!ctrl.signal.aborted) setError(err instanceof Error ? err.message : "Failed to list archives");
@@ -196,8 +198,8 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
             <input
               value={form.q}
               onChange={(e) => apply({ q: e.target.value }, false)}
-              placeholder="caption words, e.g. harbour boats"
-              className={`${inputClass} w-64`}
+              placeholder="caption words (US spelling), e.g. harbor boats"
+              className={`${inputClass} w-80`}
             />
             <button
               type="submit"
@@ -280,7 +282,7 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
                         className="aspect-square w-full bg-background object-cover"
                       />
                       <div className="space-y-0.5 p-2">
-                        <span className="line-clamp-2 block text-[11px] leading-snug text-foreground/85">{it.caption ?? "—"}</span>
+                        <span className="line-clamp-2 text-[11px] leading-snug text-foreground/85">{it.caption ?? "—"}</span>
                         <span className="block truncate font-mono text-[10px] text-muted">
                           {it.width ? `${it.width}×${it.height}` : "size ?"} · {it.collection}
                         </span>
@@ -449,7 +451,7 @@ function SliceBar({
         </label>
         <label className="space-y-1 text-[10px] uppercase tracking-wide text-muted">
           <span className="block">Subject folder</span>
-          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Harbour_views" className={`${inputClass} w-44`} />
+          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Harbor_views" className={`${inputClass} w-44`} />
         </label>
         {!useSelection && (
           <label className="space-y-1 text-[10px] uppercase tracking-wide text-muted">

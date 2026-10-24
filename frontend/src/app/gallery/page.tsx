@@ -67,16 +67,18 @@ export default function GalleryPage() {
   useEffect(() => {
     const ctrl = new AbortController();
     (async () => {
-      try {
-        const [health, s] = await Promise.all([getQuarryHealth(ctrl.signal), getQuarryStats(ctrl.signal)]);
-        setVersion(health.version);
-        setStats(s);
-      } catch {
-        if (!ctrl.signal.aborted) {
-          setVersion("");
-          setUnreachable(true);
-          setLoading(false);
-        }
+      // allSettled: only a failed /health means "not running". An empty or
+      // still-seeding pool 503s /stats, and that must not hide the Sources view,
+      // which is how a fresh pool gets filled in the first place.
+      const [health, s] = await Promise.allSettled([getQuarryHealth(ctrl.signal), getQuarryStats(ctrl.signal)]);
+      if (ctrl.signal.aborted) return;
+      if (health.status === "fulfilled") {
+        setVersion(health.value.version);
+        setStats(s.status === "fulfilled" ? s.value : null);
+      } else {
+        setVersion("");
+        setUnreachable(true);
+        setLoading(false);
       }
     })();
     return () => ctrl.abort();
