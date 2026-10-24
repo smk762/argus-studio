@@ -2,6 +2,32 @@
 
 All notable changes to argus-studio are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Each `v*` tag publishes `ghcr.io/smk762/argus-studio`.
 
+## [0.3.0] - 2026-10-24
+
+### Added
+
+- **`/gallery` → Sources** ([#95](https://github.com/smk762/argus-studio/pull/95)): browse, filter and slice two large public-domain datasets into quarry's pool without downloading them first: **PD12M** (12.4M CC0 / Public Domain Mark images from 640 institutions) and **Megalith-10m** (9.58M Flickr photos). A Pool | Sources switch sits at the top of `/gallery`, and `?view=sources` deep-links to Sources.
+  - Filters:
+    - caption terms (`"phrases"`, `-term`) and a separate exclude field;
+    - institution or Flickr account, with facet counts;
+    - licence;
+    - minimum short side and orientation;
+    - known-size-only;
+    - **black & white / colour**, **medium** (photograph, painting, drawing, print, map, text, object) and a **year range**.
+
+    The last three are read from captions; the year range says how few images are dated.
+  - A paged grid with tick-to-select and a detail view.
+  - A slice bar to pick category, subject folder and size, from the match set or the selection. With `QUARRY_ALLOW_FETCH=1` on quarry it fetches into the pool with streamed progress. Otherwise it downloads `slice.json` and shows `argus-quarry archives fetch slice.json`.
+- Compose: the quarry server mounts `PUBLIC_DOMAIN_DIR` read-only, sets `QUARRY_PD12M_DIR` / `QUARRY_MEGALITH_DIR`, and forwards `QUARRY_ALLOW_FETCH` (off by default) and `QUARRY_MAX_GB`.
+
+### Fixed
+
+- `/gallery` no longer reports quarry as "not running" when only `/stats` fails. An empty or seeding pool returns 503 there, which hid Sources, the very view used to fill a new pool.
+
+### Upgrading
+
+- Needs **argus-quarry ≥ 0.3.0** for Sources; the Pool view works with older quarry. Archive the metadata with quarry's `scripts/fetch_public_domain_metadata.py`, set `PUBLIC_DOMAIN_DIR` in `.env`, pull the quarry image, then index once with `docker compose run --rm argus-quarry-server archives index`.
+
 ## [0.2.0] - 2026-10-24
 
 ### Added
@@ -47,5 +73,6 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 First published image. It covers the caption page (`/`), curation (`/curate`), the provenance gallery (`/gallery`), training configs (`/forge`) and LoRA evaluation with HITL review (`/proof`), plus the `/docs` handbook. The suite `compose.yaml` runs the backends from published GHCR images, and API config is resolved at runtime rather than baked into the bundle (#71).
 
+[0.3.0]: https://github.com/smk762/argus-studio/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/smk762/argus-studio/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/smk762/argus-studio/releases/tag/v0.1.0

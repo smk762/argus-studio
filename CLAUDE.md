@@ -10,7 +10,7 @@ The Argus suite's **web UI + compose orchestration hub**. A Next.js frontend on 
 |---|---|---|---|
 | argus-lens | :8100 | `/` caption page | ../argus-lens |
 | argus-curator | :8101 | `/curate` | ../argus-curator |
-| argus-quarry | :8102 | `/gallery` (read-only provenance) | ../argus-quarry |
+| argus-quarry | :8102 | `/gallery` (pool provenance + PD12M/Megalith Sources) | ../argus-quarry |
 | argus-forge | :8103 | `/forge` (LoRA training configs) | ../argus-forge |
 | argus-proof | :8104 | `/proof` (post-training eval + HITL) | ../argus-proof |
 | argus-atlas | :8105 | `/atlas` (DEM → georeferenced fantasy-map PMTiles) | ../argus-atlas |
@@ -23,7 +23,7 @@ Everything is under `frontend/` (Next.js 16 App Router, React 19, Tailwind v4, d
 
 - `frontend/src/app/` — routes: `page.tsx` (caption), `curate/`, `forge/`, `gallery/`, `proof/`, `atlas/`, and `docs/` (MDX; `page.mdx` + per-parameter concept pages). `layout.tsx` injects the runtime-config `<script>` before hydration.
 - `frontend/src/lib/` — thin fetch clients, one per backend: `lensApi.ts`, `curatorApi.ts`, `forgeApi.ts`, `galleryApi.ts`, `proofApi.ts`, `atlasApi.ts`. Plus `runtimeConfig.ts` (the env-resolution core) and `curatorEnv.ts` (named accessors).
-- `frontend/src/components/` — shared UI plus `curator/` (e.g. `ExportPanel.tsx`, `SelectionInsights.tsx`, `FolderPicker.tsx`, `forgeDemo.ts`), `proof/` (`ProofBoard.tsx`, `NewEvaluation.tsx`), `atlas/` (`NewCanvas.tsx`, `JobView.tsx`, `BakePanel.tsx`), and `docs/`.
+- `frontend/src/components/` — shared UI plus `gallery/` (`ArchiveBrowser.tsx`), `curator/` (e.g. `ExportPanel.tsx`, `SelectionInsights.tsx`, `FolderPicker.tsx`, `forgeDemo.ts`), `proof/` (`ProofBoard.tsx`, `NewEvaluation.tsx`), `atlas/` (`NewCanvas.tsx`, `JobView.tsx`, `BakePanel.tsx`), and `docs/`.
 - `compose.yaml` — the whole stack, gated by **profiles**. `compose.gpu.yaml` is an NVIDIA override layered on top.
 - `.env.example` — every wiring var; copy to `.env`. `.github/workflows/release.yml` — GHCR image publish.
 

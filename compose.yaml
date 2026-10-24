@@ -320,9 +320,23 @@ services:
       - "${QUARRY_SERVER_PORT:-8102}:8102"
     environment:
       - QUARRY_HOME=/data/quarry
+      # Public-domain metadata archives for /gallery's Sources view (links,
+      # captions, sizes — no photos; see argus-quarry's
+      # scripts/fetch_public_domain_metadata.py). Index them once with
+      #   docker compose run --rm argus-quarry-server archives index
+      - QUARRY_PD12M_DIR=/data/public_domain/pd12m
+      - QUARRY_MEGALITH_DIR=/data/public_domain/megalith
+      # Opt-in: let the Sources view land a slice in the pool itself. Unset,
+      # the page hands back slice.json + the CLI command instead (demo-safe).
+      - QUARRY_ALLOW_FETCH=${QUARRY_ALLOW_FETCH:-}
+      # A server-side slice fetch obeys the same pool ceiling as the job.
+      - QUARRY_MAX_GB=${QUARRY_MAX_GB:-40}
     volumes:
       # rw: the sqlite provenance DB uses WAL, which needs write access even
-      # for readers. The HTTP API itself exposes no mutations.
+      # for readers; slice fetches land here, and the archive search indexes
+      # are cached under cache/archives/.
       - ${QUARRY_HOME:-./quarry}:/data/quarry
+      # ro: the archives are only read (and indexed into QUARRY_HOME).
+      - ${PUBLIC_DOMAIN_DIR:-./public_domain}:/data/public_domain:ro
     command: ["serve", "--host", "0.0.0.0", "--port", "8102", "--cors"]
     restart: unless-stopped

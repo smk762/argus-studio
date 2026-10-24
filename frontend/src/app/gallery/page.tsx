@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { StageHandoff } from "@/components/StageHandoff";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
+import { ArchiveBrowser } from "@/components/gallery/ArchiveBrowser";
 import {
   getQuarryHealth,
   getQuarryStats,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/galleryApi";
 import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
+import { useDeepLink } from "@/lib/deepLink";
 
 const PAGE_SIZE = 60;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -53,25 +55,34 @@ export default function GalleryPage() {
   const [unreachable, setUnreachable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<QuarryPhoto | null>(null);
+  // "pool" = what quarry has acquired; "sources" = the public-domain archives it can slice from.
+  // `?view=sources` deep-links to the archive browser.
+  const [view, setView] = useState<"pool" | "sources">("pool");
+  useDeepLink((params) => {
+    if (params.get("view") === "sources") setView("sources");
+  });
+  const [poolVersion, setPoolVersion] = useState(0);
 
-  // Reachability + stats.
+  // Reachability + stats (re-read after a slice lands in the pool).
   useEffect(() => {
     const ctrl = new AbortController();
     (async () => {
-      try {
-        const [health, s] = await Promise.all([getQuarryHealth(ctrl.signal), getQuarryStats(ctrl.signal)]);
-        setVersion(health.version);
-        setStats(s);
-      } catch {
-        if (!ctrl.signal.aborted) {
-          setVersion("");
-          setUnreachable(true);
-          setLoading(false);
-        }
+      // allSettled: only a failed /health means "not running". An empty or
+      // still-seeding pool 503s /stats, and that must not hide the Sources view,
+      // which is how a fresh pool gets filled in the first place.
+      const [health, s] = await Promise.allSettled([getQuarryHealth(ctrl.signal), getQuarryStats(ctrl.signal)]);
+      if (ctrl.signal.aborted) return;
+      if (health.status === "fulfilled") {
+        setVersion(health.value.version);
+        setStats(s.status === "fulfilled" ? s.value : null);
+      } else {
+        setVersion("");
+        setUnreachable(true);
+        setLoading(false);
       }
     })();
     return () => ctrl.abort();
-  }, []);
+  }, [poolVersion]);
 
   // Subject list follows the category filter.
   useEffect(() => {
@@ -81,7 +92,7 @@ export default function GalleryPage() {
       .then(setSubjects)
       .catch(() => setSubjects([]));
     return () => ctrl.abort();
-  }, [filters.category, unreachable]);
+  }, [filters.category, unreachable, poolVersion]);
 
   const loadPage = useCallback(
     async (offset: number, append: boolean) => {
@@ -111,7 +122,7 @@ export default function GalleryPage() {
   useEffect(() => {
     if (unreachable) return;
     void loadPage(0, false);
-  }, [loadPage, unreachable]);
+  }, [loadPage, unreachable, poolVersion]);
 
   const setFilter = (key: keyof Filters, value: string) =>
     setFilters((cur) => ({ ...cur, [key]: value, ...(key === "category" ? { subject: "" } : {}) }));
@@ -140,6 +151,19 @@ export default function GalleryPage() {
           </div>
         ) : (
           <div className="space-y-6">
+            <div className="inline-flex rounded-lg border border-border bg-surface p-1">
+              <FilterChip active={view === "pool"} onClick={() => setView("pool")}>
+                Pool
+              </FilterChip>
+              <FilterChip active={view === "sources"} onClick={() => setView("sources")}>
+                Sources · PD12M / Megalith
+              </FilterChip>
+            </div>
+
+            {view === "sources" ? (
+              <ArchiveBrowser onLanded={() => setPoolVersion((v) => v + 1)} />
+            ) : (
+            <>
             {/* Stats strip */}
             {stats && (
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-surface px-5 py-4">
@@ -266,9 +290,11 @@ export default function GalleryPage() {
                 <p className="text-lg text-foreground/60">Nothing here yet.</p>
                 <p className="mt-2 text-sm">
                   Run an acquisition (<span className="font-mono text-foreground/80">docker compose --profile gallery up</span>)
-                  to fill the pool, or loosen the filters.
+                  to fill the pool, slice one from <b>Sources</b>, or loosen the filters.
                 </p>
               </div>
+            )}
+            </>
             )}
           </div>
         )}
@@ -285,7 +311,7 @@ export default function GalleryPage() {
             >
               argus-quarry
             </a>{" "}
-            · read-only provenance
+            · provenance + public-domain archives
           </>
         }
         right="Images: PD / CC0 as recorded per item"
