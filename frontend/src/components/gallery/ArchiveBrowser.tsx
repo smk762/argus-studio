@@ -31,6 +31,7 @@ const inputClass =
 
 interface Form {
   q: string;
+  exclude: string;
   collection: string;
   licence: string;
   minShort: number;
@@ -39,11 +40,12 @@ interface Form {
   sort: "shuffle" | "largest";
 }
 
-const EMPTY_FORM: Form = { q: "", collection: "", licence: "", minShort: 0, orientation: "", sizedOnly: false, sort: "shuffle" };
+const EMPTY_FORM: Form = { q: "", exclude: "", collection: "", licence: "", minShort: 0, orientation: "", sizedOnly: false, sort: "shuffle" };
 
 function toQuery(f: Form): ArchiveQuery {
   return {
     q: f.q || undefined,
+    exclude: f.exclude || undefined,
     collections: f.collection ? [f.collection] : undefined,
     licences: f.licence ? [f.licence] : undefined,
     min_short_side: f.minShort || undefined,
@@ -198,8 +200,17 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
             <input
               value={form.q}
               onChange={(e) => apply({ q: e.target.value }, false)}
-              placeholder="caption words (US spelling), e.g. harbor boats"
-              className={`${inputClass} w-80`}
+              placeholder='must mention, e.g. harbor boats or "red dress"'
+              title='All terms must appear in the caption. "Quoted phrases" stay whole; -term excludes. Captions use US spelling.'
+              className={`${inputClass} w-72`}
+            />
+            <input
+              value={form.exclude}
+              onChange={(e) => apply({ exclude: e.target.value }, false)}
+              placeholder="must not mention, e.g. painting drawing"
+              title="None of these terms may appear in the caption. Uncaptioned items are kept."
+              aria-label="exclude caption terms"
+              className={`${inputClass} w-60 border-accent-red/30 focus:border-accent-red/60`}
             />
             <button
               type="submit"

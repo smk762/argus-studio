@@ -156,7 +156,10 @@ export async function getArchiveFacets(name: string, signal?: AbortSignal): Prom
 }
 
 export interface ArchiveQuery {
+  /** Caption terms that must all appear; "quoted phrases" stay whole, a leading - excludes. */
   q?: string;
+  /** Caption terms none of which may appear (same syntax). */
+  exclude?: string;
   collections?: string[];
   licences?: string[];
   mimes?: string[];
@@ -195,6 +198,7 @@ export interface ArchivePage {
 function archiveParams(query: ArchiveQuery): URLSearchParams {
   const p = new URLSearchParams();
   if (query.q?.trim()) p.set("q", query.q.trim());
+  if (query.exclude?.trim()) p.set("exclude", query.exclude.trim());
   if (query.collections?.length) p.set("collection", query.collections.join(","));
   if (query.licences?.length) p.set("licence", query.licences.join(","));
   if (query.mimes?.length) p.set("mime", query.mimes.join(","));
