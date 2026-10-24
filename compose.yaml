@@ -329,6 +329,10 @@ services:
       # Opt-in: let the Sources view land a slice in the pool itself. Unset,
       # the page hands back slice.json + the CLI command instead (demo-safe).
       - QUARRY_ALLOW_FETCH=${QUARRY_ALLOW_FETCH:-}
+      # The fetch button POSTs cross-origin, and quarry never grants POST to
+      # its default "*" CORS: list the studio origin(s) to use it (>= 0.3.1).
+      # Unset keeps --cors's read-only "*".
+      - QUARRY_CORS_ORIGINS=${QUARRY_CORS_ORIGINS:-}
       # A server-side slice fetch obeys the same pool ceiling as the job.
       - QUARRY_MAX_GB=${QUARRY_MAX_GB:-40}
     volumes:

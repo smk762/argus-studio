@@ -162,7 +162,7 @@ argus-quarry serve --cors --port 8102
 
 **Sources** (the second tab on `/gallery`, or `/gallery?view=sources`) browses two large public-domain datasets without downloading them. **PD12M** has 12.4M CC0 / Public Domain Mark images from 640 institutions. **Megalith-10m** has 9.58M Flickr photos marked public domain, CC0, Flickr Commons or US Gov. Quarry searches a local index of each dataset's metadata (links, captions, sizes), and thumbnails come straight from where each archive hosts its images. Narrow the matches by caption words, institution or Flickr account, licence, minimum size and orientation, and optionally tick individual images. Then name a category and subject folder and land that slice in the pool through quarry's normal ingest (licence gate, SHA256 dedup, provenance).
 
-- With `QUARRY_ALLOW_FETCH=1` on the quarry server, **Fetch into the pool** does it in place and streams progress.
+- With `QUARRY_ALLOW_FETCH=1` on the quarry server, **Fetch into the pool** does it in place and streams progress. It is a cross-origin POST, so also set `QUARRY_CORS_ORIGINS` to the studio origin(s) (argus-quarry ≥ 0.3.1).
 - Otherwise (the default), **Download slice.json** saves the slice. Land it on the quarry host with `argus-quarry archives fetch slice.json`.
 
 Setup, once (this needs argus-quarry with the `archives` extra, which the image includes):
@@ -282,6 +282,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_QUARRY_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
 | `PUBLIC_DOMAIN_DIR` | `./public_domain` | Host dir holding the archived `pd12m/` and `megalith/` metadata, mounted read-only into the quarry server for `/gallery` → Sources |
 | `QUARRY_ALLOW_FETCH` | _(unset)_ | Let the quarry server land a Sources slice in the pool itself; unset, the page hands back `slice.json` + the CLI command |
+| `QUARRY_CORS_ORIGINS` | _(unset = read-only `*`)_ | Comma-separated studio origins the quarry server allows; required for **Fetch into the pool** (argus-quarry ≥ 0.3.1) |
 | `ARGUS_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (`/forge`) |
 | `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
 | `ARGUS_ATLAS_URL` | `http://localhost:8105` | URL the **browser** uses to reach argus-atlas (the `/atlas` map-bake view) |
