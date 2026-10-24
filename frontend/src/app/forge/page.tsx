@@ -335,7 +335,7 @@ export default function ForgePage() {
       ? "Can't tell whether this host trains: argus-forge is unreachable."
       : capabilityReason(
           trainingCap,
-          "Training is disabled on this host — it needs a GPU. Configs still render here, ready to run wherever you have one.",
+          "Live training is switched off on this argus-forge server — a deployment setting (demo-safe mode), not a hardware check. Configs still render, ready to run wherever your trainer and GPU live.",
         );
 
   return (

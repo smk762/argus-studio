@@ -7,7 +7,7 @@
  * has committed to an action:
  *
  *   argus-curator  `allow_move`  destructive move-mode exports
- *   argus-forge    `training`    live `POST /run` (needs a GPU)
+ *   argus-forge    `training`    live `POST /run` (demo-safe server posture)
  *   argus-proof    `read_only`   live evaluation + report writes
  *
  * These are deployment facts, not UI modes. `ARGUS_CURATOR_UI_MODE` says whether
