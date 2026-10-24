@@ -22,7 +22,9 @@ import { joinPath } from "@/lib/path";
  * (`models.manifest_major`, a bare `split(".", 1)[0]` matched against a set):
  * `Number.parseInt` prefix-parses, so `"02.1"`, `"2beta"` and `" 2.1"` would all
  * read as 2 here while forge refuses them, and the two services would disagree
- * about the same manifest. Only `/^\d+$/` counts as a declaration.
+ * about the same manifest. Only a canonical decimal major counts as a
+ * declaration — no leading zeros, since forge compares the *string* against
+ * `("1", "2")` and so refuses `"02"`.
  *
  * `version` is typed `string | undefined` but arrives from an unvalidated
  * `resp.json()`, so a curator or proxy emitting a JSON *number* would make a
@@ -32,7 +34,7 @@ import { joinPath } from "@/lib/path";
 export function manifestMajor(version: unknown): number | null {
   if (typeof version !== "string") return null;
   const head = version.split(".")[0];
-  return /^\d+$/.test(head) ? Number(head) : null;
+  return /^(0|[1-9]\d*)$/.test(head) ? Number(head) : null;
 }
 
 /**

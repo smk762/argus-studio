@@ -1,0 +1,43 @@
+name: CI
+
+# The PR gate for frontend/: lint, typecheck and the vitest unit tests over the
+# pure logic in src/lib (wire seams, capability gates, runtime config). The
+# release workflow only builds the image, so before this nothing failed a PR
+# that broke one of those contracts (argus-studio#64).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Same Node as the image's base (frontend/Dockerfile).
+          node-version: "22.23.4"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm test

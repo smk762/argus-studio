@@ -101,10 +101,15 @@ function firstNonEmpty(
   return undefined;
 }
 
+/**
+ * An http(s) URL. Parseability alone is not enough: `new URL("curator:8101")`
+ * succeeds with `curator:` as the scheme, which is exactly the scheme-less
+ * mistake {@link normalizeBase} exists to catch.
+ */
 function isAbsoluteUrl(value: string): boolean {
   try {
-    new URL(value);
-    return true;
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:";
   } catch {
     return false;
   }
