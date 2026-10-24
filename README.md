@@ -106,7 +106,8 @@ If you are developing **argus-lens locally**, rebuild the wheel and reinstall in
 cd ../argus-lens
 uv venv                 # once: create .venv in the repo
 source .venv/bin/activate
-make wheel-reinstall    # uv build + uv pip install --force-reinstall dist/*.whl[server,local,...]
+uv build
+uv pip install --force-reinstall "$(ls -t dist/*.whl | head -1)[server,local,cli]"
 argus-lens serve --cors --port 8100
 ```
 
@@ -129,6 +130,8 @@ images land in **Upload**, a `.jsonl` lands in **Curate manifest**):
   In the suite compose this is preset to `/data/images` (`DATASET_DIR`). You can also type a path manually if browsing is disabled.
 - **Immich** — batch-caption an album on your [Immich](https://immich.app) photo server (`POST /immich/caption/stream`), optionally writing each caption back to the asset's description in Immich. Requires `IMMICH_URL` / `IMMICH_API_KEY` on the argus-lens server.
 - **Curate manifest** — upload a `manifest.jsonl` produced by `/curate` (`POST /caption/manifest`); each row's `target_profile` is applied per image. Images must be reachable at their `abs_path` (the shared `/data/images` mount).
+
+**What a result contains** (argus-lens ≥ 0.6): one caption per category (`identity`, `wardrobe`, `pose_composition`, `setting`, `lighting`, `action`), each leading with its own category, plus `training` (tag-style, for SDXL/CLIP), **`training_prose`** (sentence-style, for Flux/SD3/T5) and `zeroshot`. Every variant passes a coherence post-check, so dangling fragments, "The image shows…" openers and hedging are repaired before display. `metadata.subjects` carries a headcount (`count`, `multiple`, `agree`), so multi-person images can go to face identification in argus-curator. `metadata.buckets` carries the per-category tags behind each caption. When lens runs with `ARGUS_REFINE_MODEL`, `metadata.refine` records which variants an LLM rewrote and why any rewrite was rejected.
 
 ### Curator SPA (`/curate`)
 
@@ -246,7 +249,13 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `DATASET_DIR` | `./data` | Host dir mounted at `/data/images` on **both** curator and lens |
 | `OUTPUT_DIR` | `./out` | Host dir mounted at `/data/out` on curator (exports) |
 | `HF_CACHE_DIR` | `~/.cache/huggingface` | Host Hugging Face cache shared with the backends |
-| `ARGUS_BACKEND` | `hybrid` | argus-lens captioning backend |
+| `ARGUS_BACKEND` | `hybrid` | argus-lens captioning backend. `hybrid:wd14+openai-compat` = WD14 tags locally + prose from an Ollama/vLLM vision model |
+| `WD14_MODEL_REPO` | _(unset = `SmilingWolf/wd-vit-tagger-v3`)_ | WD14 v3 tagger for lens; `SmilingWolf/wd-eva02-large-tagger-v3` is the most accurate |
+| `ARGUS_OPENAI_COMPAT_BASE_URL` / `ARGUS_OPENAI_COMPAT_MODEL` | _(unset)_ | Vision-model endpoint + model for lens's `openai-compat` prose stage, e.g. `http://<ollama-host>:11434/v1` + `qwen3-vl:8b` |
+| `ARGUS_OPENAI_COMPAT_PROMPT` | `detailed` | Prompt preset (`detailed`, `straightforward`, `descriptive`, `booru`) or literal text |
+| `ARGUS_REFINE_MODEL` / `ARGUS_REFINE_BASE_URL` | _(unset = off)_ | Chat model that rewrites lens's training captions; every rewrite is validated and falls back to the deterministic caption |
+| `ARGUS_REFINE_VARIANTS` | `training,training_prose` | Variants lens refines; add `identity,wardrobe,setting,action` for cleaner category captions |
+| `ARGUS_IDLE_UNLOAD_S` | _(unset)_ | Lens frees its VRAM after this many idle seconds, when it shares a GPU with ComfyUI or another tenant |
 | `IMMICH_URL` / `IMMICH_API_KEY` | _(unset)_ | Enable the Immich integration on argus-lens (album captioning + pull-to-dataset) |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
 | `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` | `latest` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys |
@@ -292,7 +301,7 @@ All captioning parameters are exposed in the UI with inline documentation:
 
 ## Related
 
-- [argus-lens](https://github.com/smk762/argus-lens) — captioning engine, CLI, and server for the main page
+- [argus-lens](https://github.com/smk762/argus-lens) — captioning engine, CLI, and server for the main page. For a whole library at scale (caption once, group by identity/wardrobe/setting/action, flag multi-person images, export SDXL and Flux datasets), see its [curate-index workflow](https://github.com/smk762/argus-lens/blob/main/workflows/README.md)
 - [argus-curator](https://github.com/smk762/argus-curator) — dataset curation CLI and HTTP server for `/curate`
 - [argus-quarry](https://github.com/smk762/argus-quarry) — provenance-first PD/CC0 image acquisition (the `gallery` compose profile)
 - [argus-forge](https://github.com/smk762/argus-forge) — training bridge: curated exports → ready-to-run LoRA training configs (the `forge` profile)

@@ -83,6 +83,17 @@ services:
     environment:
       - ARGUS_BACKEND=${ARGUS_BACKEND:-hybrid}
       - ARGUS_API_KEY=${ARGUS_API_KEY:-}
+      # Models (argus-lens >= 0.6). Empty = lens defaults (WD14 vit-v3, Florence-2).
+      - WD14_MODEL_REPO=${WD14_MODEL_REPO:-}
+      - ARGUS_OPENAI_COMPAT_BASE_URL=${ARGUS_OPENAI_COMPAT_BASE_URL:-}
+      - ARGUS_OPENAI_COMPAT_MODEL=${ARGUS_OPENAI_COMPAT_MODEL:-}
+      - ARGUS_OPENAI_COMPAT_PROMPT=${ARGUS_OPENAI_COMPAT_PROMPT:-}
+      # Optional validated LLM rewrite of captions (empty model = off).
+      - ARGUS_REFINE_MODEL=${ARGUS_REFINE_MODEL:-}
+      - ARGUS_REFINE_BASE_URL=${ARGUS_REFINE_BASE_URL:-}
+      - ARGUS_REFINE_VARIANTS=${ARGUS_REFINE_VARIANTS:-}
+      # Free VRAM after N idle seconds (GPU shared with ComfyUI etc.).
+      - ARGUS_IDLE_UNLOAD_S=${ARGUS_IDLE_UNLOAD_S:-}
       # Optional Immich integration (caption page "Immich" mode + pull-to-dataset).
       # Leave unset to disable; lens's /immich/* endpoints then return 503.
       - IMMICH_URL=${IMMICH_URL:-}
