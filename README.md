@@ -251,7 +251,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `HF_CACHE_DIR` | `~/.cache/huggingface` | Host Hugging Face cache shared with the backends |
 | `ARGUS_BACKEND` | `hybrid` | argus-lens captioning backend. `hybrid:wd14+openai-compat` = WD14 tags locally + prose from an Ollama/vLLM vision model |
 | `WD14_MODEL_REPO` | _(unset = `SmilingWolf/wd-vit-tagger-v3`)_ | WD14 v3 tagger for lens; `SmilingWolf/wd-eva02-large-tagger-v3` is the most accurate |
-| `ARGUS_OPENAI_COMPAT_BASE_URL` / `ARGUS_OPENAI_COMPAT_MODEL` | _(unset)_ | Vision-model endpoint + model for lens's `openai-compat` prose stage, e.g. `http://<ollama-host>:11434/v1` + `qwen3-vl:8b` |
+| `ARGUS_OPENAI_COMPAT_BASE_URL` / `ARGUS_OPENAI_COMPAT_MODEL` | _(unset)_ | Vision-model endpoint + model for lens's `openai-compat` prose stage, e.g. `http://<ollama-host>:11434/v1` + `qwen3-vl:8b-instruct` |
 | `ARGUS_OPENAI_COMPAT_PROMPT` | `detailed` | Prompt preset (`detailed`, `straightforward`, `descriptive`, `booru`) or literal text |
 | `ARGUS_REFINE_MODEL` / `ARGUS_REFINE_BASE_URL` | _(unset = off)_ | Chat model that rewrites lens's training captions; every rewrite is validated and falls back to the deterministic caption |
 | `ARGUS_REFINE_VARIANTS` | `training,training_prose` | Variants lens refines; add `identity,wardrobe,setting,action` for cleaner category captions |
