@@ -53,6 +53,11 @@ export function proofUrl(): string {
   return runtimeConfig().proofUrl;
 }
 
+/** URL the browser uses to reach the argus-atlas API (georeferenced map bakes). */
+export function atlasUrl(): string {
+  return runtimeConfig().atlasUrl;
+}
+
 /** Scan input directory as seen by argus-curator (container path under Docker). */
 export function localSourcePath(): string {
   return runtimeConfig().curatorSourcePath;

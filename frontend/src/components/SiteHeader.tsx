@@ -8,6 +8,7 @@ const LOGO_TONES: Record<StageTone, { box: string; text: string }> = {
   teal: { box: "border-accent-teal/40 bg-accent-teal/20", text: "text-accent-teal" },
   amber: { box: "border-accent-amber/40 bg-accent-amber/20", text: "text-accent-amber" },
   green: { box: "border-accent-green/40 bg-accent-green/20", text: "text-accent-green" },
+  blue: { box: "border-accent-blue/40 bg-accent-blue/20", text: "text-accent-blue" },
 };
 
 /**

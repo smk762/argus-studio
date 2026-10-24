@@ -13,12 +13,14 @@
 #                                            #  ARGUS_CURATOR_UI_MODE=live)
 #   docker compose --profile proof   up      # frontend + argus-proof
 #                                            # (post-training LoRA evaluation)
+#   docker compose --profile atlas   up      # frontend + argus-atlas
+#                                            # (georeferenced fantasy-map bakes)
 #   docker compose --profile full    up      # whole suite (pulls any MISSING images, then runs)
 #   docker compose --profile full    pull    # refresh images to the current *_TAG
 #                                            # (`up` will NOT re-pull a tag already cached locally)
 #
 # Pin a specific released version with the *_TAG vars in .env (default `latest`):
-#   CURATOR_TAG / LENS_TAG / QUARRY_TAG / FORGE_TAG / PROOF_TAG.
+#   CURATOR_TAG / LENS_TAG / QUARRY_TAG / FORGE_TAG / PROOF_TAG / ATLAS_TAG.
 # (Only `frontend` is always built locally from ./frontend — it is this repo,
 # argus-studio, and has no published image yet.)
 #
@@ -68,6 +70,7 @@ services:
       - ARGUS_QUARRY_URL=${ARGUS_QUARRY_URL-${NEXT_PUBLIC_QUARRY_URL-http://localhost:8102}}
       - ARGUS_FORGE_URL=${ARGUS_FORGE_URL-${NEXT_PUBLIC_FORGE_URL-http://localhost:8103}}
       - ARGUS_PROOF_URL=${ARGUS_PROOF_URL-${NEXT_PUBLIC_PROOF_URL-http://localhost:8104}}
+      - ARGUS_ATLAS_URL=${ARGUS_ATLAS_URL-${NEXT_PUBLIC_ATLAS_URL-http://localhost:8105}}
       - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE-${NEXT_PUBLIC_CURATOR_UI_MODE-demo}}
       - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH-${NEXT_PUBLIC_CURATOR_SOURCE_PATH-/data/images}}
       - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH-/data/out}}
@@ -215,6 +218,40 @@ services:
       - ${MODELS_EXTRA_DIR:-${MODELS_DIR:-./models}}:/data/models-extra:ro
     extra_hosts:
       # Reach a ComfyUI running on the compose host at host.docker.internal.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  argus-atlas:
+    profiles: ["atlas", "full"]
+    # Bakes one georeferenced fantasy-map overlay from a DEM: GDAL controls ->
+    # ComfyUI restyle -> alignment gate -> PMTiles. The image ships GDAL 3.11.
+    # Demo-safe: POST /bake/stream 403s unless ATLAS_ALLOW_BAKE=1, and the
+    # server never fetches OSM unless ATLAS_ALLOW_OSM=1. POST /controls and
+    # POST /tiles are GDAL-only and always allowed.
+    image: ghcr.io/smk762/argus-atlas:${ATLAS_TAG:-latest}
+    ports:
+      - "${ATLAS_PORT:-8105}:8105"
+    environment:
+      # The image's defaults, restated: jobs under the shared output volume,
+      # DEMs/vectors/OSM extracts under /data/dem, models read-only.
+      ATLAS_JOBS_DIR: /data/out/atlas
+      ATLAS_DEM_DIR: /data/dem
+      ATLAS_MODELS_DIR: /data/models
+      ATLAS_ALLOW_BAKE: ${ATLAS_ALLOW_BAKE:-}
+      ATLAS_ALLOW_OSM: ${ATLAS_ALLOW_OSM:-}
+      # A ComfyUI reachable FROM THE CONTAINER (see extra_hosts below). Shared
+      # with argus-proof, which bakes through the same engine.
+      COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://host.docker.internal:8188}
+      # The image's --cors allows http://localhost:3000; widen for a LAN origin.
+      ATLAS_CORS_ORIGINS: ${ATLAS_CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      # RW: POST /osm (when allowed) writes extracts under /data/dem/osm/.
+      - ${DEM_DIR:-./dem}:/data/dem
+      - ${OUTPUT_DIR:-./out}:/data/out
+      # ro: the same checkpoints/ + loras/ tree ComfyUI loads, so each bake
+      # SHA256-pins its weights.
+      - ${MODELS_DIR:-./models}:/data/models:ro
+    extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 

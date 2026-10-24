@@ -36,12 +36,13 @@ docker compose --profile gallery up  # argus-quarry: acquire PD/CC0 images -> DA
 ARGUS_CURATOR_UI_MODE=live \
 docker compose --profile forge   up  # frontend + curator + argus-forge (training configs)
 docker compose --profile proof   up  # frontend + argus-proof (post-training LoRA evaluation)
+docker compose --profile atlas   up  # frontend + argus-atlas (fantasy-map bakes from real terrain)
 docker compose --profile full    up  # whole suite (pull + run GHCR images)
 docker compose --profile full    pull  # refresh the images to the current *_TAG
 ```
 
 Pin a specific released version with the `*_TAG` vars in `.env`
-(`CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG`, default `latest`).
+(`CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG`, default `latest`).
 
 **Build from local source instead** — clone the sibling repos and layer the build
 override, which re-adds each backend's `build:` context:
@@ -52,6 +53,7 @@ git clone https://github.com/smk762/argus-curator ../argus-curator
 git clone https://github.com/smk762/argus-quarry  ../argus-quarry   # gallery profile
 git clone https://github.com/smk762/argus-forge   ../argus-forge    # forge profile
 git clone https://github.com/smk762/argus-proof   ../argus-proof    # proof profile
+git clone https://github.com/smk762/argus-atlas   ../argus-atlas    # atlas profile
 
 docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
 ```
@@ -64,7 +66,8 @@ docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
 | `gallery` | argus-quarry (acquisition job) + argus-quarry-server | Acquiring PD/CC0 images with provenance into `DATASET_DIR`, browsable at `/gallery` |
 | `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers) at `/forge`. Set `ARGUS_CURATOR_UI_MODE=live` for the export flow that hands off to it; `/forge` also takes an export dir typed by hand |
 | `proof` | frontend + argus-proof | Post-training LoRA evaluation ([epic](https://github.com/smk762/argus-studio/issues/6)): review scored eval runs at `/proof` — pass/fail verdict, per-metric scores, and a keyboard-first HITL review (5-star + structured reject reasons, blind mode) against argus-proof on :8104 |
-| `full` | frontend + curator + lens + quarry server + forge + proof | End-to-end acquire → curate → caption → forge → evaluate (set `ARGUS_CURATOR_UI_MODE=live`) |
+| `atlas` | frontend + argus-atlas | Baking a georeferenced fantasy-map overlay from a DEM at `/atlas`: GDAL controls, a ComfyUI restyle (off unless `ATLAS_ALLOW_BAKE=1`), the alignment gate, and a PMTiles archive, against argus-atlas on :8105 |
+| `full` | frontend + curator + lens + quarry server + forge + proof + atlas | End-to-end acquire → curate → caption → forge → evaluate → bake (set `ARGUS_CURATOR_UI_MODE=live`) |
 
 **argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
 public-domain / CC0 images from open archives with full provenance and licence
@@ -203,6 +206,23 @@ pip install "argus-proof[server]"
 argus-proof serve --cors --port 8104
 ```
 
+### Atlas (`/atlas`)
+
+Bake one georeferenced fantasy-map overlay from real terrain with [argus-atlas](https://github.com/smk762/argus-atlas) ([PyPI](https://pypi.org/project/argus-atlas/); `ARGUS_ATLAS_URL`, default `http://localhost:8105`). It is the stage after proof: a cartography LoRA that passed evaluation goes in as a file, and atlas does the geodata work with GDAL.
+
+- **New canvas** picks a DEM and an optional OSM extract from what the server lists under `ATLAS_DEM_DIR` (`GET /inputs`), takes an AOI in degrees, and builds the hillshade, slope, layer masks and composite (`POST /controls`). No GPU, so this works on a read-only host too.
+- The **job view** shows each control on the canvas grid with the painted map over it and an opacity slider. The coastline should not move as you fade: the model only painted pixels inside a frame GDAL had already georeferenced.
+- **Bake** streams `POST /bake/stream` with a style preset (`GET /presets`), a checkpoint and an optional LoRA. It is off unless the server sets `ATLAS_ALLOW_BAKE=1`; the form then stays visible with the reason. A bake that fails the alignment gate keeps its PNG and writes no GeoTIFF.
+- **Cut PMTiles** (`POST /tiles`) packs the aligned GeoTIFF up to its native zoom; the archive downloads from the page. Drape it on a basemap with atlas's `examples/viewer.html`.
+- **Provenance** lists the DEM hash and every GDAL command, so a bake can be replayed.
+
+In compose, put DEMs (GeoTIFF or `.vrt`) in `DEM_DIR` and point `MODELS_DIR` / `COMFYUI_BASE_URL` at the ComfyUI the bake uses. Standalone (GDAL must be installed):
+
+```bash
+pip install "argus-atlas[server,cli,tiles]"
+argus-atlas serve --cors          # :8105; add ATLAS_ALLOW_BAKE=1 to bake
+```
+
 ## Architecture
 
 ```
@@ -214,7 +234,8 @@ browser (:3000)  →  Next.js frontend
                          ├─ /scan, /upload, …      →  argus-curator (:8101)       →  curation API
                          ├─ /photos, /stats, …     →  argus-quarry-server (:8102) →  provenance (read-only)
                          ├─ /config                →  argus-forge (:8103)         →  training configs
-                         └─ /reports, /report/*    →  argus-proof (:8104)         →  LoRA evaluation + HITL review
+                         ├─ /reports, /report/*    →  argus-proof (:8104)         →  LoRA evaluation + HITL review
+                         └─ /controls, /bake/*, …  →  argus-atlas (:8105)         →  DEM → fantasy-map PMTiles
 
 curate → caption → forge handoff ("full" profile):
    /curate export ── manifest ──▶  argus-lens /caption/manifest/stream
@@ -240,6 +261,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_QUARRY_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
 | `ARGUS_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (`/forge`) |
 | `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
+| `ARGUS_ATLAS_URL` | `http://localhost:8105` | URL the **browser** uses to reach argus-atlas (the `/atlas` map-bake view) |
 | `ARGUS_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
 | `ARGUS_CURATOR_SOURCE_PATH` | *(empty)* | Default source path shown in the folder picker (path inside the curator container). `compose.yaml` sets `/data/images` |
 | `ARGUS_CURATOR_OUTPUT_PATH` | *(empty)* | Default export destination (path inside the curator container). `compose.yaml` sets `/data/out` |
@@ -248,12 +270,14 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `HF_CACHE_DIR` | `~/.cache/huggingface` | Host Hugging Face cache shared with the backends |
 | `ARGUS_BACKEND` | `hybrid` | argus-lens captioning backend |
 | `IMMICH_URL` / `IMMICH_API_KEY` | _(unset)_ | Enable the Immich integration on argus-lens (album captioning + pull-to-dataset) |
+| `DEM_DIR` | `./dem` | Host dir of DEMs and vector layers, mounted at `/data/dem` on argus-atlas |
+| `ATLAS_ALLOW_BAKE` / `ATLAS_ALLOW_OSM` | _(unset)_ | Let argus-atlas bake on the GPU / fetch OSM from Overpass; both off by default |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
-| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` | `latest` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys |
+| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` | `latest` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys |
 | `LENS_EXTRAS` | `server,local` | pip extras for a **source build** only (`-f compose.build.yaml`); ignored on the default pull path (`server,openai,replicate` for a cloud-only image) |
 | `PROOF_EXTRAS` | `server,cli` | pip extras for a **source build** only (`-f compose.build.yaml`); `server,cli,score` adds the identity/quality/safety scorer stack |
 | `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |
-| `QUARRY_SERVER_PORT` / `FORGE_PORT` / `PROOF_PORT` | `8102` / `8103` / `8104` | Host ports |
+| `QUARRY_SERVER_PORT` / `FORGE_PORT` / `PROOF_PORT` / `ATLAS_PORT` | `8102` / `8103` / `8104` / `8105` | Host ports |
 
 The `ARGUS_*` frontend variables are resolved **per request** from the container's
 environment, not baked into the client bundle, so `docker compose up -d frontend`
@@ -267,7 +291,7 @@ ARGUS_LENS_URL=/api/lens
 ```
 
 An **empty string** means the origin root (`/scan/folder` instead of
-`http://host:8101/scan/folder`). That works for at most one backend: all five
+`http://host:8101/scan/folder`). That works for at most one backend: all six
 services expose `/health`, curator and lens both expose `/folders`, and curator
 and quarry both expose `/thumb`, so a shared root is ambiguous. Use prefixes when
 more than one service sits behind the proxy.
@@ -297,6 +321,7 @@ All captioning parameters are exposed in the UI with inline documentation:
 - [argus-quarry](https://github.com/smk762/argus-quarry) — provenance-first PD/CC0 image acquisition (the `gallery` compose profile)
 - [argus-forge](https://github.com/smk762/argus-forge) — training bridge: curated exports → ready-to-run LoRA training configs (the `forge` profile)
 - [argus-proof](https://github.com/smk762/argus-proof) — post-training LoRA evaluation and optimisation (the `proof` profile; [epic](https://github.com/smk762/argus-studio/issues/6))
+- [argus-atlas](https://github.com/smk762/argus-atlas) — georeferenced fantasy-map overlays from real terrain: DEM in, PMTiles out (the `atlas` profile)
 
 ## License
 
