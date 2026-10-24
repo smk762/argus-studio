@@ -1,4 +1,8 @@
-FROM node:22-alpine AS base
+# 22.23.4 rejects certificate chains that contain the compromised eMudhra
+# intermediate keys and updates Node's bundled roots to NSS 3.131.1. A floating
+# 22-alpine tag can stay cached on a pre-incident digest.
+# https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576
+FROM node:22.23.4-alpine AS base
 
 FROM base AS deps
 WORKDIR /app
