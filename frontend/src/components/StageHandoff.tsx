@@ -7,12 +7,13 @@ const TONE: Record<StageTone, string> = {
   amber: "border-accent-amber/40 bg-accent-amber/10 text-accent-amber hover:bg-accent-amber/20",
   green: "border-accent-green/40 bg-accent-green/10 text-accent-green hover:bg-accent-green/20",
   teal: "border-accent-teal/40 bg-accent-teal/10 text-accent-teal hover:bg-accent-teal/20",
+  blue: "border-accent-blue/40 bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20",
 };
 
 /**
  * The "next stage" affordance at the end of a stage's happy path (#67).
  *
- * The suite is a pipeline — gallery, curate, caption, forge, proof — and every
+ * The suite is a pipeline — gallery, curate, caption, forge, proof, atlas — and every
  * hand-off renders through this one component so the sequence reads the same
  * wherever a visitor picks it up. Tone and label default to the destination
  * stage's identity (resolved from `href` via the PIPELINE definition), so a

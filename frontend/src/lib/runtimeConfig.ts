@@ -26,7 +26,7 @@
  * relative URLs (`/scan/folder`). Only an *unset* variable falls back to the
  * `http://localhost:810x` dev defaults. A **path prefix** (`/api/curator`) works
  * the same way and is what you want when more than one service sits behind a
- * single origin — the five backends share `/health`, `/folders` and `/thumb`, so
+ * single origin — the six backends share `/health`, `/folders` and `/thumb`, so
  * at most one of them can be mounted at the origin root. Empty is meaningful
  * only for URLs; for the mode and path settings an empty value is treated as
  * unset, so it cannot silently shadow a legacy `NEXT_PUBLIC_*` name.
@@ -44,6 +44,8 @@ export interface RuntimeConfig {
   forgeUrl: string;
   /** Browser-facing argus-proof API base (post-training eval). */
   proofUrl: string;
+  /** Browser-facing argus-atlas API base (georeferenced map bakes). */
+  atlasUrl: string;
   /** `demo` = bundled read-only sample, `live` = real backends. */
   curatorUiMode: CuratorUiMode;
   /** Scan input directory as seen by argus-curator (container path under Docker). */
@@ -160,6 +162,7 @@ export function resolveRuntimeConfig(
     quarryUrl: resolveBase(source, ["ARGUS_QUARRY_URL", "NEXT_PUBLIC_QUARRY_URL"], "http://localhost:8102"),
     forgeUrl: resolveBase(source, ["ARGUS_FORGE_URL", "NEXT_PUBLIC_FORGE_URL"], "http://localhost:8103"),
     proofUrl: resolveBase(source, ["ARGUS_PROOF_URL", "NEXT_PUBLIC_PROOF_URL"], "http://localhost:8104"),
+    atlasUrl: resolveBase(source, ["ARGUS_ATLAS_URL", "NEXT_PUBLIC_ATLAS_URL"], "http://localhost:8105"),
     curatorUiMode: resolveUiMode(
       firstNonEmpty(source, ["ARGUS_CURATOR_UI_MODE", "NEXT_PUBLIC_CURATOR_UI_MODE"]),
     ),

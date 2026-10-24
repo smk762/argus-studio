@@ -17,6 +17,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ProofBoard } from "@/components/proof/ProofBoard";
 import { NewEvaluation } from "@/components/proof/NewEvaluation";
+import { StageHandoff } from "@/components/StageHandoff";
 
 function verdictDot(s: ReportSummary): string {
   if (s.passed) return "bg-accent-green";
@@ -177,12 +178,20 @@ export default function ProofPage() {
               {loading && <p className="py-12 text-center text-sm text-muted">Loading report…</p>}
               {error && <p className="py-12 text-center text-sm text-accent-red">{error}</p>}
               {!loading && !error && report && (
-                <ProofBoard
-                  key={report.run_id}
-                  initialReport={report}
-                  live={live}
-                  canWrite={writable}
-                />
+                <>
+                  <ProofBoard
+                    key={report.run_id}
+                    initialReport={report}
+                    live={live}
+                    canWrite={writable}
+                  />
+                  {/* A LoRA that passed is ready for the next stage: bake a georeferenced map with it. */}
+                  {report.verdict.passed && (
+                    <div className="mt-6 flex justify-end">
+                      <StageHandoff href="/atlas" />
+                    </div>
+                  )}
+                </>
               )}
               {!loading && !error && !report && summaries.length > 0 && (
                 <p className="py-12 text-center text-sm text-muted">Select a run to review.</p>
