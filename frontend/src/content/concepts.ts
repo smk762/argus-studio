@@ -54,6 +54,8 @@ export const CONCEPTS = {
       "- Flux / SD3 / Kolors / PixArt: ~200 tokens.",
       "",
       "Captions are assembled to fit the selected backend's budget, dropping the lowest-priority fragments first.",
+      "",
+      "Newer argus-lens releases also return a `training_prose` variant, the training caption written as sentences rather than tags. Use it for the T5 backends (Flux, SD3).",
     ].join("\n"),
     example: 'target_backend="sdxl"',
     related: ["target_style", "prose_enrichment"],

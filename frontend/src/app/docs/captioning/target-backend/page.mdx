@@ -33,6 +33,13 @@ wish you could write:
 - **~200 tokens** (Flux, SD3, Kolors, PixArt) — room for scene context, so prose
   enrichment earns its place.
 
+These T5-encoder models read sentences better than tag lists. Newer argus-lens
+releases return a **`training_prose`** variant alongside `training` for every
+caption: the same content written as prose, with identity removed phrase by phrase
+and sized to the T5 budget. When the backend produced no prose it falls back to
+the tag caption. The Caption tool shows it directly under the training variant;
+use it when you train Flux or SD3.
+
 Exceeding the budget is not an error; it is waste. The tokens past the limit are
 assembled, then never seen by the model.
 
