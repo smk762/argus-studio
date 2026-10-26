@@ -105,10 +105,12 @@ services:
       # Which WD v3 tagger to use (default SmilingWolf/wd-vit-tagger-v3). A
       # non-default repo downloads into its own subdir of the WD14 cache below.
       - WD14_MODEL_REPO=${WD14_MODEL_REPO:-}
-      # Optional LLM rewrite of assembled captions; a rewrite is kept only if it
-      # passes lens's post-check. Unset ARGUS_REFINE_MODEL = off.
+      # LLM rewrite of assembled captions; a rewrite is kept only if it passes
+      # lens's post-check. On by default against the ollama service below;
+      # ARGUS_REFINE=off disables it. Unreachable endpoint = deterministic captions.
+      - ARGUS_REFINE=${ARGUS_REFINE:-}
       - ARGUS_REFINE_MODEL=${ARGUS_REFINE_MODEL:-}
-      - ARGUS_REFINE_BASE_URL=${ARGUS_REFINE_BASE_URL:-}
+      - ARGUS_REFINE_BASE_URL=${ARGUS_REFINE_BASE_URL:-http://ollama:11434/v1}
       - ARGUS_REFINE_API_KEY=${ARGUS_REFINE_API_KEY:-}
       - ARGUS_REFINE_VARIANTS=${ARGUS_REFINE_VARIANTS:-}
       # Sharing the GPU with ComfyUI: free lens's VRAM after N idle seconds.
@@ -131,10 +133,34 @@ services:
       - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
       # WD14 tagger weights. RW so a new WD14_MODEL_REPO can download into it.
       - ${WD14_CACHE_DIR:-${HOME}/.cache/wd14_tagger}:/root/.cache/wd14_tagger
+      # RAM++ photo-tagger checkpoint (~3 GB, downloaded on first use by
+      # ARGUS_BACKEND=ram / hybrid:ram+...). Mounted so it survives recreation.
+      - ${RAM_CACHE_DIR:-${HOME}/.cache/ram_plus}:/root/.cache/ram_plus
     extra_hosts:
       # Reach an Ollama (or other OpenAI-compatible server) on the compose host.
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+
+  # LLM for lens's caption refinement. Internal only (no published port): lens
+  # reaches it as http://ollama:11434/v1. ~6 GB VRAM for qwen3:8b while loaded.
+  ollama:
+    profiles: ["lens", "full"]
+    image: ollama/ollama:${OLLAMA_TAG:-0.40.11}
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+  # One-shot: pull the refine model into the ollama volume (a no-op once
+  # present). Retries until the ollama server is up.
+  ollama-pull:
+    profiles: ["lens", "full"]
+    image: ollama/ollama:${OLLAMA_TAG:-0.40.11}
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    command: ["pull", "${ARGUS_REFINE_MODEL:-qwen3:8b}"]
+    depends_on:
+      - ollama
+    restart: on-failure
 
   argus-curator:
     # Also in the forge profile: /forge trains on a curator export, and the
@@ -344,3 +370,7 @@ services:
       - ${PUBLIC_DOMAIN_DIR:-./public_domain}:/data/public_domain:ro
     command: ["serve", "--host", "0.0.0.0", "--port", "8102", "--cors"]
     restart: unless-stopped
+
+volumes:
+  ollama:
+    name: argus-ollama
