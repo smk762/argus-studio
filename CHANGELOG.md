@@ -6,6 +6,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Added
 
+- **Bundled Ollama for lens caption refinement**: an `ollama` service (pinned to 0.40.11, internal only) and a one-shot `ollama-pull` that fetches `${ARGUS_REFINE_MODEL:-qwen3:8b}` start with the `lens`/`full` profiles. Lens's `ARGUS_REFINE_BASE_URL` defaults to `http://ollama:11434/v1`, and `ARGUS_REFINE=off` is now passed through to opt out. Lens refines by default from smk762/argus-lens#72. GPU access for `ollama` is in `compose.gpu.yaml`, and its models live in the `argus-ollama` volume.
+- The RAM++ checkpoint cache (`RAM_CACHE_DIR`, default `~/.cache/ram_plus`) is mounted into lens, so `ARGUS_BACKEND=hybrid:ram+florence2` doesn't re-download 3 GB when the container is recreated. `.env.example` recommends RAM++ over WD14 for photo libraries.
 - Unit tests and a CI gate ([#64](https://github.com/smk762/argus-studio/issues/64)): vitest over `src/lib`'s pure logic (the curator export seam, capability readers, runtime config, proof review rollup, NDJSON reader, error formatting), and `.github/workflows/ci.yml` running lint, typecheck and the tests on every PR. `npm test` and `npm run typecheck` scripts.
 
 ### Fixed
