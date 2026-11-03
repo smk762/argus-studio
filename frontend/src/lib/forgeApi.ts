@@ -8,7 +8,7 @@
 import type { TargetCategory, TargetProfile } from "@/components/curator/types";
 import { forgeUrl } from "@/lib/curatorEnv";
 import { asError } from "@/lib/apiError";
-import { capabilityOf, type Capability } from "@/lib/capabilities";
+import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 
 export type TrainerId = "kohya" | "onetrainer" | "diffusers";
 
@@ -169,10 +169,17 @@ export interface ForgeHealth {
   training?: "enabled" | "disabled";
 }
 
-export async function getForgeHealth(signal?: AbortSignal): Promise<ForgeHealth> {
+async function fetchForgeHealth(signal?: AbortSignal): Promise<ForgeHealth> {
   const resp = await fetch(`${forgeUrl()}/health`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+/** The posture a writing {@link forgeConfig} gates on. */
+const forgeHealth = healthMemo(fetchForgeHealth);
+
+export async function getForgeHealth(signal?: AbortSignal): Promise<ForgeHealth> {
+  return forgeHealth.remember(await fetchForgeHealth(signal));
 }
 
 /**
@@ -198,8 +205,19 @@ export function allowsTraining(health: ForgeHealth | null): Capability {
  * caption sidecars from the manifest's source paths first, so running this
  * after the lens caption handoff picks the fresh captions up. `dry_run`
  * returns file contents without touching the filesystem.
+ *
+ * Only a writing call is gated: a demo-safe forge still renders previews, but
+ * forces them to dry-run, so asking it to write would silently not.
  */
 export async function forgeConfig(req: ForgeRequest, signal?: AbortSignal): Promise<ForgeResult> {
+  if (!req.dry_run) {
+    await requireCapability(
+      forgeHealth,
+      allowsTraining,
+      "This argus-forge server is demo-safe: it renders config previews but won't write them or train.",
+      signal,
+    );
+  }
   const resp = await fetch(`${forgeUrl()}/config`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

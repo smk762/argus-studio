@@ -10,6 +10,10 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 - The RAM++ checkpoint cache (`RAM_CACHE_DIR`, default `~/.cache/ram_plus`) is mounted into lens, so `ARGUS_BACKEND=hybrid:ram+florence2` doesn't re-download 3 GB when the container is recreated. `.env.example` recommends RAM++ over WD14 for photo libraries.
 - Unit tests and a CI gate ([#64](https://github.com/smk762/argus-studio/issues/64)): vitest over `src/lib`'s pure logic (the curator export seam, capability readers, runtime config, proof review rollup, NDJSON reader, error formatting), and `.github/workflows/ci.yml` running lint, typecheck and the tests on every PR. `npm test` and `npm run typecheck` scripts.
 
+### Changed
+
+- Backend writes are gated in the API clients instead of per component ([#75](https://github.com/smk762/argus-studio/issues/75)). Before sending, proof runs and reviews, curator exports (manifest major, export root, and move), writing forge configs, atlas bakes and quarry slice fetches each check the server's advertised capability, probing `/health` first if the page hasn't. A refused write throws `CapabilityRefused` with the reason and never reaches the server, so a new caller can't reintroduce a dead button or a raw 403.
+
 ### Fixed
 
 - A scheme-less API base such as `ARGUS_CURATOR_URL=curator:8101` now gets the startup warning it was meant to. `new URL()` parses `curator:` as a scheme, so the check passed it silently and the mistake only showed as `Failed to fetch` in the browser.
