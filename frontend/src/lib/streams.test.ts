@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { asError } from "@/lib/apiError";
+import { isDeterminatePhase, readSseStream, scanPhaseLabel, StreamCancelled } from "@/lib/curatorApi";
 import { readNdjson } from "@/lib/lensApi";
 import { basename, joinPath } from "@/lib/path";
 
@@ -71,5 +72,69 @@ describe("path helpers", () => {
     expect(basename("/data/out/b.jpg")).toBe("b.jpg");
     expect(basename("/data/out/")).toBe("out");
     expect(basename("b.jpg")).toBe("b.jpg");
+  });
+});
+
+describe("curator readSseStream", () => {
+  const sse = (frames: string[]) => chunked(frames).body!;
+
+  it("dispatches progress, ignores chunk frames, resolves with complete", async () => {
+    const seen: unknown[] = [];
+    const out = await readSseStream<unknown, { scan_id: string }>(
+      sse([
+        'event: progress\ndata: {"phase":"nsfw","done":1,"total":4}\n\n',
+        'event: chunk\ndata: {"results":[]}\n\nevent: comp',
+        'lete\ndata: {"scan_id":"s1"}\n\n',
+      ]),
+      (p) => seen.push(p),
+      "Scan",
+    );
+    expect(seen).toEqual([{ phase: "nsfw", done: 1, total: 4 }]);
+    expect(out).toEqual({ scan_id: "s1" });
+  });
+
+  it("throws StreamCancelled on event: cancelled", async () => {
+    const run = readSseStream(sse(['event: cancelled\ndata: {"scan_id":"s1"}\n\n']), () => {}, "Scan");
+    await expect(run).rejects.toBeInstanceOf(StreamCancelled);
+    await expect(
+      readSseStream(sse(['event: cancelled\ndata: {"scan_id":"s1"}\n\n']), () => {}, "Scan"),
+    ).rejects.toThrow(/Scan was stopped/);
+  });
+
+  it("appends retry_after to a GPU-busy error", async () => {
+    const run = readSseStream(
+      sse(['event: error\ndata: {"detail":"GPU busy: lease timed out","retry_after":5}\n\n']),
+      () => {},
+      "Scan",
+    );
+    await expect(run).rejects.toThrow("GPU busy: lease timed out (retry in 5s)");
+  });
+
+  it("still fails when the stream ends without a result", async () => {
+    await expect(readSseStream(sse(['event: progress\ndata: {"phase":"scoring","done":0,"total":1}\n\n']), () => {}, "Export")).rejects.toThrow(
+      "Export stream ended without a result",
+    );
+  });
+});
+
+describe("scan phases", () => {
+  it("labels every phase curator 0.13 emits", () => {
+    for (const p of ["collecting", "scoring", "faces", "erax", "nsfw", "identities", "prefilter", "scenes", "garments", "guard", "clustering"]) {
+      expect(scanPhaseLabel(p)).not.toBe("");
+    }
+    expect(scanPhaseLabel("guard")).toBe("Running SingGuard");
+  });
+
+  it("falls back to a readable label for an unknown phase", () => {
+    expect(scanPhaseLabel("crop_boxes")).toBe("Crop boxes");
+    expect(scanPhaseLabel("")).toBe("Working");
+    expect(scanPhaseLabel("toString")).toBe("ToString");
+  });
+
+  it("only gives running-count phases a determinate bar", () => {
+    expect(isDeterminatePhase("nsfw")).toBe(true);
+    expect(isDeterminatePhase("crop_boxes")).toBe(true);
+    expect(isDeterminatePhase("collecting")).toBe(false);
+    expect(isDeterminatePhase("identities")).toBe(false);
   });
 });
