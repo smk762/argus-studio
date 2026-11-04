@@ -29,6 +29,8 @@ import {
   captionFilesStream,
   captionFolder,
   captionManifestStream,
+  categoryOptions,
+  getLensHealth,
   getLensProfiles,
   immichCaptionStream,
   listImmichAlbums,
@@ -57,6 +59,10 @@ export default function Home() {
   const [recursive, setRecursive] = useState(false);
   const [writeSidecar, setWriteSidecar] = useState(true);
   const [writeXmp, setWriteXmp] = useState(false);
+  // Lens ≥ 0.7 merges into an existing .xmp by default; this discards it instead.
+  const [xmpOverwrite, setXmpOverwrite] = useState(false);
+  // Server path of the curator export root, for manifest 2.0 rows after a move export.
+  const [manifestExportRoot, setManifestExportRoot] = useState("");
   const [manifestFile, setManifestFile] = useState<File | null>(null);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -67,6 +73,9 @@ export default function Home() {
   const [targetBackend, setTargetBackend] = useState("sdxl");
   const [targetStyle, setTargetStyle] = useState("photo");
   const [targetCategory, setTargetCategory] = useState("identity");
+  // Lens's own category list once /profiles answers; the static list until then
+  // (and in demo mode). An unknown category captions to an empty string (#102).
+  const [categories, setCategories] = useState(() => categoryOptions(undefined, TARGET_CATEGORIES));
   const [proseEnrichment, setProseEnrichment] = useState(true);
   const [hybridPresets, setHybridPresets] = useState<Record<string, number>>(FALLBACK_HYBRID_PRESETS);
   const [hybrid, setHybrid] = useState<HybridBalanceValue>({
@@ -125,15 +134,13 @@ export default function Home() {
       try {
         // Version from /health (newer lens), backend readiness from /backends;
         // tolerate either being missing so older servers still show status.
+        // getLensHealth also primes the memo lens's write fetchers gate on (#105).
         const [healthResp, backendsResp] = await Promise.allSettled([
-          fetch(`${lensUrl()}/health`),
+          getLensHealth(),
           fetch(`${lensUrl()}/backends`),
         ]);
         let version = "";
-        if (healthResp.status === "fulfilled" && healthResp.value.ok) {
-          const h: { version?: string } = await healthResp.value.json();
-          if (h.version) version = `v${h.version}`;
-        }
+        if (healthResp.status === "fulfilled" && healthResp.value.version) version = `v${healthResp.value.version}`;
         let backendsLabel = "";
         if (backendsResp.status === "fulfilled" && backendsResp.value.ok) {
           const data: { backends?: Record<string, { available?: boolean }> } = await backendsResp.value.json();
@@ -158,6 +165,12 @@ export default function Home() {
     getLensProfiles()
       .then((profiles) => {
         if (cancelled) return;
+        if (profiles.target_categories?.length) {
+          const opts = categoryOptions(profiles.target_categories, TARGET_CATEGORIES);
+          setCategories(opts);
+          // A category this lens doesn't know would caption to an empty string.
+          setTargetCategory((cur) => (opts.some((o) => o.value === cur) ? cur : opts[0].value));
+        }
         const presets = profiles.hybrid_presets;
         if (presets && Object.keys(presets).length > 0) {
           setHybridPresets(presets);
@@ -234,6 +247,7 @@ export default function Home() {
         recursive,
         write_sidecar: writeSidecar,
         write_xmp: writeXmp,
+        xmp_overwrite: writeXmp && xmpOverwrite,
         target_style: targetStyle,
         target_category: targetCategory,
         target_backend: targetBackend,
@@ -285,7 +299,12 @@ export default function Home() {
             errors: [...errors],
           });
         },
-        { write_sidecar: writeSidecar, write_xmp: writeXmp },
+        {
+          write_sidecar: writeSidecar,
+          write_xmp: writeXmp,
+          xmp_overwrite: writeXmp && xmpOverwrite,
+          export_root: manifestExportRoot,
+        },
       );
       setBatchResult({ ...summary, results: rows, errors });
     } catch (err) {
@@ -305,7 +324,7 @@ export default function Home() {
     setCaptionedFolder(null);
     setProgress({ done: 0, total: files.length });
     try {
-      const rows = await captionFilesStream(
+      const { rows, errors } = await captionFilesStream(
         files,
         {
           target_style: targetStyle,
@@ -315,7 +334,9 @@ export default function Home() {
         },
         (_row, done) => setProgress({ done, total: files.length }),
       );
-      if (rows.length === 1 && files.length === 1) {
+      if (rows.length === 0 && errors.length > 0) {
+        setError(errors.length === 1 ? errors[0].error : `${errors.length} images failed: ${errors[0].error}`);
+      } else if (rows.length === 1 && files.length === 1) {
         // Single upload: show the full variant/raw-output breakdown like URL mode.
         setResult(rows[0]);
         // Revoke the previous blob URL before minting a new one — re-captioning
@@ -325,16 +346,18 @@ export default function Home() {
         setAnalyzedUrl(objectUrlRef.current);
         setLastSingle({ kind: "upload", file: files[0] });
       } else {
-        const skipped = files.length - rows.length;
+        const skipped = files.length - rows.length - errors.length;
         setBatchResult({
           total: files.length,
           captioned: rows.length,
-          failed: skipped,
+          failed: skipped + errors.length,
           results: rows.map((r) => ({ rel_path: r.name, final_caption: r.final_caption })),
-          errors:
-            skipped > 0
+          errors: [
+            ...errors.map((e) => ({ rel_path: e.name, error: e.error })),
+            ...(skipped > 0
               ? [{ rel_path: "(skipped)", error: `${skipped} file(s) could not be decoded as images` }]
-              : [],
+              : []),
+          ],
         });
         setBatchSource(`${files.length} uploaded file(s)`);
       }
@@ -612,7 +635,7 @@ export default function Home() {
               <div className="flex flex-wrap gap-5">
                 <Toggle checked={recursive} onChange={setRecursive} label="Recursive" />
                 <Toggle checked={writeSidecar} onChange={setWriteSidecar} label="Write .txt sidecars" />
-                <Toggle checked={writeXmp} onChange={setWriteXmp} label="Write .xmp sidecars" />
+                <XmpToggles writeXmp={writeXmp} onWriteXmp={setWriteXmp} overwrite={xmpOverwrite} onOverwrite={setXmpOverwrite} />
               </div>
             </div>
           )}
@@ -641,9 +664,24 @@ export default function Home() {
                   {loading ? <Spinner label="Captioning..." /> : "Caption manifest"}
                 </button>
               </div>
+              <label className="block space-y-1">
+                <span className="text-xs text-muted">
+                  Export root on the lens host (optional). Lens then reads manifest 2.0 rows from{" "}
+                  <span className="font-mono text-foreground/80">export_root/exported_path</span>, which still works
+                  after a move export. Leave empty to read each row&apos;s{" "}
+                  <span className="font-mono text-foreground/80">abs_path</span> from a volume shared with the curator.
+                </span>
+                <input
+                  type="text"
+                  value={manifestExportRoot}
+                  onChange={(e) => setManifestExportRoot(e.target.value)}
+                  placeholder="/data/out"
+                  className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent-purple/50 text-sm font-mono"
+                />
+              </label>
               <div className="flex flex-wrap items-center gap-5">
                 <Toggle checked={writeSidecar} onChange={setWriteSidecar} label="Write .txt sidecars" />
-                <Toggle checked={writeXmp} onChange={setWriteXmp} label="Write .xmp sidecars" />
+                <XmpToggles writeXmp={writeXmp} onWriteXmp={setWriteXmp} overwrite={xmpOverwrite} onOverwrite={setXmpOverwrite} />
                 {progress && <ProgressLine done={progress.done} total={progress.total} />}
               </div>
             </div>
@@ -694,7 +732,7 @@ export default function Home() {
                 onChange={(e) => setTargetCategory(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple/50 cursor-pointer"
               >
-                {TARGET_CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                   <option key={cat.value} value={cat.value}>
                     {cat.label}
                   </option>
@@ -856,7 +894,7 @@ export default function Home() {
                 <PipelineStep
                   number={2}
                   title="Fragment classification"
-                  description="Each tag or phrase is classified into: identity, wardrobe, camera/framing, pose/gaze, setting, lighting, action. Camera framing is hard-protected (never dropped); pose/gaze is soft-protected."
+                  description="Each tag or phrase is classified into: identity, wardrobe, pose/composition, setting, lighting, action. The training caption fills pose/composition first and leaves identity out, since the LoRA learns identity from the pixels."
                 />
                 <PipelineStep
                   number={3}
@@ -922,6 +960,30 @@ function Spinner({ label }: { label: string }) {
       </svg>
       {label}
     </span>
+  );
+}
+
+/** The .xmp toggle, plus lens ≥ 0.7's merge/overwrite choice once it's on. */
+function XmpToggles({
+  writeXmp,
+  onWriteXmp,
+  overwrite,
+  onOverwrite,
+}: {
+  writeXmp: boolean;
+  onWriteXmp: (v: boolean) => void;
+  overwrite: boolean;
+  onOverwrite: (v: boolean) => void;
+}) {
+  return (
+    <>
+      <Toggle
+        checked={writeXmp}
+        onChange={onWriteXmp}
+        label={writeXmp && !overwrite ? "Write .xmp sidecars (merge into existing)" : "Write .xmp sidecars"}
+      />
+      {writeXmp && <Toggle checked={overwrite} onChange={onOverwrite} label="Replace existing .xmp" />}
+    </>
   );
 }
 

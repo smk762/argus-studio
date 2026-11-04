@@ -26,8 +26,14 @@ export interface CaptionFolderRequest {
   folder: string;
   recursive?: boolean;
   write_sidecar?: boolean;
-  /** Also write <image>.xmp sidecars (dc:subject/dc:description) for Lightroom/digiKam/Immich. */
+  /**
+   * Also write <image>.xmp sidecars (dc:subject/dc:description) for
+   * Lightroom/digiKam/Immich. An existing sidecar is merged (only those two
+   * properties replaced) unless xmp_overwrite is set (lens ≥ 0.7).
+   */
   write_xmp?: boolean;
+  /** Discard an existing .xmp sidecar instead of merging into it. */
+  xmp_overwrite?: boolean;
   trigger_word?: string;
   target_style?: string;
   target_category?: string;
@@ -44,6 +50,8 @@ export interface CaptionFolderRequest {
 export interface BatchCaptionRow {
   rel_path: string;
   final_caption: string;
+  /** Where the .xmp sidecar was written, when write_xmp wrote one (lens ≥ 0.7). */
+  xmp_path?: string;
 }
 
 export interface BatchCaptionError {
@@ -56,6 +64,8 @@ export interface BatchCaptionResult {
   total: number;
   captioned: number;
   failed: number;
+  /** Sidecars written (lens ≥ 0.7). */
+  xmp_written?: number;
   results: BatchCaptionRow[];
   errors: BatchCaptionError[];
 }
@@ -75,8 +85,7 @@ export const TARGET_STYLES = ["photo", "anime"] as const;
 export const TARGET_CATEGORIES = [
   { value: "identity", label: "Identity" },
   { value: "wardrobe", label: "Wardrobe" },
-  { value: "camera_framing", label: "Camera / Framing" },
-  { value: "pose_gaze", label: "Pose / Gaze" },
+  { value: "pose_composition", label: "Pose / Composition" },
   { value: "setting", label: "Setting" },
   { value: "lighting", label: "Lighting" },
   { value: "action", label: "Action" },

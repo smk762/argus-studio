@@ -144,3 +144,34 @@ describe("forge, atlas and quarry writes", () => {
     await expect(fetchSlice(spec, () => {})).rejects.toThrow("reached the server");
   });
 });
+
+describe("lens writes", () => {
+  it("refuses folder captioning when lens has no source root", async () => {
+    routes["GET /health"] = () => json({ status: "ok", service: "argus-lens", version: "0.10.0", source_root: null });
+    routes["POST /caption/folder"] = sent;
+    const { captionFolder } = await import("@/lib/lensApi");
+    const { CapabilityRefused } = await import("@/lib/capabilities");
+
+    const err = await captionFolder({ folder: "x" }).catch((e) => e);
+    expect(err).toBeInstanceOf(CapabilityRefused);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("sends once a source root is advertised, reusing the page's health", async () => {
+    routes["GET /health"] = () => json({ status: "ok", service: "argus-lens", version: "0.10.0", source_root: "/data/images" });
+    routes["POST /immich/pull"] = sent;
+    const { getLensHealth, immichPullStream } = await import("@/lib/lensApi");
+
+    await getLensHealth();
+    await expect(immichPullStream({ album_id: "a", dest_folder: "d" }, () => {})).rejects.toThrow("reached the server");
+    expect(calls).toEqual(["GET /health", "POST /immich/pull"]);
+  });
+
+  it("treats a lens predating source_root as configured", async () => {
+    routes["GET /health"] = () => json({ status: "ok", service: "argus-lens", version: "0.5.0" });
+    routes["POST /caption/folder"] = sent;
+    const { captionFolder } = await import("@/lib/lensApi");
+
+    await expect(captionFolder({ folder: "x" })).rejects.toThrow("reached the server");
+  });
+});

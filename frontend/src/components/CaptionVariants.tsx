@@ -7,7 +7,6 @@ interface VariantStyle {
   label: string;
   border: string;
   labelColor: string;
-  alias?: boolean;
 }
 
 const VARIANT_STYLES: Record<string, VariantStyle> = {
@@ -38,15 +37,10 @@ const VARIANT_STYLES: Record<string, VariantStyle> = {
     border: "border-l-accent-green",
     labelColor: "text-accent-green",
   },
-  camera_framing: {
-    label: "CAMERA / FRAMING",
+  pose_composition: {
+    label: "POSE / COMPOSITION",
     border: "border-l-accent-orange",
     labelColor: "text-accent-orange",
-  },
-  pose_gaze: {
-    label: "POSE / GAZE",
-    border: "border-l-accent-amber",
-    labelColor: "text-accent-amber",
   },
   setting: {
     label: "SETTING",
@@ -63,12 +57,6 @@ const VARIANT_STYLES: Record<string, VariantStyle> = {
     border: "border-l-accent-pink",
     labelColor: "text-accent-pink",
   },
-  pose_composition: {
-    label: "POSE (legacy alias)",
-    border: "border-l-muted",
-    labelColor: "text-muted",
-    alias: true,
-  },
 };
 
 const VARIANT_ORDER = [
@@ -77,12 +65,10 @@ const VARIANT_ORDER = [
   "zeroshot",
   "identity",
   "wardrobe",
-  "camera_framing",
-  "pose_gaze",
+  "pose_composition",
   "setting",
   "lighting",
   "action",
-  "pose_composition",
 ];
 
 function getVariantStyle(key: string): VariantStyle {
@@ -99,13 +85,8 @@ interface CaptionVariantsProps {
   result: CaptionResult;
 }
 
-function hasOwn(o: object, k: string): boolean {
-  return Object.prototype.hasOwnProperty.call(o, k);
-}
-
 export function CaptionVariants({ result }: CaptionVariantsProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [showAlias, setShowAlias] = useState(false);
 
   const derived = result.final_caption;
   const variants = result.caption_variants;
@@ -116,24 +97,10 @@ export function CaptionVariants({ result }: CaptionVariantsProps) {
     setTimeout(() => setCopiedKey(null), 1500);
   };
 
-  const hideLegacyPoseComposition =
-    hasOwn(variants, "camera_framing") && hasOwn(variants, "pose_gaze");
-
-  const sortedEntries = VARIANT_ORDER.filter((k) => {
-    if (hideLegacyPoseComposition && k === "pose_composition") return false;
-    return k in variants;
-  })
+  // Known variants in lens's order, then anything newer this client has no style for.
+  const entries = VARIANT_ORDER.filter((k) => k in variants)
     .map((k) => [k, variants[k]] as [string, string])
-    .concat(
-      Object.entries(variants).filter(
-        ([k]) =>
-          !VARIANT_ORDER.includes(k) &&
-          !(hideLegacyPoseComposition && k === "pose_composition"),
-      ),
-    );
-
-  const mainEntries = sortedEntries.filter(([k]) => !VARIANT_STYLES[k]?.alias);
-  const aliasEntries = sortedEntries.filter(([k]) => VARIANT_STYLES[k]?.alias);
+    .concat(Object.entries(variants).filter(([k]) => !VARIANT_ORDER.includes(k)));
 
   return (
     <div className="space-y-3">
@@ -160,7 +127,7 @@ export function CaptionVariants({ result }: CaptionVariantsProps) {
       </div>
 
       {/* Category variants */}
-      {mainEntries.map(([key, caption]) => {
+      {entries.map(([key, caption]) => {
         const style = getVariantStyle(key);
         return (
           <div
@@ -185,48 +152,6 @@ export function CaptionVariants({ result }: CaptionVariantsProps) {
         );
       })}
 
-      {/* Backward-compat alias — collapsed by default */}
-      {aliasEntries.length > 0 && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setShowAlias((v) => !v)}
-            className="text-xs text-muted hover:text-foreground/60 transition-colors cursor-pointer flex items-center gap-1"
-          >
-            <span>{showAlias ? "▾" : "▸"}</span>
-            {showAlias ? "Hide" : "Show"} legacy aliases ({aliasEntries.length})
-          </button>
-          {showAlias && aliasEntries.map(([key, caption]) => {
-            const style = getVariantStyle(key);
-            return (
-              <div
-                key={key}
-                className={`mt-2 rounded-lg border border-border/50 bg-surface/50 p-4 border-l-4 ${style.border} opacity-60`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-bold tracking-wider ${style.labelColor}`}>
-                      {style.label}
-                    </span>
-                    <span className="text-xs bg-border/60 text-muted px-1.5 py-0.5 rounded">
-                      camera_framing + pose_gaze
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleCopy(caption, key)}
-                    className="text-xs text-accent-teal/60 hover:text-accent-teal/80 transition-colors cursor-pointer"
-                  >
-                    {copiedKey === key ? "Copied!" : "Copy"}
-                  </button>
-                </div>
-                <p className="text-sm text-foreground/60 leading-relaxed">
-                  {caption}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
