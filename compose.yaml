@@ -19,7 +19,8 @@
 #   docker compose --profile full    pull    # refresh images to the current *_TAG
 #                                            # (`up` will NOT re-pull a tag already cached locally)
 #
-# Pin a specific released version with the *_TAG vars in .env (default `latest`):
+# Pin a specific released version with the *_TAG vars in .env (default `latest`,
+# except LENS_TAG and ATLAS_TAG, which default to a pinned release; see .env.example):
 #   CURATOR_TAG / LENS_TAG / QUARRY_TAG / FORGE_TAG / PROOF_TAG / ATLAS_TAG.
 # (Only `frontend` is always built locally from ./frontend — it is this repo,
 # argus-studio, and has no published image yet.)
@@ -80,12 +81,16 @@ services:
     profiles: ["lens", "full"]
     # Default: pull the published standalone image (baked EXTRAS=server,local).
     # For a source build (or a different LENS_EXTRAS) add compose.build.yaml.
-    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-latest}
+    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.10.0}
     ports:
       - "${LENS_PORT:-8100}:8100"
     environment:
       - ARGUS_BACKEND=${ARGUS_BACKEND:-hybrid}
       - ARGUS_API_KEY=${ARGUS_API_KEY:-}
+      # Browser origins allowed to call lens. Ignored by lens 0.10 (its --cors
+      # allows any origin); from the next lens release an empty value means
+      # localhost:3000 only, and cross-site writes from other origins get 403.
+      - LENS_CORS_ORIGINS=${LENS_CORS_ORIGINS:-}
       # Optional Immich integration (caption page "Immich" mode + pull-to-dataset).
       # Leave unset to disable; lens's /immich/* endpoints then return 503.
       - IMMICH_URL=${IMMICH_URL:-}
@@ -281,7 +286,7 @@ services:
     # Demo-safe: POST /bake/stream 403s unless ATLAS_ALLOW_BAKE=1, and the
     # server never fetches OSM unless ATLAS_ALLOW_OSM=1. POST /controls and
     # POST /tiles are GDAL-only and always allowed.
-    image: ghcr.io/smk762/argus-atlas:${ATLAS_TAG:-latest}
+    image: ghcr.io/smk762/argus-atlas:${ATLAS_TAG:-0.3.0a1}
     ports:
       - "${ATLAS_PORT:-8105}:8105"
     environment:
