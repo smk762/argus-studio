@@ -24,7 +24,16 @@ import {
   type ImageResult,
   type ScanSummary,
 } from "@/components/curator/types";
-import { getDetectors, getHealth, getScan, scanFolderStream, type Health, type ScanProgress } from "@/lib/curatorApi";
+import {
+  getDetectors,
+  getHealth,
+  getScan,
+  isDeterminatePhase,
+  scanFolderStream,
+  scanPhaseLabel,
+  type Health,
+  type ScanProgress,
+} from "@/lib/curatorApi";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { useDeepLink } from "@/lib/deepLink";
 
@@ -436,20 +445,9 @@ export default function CuratePage() {
   );
 }
 
-const PHASE_LABELS: Record<ScanProgress["phase"], string> = {
-  collecting: "Reading images from disk",
-  scoring: "Scoring images",
-  faces: "Detecting & clustering faces",
-  clustering: "Grouping near-duplicates",
-};
-
-// Phases that report a meaningful running count (determinate bar). The others
-// (collecting / near-duplicate clustering) are quick and shown as pending.
-const DETERMINATE_PHASES: ScanProgress["phase"][] = ["scoring", "faces"];
-
 function ScanProgressView({ progress }: { progress: ScanProgress | null }) {
-  const label = progress ? PHASE_LABELS[progress.phase] : "Starting scan";
-  const hasCount = !!progress && DETERMINATE_PHASES.includes(progress.phase) && progress.total > 0;
+  const label = progress ? scanPhaseLabel(progress.phase) : "Starting scan";
+  const hasCount = !!progress && isDeterminatePhase(progress.phase) && progress.total > 0;
   const pct = hasCount ? Math.round((progress!.done / progress!.total) * 100) : null;
 
   return (
