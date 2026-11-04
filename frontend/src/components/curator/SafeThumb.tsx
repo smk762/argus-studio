@@ -11,6 +11,8 @@ interface Props {
   img: ImageResult;
   /** The finished scan ran NudeNet (`nsfw_config.enabled`). */
   nsfwRan: boolean;
+  /** Checks still running on this scan. Empty once it has finished. */
+  pending?: readonly string[];
   fit?: "cover" | "contain";
   rounded?: string;
   /**
@@ -24,8 +26,8 @@ interface Props {
  * A thumbnail with the blur veil. The reveal control is a sibling of the
  * picture button, so it is not nested inside it.
  */
-export function SafeThumb({ scanId, img, nsfwRan, fit = "cover", rounded = "", onActivate }: Props) {
-  const safety = thumbSafety(img, nsfwRan);
+export function SafeThumb({ scanId, img, nsfwRan, pending = [], fit = "cover", rounded = "", onActivate }: Props) {
+  const safety = thumbSafety(img, nsfwRan, pending);
   // The path that was revealed, not a boolean: navigating to another frame
   // stops matching and the veil comes back without resetting state in an effect.
   const [revealedPath, setRevealedPath] = useState<string | null>(null);

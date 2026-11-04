@@ -112,6 +112,44 @@ describe("curator export", () => {
   });
 });
 
+describe("curator scan control", () => {
+  const curator = (extra: object) => () =>
+    json({ status: "ok", service: "argus-curator", version: "0.14.0", manifest_version: "2.1", ...extra });
+
+  it("refuses stop and purge when the server does not advertise scan control", async () => {
+    routes["GET /health"] = curator({ scan_control: false });
+    routes["POST /scan/abc/cancel"] = sent;
+    routes["POST /scans/purge"] = sent;
+    const { cancelScan, purgeScans } = await import("@/lib/curatorApi");
+
+    await expect(cancelScan("abc")).rejects.toThrow(/stop a running scan/);
+    await expect(purgeScans()).rejects.toThrow(/purge/);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("treats a curator that omits scan_control as unable to stop", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/abc/cancel"] = sent;
+    const { cancelScan } = await import("@/lib/curatorApi");
+
+    await expect(cancelScan("abc")).rejects.toThrow(/stop a running scan/);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("sends cancel and purge once the server allows them", async () => {
+    routes["GET /health"] = curator({ scan_control: true });
+    routes["POST /scan/abc/cancel"] = () => json({ scan_id: "abc", cancelling: true });
+    routes["POST /scans/purge"] = () => json({ cancelled: null, deleted: [] });
+    const { cancelScan, getHealth, purgeScans } = await import("@/lib/curatorApi");
+
+    await getHealth();
+    await cancelScan("abc");
+    const purged = await purgeScans();
+    expect(purged).toEqual({ cancelled: null, deleted: [] });
+    expect(calls).toEqual(["GET /health", "POST /scan/abc/cancel", "POST /scans/purge"]);
+  });
+});
+
 describe("forge, atlas and quarry writes", () => {
   it("forge: a dry-run preview is never gated; a write is", async () => {
     routes["GET /health"] = () => json({ status: "ok", service: "argus-forge", version: "0.1.1", training: "disabled" });

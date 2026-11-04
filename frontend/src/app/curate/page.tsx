@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
@@ -25,16 +25,22 @@ import {
   type ScanSummary,
 } from "@/components/curator/types";
 import {
+  allowsScanControl,
+  cancelScan,
   getDetectors,
   getHealth,
   getScan,
   isDeterminatePhase,
+  purgeScans,
   scanFolderStream,
   scanPhaseLabel,
+  StreamCancelled,
   type Health,
   type ScanProgress,
 } from "@/lib/curatorApi";
+import { capabilityReason, permits } from "@/lib/capabilities";
 import { canExport, scanCheckedNsfw } from "@/lib/curatorSafety";
+import { mergeChunk, pendingCaption } from "@/lib/scanChunks";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { useDeepLink } from "@/lib/deepLink";
 
@@ -48,6 +54,7 @@ interface ScanHistoryEntry {
 }
 
 const HISTORY_KEY = "argus.curate.scanHistory";
+const SCAN_CONTROL_DENIED = "This curator cannot stop or purge a scan (it predates scan control).";
 const HISTORY_MAX = 8;
 
 function loadHistory(): ScanHistoryEntry[] {
@@ -73,7 +80,12 @@ export default function CuratePage() {
   const [summary, setSummary] = useState<ScanSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
+  const [pending, setPending] = useState<string[]>([]);
+  const [stopping, setStopping] = useState(false);
+  const [purging, setPurging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const stopKind = useRef<"stop" | "purge" | null>(null);
   const [version, setVersion] = useState<string | null>(null);
   // Full /health, fetched once here and passed to ExportPanel (which needs
   // allow_move / export_root) so the page makes a single health request.
@@ -166,25 +178,103 @@ export default function CuratePage() {
 
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLive() || !folderPath.trim()) return;
+    if (!isLive() || !folderPath.trim() || purging) return;
+    stopKind.current = null;
     setError(null);
+    setNotice(null);
     setProgress(null);
+    setPending([]);
+    setSummary(null);
+    setSelected(new Set());
+    setDetail(null);
+    setFilters(defaultFilters());
     setLoading(true);
     try {
-      const data = await scanFolderStream(folderPath.trim(), config, setProgress);
+      const data = await scanFolderStream(
+        folderPath.trim(),
+        config,
+        (update) => {
+          setProgress(update);
+          if (update.pending_checks) setPending(update.pending_checks);
+        },
+        (chunk) => {
+          setPending(chunk.pending_checks ?? []);
+          setSummary((current) => mergeChunk(current, chunk, config));
+        },
+      );
+      setPending([]);
       applySummary(data);
       recordScan(data, folderPath.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Scan failed");
+      if (err instanceof StreamCancelled) {
+        setSummary(null);
+        setSelected(new Set());
+        setPending([]);
+        setDetail(null);
+        const kind = stopKind.current;
+        if (kind === "purge") setNotice("Cached scans were deleted, and the running scan was dropped.");
+        else if (kind === "stop") setNotice("Scan stopped. The partial result was dropped.");
+        else setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : "Scan failed");
+      }
     } finally {
       setLoading(false);
       setProgress(null);
+      setStopping(false);
+      stopKind.current = null;
+    }
+  };
+
+  const stopScan = async () => {
+    const id = summary?.scan_id;
+    if (!id || stopping) return;
+    stopKind.current = "stop";
+    setStopping(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await cancelScan(id);
+    } catch (err) {
+      stopKind.current = null;
+      setStopping(false);
+      setError(err instanceof Error ? err.message : "Could not stop the scan");
+    }
+  };
+
+  const purge = async () => {
+    if (purging) return;
+    if (!window.confirm("Delete every cached scan and stop one if it is running? The source images stay.")) return;
+    stopKind.current = "purge";
+    setPurging(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await purgeScans();
+      setHistory([]);
+      try {
+        localStorage.removeItem(HISTORY_KEY);
+      } catch {
+        /* ignore */
+      }
+      setSummary(null);
+      setSelected(new Set());
+      setPending([]);
+      setDetail(null);
+      setNotice("Cached scans were deleted.");
+    } catch (err) {
+      if (stopKind.current === "purge") stopKind.current = null;
+      setError(err instanceof Error ? err.message : "Could not purge the scans");
+    } finally {
+      setPurging(false);
     }
   };
 
   /** Reload a persisted scan from the history rail (no rescan). */
   const openHistoryScan = async (entry: ScanHistoryEntry) => {
     setError(null);
+    setNotice(null);
+    setPending([]);
     setLoading(true);
     try {
       applySummary(await getScan(entry.scan_id));
@@ -286,11 +376,21 @@ export default function CuratePage() {
                   />
                   <button
                     type="submit"
-                    disabled={loading || !folderPath.trim()}
+                    disabled={loading || purging || !folderPath.trim()}
                     className="w-full cursor-pointer rounded-lg bg-accent-teal px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-teal/90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {loading ? "Scanning…" : "Scan folder"}
                   </button>
+                  <ScanControlButtons
+                    scanning={loading}
+                    scanId={summary?.scan_id ?? null}
+                    stopping={stopping}
+                    purging={purging}
+                    allowed={permits(allowsScanControl(health))}
+                    reason={capabilityReason(allowsScanControl(health), SCAN_CONTROL_DENIED)}
+                    onStop={() => void stopScan()}
+                    onPurge={() => void purge()}
+                  />
                 </div>
                 <div className="rounded-xl border border-border bg-surface p-4">
                   {detectors && <DetectorBadges detectors={detectors} />}
@@ -354,20 +454,37 @@ export default function CuratePage() {
 
             {summary && (
               <>
-                <FacetRail summary={summary} filters={filters} onChange={setFilters} visibleCount={filtered.length} />
+                <FacetRail
+                  summary={summary}
+                  filters={filters}
+                  onChange={setFilters}
+                  visibleCount={filtered.length}
+                  pending={pending}
+                />
                 <SelectionInsights summary={summary} selectedResults={selectedResults} />
-                <ExportPanel summary={summary} selectedResults={selectedResults} health={health} />
+                {loading ? (
+                  <p className="rounded-xl border border-border bg-surface p-4 text-[11px] leading-relaxed text-muted">
+                    Export opens when the scan finishes. The keep-set is chosen then.
+                  </p>
+                ) : (
+                  <ExportPanel summary={summary} selectedResults={selectedResults} health={health} />
+                )}
               </>
             )}
           </aside>
 
           <div className="min-w-0 space-y-6">
+            {notice && (
+              <div className="rounded-lg border border-border bg-surface p-4 text-sm text-foreground">{notice}</div>
+            )}
+
             {error && (
               <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 text-sm text-accent-red">{error}</div>
             )}
 
             {summary && (
               <>
+                {loading && <ScanProgressView progress={progress} pending={pending} compact />}
                 <ScanSummaryPanel summary={summary} />
 
                 <div className="rounded-xl border border-border bg-surface p-5">
@@ -410,6 +527,7 @@ export default function CuratePage() {
                     <ResultsGrid
                       scanId={summary.scan_id}
                       nsfwRan={scanCheckedNsfw(summary)}
+                      pending={pending}
                       results={filtered}
                       selected={selected}
                       onToggle={toggle}
@@ -419,6 +537,7 @@ export default function CuratePage() {
                     <ClusterReviewLane
                       scanId={summary.scan_id}
                       nsfwRan={scanCheckedNsfw(summary)}
+                      pending={pending}
                       results={summary.results}
                       selected={selected}
                       onToggle={toggle}
@@ -428,7 +547,7 @@ export default function CuratePage() {
               </>
             )}
 
-            {!summary && loading && <ScanProgressView progress={progress} />}
+            {!summary && loading && <ScanProgressView progress={progress} pending={pending} />}
 
             {!summary && !loading && !error && (
               <div className="py-24 text-center text-muted">
@@ -459,7 +578,8 @@ export default function CuratePage() {
       <ImageDetailModal
         scanId={summary?.scan_id ?? ""}
         nsfwRan={summary ? scanCheckedNsfw(summary) : false}
-        img={detail}
+        pending={pending}
+        img={detail ? (summary?.results.find((row) => row.rel_path === detail.rel_path) ?? detail) : null}
         list={filtered}
         selected={detail ? selected.has(detail.rel_path) : false}
         onToggle={toggle}
@@ -470,14 +590,23 @@ export default function CuratePage() {
   );
 }
 
-function ScanProgressView({ progress }: { progress: ScanProgress | null }) {
+function ScanProgressView({
+  progress,
+  pending,
+  compact = false,
+}: {
+  progress: ScanProgress | null;
+  pending: readonly string[];
+  compact?: boolean;
+}) {
   const label = progress ? scanPhaseLabel(progress.phase) : "Starting scan";
   const hasCount = !!progress && isDeterminatePhase(progress.phase) && progress.total > 0;
   const pct = hasCount ? Math.round((progress!.done / progress!.total) * 100) : null;
+  const waiting = pending.length > 0 ? pendingCaption(pending) : null;
 
   return (
-    <div className="flex flex-col items-center justify-center gap-5 py-32">
-      <div className="h-12 w-12 animate-spin rounded-full border-2 border-accent-teal/30 border-t-accent-teal" />
+    <div className={`flex flex-col items-center justify-center gap-5 ${compact ? "rounded-xl border border-border bg-surface px-5 py-4" : "py-32"}`}>
+      {!compact && <div className="h-12 w-12 animate-spin rounded-full border-2 border-accent-teal/30 border-t-accent-teal" />}
       <div className="w-full max-w-sm space-y-2 text-center">
         <p className="text-sm font-medium text-foreground">{label}…</p>
         {hasCount ? (
@@ -493,9 +622,60 @@ function ScanProgressView({ progress }: { progress: ScanProgress | null }) {
             </p>
           </>
         ) : (
-          <p className="text-xs text-muted">This can take a moment for large folders…</p>
+          <p className="text-xs text-muted">{compact ? "Reading the folder…" : "This can take a moment for large folders…"}</p>
         )}
+        {waiting && <p className="text-xs text-accent-teal">Still checking {waiting}</p>}
       </div>
+    </div>
+  );
+}
+
+function ScanControlButtons({
+  scanning,
+  scanId,
+  stopping,
+  purging,
+  allowed,
+  reason,
+  onStop,
+  onPurge,
+}: {
+  scanning: boolean;
+  scanId: string | null;
+  stopping: boolean;
+  purging: boolean;
+  allowed: boolean;
+  reason: string | null;
+  onStop: () => void;
+  onPurge: () => void;
+}) {
+  const stopTitle = !allowed
+    ? (reason ?? SCAN_CONTROL_DENIED)
+    : !scanning
+      ? "Stop is available while a scan is running."
+      : !scanId
+        ? "Stop is available once the first images arrive."
+        : "Stop the running scan. Checks already in flight finish, and the partial scan is dropped.";
+  return (
+    <div className="flex gap-2">
+      <button
+        type="button"
+        disabled={!allowed || !scanning || !scanId || stopping || purging}
+        title={stopTitle}
+        onClick={onStop}
+        className="flex-1 cursor-pointer rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {stopping ? "Stopping…" : "Stop"}
+      </button>
+      <button
+        type="button"
+        disabled={!allowed || purging}
+        title={allowed ? "Stop a running scan and delete every cached scan. Source images stay." : (reason ?? SCAN_CONTROL_DENIED)}
+        onClick={onPurge}
+        className="flex-1 cursor-pointer rounded-lg border border-accent-red/40 px-3 py-2 text-sm text-accent-red transition-colors hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {purging ? "Purging…" : "Purge"}
+      </button>
     </div>
   );
 }

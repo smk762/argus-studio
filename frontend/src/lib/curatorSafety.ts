@@ -92,13 +92,23 @@ function veiled(label: string, reason: string): ThumbSafety {
  * has no score to hide.
  *
  * `passed === false` is decided first and does not read `nsfw`.
+ *
+ * `pending` is the scan-wide list of checks still running. While nudity has
+ * not landed, or exposure has landed and the ages have not, the frame stays
+ * covered and cannot be revealed. An empty list is a finished scan.
  */
-export function thumbSafety(img: ImageResult, nsfwRan: boolean): ThumbSafety {
+export function thumbSafety(img: ImageResult, nsfwRan: boolean, pending: readonly string[] = []): ThumbSafety {
   if (img.passed === false) {
     const why = img.reject_reason?.trim()
       ? `Rejected: ${img.reject_reason}.`
       : "Rejected by the scan.";
     return held("Rejected", `${why} Rejected frames stay blurred.`);
+  }
+  if (pending.includes("nsfw") && img.nsfw == null && !img.nudenet_failed) {
+    return held("Checking", "Nudity has not been scored yet, so this stays blurred.");
+  }
+  if (pending.includes("faces") && exposedReading(img) >= MINOR_EXPOSED_SCORE && mivoloAges(img).length === 0) {
+    return held("Stays blurred", "Exposure is in, and the ages are still coming.");
   }
   if (isMinorExposed(img)) {
     return held("Stays blurred", "An under-18 face with exposure stays blurred.");

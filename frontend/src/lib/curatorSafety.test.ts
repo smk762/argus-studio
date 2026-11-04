@@ -95,6 +95,20 @@ describe("thumbSafety", () => {
     expect(thumbSafety(img, true).blurred).toBe(true);
   });
 
+  it("holds a frame while its nudity check is still running", () => {
+    const safety = thumbSafety(image({ nsfw: null }), false, ["nsfw", "faces"]);
+    expect(safety).toMatchObject({ blurred: true, revealable: false, label: "Checking" });
+    expect(thumbSafety(image({ passed: false, nsfw: null }), true, ["nsfw"]).label).toBe("Rejected");
+  });
+
+  it("holds exposure while the ages are still coming", () => {
+    const safety = thumbSafety(image({ nsfw: exposed(0.4) }), true, ["faces"]);
+    expect(safety).toMatchObject({ blurred: true, revealable: false, label: "Stays blurred" });
+    expect(thumbSafety(image({ nsfw: exposed(0.4), primary_face_attributes: years(30) }), true, ["faces"]).label).toBe(
+      "Blurred",
+    );
+  });
+
   it("keeps a NudeNet failure blurred even when EraX's score is low", () => {
     const safety = thumbSafety(image({ nudenet_failed: true, nsfw: exposed(0.1) }), true);
     expect(safety).toMatchObject({ blurred: true, revealable: true, label: "NudeNet failed" });

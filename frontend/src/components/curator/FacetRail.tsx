@@ -9,9 +9,11 @@ interface Props {
   filters: CuratorFilters;
   onChange: (f: CuratorFilters) => void;
   visibleCount: number;
+  /** Checks still running. Empty once the scan has finished. */
+  pending?: readonly string[];
 }
 
-export function FacetRail({ summary, filters, onChange, visibleCount }: Props) {
+export function FacetRail({ summary, filters, onChange, visibleCount, pending = [] }: Props) {
   const set = (patch: Partial<CuratorFilters>) => onChange({ ...filters, ...patch });
 
   const toggleCluster = (id: string) => {
@@ -62,7 +64,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount }: Props) {
             {summary.face_clusters.map((fc) => {
               const active = filters.faceClusters.includes(fc.cluster_id);
               const rep = summary.results.find((r) => r.rel_path === fc.representative_rel_path);
-              const blurred = rep ? thumbSafety(rep, scanCheckedNsfw(summary)).blurred : false;
+              const blurred = rep ? thumbSafety(rep, scanCheckedNsfw(summary), pending).blurred : false;
               return (
                 <button
                   key={fc.cluster_id}

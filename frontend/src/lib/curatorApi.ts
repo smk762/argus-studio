@@ -12,6 +12,7 @@ import type {
 } from "@/components/curator/types";
 import { buildScanBody, MANIFEST_VERSION } from "@/components/curator/types";
 import { asError } from "@/lib/apiError";
+import type { ScanChunk } from "@/lib/scanChunks";
 import { joinPath } from "@/lib/path";
 
 /**
@@ -168,6 +169,8 @@ export interface Health {
    * than at export time — see {@link SUPPORTED_MANIFEST_MAJOR}.
    */
   manifest_version?: string;
+  /** POST /scan/{id}/cancel and POST /scans/purge exist (curator 0.6 and later). */
+  scan_control?: boolean;
 }
 
 /**
@@ -180,6 +183,16 @@ export interface Health {
  */
 export function allowsMove(health: Health | null): Capability {
   return capabilityOf(health, (h) => h.allow_move, true);
+}
+
+/**
+ * Whether this server can stop a running scan and purge its cache.
+ *
+ * Legacy `false`: both endpoints arrived with curator 0.6, so a server that
+ * omits `scan_control` cannot do either. A missing `/health` stays unknown.
+ */
+export function allowsScanControl(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.scan_control, false);
 }
 
 /**
@@ -309,16 +322,18 @@ function streamErrorMessage(payload: unknown, label: string): string {
  * `progress` frame to `onProgress` and resolve with the `complete` payload.
  * `label` names the operation in error messages ("Scan", "Export").
  *
- * `event: cancelled` throws {@link StreamCancelled}. Other events (curator
- * ≥ 0.5's `chunk` result batches) are ignored here.
+ * `event: cancelled` throws {@link StreamCancelled}. `event: chunk` result
+ * batches (curator ≥ 0.5) go to `onChunk` when a scan is listening; export
+ * streams pass no listener and those frames stay ignored.
  *
  * Uses fetch + ReadableStream rather than EventSource so callers can POST a
  * request body. Exported for tests.
  */
-export async function readSseStream<TProgress, TComplete>(
+export async function readSseStream<TProgress, TComplete, TChunk = unknown>(
   body: ReadableStream<Uint8Array>,
   onProgress: (p: TProgress) => void,
   label: string,
+  onChunk?: (chunk: TChunk) => void,
 ): Promise<TComplete> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -338,6 +353,7 @@ export async function readSseStream<TProgress, TComplete>(
     if (!data) return undefined;
     const payload = JSON.parse(data);
     if (event === "progress") onProgress(payload as TProgress);
+    else if (event === "chunk") onChunk?.(payload as TChunk);
     else if (event === "complete") return payload as TComplete;
     else if (event === "error") throw new Error(streamErrorMessage(payload, label));
     else if (event === "cancelled") throw new StreamCancelled(label);
@@ -381,6 +397,7 @@ export const SCAN_PHASE_LABELS = {
   starting: "Starting scan",
   collecting: "Reading images from disk",
   scoring: "Scoring images",
+  watermarks: "Finding watermarks",
   faces: "Detecting faces",
   erax: "Checking with EraX",
   nsfw: "Checking for nudity",
@@ -424,6 +441,7 @@ export async function scanFolderStream(
   folder: string,
   cfg: CuratorConfig,
   onProgress: (p: ScanProgress) => void,
+  onChunk?: (chunk: ScanChunk) => void,
   signal?: AbortSignal,
 ): Promise<ScanSummary> {
   const resp = await fetch(`${curatorUrl()}/scan/folder/stream`, {
@@ -433,7 +451,38 @@ export async function scanFolderStream(
     signal,
   });
   if (!resp.ok || !resp.body) return asError(resp);
-  return readSseStream<ScanProgress, ScanSummary>(resp.body, onProgress, "Scan");
+  return readSseStream<ScanProgress, ScanSummary, ScanChunk>(resp.body, onProgress, "Scan", onChunk);
+}
+
+/** Ask the running scan to stop (POST /scan/{id}/cancel). A 404 means it already finished. */
+export async function cancelScan(scanId: string, signal?: AbortSignal): Promise<void> {
+  await requireCapability(
+    curatorHealth,
+    allowsScanControl,
+    "This curator cannot stop a running scan (it predates scan control).",
+    signal,
+  );
+  const resp = await fetch(`${curatorUrl()}/scan/${encodeURIComponent(scanId)}/cancel`, { method: "POST", signal });
+  if (resp.status === 404) return;
+  if (!resp.ok) return asError(resp);
+}
+
+export interface PurgeResult {
+  cancelled: string | null;
+  deleted: string[];
+}
+
+/** Stop whatever is running and delete every cached scan (POST /scans/purge). */
+export async function purgeScans(signal?: AbortSignal): Promise<PurgeResult> {
+  await requireCapability(
+    curatorHealth,
+    allowsScanControl,
+    "This curator cannot purge cached scans (it predates scan control).",
+    signal,
+  );
+  const resp = await fetch(`${curatorUrl()}/scans/purge`, { method: "POST", signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
 }
 
 export interface ExportProgress {
