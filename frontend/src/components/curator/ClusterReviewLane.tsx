@@ -1,19 +1,21 @@
 "use client";
 
 import { useMemo } from "react";
-import { ThumbImage } from "./ThumbImage";
-import { faceFocalPoint, type ImageResult } from "./types";
 import { basename } from "@/lib/path";
+import { canExport, exportBlockReason } from "@/lib/curatorSafety";
+import { SafeThumb } from "./SafeThumb";
+import type { ImageResult } from "./types";
 
 interface Props {
   scanId: string;
   results: ImageResult[];
+  nsfwRan: boolean;
   selected: Set<string>;
   onToggle: (relPath: string) => void;
 }
 
 /** Side-by-side review of near-duplicate clusters (group_size > 1) for HITL keep/drop. */
-export function ClusterReviewLane({ scanId, results, selected, onToggle }: Props) {
+export function ClusterReviewLane({ scanId, results, nsfwRan, selected, onToggle }: Props) {
   const groups = useMemo(() => {
     const byGroup = new Map<number, ImageResult[]>();
     for (const r of results) {
@@ -55,44 +57,47 @@ export function ClusterReviewLane({ scanId, results, selected, onToggle }: Props
           <div className="scrollbar-thin flex gap-3 overflow-x-auto pb-1">
             {g.members.map((m) => {
               const isSel = selected.has(m.rel_path);
+              const exportable = canExport(m);
+              const blocked = exportBlockReason(m);
               return (
-                <button
+                <div
                   key={m.rel_path}
-                  type="button"
-                  onClick={() => onToggle(m.rel_path)}
-                  className={`relative w-32 shrink-0 cursor-pointer overflow-hidden rounded-lg border text-left transition-all ${
+                  title={blocked ?? m.rel_path}
+                  className={`relative w-32 shrink-0 overflow-hidden rounded-lg border text-left transition-all ${
                     isSel
                       ? "border-accent-green/70 ring-2 ring-accent-green/40"
                       : "border-border hover:border-accent-teal/40"
                   }`}
                 >
                   <div className="relative aspect-square">
-                    <ThumbImage
+                    <SafeThumb
                       scanId={scanId}
-                      relPath={m.rel_path}
-                      faceCluster={m.primary_face_cluster}
-                      objectPosition={faceFocalPoint(m)}
+                      img={m}
+                      nsfwRan={nsfwRan}
+                      onActivate={exportable ? () => onToggle(m.rel_path) : undefined}
                     />
-                    <span className="absolute right-1 top-1 rounded bg-black/50 px-1 py-0.5 font-mono text-[10px] text-white">
+                    <span className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-black/50 px-1 py-0.5 font-mono text-[10px] text-white">
                       {m.score.toFixed(2)}
                     </span>
                     {m.is_representative && (
-                      <span className="absolute left-1 top-1 rounded bg-accent-amber/80 px-1 py-0.5 font-mono text-[10px] text-black">
+                      <span className="pointer-events-none absolute left-1 top-1 z-10 rounded bg-accent-amber/80 px-1 py-0.5 font-mono text-[10px] text-black">
                         rep*
                       </span>
                     )}
-                    <span
-                      className={`absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded border text-[11px] font-bold ${
-                        isSel ? "border-accent-green bg-accent-green text-black" : "border-white/50 bg-black/40 text-transparent"
-                      }`}
-                    >
-                      ✓
-                    </span>
+                    {exportable && (
+                      <span
+                        className={`pointer-events-none absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded border text-[11px] font-bold ${
+                          isSel ? "border-accent-green bg-accent-green text-black" : "border-white/50 bg-black/40 text-transparent"
+                        }`}
+                      >
+                        ✓
+                      </span>
+                    )}
                   </div>
                   <div className="truncate p-1.5 font-mono text-[9px] text-muted" title={m.rel_path}>
                     {basename(m.rel_path)}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

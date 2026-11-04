@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import { ThumbImage } from "./ThumbImage";
+import { canExport, exportBlockReason, thumbSafety } from "@/lib/curatorSafety";
+import { SafeThumb } from "./SafeThumb";
 import { breakdownTooltip, statusExplanation } from "./imageExplain";
 import { POSE_LABELS, type ImageResult } from "./types";
 
 interface Props {
   scanId: string;
+  nsfwRan: boolean;
   img: ImageResult | null;
   /** The filtered gallery the modal navigates within (prev/next). */
   list: ImageResult[];
@@ -16,7 +18,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function ImageDetailModal({ scanId, img, list, selected, onToggle, onNavigate, onClose }: Props) {
+export function ImageDetailModal({ scanId, nsfwRan, img, list, selected, onToggle, onNavigate, onClose }: Props) {
   const idx = img ? list.findIndex((r) => r.rel_path === img.rel_path) : -1;
   const prev = idx > 0 ? list[idx - 1] : null;
   const next = idx >= 0 && idx < list.length - 1 ? list[idx + 1] : null;
@@ -37,6 +39,10 @@ export function ImageDetailModal({ scanId, img, list, selected, onToggle, onNavi
 
   if (!img) return null;
 
+  const exportable = canExport(img);
+  const blocked = exportBlockReason(img);
+  const safety = thumbSafety(img, nsfwRan);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
@@ -54,7 +60,7 @@ export function ImageDetailModal({ scanId, img, list, selected, onToggle, onNavi
             <h2 id="curator-detail-title" className="truncate text-sm font-semibold text-foreground">
               {img.rel_path}
             </h2>
-            <p className="mt-0.5 text-xs text-muted">{statusExplanation(img)}</p>
+            <p className="mt-0.5 text-xs text-muted">{safety.reason || statusExplanation(img)}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {idx >= 0 && (
@@ -73,7 +79,11 @@ export function ImageDetailModal({ scanId, img, list, selected, onToggle, onNavi
             <button
               type="button"
               onClick={() => onToggle(img.rel_path)}
-              className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+              disabled={!exportable}
+              title={blocked ?? undefined}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                exportable ? "cursor-pointer" : ""
+              } ${
                 selected
                   ? "border-accent-green/50 bg-accent-green/20 text-accent-green"
                   : "border-border text-muted hover:bg-surface-hover hover:text-foreground"
@@ -96,13 +106,7 @@ export function ImageDetailModal({ scanId, img, list, selected, onToggle, onNavi
             {/* Image takes two of the three columns. */}
             <div className="lg:col-span-2">
               <div className="flex h-[70vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
-                <ThumbImage
-                  scanId={scanId}
-                  relPath={img.rel_path}
-                  faceCluster={img.primary_face_cluster}
-                  rounded="rounded-xl"
-                  fit="contain"
-                />
+                <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} rounded="rounded-xl" fit="contain" />
               </div>
             </div>
 
