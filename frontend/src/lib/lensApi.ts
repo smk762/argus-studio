@@ -3,19 +3,84 @@
 import type { FolderListing } from "@/components/curator/types";
 import type { BatchCaptionResult, CaptionFolderRequest, CaptionResult } from "@/types";
 import { asError } from "@/lib/apiError";
+import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 
 import { lensUrl } from "@/lib/curatorEnv";
 
 /**
- * Server-side captioning profiles (GET /profiles). Only the hybrid tag↔prose
- * balance fields are typed here; the endpoint returns additional keys we ignore.
+ * Server-side captioning profiles (GET /profiles): lens's own taxonomy, so the
+ * UI doesn't hardcode it. The taxonomy fields are optional because older lens
+ * builds returned only the hybrid presets.
  */
 export interface LensProfiles {
   /** Named balance stops → prose_bias value, e.g. {tags:0.2, balanced:0.5, prose:0.85}. */
   hybrid_presets: Record<string, number>;
   /** The preset applied when neither hybrid_preset nor prose_bias is sent. */
   default_hybrid_preset: string;
+  /** Caption categories lens can select, in its definition order. */
+  target_categories?: string[];
+  target_styles?: string[];
+  target_backends?: string[];
+  token_budgets?: Record<string, number>;
 }
+
+/**
+ * The category options to offer, from lens's `/profiles` when it lists any.
+ * Lens does not validate `target_category`, and an unknown one returns an
+ * EMPTY caption (argus-studio#102), so the server's list beats a hardcoded one.
+ * Labels come from `known` when it has the value; others are title-cased.
+ */
+export function categoryOptions<T extends { value: string; label: string }>(
+  names: readonly string[] | undefined,
+  known: readonly T[],
+): { value: string; label: string }[] {
+  const clean = (names ?? []).filter((n): n is string => typeof n === "string" && n.length > 0);
+  if (clean.length === 0) return known.map(({ value, label }) => ({ value, label }));
+  return clean.map((value) => ({
+    value,
+    label:
+      known.find((k) => k.value === value)?.label ??
+      value
+        .split("_")
+        .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+        .join(" "),
+  }));
+}
+
+/** GET /health. Lens advertises no write flags yet (#105), only where it can read and write. */
+export interface LensHealth {
+  status: string;
+  service?: string;
+  version?: string;
+  /** The folder root lens browses and folder-captions under; null when none is configured. */
+  source_root?: string | null;
+}
+
+async function fetchLensHealth(signal?: AbortSignal): Promise<LensHealth> {
+  const resp = await fetch(`${lensUrl()}/health`, { signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** The posture lens's write fetchers gate on (argus-studio#75). */
+const lensHealth = healthMemo(fetchLensHealth);
+
+export async function getLensHealth(signal?: AbortSignal): Promise<LensHealth> {
+  return lensHealth.remember(await fetchLensHealth(signal));
+}
+
+/**
+ * Whether lens can caption a server folder or pull Immich into one: both
+ * resolve under `source_root`, and lens 400s every such request without it.
+ * A string is a yes, an explicit null is a no, and a lens predating the field
+ * is assumed configured (legacy permissive).
+ */
+export function allowsFolderWrites(health: LensHealth | null | undefined): Capability {
+  return capabilityOf(health, (h) => (typeof h.source_root === "string" ? true : h.source_root === null ? false : undefined), true);
+}
+
+const NO_SOURCE_ROOT =
+  "This lens has no source root configured, so it refuses folder captioning and Immich pulls (start it with --source-root or LENS_SOURCE_PATH).";
 
 /** Fetch the lens captioning profiles, including hybrid tag↔prose presets (GET /profiles). */
 export async function getLensProfiles(signal?: AbortSignal): Promise<LensProfiles> {
@@ -48,6 +113,7 @@ export async function listLensFolders(path = "", signal?: AbortSignal): Promise<
 
 /** Batch-caption every image in a server-side folder (POST /caption/folder). */
 export async function captionFolder(req: CaptionFolderRequest): Promise<BatchCaptionResult> {
+  await requireCapability(lensHealth, allowsFolderWrites, NO_SOURCE_ROOT);
   const resp = await fetch(`${lensUrl()}/caption/folder`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -57,17 +123,39 @@ export async function captionFolder(req: CaptionFolderRequest): Promise<BatchCap
   return resp.json();
 }
 
-/** Batch-caption an argus-curator JSONL manifest (POST /caption/manifest). */
-export async function captionManifest(
-  file: File,
-  opts?: { trigger_word?: string; write_sidecar?: boolean; write_xmp?: boolean } & HybridBalanceParams,
-): Promise<BatchCaptionResult> {
-  const fd = new FormData();
-  fd.append("manifest", file);
+/**
+ * Options for the manifest endpoints. These take no category, style or hybrid
+ * balance: every row carries the curator's `target_profile`.
+ */
+export interface ManifestCaptionOptions {
+  trigger_word?: string;
+  write_sidecar?: boolean;
+  write_xmp?: boolean;
+  /** Discard an existing `.xmp` instead of merging into it (lens ≥ 0.7; the default merges). */
+  xmp_overwrite?: boolean;
+  prose_enrichment?: boolean;
+  /**
+   * Server path of the curator export root. Manifest 2.0 rows are then read
+   * from `export_root / exported_path`, which stays valid after a move export;
+   * without it lens reads `abs_path`, which needs a volume shared with the curator.
+   */
+  export_root?: string;
+}
+
+function appendManifestOptions(fd: FormData, opts?: ManifestCaptionOptions): void {
   if (opts?.trigger_word) fd.append("trigger_word", opts.trigger_word);
   fd.append("write_sidecar", String(opts?.write_sidecar ?? true));
   fd.append("write_xmp", String(opts?.write_xmp ?? false));
-  appendHybrid(fd, opts);
+  if (opts?.xmp_overwrite != null) fd.append("xmp_overwrite", String(opts.xmp_overwrite));
+  if (opts?.prose_enrichment != null) fd.append("prose_enrichment", String(opts.prose_enrichment));
+  if (opts?.export_root?.trim()) fd.append("export_root", opts.export_root.trim());
+}
+
+/** Batch-caption an argus-curator JSONL manifest (POST /caption/manifest). */
+export async function captionManifest(file: File, opts?: ManifestCaptionOptions): Promise<BatchCaptionResult> {
+  const fd = new FormData();
+  fd.append("manifest", file);
+  appendManifestOptions(fd, opts);
   const resp = await fetch(`${lensUrl()}/caption/manifest`, { method: "POST", body: fd });
   if (!resp.ok) return asError(resp);
   return resp.json();
@@ -79,12 +167,16 @@ export interface CaptionProgress {
   rel_path: string;
   final_caption?: string;
   error?: string;
+  /** Where the `.xmp` sidecar was written, when `write_xmp` wrote one. */
+  xmp_path?: string;
 }
 
 export interface CaptionSummary {
   total: number;
   captioned: number;
   failed: number;
+  /** Sidecars written (manifest streams, lens ≥ 0.7). */
+  xmp_written?: number;
 }
 
 /**
@@ -123,15 +215,12 @@ export async function readNdjson(resp: Response, onLine: (obj: Record<string, un
 export async function captionManifestStream(
   manifestJsonl: string,
   onProgress: (p: CaptionProgress) => void,
-  opts?: { trigger_word?: string; write_sidecar?: boolean; write_xmp?: boolean; signal?: AbortSignal } & HybridBalanceParams,
+  opts?: ManifestCaptionOptions & { signal?: AbortSignal },
 ): Promise<CaptionSummary> {
   const signal = opts?.signal;
   const form = new FormData();
   form.append("manifest", new Blob([manifestJsonl], { type: "application/x-ndjson" }), "manifest.jsonl");
-  if (opts?.trigger_word) form.append("trigger_word", opts.trigger_word);
-  form.append("write_sidecar", String(opts?.write_sidecar ?? true));
-  form.append("write_xmp", String(opts?.write_xmp ?? false));
-  appendHybrid(form, opts);
+  appendManifestOptions(form, opts);
 
   const resp = await fetch(`${lensUrl()}/caption/manifest/stream`, {
     method: "POST",
@@ -155,6 +244,22 @@ export interface UploadCaptionRow extends CaptionResult {
   name: string;
 }
 
+/** A per-image failure line from POST /caption/stream (e.g. a replay-backend miss). */
+export interface UploadCaptionError {
+  name: string;
+  error: string;
+}
+
+export interface UploadCaptionResult {
+  rows: UploadCaptionRow[];
+  errors: UploadCaptionError[];
+}
+
+/** Tell a stream line that failed apart from a caption. Exported for tests. */
+export function isUploadCaptionError(obj: Record<string, unknown>): boolean {
+  return typeof obj.error === "string" && !("final_caption" in obj);
+}
+
 export interface UploadCaptionParams extends HybridBalanceParams {
   trigger_word?: string;
   target_style?: string;
@@ -164,16 +269,17 @@ export interface UploadCaptionParams extends HybridBalanceParams {
 
 /**
  * Caption browser-uploaded image files (POST /caption/stream), streaming one
- * NDJSON result line per image. `onResult` fires as each caption lands;
- * resolves with all rows. Files the server cannot decode are silently skipped
- * by the endpoint, so compare rows.length with files.length for failures.
+ * NDJSON line per image. `onResult` fires as each line lands (`done` counts
+ * captions and failures). Resolves with the captions and the per-image failures
+ * apart. Files the server cannot decode are silently skipped by the endpoint, so
+ * compare rows + errors with files.length to count those.
  */
 export async function captionFilesStream(
   files: File[],
   params: UploadCaptionParams,
-  onResult: (row: UploadCaptionRow, done: number) => void,
+  onResult: (row: UploadCaptionRow | UploadCaptionError, done: number) => void,
   signal?: AbortSignal,
-): Promise<UploadCaptionRow[]> {
+): Promise<UploadCaptionResult> {
   const fd = new FormData();
   for (const f of files) fd.append("files", f);
   if (params.trigger_word) fd.append("trigger_word", params.trigger_word);
@@ -186,12 +292,19 @@ export async function captionFilesStream(
   if (!resp.ok) return asError(resp);
 
   const rows: UploadCaptionRow[] = [];
+  const errors: UploadCaptionError[] = [];
   await readNdjson(resp, (obj) => {
-    const row = obj as unknown as UploadCaptionRow;
-    rows.push(row);
-    onResult(row, rows.length);
+    if (isUploadCaptionError(obj)) {
+      const e = obj as unknown as UploadCaptionError;
+      errors.push(e);
+      onResult(e, rows.length + errors.length);
+    } else {
+      const row = obj as unknown as UploadCaptionRow;
+      rows.push(row);
+      onResult(row, rows.length + errors.length);
+    }
   });
-  return rows;
+  return { rows, errors };
 }
 
 // ── Immich (optional integration; lens returns 503 when not configured) ──
@@ -219,8 +332,10 @@ export interface ImmichCaptionRequest extends HybridBalanceParams {
   target_backend?: string;
   checkpoint?: string | null;
   prose_enrichment?: boolean;
-  /** Push each caption back to Immich (asset description + keywords). */
+  /** Push each caption back to Immich (asset description + keywords). The server defaults this to false. */
   write_back?: boolean;
+  /** Also write an `.xmp` sidecar per asset (lens ≥ 0.7). */
+  write_xmp?: boolean;
 }
 
 export interface ImmichCaptionProgress {
@@ -289,6 +404,7 @@ export async function immichPullStream(
   onProgress: (p: ImmichPullProgress) => void,
   signal?: AbortSignal,
 ): Promise<ImmichPullResult> {
+  await requireCapability(lensHealth, allowsFolderWrites, NO_SOURCE_ROOT, signal);
   const resp = await fetch(`${lensUrl()}/immich/pull`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

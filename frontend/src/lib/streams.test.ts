@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { asError } from "@/lib/apiError";
-import { readNdjson } from "@/lib/lensApi";
+import { LENS_CATEGORY } from "@/components/curator/types";
+import { categoryOptions, readNdjson } from "@/lib/lensApi";
+import { TARGET_CATEGORIES } from "@/types";
 import { basename, joinPath } from "@/lib/path";
 
 /** A Response whose body arrives in exactly these chunks, to exercise line buffering. */
@@ -71,5 +73,43 @@ describe("path helpers", () => {
     expect(basename("/data/out/b.jpg")).toBe("b.jpg");
     expect(basename("/data/out/")).toBe("out");
     expect(basename("b.jpg")).toBe("b.jpg");
+  });
+});
+
+describe("lens upload stream", () => {
+  it("separates per-image error lines from captions", async () => {
+    const { captionFilesStream } = await import("@/lib/lensApi");
+    const body = '{"name":"a.jpg","final_caption":"x","caption_variants":{}}\n{"name":"b.jpg","error":"replay miss"}\n';
+    const seen: number[] = [];
+    vi.stubGlobal("fetch", async () => new Response(body));
+    try {
+      const out = await captionFilesStream([], {}, (_r, done) => seen.push(done));
+      expect(out.rows.map((r) => r.name)).toEqual(["a.jpg"]);
+      expect(out.errors).toEqual([{ name: "b.jpg", error: "replay miss" }]);
+      expect(seen).toEqual([1, 2]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("lens category options", () => {
+  it("prefers lens's own list, keeping known labels and title-casing new ones", () => {
+    const known = [{ value: "pose_composition", label: "Pose / Composition" }];
+    expect(categoryOptions(["pose_composition", "body_type"], known)).toEqual([
+      { value: "pose_composition", label: "Pose / Composition" },
+      { value: "body_type", label: "Body Type" },
+    ]);
+  });
+
+  it("falls back to the static list when /profiles has none", () => {
+    expect(categoryOptions(undefined, TARGET_CATEGORIES)).toHaveLength(TARGET_CATEGORIES.length);
+    expect(categoryOptions([], TARGET_CATEGORIES).map((c) => c.value)).not.toContain("pose_gaze");
+  });
+
+  it("offers only categories lens 0.10 defines", () => {
+    const lens010 = ["identity", "wardrobe", "pose_composition", "setting", "lighting", "action"];
+    expect(TARGET_CATEGORIES.map((c) => c.value)).toEqual(lens010);
+    expect(Object.values(LENS_CATEGORY).every((v) => lens010.includes(v))).toBe(true);
   });
 });
