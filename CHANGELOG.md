@@ -22,6 +22,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
   - The XMP toggle says it merges into an existing sidecar, and has a "Replace existing .xmp" option.
   - Upload captioning shows per-image error lines (such as replay misses) instead of treating them as captions.
 - Lens writes are gated in the client like every other service's ([#105](https://github.com/smk762/argus-studio/issues/105)). Folder captioning and Immich pulls check `/health.source_root` before sending.
+- `/curate` scan progress against curator ≥ 0.4 ([#103](https://github.com/smk762/argus-studio/issues/103)). The label no longer goes blank on the newer phases (`nsfw`, `erax`, `identities`, `prefilter`, `scenes`, `garments`, `guard`), and a phase newer than this client gets a readable fallback. A scan stopped through `POST /scan/{id}/cancel` or purge (`event: cancelled`) now says it was stopped instead of "Scan stream ended without a result". A GPU-lease timeout shows the server's `retry_after`.
+- Compose pins `LENS_TAG=0.10.0` and `ATLAS_TAG=0.3.0a1` by default ([#104](https://github.com/smk762/argus-studio/issues/104)). Atlas only moves `latest` on final releases, so `latest` was an image older than 0.3.0a1. Lens's next release narrows CORS to `localhost:3000` and refuses cross-site writes, so it should be a deliberate bump. `LENS_CORS_ORIGINS` is now forwarded, ready for that release.
 - A scheme-less API base such as `ARGUS_CURATOR_URL=curator:8101` now gets the startup warning it was meant to. `new URL()` parses `curator:` as a scheme, so the check passed it silently and the mistake only showed as `Failed to fetch` in the browser.
 - `manifestMajor` refuses a leading-zero major (`"02.1"`) the way argus-forge does, instead of reading it as 2.
 

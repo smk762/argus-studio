@@ -284,14 +284,38 @@ export async function getScan(scanId: string, limit = 10000, signal?: AbortSigna
 }
 
 /**
+/**
+ * The stream ended with `event: cancelled`: the scan was stopped by
+ * `POST /scan/{id}/cancel` or `POST /scans/purge` (curator ≥ 0.6), possibly
+ * from another window or client. A distinct type so callers can show it as a
+ * stop rather than a failure.
+ */
+export class StreamCancelled extends Error {
+  constructor(label: string) {
+    super(`${label} was stopped before it finished (cancelled or purged on the curator, possibly from another window).`);
+    this.name = "StreamCancelled";
+  }
+}
+
+/** The message for an `event: error` frame; curator ≥ 0.10 adds `retry_after` (seconds) when the GPU lease timed out. */
+function streamErrorMessage(payload: unknown, label: string): string {
+  const p = (payload ?? {}) as { detail?: unknown; retry_after?: unknown };
+  const detail = typeof p.detail === "string" && p.detail ? p.detail : `${label} failed`;
+  return typeof p.retry_after === "number" && p.retry_after > 0 ? `${detail} (retry in ${p.retry_after}s)` : detail;
+}
+
+/**
  * Drive one of the curator's SSE endpoints to completion: dispatch every
  * `progress` frame to `onProgress` and resolve with the `complete` payload.
  * `label` names the operation in error messages ("Scan", "Export").
  *
+ * `event: cancelled` throws {@link StreamCancelled}. Other events (curator
+ * ≥ 0.5's `chunk` result batches) are ignored here.
+ *
  * Uses fetch + ReadableStream rather than EventSource so callers can POST a
- * request body.
+ * request body. Exported for tests.
  */
-async function readSseStream<TProgress, TComplete>(
+export async function readSseStream<TProgress, TComplete>(
   body: ReadableStream<Uint8Array>,
   onProgress: (p: TProgress) => void,
   label: string,
@@ -315,7 +339,8 @@ async function readSseStream<TProgress, TComplete>(
     const payload = JSON.parse(data);
     if (event === "progress") onProgress(payload as TProgress);
     else if (event === "complete") return payload as TComplete;
-    else if (event === "error") throw new Error(payload?.detail ?? `${label} failed`);
+    else if (event === "error") throw new Error(streamErrorMessage(payload, label));
+    else if (event === "cancelled") throw new StreamCancelled(label);
     return undefined;
   };
 
@@ -346,12 +371,52 @@ async function readSseStream<TProgress, TComplete>(
   return complete;
 }
 
-export type ScanPhase = "collecting" | "scoring" | "faces" | "clustering";
+/**
+ * Scan phases, in the order curator 0.13 runs them. Which run depends on the
+ * scan's checks and the server's detectors. The union stays open
+ * (`string & {}`) because a newer curator may add phases; the UI must not go
+ * blank on one it doesn't know.
+ */
+export const SCAN_PHASE_LABELS = {
+  starting: "Starting scan",
+  collecting: "Reading images from disk",
+  scoring: "Scoring images",
+  faces: "Detecting faces",
+  erax: "Checking with EraX",
+  nsfw: "Checking for nudity",
+  identities: "Clustering identities",
+  prefilter: "Applying prefilter",
+  scenes: "Classifying scenes",
+  garments: "Detecting garments",
+  guard: "Running SingGuard",
+  clustering: "Grouping near-duplicates",
+} as const;
+
+export type KnownScanPhase = keyof typeof SCAN_PHASE_LABELS;
+export type ScanPhase = KnownScanPhase | (string & {});
+
+/** A readable label for any phase, including ones newer than this client. */
+export function scanPhaseLabel(phase: ScanPhase): string {
+  if (Object.hasOwn(SCAN_PHASE_LABELS, phase)) return SCAN_PHASE_LABELS[phase as KnownScanPhase];
+  const words = phase.replace(/[_-]+/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : "Working";
+}
+
+/**
+ * Whether a phase's done/total is a meaningful running count (a determinate
+ * bar). Collecting, identities and near-duplicate clustering only emit start and
+ * end, so they show as pending. An unknown phase gets a bar when it reports a total.
+ */
+export function isDeterminatePhase(phase: ScanPhase): boolean {
+  return !["starting", "collecting", "identities", "prefilter", "clustering"].includes(phase);
+}
 
 export interface ScanProgress {
   phase: ScanPhase;
   done: number;
   total: number;
+  /** Checks still running on the images streamed so far (curator ≥ 0.5.1). */
+  pending_checks?: string[];
 }
 
 /** Stream a scan over SSE (POST /scan/folder/stream), resolving with the final ScanSummary. */
