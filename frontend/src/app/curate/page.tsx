@@ -26,21 +26,26 @@ import {
 } from "@/components/curator/types";
 import {
   allowsScanControl,
+  allowsScanDelete,
   cancelScan,
+  deleteCachedScan,
   getDetectors,
   getHealth,
   getScan,
   isDeterminatePhase,
+  listScans,
   purgeScans,
   scanFolderStream,
   scanPhaseLabel,
   StreamCancelled,
   type Health,
+  type ScanList,
   type ScanProgress,
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { canExport, scanCheckedNsfw } from "@/lib/curatorSafety";
 import { mergeChunk, pendingCaption } from "@/lib/scanChunks";
+import { configFromSummary, withoutRelPaths } from "@/lib/scanHistory";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { useDeepLink } from "@/lib/deepLink";
 
@@ -55,6 +60,7 @@ interface ScanHistoryEntry {
 
 const HISTORY_KEY = "argus.curate.scanHistory";
 const SCAN_CONTROL_DENIED = "This curator cannot stop or purge a scan (it predates scan control).";
+const SCAN_DELETE_DENIED = "This curator cannot delete a cached scan (it predates scan delete).";
 const HISTORY_MAX = 8;
 
 function loadHistory(): ScanHistoryEntry[] {
@@ -97,6 +103,10 @@ export default function CuratePage() {
   const [detail, setDetail] = useState<ImageResult | null>(null);
   const [detectors, setDetectors] = useState<Detectors | null>(null);
   const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
+  const [serverScans, setServerScans] = useState<ScanList | null>(null);
+  const [rerunning, setRerunning] = useState<string | null>(null);
+  const [forgetting, setForgetting] = useState<string | null>(null);
+  const usesServerList = useRef(false);
 
   // Deep link from /gallery: ?folder=<path> preselects the scan folder.
   useDeepLink((params) => {
@@ -105,18 +115,38 @@ export default function CuratePage() {
     if (folder) setFolderPath(folder);
   });
 
-  // Live extras: detector capabilities + recent-scan history (localStorage).
+  const refreshScans = useCallback(async (signal?: AbortSignal) => {
+    if (!isLive()) return;
+    try {
+      const list = await listScans(signal);
+      if (signal?.aborted) return;
+      if (list) {
+        usesServerList.current = true;
+        setServerScans(list);
+        return;
+      }
+    } catch (err) {
+      if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
+    }
+    if (!usesServerList.current) setHistory(loadHistory());
+  }, []);
+
+  // Live extras: detector capabilities, and the curator's scan list when it has one.
   useEffect(() => {
     if (!isLive()) return;
-    setHistory(loadHistory());
     const ctrl = new AbortController();
+    void refreshScans(ctrl.signal);
     getDetectors(ctrl.signal)
       .then(setDetectors)
       .catch(() => setDetectors(null));
     return () => ctrl.abort();
-  }, []);
+  }, [refreshScans]);
 
   const recordScan = useCallback((data: ScanSummary, folder: string) => {
+    if (usesServerList.current) {
+      void refreshScans();
+      return;
+    }
     setHistory((prev) => {
       const next = [
         { scan_id: data.scan_id, folder, total: data.total, at: Date.now() },
@@ -129,7 +159,7 @@ export default function CuratePage() {
       }
       return next;
     });
-  }, []);
+  }, [refreshScans]);
 
   // Version banner (live) — reachability check.
   useEffect(() => {
@@ -262,6 +292,7 @@ export default function CuratePage() {
       setPending([]);
       setDetail(null);
       setNotice("Cached scans were deleted.");
+      void refreshScans();
     } catch (err) {
       if (stopKind.current === "purge") stopKind.current = null;
       setError(err instanceof Error ? err.message : "Could not purge the scans");
@@ -270,20 +301,76 @@ export default function CuratePage() {
     }
   };
 
-  /** Reload a persisted scan from the history rail (no rescan). */
-  const openHistoryScan = async (entry: ScanHistoryEntry) => {
+  /** Reload a cached scan (no rescan). */
+  const openCachedScan = async (scanId: string, folder: string) => {
     setError(null);
     setNotice(null);
     setPending([]);
     setLoading(true);
     try {
-      applySummary(await getScan(entry.scan_id));
-      setFolderPath(entry.folder);
+      applySummary(await getScan(scanId));
+      setFolderPath(folder);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not reload scan (it may have been evicted)");
+      setError(err instanceof Error ? err.message : "Could not reload that scan");
+      void refreshScans();
     } finally {
       setLoading(false);
     }
+  };
+
+  /** Fill the form the way this scan ran. The grid stays as it is. */
+  const fillAgain = async (scanId: string) => {
+    setRerunning(scanId);
+    setError(null);
+    try {
+      const data = await getScan(scanId);
+      setConfig(configFromSummary(data));
+      setFolderPath(data.folder);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not read that scan's settings");
+    } finally {
+      setRerunning(null);
+    }
+  };
+
+  const forgetScan = async (scanId: string) => {
+    if (!window.confirm("Remove this scan from the curator's cache? The source images stay.")) return;
+    setForgetting(scanId);
+    setError(null);
+    try {
+      await deleteCachedScan(scanId);
+      if (summary?.scan_id === scanId) {
+        setSummary(null);
+        setSelected(new Set());
+        setDetail(null);
+        setPending([]);
+      }
+      setNotice("That scan was removed. The source images stayed.");
+      void refreshScans();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove that scan");
+    } finally {
+      setForgetting(null);
+    }
+  };
+
+  /** A move export has already dropped these rows on the server. Stop showing them. */
+  const dropMoved = (scanId: string, moved: string[]) => {
+    const gone = new Set(moved);
+    setSummary((current) => (current && current.scan_id === scanId ? withoutRelPaths(current, moved) : current));
+    setSelected((prev) => new Set([...prev].filter((path) => !gone.has(path))));
+    setDetail((current) => (current && gone.has(current.rel_path) ? null : current));
+    void getScan(scanId)
+      .then((fresh) => {
+        setSummary((current) => (current?.scan_id === scanId ? fresh : current));
+        setSelected((prev) => {
+          const kept = new Set(fresh.results.map((row) => row.rel_path));
+          return new Set([...prev].filter((path) => kept.has(path)));
+        });
+      })
+      .catch(() => {
+        /* the rows are already gone from the grid */
+      });
   };
 
   const toggle = useCallback((relPath: string) => {
@@ -400,7 +487,22 @@ export default function CuratePage() {
 
               <IngestPanel onIngested={setFolderPath} disabled={loading} />
 
-              {history.length > 0 && (
+              {serverScans && (
+                <CachedScanList
+                  list={serverScans}
+                  currentId={summary?.scan_id ?? null}
+                  canDelete={permits(allowsScanDelete(health))}
+                  deleteReason={capabilityReason(allowsScanDelete(health), SCAN_DELETE_DENIED)}
+                  busy={loading || purging}
+                  rerunning={rerunning}
+                  forgetting={forgetting}
+                  onOpen={(scanId, folder) => void openCachedScan(scanId, folder)}
+                  onAgain={(scanId) => void fillAgain(scanId)}
+                  onDelete={(scanId) => void forgetScan(scanId)}
+                />
+              )}
+
+              {!serverScans && history.length > 0 && (
                 <div className="space-y-2 rounded-xl border border-border bg-surface p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted">Recent scans</span>
@@ -424,7 +526,7 @@ export default function CuratePage() {
                       <li key={h.scan_id}>
                         <button
                           type="button"
-                          onClick={() => void openHistoryScan(h)}
+                          onClick={() => void openCachedScan(h.scan_id, h.folder)}
                           disabled={loading}
                           title={`${h.folder} — reload without rescanning`}
                           className="w-full cursor-pointer rounded-lg border border-border bg-background px-2.5 py-1.5 text-left transition-colors hover:border-accent-teal/40 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
@@ -467,7 +569,12 @@ export default function CuratePage() {
                     Export opens when the scan finishes. The keep-set is chosen then.
                   </p>
                 ) : (
-                  <ExportPanel summary={summary} selectedResults={selectedResults} health={health} />
+                  <ExportPanel
+                    summary={summary}
+                    selectedResults={selectedResults}
+                    health={health}
+                    onMoved={dropMoved}
+                  />
                 )}
               </>
             )}
@@ -586,6 +693,88 @@ export default function CuratePage() {
         onNavigate={setDetail}
         onClose={() => setDetail(null)}
       />
+    </div>
+  );
+}
+
+function CachedScanList({
+  list,
+  currentId,
+  canDelete,
+  deleteReason,
+  busy,
+  rerunning,
+  forgetting,
+  onOpen,
+  onAgain,
+  onDelete,
+}: {
+  list: ScanList;
+  currentId: string | null;
+  canDelete: boolean;
+  deleteReason: string | null;
+  busy: boolean;
+  rerunning: string | null;
+  forgetting: string | null;
+  onOpen: (scanId: string, folder: string) => void;
+  onAgain: (scanId: string) => void;
+  onDelete: (scanId: string) => void;
+}) {
+  const active = list.active;
+  const rows = list.scans.filter((scan) => scan.scan_id !== active?.scan_id);
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-surface p-4">
+      <span className="block text-xs font-semibold uppercase tracking-wider text-muted">Cached scans</span>
+      {!active && rows.length === 0 && <p className="text-[11px] text-muted">No cached scans.</p>}
+      {active && (
+        <div className="rounded-lg border border-accent-teal/30 bg-accent-teal/5 px-2.5 py-1.5">
+          <span className="block truncate font-mono text-[11px] text-foreground/90" title={active.folder}>
+            {active.folder}
+          </span>
+          <span className="block text-[10px] text-accent-teal">
+            {active.cancelling ? "Stopping" : "In progress"} · {scanPhaseLabel(active.phase)}
+            {active.total > 0 ? ` · ${active.done}/${active.total}` : ""}
+          </span>
+        </div>
+      )}
+      <ul className="space-y-1">
+        {rows.map((scan) => (
+          <li key={scan.scan_id} className="flex items-stretch gap-1">
+            <button
+              type="button"
+              onClick={() => onOpen(scan.scan_id, scan.folder)}
+              disabled={busy}
+              title={`${scan.folder} — reload without rescanning`}
+              className={`min-w-0 flex-1 cursor-pointer rounded-lg border bg-background px-2.5 py-1.5 text-left transition-colors hover:border-accent-teal/40 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40 ${
+                currentId === scan.scan_id ? "border-accent-teal/50" : "border-border"
+              }`}
+            >
+              <span className="block truncate font-mono text-[11px] text-foreground/90">{scan.folder}</span>
+              <span className="block text-[10px] text-muted">
+                {scan.total} images · {new Date(scan.updated_at).toLocaleString()}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onAgain(scan.scan_id)}
+              disabled={rerunning != null || busy}
+              title="Fill the form the way this scan ran"
+              className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-muted hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {rerunning === scan.scan_id ? "…" : "Again"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(scan.scan_id)}
+              disabled={!canDelete || forgetting != null || busy}
+              title={canDelete ? "Remove this scan from the cache. Source images stay." : (deleteReason ?? SCAN_DELETE_DENIED)}
+              className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-accent-red hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {forgetting === scan.scan_id ? "…" : "Delete"}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

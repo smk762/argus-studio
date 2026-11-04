@@ -171,6 +171,8 @@ export interface Health {
   manifest_version?: string;
   /** POST /scan/{id}/cancel and POST /scans/purge exist (curator 0.6 and later). */
   scan_control?: boolean;
+  /** DELETE /scan/{id} exists (curator 0.12 and later). */
+  scan_delete?: boolean;
 }
 
 /**
@@ -193,6 +195,16 @@ export function allowsMove(health: Health | null): Capability {
  */
 export function allowsScanControl(health: Health | null): Capability {
   return capabilityOf(health, (h) => h.scan_control, false);
+}
+
+/**
+ * Whether this server can delete one cached scan.
+ *
+ * Legacy `false`: `DELETE /scan/{id}` arrived with curator 0.12. A server that
+ * omits `scan_delete` cannot, and a missing `/health` stays unknown.
+ */
+export function allowsScanDelete(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.scan_delete, false);
 }
 
 /**
@@ -470,6 +482,51 @@ export async function cancelScan(scanId: string, signal?: AbortSignal): Promise<
 export interface PurgeResult {
   cancelled: string | null;
   deleted: string[];
+}
+
+export interface CachedScan {
+  scan_id: string;
+  folder: string;
+  total: number;
+  updated_at: string;
+}
+
+export interface ActiveScan {
+  scan_id: string;
+  folder: string;
+  phase: string;
+  done: number;
+  total: number;
+  pending_checks?: string[];
+  cancelling?: boolean;
+}
+
+export interface ScanList {
+  active: ActiveScan | null;
+  scans: CachedScan[];
+}
+
+/**
+ * Scans the curator still holds (GET /scans, curator 0.5 and later).
+ * `null` when this server has no such list, so the page can keep its own.
+ */
+export async function listScans(signal?: AbortSignal): Promise<ScanList | null> {
+  const resp = await fetch(`${curatorUrl()}/scans`, { signal });
+  if (resp.status === 404) return null;
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** Remove one cached scan (DELETE /scan/{id}). Source images stay. The running scan is refused. */
+export async function deleteCachedScan(scanId: string, signal?: AbortSignal): Promise<void> {
+  await requireCapability(
+    curatorHealth,
+    allowsScanDelete,
+    "This curator cannot delete a cached scan (it predates scan delete).",
+    signal,
+  );
+  const resp = await fetch(`${curatorUrl()}/scan/${encodeURIComponent(scanId)}`, { method: "DELETE", signal });
+  if (!resp.ok) return asError(resp);
 }
 
 /** Stop whatever is running and delete every cached scan (POST /scans/purge). */

@@ -44,6 +44,11 @@ interface Props {
   selectedResults: ImageResult[];
   /** Curator /health, fetched once by the parent (live only; null until known). */
   health: Health | null;
+  /**
+   * A move export drops those rows from the cached scan. The paths are the
+   * ones the curator actually moved, so the grid can stop requesting their thumbs.
+   */
+  onMoved?: (scanId: string, moved: string[]) => void;
 }
 
 type Mode = "copy" | "symlink" | "move";
@@ -151,7 +156,7 @@ function demoManifestRows(summary: ScanSummary, rows: ImageResult[], dest: strin
   );
 }
 
-export function ExportPanel({ summary, selectedResults, health }: Props) {
+export function ExportPanel({ summary, selectedResults, health, onMoved }: Props) {
   const [dest, setDest] = useState(localOutputPath() || "/data/out");
   const [mode, setMode] = useState<Mode>("copy");
   const [preserve, setPreserve] = useState(true);
@@ -262,6 +267,10 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       });
       if (exported === null) return;
       setResult(exported);
+      if (mode === "move") {
+        const moved = runResults.map((row) => row.rel_path).filter((rel) => exportedRelPath(exported, rel) != null);
+        onMoved?.(runSummary.scan_id, moved);
+      }
       setLeftOut(framesLeftOut(runResults, (rel) => exportedRelPath(exported, rel) != null));
 
       // Whether this export's manifest can be handed to argus-lens, decided
