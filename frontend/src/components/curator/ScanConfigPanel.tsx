@@ -6,6 +6,8 @@ import {
   CATEGORY_LABELS,
   CATEGORY_COMPOSITION_TIPS,
   TARGET_CATEGORIES,
+  MIN_SHORT_SIDE,
+  clampShortSide,
   type CuratorConfig,
   type TargetCategory,
 } from "./types";
@@ -111,8 +113,15 @@ export function ScanConfigPanel({ value, onChange, loading }: Props) {
       <div>
         <label className="mb-3 block text-xs font-semibold uppercase tracking-wider text-muted">Hard Filters</label>
         <div className="space-y-3">
-          <Slider label="Min short side (px)" value={value.config.min_short_side} min={128} max={1024} step={64}
-            onChange={(v) => setConfig({ min_short_side: v })} disabled={loading} />
+          <Slider
+            label="Min short side (px)"
+            value={Math.max(MIN_SHORT_SIDE, value.config.min_short_side)}
+            min={MIN_SHORT_SIDE}
+            max={1024}
+            step={64}
+            onChange={(v) => setConfig({ min_short_side: clampShortSide(v) })}
+            disabled={loading}
+          />
           <Slider label="Max aspect ratio" value={value.config.max_aspect_ratio} min={1} max={6} step={0.5}
             format={(v) => v.toFixed(1)} onChange={(v) => setConfig({ max_aspect_ratio: v })} disabled={loading} />
           <Slider label="Blur threshold (Laplacian var)" value={value.config.blur_threshold} min={10} max={500} step={10}

@@ -12,6 +12,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Changed
 
+- **`/curate` keeps rejected and exposed frames covered** ([#107](https://github.com/smk762/argus-studio/issues/107), [#129](https://github.com/smk762/argus-studio/issues/129)). A rejected frame stays blurred and cannot be revealed or selected, and that decision is made before any NudeNet score is read, so a missing score is never treated as clear. An under-18 face with exposure is the same. A passing frame at or above the exposed line, or one NudeNet failed to score, is blurred until revealed. The short-side slider starts at 512, exports no longer send `include_rejected`, and a selection that comes back smaller names each frame's reject reason.
 - Backend writes are gated in the API clients instead of per component ([#75](https://github.com/smk762/argus-studio/issues/75)). Before sending, proof runs and reviews, curator exports (manifest major, export root, and move), writing forge configs, atlas bakes and quarry slice fetches each check the server's advertised capability, probing `/health` first if the page hasn't. A refused write throws `CapabilityRefused` with the reason and never reaches the server, so a new caller can't reintroduce a dead button or a raw 403.
 
 ### Fixed

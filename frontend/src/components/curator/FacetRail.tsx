@@ -1,5 +1,6 @@
 "use client";
 
+import { scanCheckedNsfw, thumbSafety } from "@/lib/curatorSafety";
 import { ThumbImage } from "./ThumbImage";
 import { FACE_POSES, POSE_LABELS, type CuratorFilters, type FacePose, type ScanSummary } from "./types";
 
@@ -60,6 +61,8 @@ export function FacetRail({ summary, filters, onChange, visibleCount }: Props) {
           <div className="grid grid-cols-2 gap-2">
             {summary.face_clusters.map((fc) => {
               const active = filters.faceClusters.includes(fc.cluster_id);
+              const rep = summary.results.find((r) => r.rel_path === fc.representative_rel_path);
+              const blurred = rep ? thumbSafety(rep, scanCheckedNsfw(summary)).blurred : false;
               return (
                 <button
                   key={fc.cluster_id}
@@ -72,12 +75,14 @@ export function FacetRail({ summary, filters, onChange, visibleCount }: Props) {
                   }`}
                 >
                   <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md">
-                    <ThumbImage
-                      scanId={summary.scan_id}
-                      relPath={fc.representative_rel_path}
-                      faceCluster={fc.cluster_id}
-                      rounded="rounded-md"
-                    />
+                    <div className={blurred ? "h-full w-full scale-105 blur-md" : "h-full w-full"} title={blurred ? "Blurred" : undefined}>
+                      <ThumbImage
+                        scanId={summary.scan_id}
+                        relPath={fc.representative_rel_path}
+                        faceCluster={fc.cluster_id}
+                        rounded="rounded-md"
+                      />
+                    </div>
                   </div>
                   <div className="min-w-0">
                     <div className="truncate font-mono text-[11px] text-foreground">{fc.cluster_id}</div>

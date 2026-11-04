@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
@@ -34,6 +34,7 @@ import {
   type Health,
   type ScanProgress,
 } from "@/lib/curatorApi";
+import { canExport, scanCheckedNsfw } from "@/lib/curatorSafety";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { useDeepLink } from "@/lib/deepLink";
 
@@ -60,7 +61,9 @@ function loadHistory(): ScanHistoryEntry[] {
 /** The default keep-set for a fresh scan: passing, unique representatives. */
 function defaultSelection(summary: ScanSummary): Set<string> {
   return new Set(
-    summary.results.filter((r) => r.passed && r.is_representative && !r.is_duplicate).map((r) => r.rel_path),
+    summary.results
+      .filter((r) => canExport(r) && r.is_representative && !r.is_duplicate)
+      .map((r) => r.rel_path),
   );
 }
 
@@ -82,8 +85,6 @@ export default function CuratePage() {
   const [detail, setDetail] = useState<ImageResult | null>(null);
   const [detectors, setDetectors] = useState<Detectors | null>(null);
   const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
-
-  const loadedSample = useRef(false);
 
   // Deep link from /gallery: ?folder=<path> preselects the scan folder.
   useDeepLink((params) => {
@@ -141,22 +142,26 @@ export default function CuratePage() {
     setView("grid");
   }, []);
 
-  // Demo mode: load the bundled read-only sample once.
+  // Demo mode: load the bundled read-only sample. Abort on cleanup so React's
+  // strict-mode remount starts a fresh fetch; a sticky ref here dropped the
+  // first request and never issued the second, so the sample never appeared.
   useEffect(() => {
-    if (isLive() || loadedSample.current) return;
-    loadedSample.current = true;
+    if (isLive()) return;
+    const ctrl = new AbortController();
     (async () => {
       setLoading(true);
       try {
-        const resp = await fetch("/curator-sample/scan.json");
+        const resp = await fetch("/curator-sample/scan.json", { signal: ctrl.signal });
         if (!resp.ok) throw new Error(`sample ${resp.status}`);
         applySummary((await resp.json()) as ScanSummary);
       } catch (err) {
+        if (ctrl.signal.aborted) return;
         setError(err instanceof Error ? err.message : "Could not load sample");
       } finally {
-        setLoading(false);
+        if (!ctrl.signal.aborted) setLoading(false);
       }
     })();
+    return () => ctrl.abort();
   }, [applySummary]);
 
   const handleScan = async (e: React.FormEvent) => {
@@ -194,11 +199,16 @@ export default function CuratePage() {
   const toggle = useCallback((relPath: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(relPath)) next.delete(relPath);
-      else next.add(relPath);
+      if (next.has(relPath)) {
+        next.delete(relPath);
+        return next;
+      }
+      const img = summary?.results.find((r) => r.rel_path === relPath);
+      if (img && !canExport(img)) return prev;
+      next.add(relPath);
       return next;
     });
-  }, []);
+  }, [summary]);
 
   const filtered = useMemo(
     () => (summary ? summary.results.filter((r) => matchesFilters(r, filters)) : []),
@@ -210,7 +220,8 @@ export default function CuratePage() {
     [summary, selected],
   );
 
-  const selectVisible = () => setSelected((prev) => new Set([...prev, ...filtered.map((r) => r.rel_path)]));
+  const selectVisible = () =>
+    setSelected((prev) => new Set([...prev, ...filtered.filter(canExport).map((r) => r.rel_path)]));
   const deselectHidden = () =>
     setSelected((prev) => {
       const visible = new Set(filtered.map((r) => r.rel_path));
@@ -396,9 +407,22 @@ export default function CuratePage() {
                   </div>
 
                   {view === "grid" ? (
-                    <ResultsGrid scanId={summary.scan_id} results={filtered} selected={selected} onToggle={toggle} onOpen={setDetail} />
+                    <ResultsGrid
+                      scanId={summary.scan_id}
+                      nsfwRan={scanCheckedNsfw(summary)}
+                      results={filtered}
+                      selected={selected}
+                      onToggle={toggle}
+                      onOpen={setDetail}
+                    />
                   ) : (
-                    <ClusterReviewLane scanId={summary.scan_id} results={summary.results} selected={selected} onToggle={toggle} />
+                    <ClusterReviewLane
+                      scanId={summary.scan_id}
+                      nsfwRan={scanCheckedNsfw(summary)}
+                      results={summary.results}
+                      selected={selected}
+                      onToggle={toggle}
+                    />
                   )}
                 </div>
               </>
@@ -434,6 +458,7 @@ export default function CuratePage() {
 
       <ImageDetailModal
         scanId={summary?.scan_id ?? ""}
+        nsfwRan={summary ? scanCheckedNsfw(summary) : false}
         img={detail}
         list={filtered}
         selected={detail ? selected.has(detail.rel_path) : false}

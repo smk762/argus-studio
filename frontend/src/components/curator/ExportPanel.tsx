@@ -18,6 +18,7 @@ import { isLive, lensUrl, localOutputPath, localSourcePath } from "@/lib/curator
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { StageHandoff } from "@/components/StageHandoff";
+import { framesLeftOut } from "@/lib/curatorSafety";
 import { joinPath, normalizeRoot } from "@/lib/path";
 import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
@@ -166,6 +167,8 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
   // Held in state so the result panel can contradict its own success line rather
   // than reporting a green "Copied N images" for an export nothing can consume.
   const [manifestProblem, setManifestProblem] = useState<string | null>(null);
+  // Selection members the curator did not write, with each frame's reject reason.
+  const [leftOut, setLeftOut] = useState<string | null>(null);
   // Server capabilities derived from the parent's /health fetch (#66). Both gates
   // below fail SAFE on the not-yet-known `null` via permits().
   const allowMove = allowsMove(health);
@@ -229,6 +232,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
     setCaption(null);
     setCaptionSummary(null);
     setManifestProblem(null);
+    setLeftOut(null);
     // Snapshot what this run exports. Both are live props and the results grid
     // stays interactive while the transfer streams: changing the selection would
     // otherwise make the row count disagree with the server's `copied` and
@@ -247,7 +251,6 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
           mode,
           preserve_structure: preserve,
           min_score: 0,
-          include_rejected: true,
           keep_similar: true,
           write_manifest: true,
           caption_url: null, // captioning is orchestrated below for live progress
@@ -259,6 +262,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
       });
       if (exported === null) return;
       setResult(exported);
+      setLeftOut(framesLeftOut(runResults, (rel) => exportedRelPath(exported, rel) != null));
 
       // Whether this export's manifest can be handed to argus-lens, decided
       // once and surfaced by the result panel (NOT via setError — the transfer
@@ -569,6 +573,7 @@ export function ExportPanel({ summary, selectedResults, health }: Props) {
             {result.mode === "move" ? "Moved" : result.mode === "symlink" ? "Symlinked" : "Copied"} {result.copied} images
             {result.skipped > 0 ? ` (${result.skipped} skipped)` : ""}.
           </div>
+          {leftOut && <div className="text-accent-orange/90">{leftOut}</div>}
           {/* The transfer succeeded but nothing downstream can read it — say so
               here rather than letting a green box imply the handoff worked. */}
           {manifestProblem && (

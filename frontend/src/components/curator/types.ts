@@ -42,6 +42,14 @@ export interface TargetProfile {
   target_category: TargetCategory;
 }
 
+/** Curator's floor (argus-curator#114). A lower value fails ScanConfig validation. */
+export const MIN_SHORT_SIDE = 512;
+
+export function clampShortSide(n: number): number {
+  if (!Number.isFinite(n)) return MIN_SHORT_SIDE;
+  return Math.max(MIN_SHORT_SIDE, Math.round(n));
+}
+
 export interface ScanConfig {
   min_short_side: number;
   max_aspect_ratio: number;
@@ -65,6 +73,12 @@ export interface FaceConfig {
   device: string;
 }
 
+/** A MiVOLO (or FairFace) age on a face or a body-only person. Years count only from MiVOLO. */
+export interface AgeReading {
+  age_years?: number | null;
+  age_source?: string | null;
+}
+
 export interface FaceDetection {
   bbox: [number, number, number, number]; // [x, y, w, h]
   det_score: number;
@@ -73,6 +87,13 @@ export interface FaceDetection {
   yaw: number | null;
   pitch: number | null;
   pose: FacePose | null;
+  attributes?: AgeReading | null;
+}
+
+/** NudeNet's reading of one image. Absent or null means the image was not scored. */
+export interface NsfwResult {
+  exposed_score?: number | null;
+  labels?: Record<string, number> | null;
 }
 
 export interface ImageResult {
@@ -96,6 +117,16 @@ export interface ImageResult {
   primary_face_cluster: string | null;
   primary_face_pose: FacePose | null;
   primary_face_yaw: number | null;
+  /** MiVOLO/FairFace attributes of the primary face, when that check ran. */
+  primary_face_attributes?: AgeReading | null;
+  /** Set age standing in for a passing frame with no face of its own. */
+  set_age?: { years: number } | null;
+  /** Body-only people (no matched face) whose MiVOLO age still counts. */
+  people?: ({ face_index?: number | null } & AgeReading)[] | null;
+  /** NudeNet. Null on a finished scan means not scored — never "clear". */
+  nsfw?: NsfwResult | null;
+  /** NudeNet failed and `nsfw` is EraX's hits alone, or nothing. */
+  nudenet_failed?: boolean;
   phash: string;
   score_breakdown: Record<string, number>;
 }
@@ -138,6 +169,8 @@ export interface ScanSummary {
   similar_clusters: number;
   reject_reasons: Record<string, number>;
   face_clusters: FaceCluster[];
+  /** What the finished scan actually ran. `enabled: true` means NudeNet scored it. */
+  nsfw_config?: { enabled?: boolean | null } | null;
   results: ImageResult[];
   offset: number;
   limit: number | null;
@@ -154,7 +187,6 @@ export interface ExportRequest {
   mode: "copy" | "symlink" | "move";
   preserve_structure: boolean;
   min_score: number;
-  include_rejected: boolean;
   keep_similar: boolean;
   max_keep?: number | null;
   face_clusters?: string[] | null;
@@ -450,7 +482,7 @@ export function buildScanBody(folder: string, cfg: CuratorConfig): Record<string
   return {
     folder,
     target_profile: cfg.profile,
-    config: cfg.config,
+    config: { ...cfg.config, min_short_side: clampShortSide(cfg.config.min_short_side) },
     faces: cfg.faces,
   };
 }
