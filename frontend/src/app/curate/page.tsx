@@ -45,7 +45,7 @@ import {
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { canExport, scanCheckedNsfw } from "@/lib/curatorSafety";
 import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
-import { configFromSummary, withoutRelPaths } from "@/lib/scanHistory";
+import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { useDeepLink } from "@/lib/deepLink";
 
@@ -64,6 +64,8 @@ const SCAN_DELETE_DENIED = "This curator cannot delete a cached scan (it predate
 const HISTORY_MAX = 8;
 /** Stream frames arrive every few images. Every update re-renders the grid, so they land at this pace instead. */
 const STREAM_FLUSH_MS = 150;
+/** A scan this page is not streaming only reports through `GET /scans`. */
+const ACTIVE_SCAN_POLL_MS = 3000;
 
 function loadHistory(): ScanHistoryEntry[] {
   try {
@@ -112,6 +114,13 @@ export default function CuratePage() {
   const [rerunning, setRerunning] = useState<string | null>(null);
   const [forgetting, setForgetting] = useState<string | null>(null);
   const usesServerList = useRef(false);
+  const scansRequest = useRef(0);
+  // For work that outlives the render it started in, such as an export.
+  const scanOnScreen = useRef<string | null>(null);
+  const scanId = summary?.scan_id ?? null;
+  useEffect(() => {
+    scanOnScreen.current = scanId;
+  }, [scanId]);
 
   // Deep link from /gallery: ?folder=<path> preselects the scan folder.
   useDeepLink((params) => {
@@ -122,9 +131,11 @@ export default function CuratePage() {
 
   const refreshScans = useCallback(async (signal?: AbortSignal) => {
     if (!isLive()) return;
+    const request = ++scansRequest.current;
     try {
       const list = await listScans(signal);
-      if (signal?.aborted) return;
+      // An older answer must not bring back what a newer one removed.
+      if (signal?.aborted || request !== scansRequest.current) return;
       if (list) {
         usesServerList.current = true;
         setServerScans(list);
@@ -146,6 +157,18 @@ export default function CuratePage() {
       .catch(() => setDetectors(null));
     return () => ctrl.abort();
   }, [refreshScans]);
+
+  // The curator keeps a scan running without a browser, so this row has no stream to end it.
+  const activeScanId = serverScans?.active?.scan_id ?? null;
+  useEffect(() => {
+    if (!activeScanId) return;
+    const ctrl = new AbortController();
+    const timer = setInterval(() => void refreshScans(ctrl.signal), ACTIVE_SCAN_POLL_MS);
+    return () => {
+      clearInterval(timer);
+      ctrl.abort();
+    };
+  }, [activeScanId, refreshScans]);
 
   const recordScan = useCallback((data: ScanSummary, folder: string) => {
     if (usesServerList.current) {
@@ -221,7 +244,7 @@ export default function CuratePage() {
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLive() || !folderPath.trim() || purging) return;
-    const prior = { summary, selected };
+    const prior = { summary, selected, filters, view };
     let sawChunk = false;
     let chunks: ScanChunk[] = [];
     let latestProgress: ScanProgress | null = null;
@@ -297,9 +320,13 @@ export default function CuratePage() {
         if (!sawChunk && !kind) {
           setSummary(prior.summary);
           setSelected(prior.selected);
+          setFilters(prior.filters);
+          setView(prior.view);
         }
         setError(err instanceof Error ? err.message : "Scan failed");
       }
+      // A failed scan can leave its snapshot behind, and a stopped one was listed as running.
+      void refreshScans();
     } finally {
       setLoading(false);
       setScanning(false);
@@ -376,11 +403,13 @@ export default function CuratePage() {
     setRerunning(scanId);
     setError(null);
     try {
-      const data = await getScan(scanId);
+      // The settings ride on every page, so one row is enough.
+      const data = await getScan(scanId, 1);
       setConfig(configFromSummary(data));
       setFolderPath(data.folder);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read that scan's settings");
+      void refreshScans();
     } finally {
       setRerunning(null);
     }
@@ -392,25 +421,33 @@ export default function CuratePage() {
     setError(null);
     try {
       await deleteCachedScan(scanId);
-      if (summary?.scan_id === scanId) clearScan();
+      if (scanOnScreen.current === scanId) clearScan();
       setNotice("That scan was removed. The source images stayed.");
-      void refreshScans();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not remove that scan");
     } finally {
       setForgetting(null);
+      void refreshScans();
     }
   };
 
-  /** A move export has already dropped these rows on the server. Stop showing them. */
-  const dropMoved = (scanId: string, moved: string[]) => {
+  /**
+   * A move export has already dropped these rows on the server. Stop showing
+   * them. The export outlives the panel, so another scan may be on screen by
+   * now, and rel paths mean nothing across scans.
+   */
+  const dropMoved = (movedScanId: string, moved: string[]) => {
+    void refreshScans();
+    if (scanOnScreen.current !== movedScanId) return;
     const gone = new Set(moved);
-    setSummary((current) => (current && current.scan_id === scanId ? withoutRelPaths(current, moved) : current));
+    setSummary((current) => (current ? withoutRelPaths(current, moved) : current));
     setSelected((prev) => new Set([...prev].filter((path) => !gone.has(path))));
     setDetail((current) => (current && gone.has(current.rel_path) ? null : current));
-    void getScan(scanId)
+    // A streamed scan is not paged, so a default limit could cut it short here.
+    void getScan(movedScanId, summary?.total || undefined)
       .then((fresh) => {
-        setSummary((current) => (current?.scan_id === scanId ? fresh : current));
+        if (scanOnScreen.current !== movedScanId) return;
+        setSummary(fresh);
         setSelected((prev) => {
           const kept = new Set(fresh.results.map((row) => row.rel_path));
           return new Set([...prev].filter((path) => kept.has(path)));
@@ -436,7 +473,11 @@ export default function CuratePage() {
   }, [summary]);
 
   const filtered = useMemo(
-    () => (summary ? summary.results.filter((r) => matchesFilters(r, filters)) : []),
+    () => {
+      if (!summary) return [];
+      const active = knownClusterFilters(filters, summary);
+      return summary.results.filter((r) => matchesFilters(r, active));
+    },
     [summary, filters],
   );
 
@@ -518,7 +559,7 @@ export default function CuratePage() {
                   </button>
                   <ScanControlButtons
                     scanning={scanning}
-                    scanId={summary?.scan_id ?? null}
+                    scanId={scanId}
                     stopping={stopping}
                     purging={purging}
                     allowed={permits(allowsScanControl(health))}
@@ -538,10 +579,10 @@ export default function CuratePage() {
               {serverScans && (
                 <CachedScanList
                   list={serverScans}
-                  currentId={summary?.scan_id ?? null}
+                  currentId={scanId}
                   canDelete={permits(allowsScanDelete(health))}
                   deleteReason={capabilityReason(allowsScanDelete(health), SCAN_DELETE_DENIED)}
-                  busy={loading || purging}
+                  busy={loading || purging || forgetting != null}
                   rerunning={rerunning}
                   forgetting={forgetting}
                   onOpen={(scanId, folder) => void openCachedScan(scanId, folder)}
@@ -618,6 +659,7 @@ export default function CuratePage() {
                   </p>
                 ) : (
                   <ExportPanel
+                    key={summary.scan_id}
                     summary={summary}
                     selectedResults={selectedResults}
                     health={health}
@@ -814,7 +856,7 @@ function CachedScanList({
             <button
               type="button"
               onClick={() => onDelete(scan.scan_id)}
-              disabled={!canDelete || forgetting != null || busy}
+              disabled={!canDelete || busy}
               title={canDelete ? "Remove this scan from the cache. Source images stay." : (deleteReason ?? SCAN_DELETE_DENIED)}
               className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-accent-red hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
             >

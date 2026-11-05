@@ -47,6 +47,8 @@ interface Props {
   /**
    * A move export drops those rows from the cached scan. The paths are the
    * ones the curator actually moved, so the grid can stop requesting their thumbs.
+   * After a failed move they are unknown and `moved` is empty, but files may
+   * already have left, so the scan still has to be read again.
    */
   onMoved?: (scanId: string, moved: string[]) => void;
 }
@@ -263,6 +265,7 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
         setTransfer,
       ).catch((err: unknown) => {
         setError(`Export failed (argus-curator): ${errMsg(err)}`);
+        if (mode === "move") onMoved?.(runSummary.scan_id, []);
         return null;
       });
       if (exported === null) return;

@@ -8,6 +8,7 @@ import {
   clampShortSide,
   defaultCuratorConfig,
   type CuratorConfig,
+  type CuratorFilters,
   type ScanSummary,
 } from "@/components/curator/types";
 
@@ -26,9 +27,10 @@ export function configFromSummary(summary: ScanSummary): CuratorConfig {
 }
 
 /**
- * The scan after those paths left it. Counts follow the rows still on screen.
- * Face clusters whose representative moved go with it, so the rail does not
- * request that thumb.
+ * The scan after those paths left it. Counts follow the rows still on screen,
+ * and `total` keeps the rows a paged load never fetched. An identity whose
+ * representative moved takes the next frame with that face, so the rail does
+ * not request the moved thumb, and goes only when no such frame is left.
  */
 export function withoutRelPaths(summary: ScanSummary, gone: readonly string[]): ScanSummary {
   const drop = new Set(gone.filter(Boolean));
@@ -36,12 +38,26 @@ export function withoutRelPaths(summary: ScanSummary, gone: readonly string[]): 
   const results = summary.results.filter((img) => !drop.has(img.rel_path));
   return {
     ...summary,
-    total: results.length,
+    total: summary.total - (summary.results.length - results.length),
     passed: results.filter((img) => img.passed).length,
     rejected: results.filter((img) => !img.passed).length,
     duplicates: results.filter((img) => img.is_duplicate).length,
-    face_clusters: summary.face_clusters.filter((cluster) => !drop.has(cluster.representative_rel_path)),
+    face_clusters: summary.face_clusters.flatMap((cluster) => {
+      if (!drop.has(cluster.representative_rel_path)) return [cluster];
+      const next = results.find((img) => img.faces.some((face) => face.cluster_id === cluster.cluster_id));
+      return next ? [{ ...cluster, representative_rel_path: next.rel_path, representative_bbox: null }] : [];
+    }),
     results,
     returned: results.length,
   };
+}
+
+/**
+ * Filters without identities the scan no longer has. Filters outlive a scan
+ * update, and the rail has no chip left to clear a gone identity with, so it
+ * would otherwise hold the grid empty.
+ */
+export function knownClusterFilters(filters: CuratorFilters, summary: ScanSummary): CuratorFilters {
+  const known = new Set(summary.face_clusters.map((cluster) => cluster.cluster_id));
+  return { ...filters, faceClusters: filters.faceClusters.filter((id) => known.has(id)) };
 }

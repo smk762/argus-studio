@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultCuratorConfig, type ImageResult, type ScanSummary } from "@/components/curator/types";
-import { configFromSummary, withoutRelPaths } from "@/lib/scanHistory";
+import { defaultCuratorConfig, defaultFilters, type ImageResult, type ScanSummary } from "@/components/curator/types";
+import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
 
 function image(rel: string, overrides: Partial<ImageResult> = {}): ImageResult {
   return {
@@ -79,8 +79,28 @@ describe("withoutRelPaths", () => {
     expect(next.face_clusters.map((cluster) => cluster.cluster_id)).toEqual(["a"]);
   });
 
+  it("hands a moved representative to the next frame with that face", () => {
+    const face = { cluster_id: "b" } as ImageResult["faces"][number];
+    const next = withoutRelPaths(summary([image("gone.jpg"), image("same.jpg", { faces: [face] })]), ["gone.jpg"]);
+    const cluster = next.face_clusters.find((c) => c.cluster_id === "b");
+    expect(cluster?.representative_rel_path).toBe("same.jpg");
+    expect(cluster?.representative_bbox).toBeNull();
+  });
+
+  it("keeps the rows a paged load never fetched in the total", () => {
+    const paged = { ...summary([image("keep.jpg"), image("gone.jpg")]), total: 15000 };
+    expect(withoutRelPaths(paged, ["gone.jpg"]).total).toBe(14999);
+  });
+
   it("leaves the scan alone when nothing moved", () => {
     const current = summary([image("keep.jpg")]);
     expect(withoutRelPaths(current, [])).toBe(current);
+  });
+});
+
+describe("knownClusterFilters", () => {
+  it("lets go of an identity the scan no longer has", () => {
+    const filters = { ...defaultFilters(), faceClusters: ["a", "left"] };
+    expect(knownClusterFilters(filters, summary([])).faceClusters).toEqual(["a"]);
   });
 });
