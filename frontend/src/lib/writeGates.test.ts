@@ -148,6 +148,20 @@ describe("curator scan control", () => {
     expect(purged).toEqual({ cancelled: null, deleted: [] });
     expect(calls).toEqual(["GET /health", "POST /scan/abc/cancel", "POST /scans/purge"]);
   });
+
+  it("refuses deleting a cached scan unless the server advertises scan_delete", async () => {
+    routes["GET /health"] = curator({ scan_control: true });
+    routes["DELETE /scan/abc"] = sent;
+    const { deleteCachedScan, getHealth } = await import("@/lib/curatorApi");
+
+    await expect(deleteCachedScan("abc")).rejects.toThrow(/delete a cached scan/);
+    expect(calls).toEqual(["GET /health"]);
+
+    routes["GET /health"] = curator({ scan_delete: true });
+    await getHealth();
+    await expect(deleteCachedScan("abc")).rejects.toThrow("reached the server");
+    expect(calls).toEqual(["GET /health", "GET /health", "DELETE /scan/abc"]);
+  });
 });
 
 describe("forge, atlas and quarry writes", () => {

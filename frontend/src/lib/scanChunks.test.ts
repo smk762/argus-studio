@@ -86,6 +86,17 @@ describe("mergeChunk", () => {
     expect(kept.face_clusters.map((c) => c.cluster_id)).toEqual(["id-1"]);
   });
 
+  it("remembers that the scan asked for nudity after the check leaves the pending list", () => {
+    const first = mergeChunk(null, chunk({ pending_checks: ["nsfw"] }));
+    expect(first.nsfw_config?.enabled).toBe(true);
+    expect(mergeChunk(first, chunk({ pending_checks: [] })).nsfw_config?.enabled).toBe(true);
+  });
+
+  it("reads no nudity on a scan that never listed it, and assumes it when the curator sends no list", () => {
+    expect(mergeChunk(null, chunk({ pending_checks: ["faces"] })).nsfw_config?.enabled).toBe(false);
+    expect(mergeChunk(null, chunk({ pending_checks: undefined })).nsfw_config?.enabled).toBe(true);
+  });
+
   it("counts rejects and duplicates from the frames on screen", () => {
     const merged = mergeChunk(
       null,
