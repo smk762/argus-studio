@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { basename } from "@/lib/path";
 import { canExport, exportBlockReason } from "@/lib/curatorSafety";
+import { imagePending, pendingCaption } from "@/lib/scanChunks";
 import { SafeThumb } from "./SafeThumb";
 import type { ImageResult } from "./types";
 
@@ -10,12 +11,13 @@ interface Props {
   scanId: string;
   results: ImageResult[];
   nsfwRan: boolean;
+  pending?: readonly string[];
   selected: Set<string>;
   onToggle: (relPath: string) => void;
 }
 
 /** Side-by-side review of near-duplicate clusters (group_size > 1) for HITL keep/drop. */
-export function ClusterReviewLane({ scanId, results, nsfwRan, selected, onToggle }: Props) {
+export function ClusterReviewLane({ scanId, results, nsfwRan, pending = [], selected, onToggle }: Props) {
   const groups = useMemo(() => {
     const byGroup = new Map<number, ImageResult[]>();
     for (const r of results) {
@@ -59,6 +61,7 @@ export function ClusterReviewLane({ scanId, results, nsfwRan, selected, onToggle
               const isSel = selected.has(m.rel_path);
               const exportable = canExport(m);
               const blocked = exportBlockReason(m);
+              const waiting = imagePending(m, pending);
               return (
                 <div
                   key={m.rel_path}
@@ -74,6 +77,7 @@ export function ClusterReviewLane({ scanId, results, nsfwRan, selected, onToggle
                       scanId={scanId}
                       img={m}
                       nsfwRan={nsfwRan}
+                      pending={pending}
                       onActivate={exportable ? () => onToggle(m.rel_path) : undefined}
                     />
                     <span className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-black/50 px-1 py-0.5 font-mono text-[10px] text-white">
@@ -97,6 +101,9 @@ export function ClusterReviewLane({ scanId, results, nsfwRan, selected, onToggle
                   <div className="truncate p-1.5 font-mono text-[9px] text-muted" title={m.rel_path}>
                     {basename(m.rel_path)}
                   </div>
+                  {waiting.length > 0 && (
+                    <div className="truncate px-1.5 pb-1.5 text-[9px] text-accent-teal">Checking {pendingCaption(waiting)}</div>
+                  )}
                 </div>
               );
             })}

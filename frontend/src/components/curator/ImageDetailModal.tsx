@@ -9,6 +9,7 @@ import { POSE_LABELS, type ImageResult } from "./types";
 interface Props {
   scanId: string;
   nsfwRan: boolean;
+  pending?: readonly string[];
   img: ImageResult | null;
   /** The filtered gallery the modal navigates within (prev/next). */
   list: ImageResult[];
@@ -18,7 +19,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function ImageDetailModal({ scanId, nsfwRan, img, list, selected, onToggle, onNavigate, onClose }: Props) {
+export function ImageDetailModal({ scanId, nsfwRan, pending = [], img, list, selected, onToggle, onNavigate, onClose }: Props) {
   const idx = img ? list.findIndex((r) => r.rel_path === img.rel_path) : -1;
   const prev = idx > 0 ? list[idx - 1] : null;
   const next = idx >= 0 && idx < list.length - 1 ? list[idx + 1] : null;
@@ -41,7 +42,7 @@ export function ImageDetailModal({ scanId, nsfwRan, img, list, selected, onToggl
 
   const exportable = canExport(img);
   const blocked = exportBlockReason(img);
-  const safety = thumbSafety(img, nsfwRan);
+  const safety = thumbSafety(img, nsfwRan, pending);
 
   return (
     <div
@@ -106,7 +107,7 @@ export function ImageDetailModal({ scanId, nsfwRan, img, list, selected, onToggl
             {/* Image takes two of the three columns. */}
             <div className="lg:col-span-2">
               <div className="flex h-[70vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
-                <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} rounded="rounded-xl" fit="contain" />
+                <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} rounded="rounded-xl" fit="contain" />
               </div>
             </div>
 

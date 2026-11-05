@@ -127,6 +127,8 @@ export interface ImageResult {
   nsfw?: NsfwResult | null;
   /** NudeNet failed and `nsfw` is EraX's hits alone, or nothing. */
   nudenet_failed?: boolean;
+  /** Policy verdict, once the guard check has run. Absent while it is pending. */
+  guard?: { safe?: boolean } | null;
   phash: string;
   score_breakdown: Record<string, number>;
 }

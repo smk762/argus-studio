@@ -118,7 +118,7 @@ describe("lens category options", () => {
 describe("curator readSseStream", () => {
   const sse = (frames: string[]) => chunked(frames).body!;
 
-  it("dispatches progress, ignores chunk frames, resolves with complete", async () => {
+  it("dispatches progress, ignores chunk frames nobody asked for, resolves with complete", async () => {
     const seen: unknown[] = [];
     const out = await readSseStream<unknown, { scan_id: string }>(
       sse([
@@ -131,6 +131,17 @@ describe("curator readSseStream", () => {
     );
     expect(seen).toEqual([{ phase: "nsfw", done: 1, total: 4 }]);
     expect(out).toEqual({ scan_id: "s1" });
+  });
+
+  it("forwards chunk frames when a scan is listening", async () => {
+    const chunks: unknown[] = [];
+    await readSseStream(
+      sse(['event: chunk\ndata: {"scan_id":"s1","results":[{"rel_path":"a.jpg"}]}\n\n', 'event: complete\ndata: {"scan_id":"s1"}\n\n']),
+      () => {},
+      "Scan",
+      (chunk) => chunks.push(chunk),
+    );
+    expect(chunks).toEqual([{ scan_id: "s1", results: [{ rel_path: "a.jpg" }] }]);
   });
 
   it("throws StreamCancelled on event: cancelled", async () => {
@@ -159,10 +170,12 @@ describe("curator readSseStream", () => {
 
 describe("scan phases", () => {
   it("labels every phase curator 0.13 emits", () => {
-    for (const p of ["collecting", "scoring", "faces", "erax", "nsfw", "identities", "prefilter", "scenes", "garments", "guard", "clustering"]) {
+    for (const p of ["collecting", "scoring", "watermarks", "faces", "erax", "nsfw", "identities", "prefilter", "scenes", "garments", "guard", "clustering"]) {
       expect(scanPhaseLabel(p)).not.toBe("");
     }
     expect(scanPhaseLabel("guard")).toBe("Running SingGuard");
+    expect(scanPhaseLabel("watermarks")).toBe("Finding watermarks");
+    expect(isDeterminatePhase("watermarks")).toBe(true);
   });
 
   it("falls back to a readable label for an unknown phase", () => {

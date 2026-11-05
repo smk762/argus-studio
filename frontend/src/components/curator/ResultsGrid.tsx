@@ -1,6 +1,7 @@
 "use client";
 
 import { canExport, exportBlockReason } from "@/lib/curatorSafety";
+import { imagePending, pendingCaption } from "@/lib/scanChunks";
 import { SafeThumb } from "./SafeThumb";
 import { statusExplanation } from "./imageExplain";
 import { POSE_LABELS, type ImageResult } from "./types";
@@ -10,12 +11,14 @@ interface Props {
   results: ImageResult[];
   /** The finished scan ran NudeNet, so an unscored row is not "clear". */
   nsfwRan: boolean;
+  /** Checks still running. Empty once the scan has finished. */
+  pending?: readonly string[];
   selected: Set<string>;
   onToggle: (relPath: string) => void;
   onOpen: (img: ImageResult) => void;
 }
 
-export function ResultsGrid({ scanId, results, nsfwRan, selected, onToggle, onOpen }: Props) {
+export function ResultsGrid({ scanId, results, nsfwRan, pending = [], selected, onToggle, onOpen }: Props) {
   if (results.length === 0) {
     return <div className="py-10 text-center text-sm text-muted">No images match the current facets.</div>;
   }
@@ -27,6 +30,7 @@ export function ResultsGrid({ scanId, results, nsfwRan, selected, onToggle, onOp
           scanId={scanId}
           img={img}
           nsfwRan={nsfwRan}
+          pending={pending}
           selected={selected.has(img.rel_path)}
           onToggle={() => onToggle(img.rel_path)}
           onOpen={() => onOpen(img)}
@@ -50,6 +54,7 @@ function Card({
   scanId,
   img,
   nsfwRan,
+  pending,
   selected,
   onToggle,
   onOpen,
@@ -57,12 +62,14 @@ function Card({
   scanId: string;
   img: ImageResult;
   nsfwRan: boolean;
+  pending: readonly string[];
   selected: boolean;
   onToggle: () => void;
   onOpen: () => void;
 }) {
   const exportable = canExport(img);
   const blocked = exportBlockReason(img);
+  const waiting = imagePending(img, pending);
   const border = selected
     ? "border-accent-green/70 ring-2 ring-accent-green/40"
     : !img.passed
@@ -104,7 +111,7 @@ function Card({
       </button>
 
       <div className="relative aspect-square" title={`${img.rel_path}\n\n${statusExplanation(img)}`}>
-        <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} onActivate={onOpen} />
+        <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} onActivate={onOpen} />
         <div className="pointer-events-none absolute right-1 top-1 z-10">
           <ScoreBadge score={img.score} />
         </div>
@@ -157,6 +164,11 @@ function Card({
             >
               {POSE_LABELS[img.primary_face_pose]}
             </span>
+          )}
+          {waiting.length > 0 && (
+            <div className="truncate text-[10px] leading-tight text-accent-teal" title={`Still checking ${pendingCaption(waiting)}`}>
+              Checking {pendingCaption(waiting)}
+            </div>
           )}
           {img.reject_reason && (
             <div className="truncate text-[10px] leading-tight text-accent-red/80" title={img.reject_reason}>
