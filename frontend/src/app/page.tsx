@@ -10,6 +10,7 @@ import { ImagePreview } from "@/components/ImagePreview";
 import { CaptionVariants } from "@/components/CaptionVariants";
 import { RawOutputs } from "@/components/RawOutputs";
 import { AutoRemoved } from "@/components/AutoRemoved";
+import { CaptionExplain } from "@/components/CaptionExplain";
 import { SubjectCount } from "@/components/SubjectCount";
 import { RefinementRecord } from "@/components/RefinementRecord";
 import { ExportButtons } from "@/components/ExportButtons";
@@ -843,6 +844,7 @@ export default function Home() {
               <CaptionVariants result={result} />
               <RawOutputs result={result} />
               <AutoRemoved result={result} />
+              <CaptionExplain result={result} />
             </div>
           </div>
         )}
