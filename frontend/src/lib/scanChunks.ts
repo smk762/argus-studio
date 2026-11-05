@@ -72,6 +72,9 @@ export function mergeChunk(current: ScanSummary | null, chunk: ScanChunk, reques
     rejected: results.filter((img) => !img.passed).length,
     duplicates: results.filter((img) => img.is_duplicate).length,
     face_clusters: chunk.face_clusters !== undefined ? chunk.face_clusters : base.face_clusters,
+    // Chunks carry no `nsfw_config`. A row left unscored must not read as clear
+    // while the scan is asking for nudity, or when an older curator cannot say.
+    nsfw_config: base.nsfw_config?.enabled ? base.nsfw_config : { enabled: chunk.pending_checks?.includes("nsfw") ?? true },
     results,
     returned: results.length,
   };

@@ -44,7 +44,7 @@ import {
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { canExport, scanCheckedNsfw } from "@/lib/curatorSafety";
-import { mergeChunk, pendingCaption } from "@/lib/scanChunks";
+import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
 import { configFromSummary, withoutRelPaths } from "@/lib/scanHistory";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { useDeepLink } from "@/lib/deepLink";
@@ -62,6 +62,8 @@ const HISTORY_KEY = "argus.curate.scanHistory";
 const SCAN_CONTROL_DENIED = "This curator cannot stop or purge a scan (it predates scan control).";
 const SCAN_DELETE_DENIED = "This curator cannot delete a cached scan (it predates scan delete).";
 const HISTORY_MAX = 8;
+/** Stream frames arrive every few images. Every update re-renders the grid, so they land at this pace instead. */
+const STREAM_FLUSH_MS = 150;
 
 function loadHistory(): ScanHistoryEntry[] {
   try {
@@ -85,13 +87,16 @@ export default function CuratePage() {
   const [folderPath, setFolderPath] = useState(() => (isLive() ? localSourcePath() : ""));
   const [summary, setSummary] = useState<ScanSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  // A folder scan is running. `loading` is also true for a cached-scan reload.
+  const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [pending, setPending] = useState<string[]>([]);
   const [stopping, setStopping] = useState(false);
   const [purging, setPurging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const stopKind = useRef<"stop" | "purge" | null>(null);
+  // "purge" is in flight, "purged" has landed.
+  const stopKind = useRef<"stop" | "purge" | "purged" | null>(null);
   const [version, setVersion] = useState<string | null>(null);
   // Full /health, fetched once here and passed to ExportPanel (which needs
   // allow_move / export_root) so the page makes a single health request.
@@ -206,50 +211,98 @@ export default function CuratePage() {
     return () => ctrl.abort();
   }, [applySummary]);
 
+  const clearScan = () => {
+    setSummary(null);
+    setSelected(new Set());
+    setPending([]);
+    setDetail(null);
+  };
+
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLive() || !folderPath.trim() || purging) return;
+    const prior = { summary, selected };
+    let sawChunk = false;
+    let chunks: ScanChunk[] = [];
+    let latestProgress: ScanProgress | null = null;
+    let latestPending: string[] | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      timer = null;
+      const batch = chunks;
+      chunks = [];
+      if (latestProgress) setProgress(latestProgress);
+      if (latestPending) setPending(latestPending);
+      if (batch.length > 0) {
+        setSummary((current) =>
+          batch.reduce<ScanSummary | null>((merged, chunk) => mergeChunk(merged, chunk, config), current),
+        );
+      }
+    };
+    const schedule = () => {
+      timer ??= setTimeout(flush, STREAM_FLUSH_MS);
+    };
+    const halt = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+
     stopKind.current = null;
     setError(null);
     setNotice(null);
     setProgress(null);
-    setPending([]);
-    setSummary(null);
-    setSelected(new Set());
-    setDetail(null);
+    clearScan();
     setFilters(defaultFilters());
+    setView("grid");
     setLoading(true);
+    setScanning(true);
     try {
       const data = await scanFolderStream(
         folderPath.trim(),
         config,
         (update) => {
-          setProgress(update);
-          if (update.pending_checks) setPending(update.pending_checks);
+          latestProgress = update;
+          if (update.pending_checks) latestPending = update.pending_checks;
+          schedule();
         },
         (chunk) => {
-          setPending(chunk.pending_checks ?? []);
-          setSummary((current) => mergeChunk(current, chunk, config));
+          sawChunk = true;
+          // No list on a chunk says nothing about the checks, so the last one stands.
+          if (chunk.pending_checks) latestPending = chunk.pending_checks;
+          chunks.push(chunk);
+          schedule();
         },
-      );
+      ).finally(halt);
+      if (stopKind.current === "purged") {
+        // The purge landed first and already deleted this result.
+        clearScan();
+        return;
+      }
+      // Filters and the view stay: the user has been working in this grid.
       setPending([]);
-      applySummary(data);
+      setSummary(data);
+      setSelected(defaultSelection(data));
       recordScan(data, folderPath.trim());
     } catch (err) {
+      const kind = stopKind.current;
+      clearScan();
       if (err instanceof StreamCancelled) {
-        setSummary(null);
-        setSelected(new Set());
-        setPending([]);
-        setDetail(null);
-        const kind = stopKind.current;
-        if (kind === "purge") setNotice("Cached scans were deleted, and the running scan was dropped.");
-        else if (kind === "stop") setNotice("Scan stopped. The partial result was dropped.");
+        if (kind === "purge" || kind === "purged") {
+          setNotice("Cached scans were deleted, and the running scan was dropped.");
+        } else if (kind === "stop") setNotice("Scan stopped. The partial result was dropped.");
         else setError(err.message);
       } else {
+        // A refused scan never replaced the one on screen. A partial one is
+        // not a result: its checks did not finish, so it must not reach export.
+        if (!sawChunk && !kind) {
+          setSummary(prior.summary);
+          setSelected(prior.selected);
+        }
         setError(err instanceof Error ? err.message : "Scan failed");
       }
     } finally {
       setLoading(false);
+      setScanning(false);
       setProgress(null);
       setStopping(false);
       stopKind.current = null;
@@ -280,21 +333,21 @@ export default function CuratePage() {
     setError(null);
     setNotice(null);
     try {
-      await purgeScans();
+      const { cancelled } = await purgeScans();
+      stopKind.current = "purged";
       setHistory([]);
       try {
         localStorage.removeItem(HISTORY_KEY);
       } catch {
         /* ignore */
       }
-      setSummary(null);
-      setSelected(new Set());
-      setPending([]);
-      setDetail(null);
-      setNotice("Cached scans were deleted.");
+      clearScan();
+      setNotice(cancelled ? "Cached scans were deleted, and the running scan was dropped." : "Cached scans were deleted.");
       void refreshScans();
     } catch (err) {
-      if (stopKind.current === "purge") stopKind.current = null;
+      // The curator stops the scan before it can refuse (409), so a cancelled
+      // frame may still follow, and it should not read as someone else's stop.
+      if (stopKind.current === "purge") stopKind.current = scanning ? "stop" : null;
       setError(err instanceof Error ? err.message : "Could not purge the scans");
     } finally {
       setPurging(false);
@@ -339,12 +392,7 @@ export default function CuratePage() {
     setError(null);
     try {
       await deleteCachedScan(scanId);
-      if (summary?.scan_id === scanId) {
-        setSummary(null);
-        setSelected(new Set());
-        setDetail(null);
-        setPending([]);
-      }
+      if (summary?.scan_id === scanId) clearScan();
       setNotice("That scan was removed. The source images stayed.");
       void refreshScans();
     } catch (err) {
@@ -469,7 +517,7 @@ export default function CuratePage() {
                     {loading ? "Scanning…" : "Scan folder"}
                   </button>
                   <ScanControlButtons
-                    scanning={loading}
+                    scanning={scanning}
                     scanId={summary?.scan_id ?? null}
                     stopping={stopping}
                     purging={purging}
@@ -564,7 +612,7 @@ export default function CuratePage() {
                   pending={pending}
                 />
                 <SelectionInsights summary={summary} selectedResults={selectedResults} />
-                {loading ? (
+                {scanning ? (
                   <p className="rounded-xl border border-border bg-surface p-4 text-[11px] leading-relaxed text-muted">
                     Export opens when the scan finishes. The keep-set is chosen then.
                   </p>
@@ -591,7 +639,7 @@ export default function CuratePage() {
 
             {summary && (
               <>
-                {loading && <ScanProgressView progress={progress} pending={pending} compact />}
+                {scanning && <ScanProgressView progress={progress} pending={pending} compact />}
                 <ScanSummaryPanel summary={summary} />
 
                 <div className="rounded-xl border border-border bg-surface p-5">
