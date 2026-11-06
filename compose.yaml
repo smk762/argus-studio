@@ -198,6 +198,10 @@ services:
       # demo can't relocate source images; the ExportPanel disables the option
       # to match. Uncomment to permit it.
       # - CURATOR_ALLOW_MOVE=1
+      # POST /scan/{id}/delete removes source files. Without this it takes only
+      # frames curator reads as under 18 with exposure. Uncomment to let /curate
+      # delete any selected image.
+      # - CURATOR_ALLOW_DELETE=1
       # Detector models, under the cache mount below. A file that isn't there
       # leaves that detector reported as unavailable. Build them with
       # `argus-curator fairface-convert`, `mivolo-convert`, `places365-convert`

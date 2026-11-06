@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { ExportResult } from "@/components/curator/types";
 import {
+  allowsDeleteAny,
   allowsExport,
+  allowsMinorExposedDelete,
   allowsMove,
   exportedAbsPath,
   exportedRelPath,
@@ -30,6 +32,22 @@ const health = (overrides: Partial<Health> = {}): Health => ({
   service: "argus-curator",
   version: "0.3.0",
   ...overrides,
+});
+
+describe("image delete capabilities", () => {
+  it("allows any image only when the server says so", () => {
+    expect(allowsDeleteAny(null)).toBeNull();
+    expect(allowsDeleteAny(health())).toBe(false);
+    expect(allowsDeleteAny(health({ delete_any: false }))).toBe(false);
+    expect(allowsDeleteAny(health({ delete_any: true }))).toBe(true);
+  });
+
+  it("allows a minor-exposed image whenever the server advertises the field", () => {
+    expect(allowsMinorExposedDelete(null)).toBeNull();
+    expect(allowsMinorExposedDelete(health())).toBe(false);
+    expect(allowsMinorExposedDelete(health({ delete_any: false }))).toBe(true);
+    expect(allowsMinorExposedDelete(health({ delete_any: true }))).toBe(true);
+  });
 });
 
 describe("manifestMajor", () => {
