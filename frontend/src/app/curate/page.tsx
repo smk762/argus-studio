@@ -953,7 +953,7 @@ function CachedScanList({
               type="button"
               onClick={() => onDelete(scan.scan_id)}
               disabled={!canDelete || busy}
-              title={canDelete ? "Remove this scan from the cache. Source images stay." : (deleteReason ?? SCAN_DELETE_DENIED)}
+              title={deleteReason ?? "Remove this scan from the cache. Source images stay."}
               className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-accent-red hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {forgetting === scan.scan_id ? "…" : "Delete"}

@@ -6,9 +6,17 @@
 # source instead, add the build override too:
 #   docker compose -f compose.yaml -f compose.build.yaml -f compose.gpu.yaml --profile full up --build
 #
+# A source build of the curator also needs CURATOR_GPU=1 in .env: the image tag
+# below says -gpu whatever was built.
+#
+# Lens and curator share the card through a lock file, one job at a time. Set
+# ARGUS_GPU_COORDINATOR=none in .env to turn that off.
+#
 # Kept separate so the base stack runs on any machine (CPU-only, no toolkit).
 services:
   argus-lens:
+    environment:
+      - ARGUS_GPU_COORDINATOR=${ARGUS_GPU_COORDINATOR:-lease}
     deploy:
       resources:
         reservations:
@@ -27,6 +35,10 @@ services:
               capabilities: [gpu]
 
   argus-curator:
+    # The default image is CPU only, so reserving a GPU for it does nothing.
+    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-latest}-gpu
+    environment:
+      - ARGUS_GPU_COORDINATOR=${ARGUS_GPU_COORDINATOR:-lease}
     deploy:
       resources:
         reservations:

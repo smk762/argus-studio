@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { refineOf } from "@/lib/captionRefine";
 import type { CaptionResult } from "@/types";
 
 interface VariantStyle {
@@ -85,11 +86,24 @@ interface CaptionVariantsProps {
   result: CaptionResult;
 }
 
+function RewrittenBadge({ model }: { model: string }) {
+  return (
+    <span
+      title={model ? `Rewritten by ${model}` : "Rewritten by an LLM"}
+      className="rounded border border-accent-teal/40 px-1.5 py-px text-[10px] font-semibold tracking-wider text-accent-teal"
+    >
+      LLM
+    </span>
+  );
+}
+
 export function CaptionVariants({ result }: CaptionVariantsProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const derived = result.final_caption;
   const variants = result.caption_variants;
+  const refine = refineOf(result.metadata);
+  const rewritten = new Set(refine?.accepted ?? []);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -111,8 +125,9 @@ export function CaptionVariants({ result }: CaptionVariantsProps) {
       {/* Derived training caption — highlighted */}
       <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 border-l-4 border-l-accent-red">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold tracking-wider text-accent-red">
+          <span className="flex items-center gap-2 text-xs font-bold tracking-wider text-accent-red">
             DERIVED TRAINING CAPTION
+            {rewritten.has(result.selected_category) && <RewrittenBadge model={refine?.model ?? ""} />}
           </span>
           <button
             onClick={() => handleCopy(derived, "__derived")}
@@ -135,8 +150,9 @@ export function CaptionVariants({ result }: CaptionVariantsProps) {
             className={`rounded-lg border border-border bg-surface p-4 border-l-4 ${style.border}`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className={`text-xs font-bold tracking-wider ${style.labelColor}`}>
+              <span className={`flex items-center gap-2 text-xs font-bold tracking-wider ${style.labelColor}`}>
                 {style.label}
+                {rewritten.has(key) && <RewrittenBadge model={refine?.model ?? ""} />}
               </span>
               <button
                 onClick={() => handleCopy(caption, key)}
