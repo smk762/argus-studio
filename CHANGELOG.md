@@ -20,6 +20,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Fixed
 
+- **A failed refetch after a move no longer leaves `/curate`'s counts wrong.** Passed, rejected and duplicate counts keep the rows a paged load never fetched, the reject reasons drop the moved frames, and a near-duplicate cluster left with one frame stops counting as a cluster.
 - **Captions came back empty for two categories** ([#102](https://github.com/smk762/argus-studio/issues/102)). The caption page offered `camera_framing` and `pose_gaze`, and the curate → caption handoff mapped curator's `pose_composition` to `pose_gaze`. Lens has neither category, and it captions an unknown category to an empty string, so folder mode wrote empty `.txt` sidecars. The page now offers lens's own categories from `GET /profiles`, falling back to lens 0.10's six. The handoff passes `pose_composition` through unchanged, and `pose_composition` shows as a normal variant instead of a "legacy alias".
 - Lens requests match lens 0.7–0.10 ([#106](https://github.com/smk762/argus-studio/issues/106)):
   - The manifest endpoints no longer send hybrid-balance fields they ignore. They now take `xmp_overwrite` and an optional `export_root` input, which lets manifest 2.0 rows resolve after a move export.

@@ -45,6 +45,15 @@ export function pendingCaption(checks: readonly string[]): string {
   return checks.map((check) => CHECK_NAMES[check] ?? check).join(", ");
 }
 
+/** How these rows count toward a summary's passed, rejected and duplicate totals. */
+export function rowCounts(rows: readonly ImageResult[]): Pick<ScanSummary, "passed" | "rejected" | "duplicates"> {
+  return {
+    passed: rows.filter((img) => img.passed).length,
+    rejected: rows.filter((img) => !img.passed).length,
+    duplicates: rows.filter((img) => img.is_duplicate).length,
+  };
+}
+
 /**
  * Fold one batch into the scan on screen. First-seen order is kept, a later
  * batch replaces the same `rel_path`, and a chunk that carries clusters
@@ -68,9 +77,7 @@ export function mergeChunk(current: ScanSummary | null, chunk: ScanChunk, reques
     scan_id: chunk.scan_id || base.scan_id,
     folder: chunk.folder || base.folder,
     total: Math.max(chunk.total || 0, results.length, base.total || 0),
-    passed: results.filter((img) => img.passed).length,
-    rejected: results.filter((img) => !img.passed).length,
-    duplicates: results.filter((img) => img.is_duplicate).length,
+    ...rowCounts(results),
     face_clusters: chunk.face_clusters !== undefined ? chunk.face_clusters : base.face_clusters,
     // Chunks carry no `nsfw_config`. A row left unscored must not read as clear
     // while the scan is asking for nudity, or when an older curator cannot say.
