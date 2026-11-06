@@ -216,6 +216,9 @@ describe("darkroom writes", () => {
 
     routes["POST /generate/stream"] = () => frames('event: error\ndata: {"detail":"no image was released"}\n\n');
     await expect(generate(request, handlers)).rejects.toThrow("no image was released");
+  });
+});
+
 describe("curator image delete", () => {
   const curator = (extra: object) => json({ status: "ok", service: "argus-curator", version: "0.14.1", ...extra });
   const plain = (rel_path: string) => ({ rel_path, passed: true, faces: [] }) as never;
