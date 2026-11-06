@@ -10,7 +10,9 @@ import { ImagePreview } from "@/components/ImagePreview";
 import { CaptionVariants } from "@/components/CaptionVariants";
 import { RawOutputs } from "@/components/RawOutputs";
 import { AutoRemoved } from "@/components/AutoRemoved";
+import { CaptionExplain } from "@/components/CaptionExplain";
 import { SubjectCount } from "@/components/SubjectCount";
+import { RefinementRecord } from "@/components/RefinementRecord";
 import { ExportButtons } from "@/components/ExportButtons";
 import { ParamInfo } from "@/components/ParamInfo";
 import { BatchCaptionResults } from "@/components/BatchCaptionResults";
@@ -838,9 +840,11 @@ export default function Home() {
             {/* Right: caption data */}
             <div className="space-y-6 scrollbar-thin">
               <SubjectCount result={result} />
+              <RefinementRecord result={result} />
               <CaptionVariants result={result} />
               <RawOutputs result={result} />
               <AutoRemoved result={result} />
+              <CaptionExplain result={result} />
             </div>
           </div>
         )}

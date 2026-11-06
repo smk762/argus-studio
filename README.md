@@ -301,11 +301,14 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_OPENAI_COMPAT_PROMPT` | `detailed` | Prompt preset (`detailed`, `straightforward`, `descriptive`, `booru`, `count`) or literal text |
 | `ARGUS_REFINE_MODEL` / `ARGUS_REFINE_BASE_URL` / `ARGUS_REFINE_API_KEY` | _(unset = off)_ | Chat model that rewrites lens's training captions; every rewrite is validated and falls back to the deterministic caption |
 | `ARGUS_REFINE_VARIANTS` | `training,training_prose` | Variants lens refines; add `identity,wardrobe,setting,action` for cleaner category captions |
-| `ARGUS_IDLE_UNLOAD_S` / `ARGUS_GPU_COORDINATOR` | _(unset)_ / `none` | Lens frees its VRAM after this many idle seconds when it shares a GPU with ComfyUI; `lease` serialises argus jobs only |
+| `ARGUS_IDLE_UNLOAD_S` / `ARGUS_GPU_COORDINATOR` | _(unset)_ / `none` (`lease` with `compose.gpu.yaml`) | Lens frees its VRAM after this many idle seconds when it shares a GPU with ComfyUI; `lease` serialises lens and curator jobs only |
 | `IMMICH_URL` / `IMMICH_API_KEY` | _(unset)_ | Enable the Immich integration on argus-lens (album captioning + pull-to-dataset) |
 | `DEM_DIR` | `./dem` | Host dir of DEMs and vector layers, mounted at `/data/dem` on argus-atlas |
+| `ARGUS_CURATOR_NUDENET_URL` | `http://nudenet:8080` | Curator's nudity check, served by the bundled `nudenet` service (amd64 only). Set it empty to switch it off |
+| `ARGUS_CURATOR_ERAX_URL` / `ARGUS_CURATOR_SINGGUARD_URL` | _(empty)_ | Optional curator detectors. Neither server is bundled |
 | `ATLAS_ALLOW_BAKE` / `ATLAS_ALLOW_OSM` | _(unset)_ | Let argus-atlas bake on the GPU / fetch OSM from Overpass; both off by default |
-| `DARKROOM_SINGGUARD_URL` | _(empty)_ | **Required** by argus-darkroom, which won't start without it. The other `DARKROOM_*` settings are in `.env.example` |
+| `DARKROOM_SINGGUARD_URL` (or `SINGGUARD_URL`) | _(empty)_ | **Required** by argus-darkroom, which won't start without it. The other `DARKROOM_*` settings are in `.env.example` |
+| `DARKROOM_MODELS_DIR` | `MODELS_DIR` | The folder ComfyUI lists models from, mounted read-only on argus-darkroom |
 | `DARKROOM_PUBLISH` | `127.0.0.1:8106` | Host address and port for argus-darkroom. Loopback by default: darkroom is not for public hosting |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
 | `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG` | `latest` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys |

@@ -92,6 +92,37 @@ describe("withoutRelPaths", () => {
     expect(withoutRelPaths(paged, ["gone.jpg"]).total).toBe(14999);
   });
 
+  it("keeps the counts for rows a paged load never fetched", () => {
+    const paged = { ...summary([image("keep.jpg"), image("gone.jpg")]), passed: 14000, rejected: 1000 };
+    const next = withoutRelPaths(paged, ["gone.jpg"]);
+    expect(next.passed).toBe(13999);
+    expect(next.rejected).toBe(1000);
+  });
+
+  it("takes a dropped reject out of the tally, by the curator's key", () => {
+    const rejects = [
+      image("gone.jpg", { passed: false, reject_reason: "too small (300px)" }),
+      image("one.jpg", { passed: false, reject_reason: "blurry" }),
+      image("two.jpg", { passed: false, reject_reason: "blurry" }),
+    ];
+    const current = { ...summary(rejects), reject_reasons: { "too small": 1, blurry: 2 } };
+    expect(withoutRelPaths(current, ["gone.jpg", "one.jpg"]).reject_reasons).toEqual({ blurry: 1 });
+  });
+
+  it("shrinks a near-duplicate cluster, and ends it at one frame", () => {
+    const rows = [
+      image("a1.jpg", { similar_group: 1, group_size: 2 }),
+      image("a2.jpg", { similar_group: 1, group_size: 2 }),
+      image("b1.jpg", { similar_group: 2, group_size: 3 }),
+      image("b2.jpg", { similar_group: 2, group_size: 3 }),
+      image("b3.jpg", { similar_group: 2, group_size: 3 }),
+      image("solo.jpg", { similar_group: 3, group_size: 1 }),
+    ];
+    const next = withoutRelPaths({ ...summary(rows), similar_clusters: 2 }, ["a1.jpg", "b1.jpg", "solo.jpg"]);
+    expect(next.similar_clusters).toBe(1);
+    expect(next.results.map((img) => img.group_size)).toEqual([1, 2, 2]);
+  });
+
   it("leaves the scan alone when nothing moved", () => {
     const current = summary([image("keep.jpg")]);
     expect(withoutRelPaths(current, [])).toBe(current);
