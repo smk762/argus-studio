@@ -7,6 +7,7 @@ afterEach(() => vi.restoreAllMocks());
 describe("resolveRuntimeConfig", () => {
   it("defaults every base to the localhost dev port and demo mode", () => {
     const c = resolveRuntimeConfig({});
+    expect(c.darkroomUrl).toBe("http://localhost:8106");
     expect([c.lensUrl, c.curatorUrl, c.quarryUrl, c.forgeUrl, c.proofUrl, c.atlasUrl]).toEqual([
       "http://localhost:8100",
       "http://localhost:8101",

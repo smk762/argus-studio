@@ -67,6 +67,7 @@ docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
 | `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers) at `/forge`. Set `ARGUS_CURATOR_UI_MODE=live` for the export flow that hands off to it; `/forge` also takes an export dir typed by hand |
 | `proof` | frontend + argus-proof | Post-training LoRA evaluation ([epic](https://github.com/smk762/argus-studio/issues/6)): review scored eval runs at `/proof` — pass/fail verdict, per-metric scores, and a keyboard-first HITL review (5-star + structured reject reasons, blind mode) against argus-proof on :8104 |
 | `atlas` | frontend + argus-atlas | Baking a georeferenced fantasy-map overlay from a DEM at `/atlas`: GDAL controls, a ComfyUI restyle (off unless `ATLAS_ALLOW_BAKE=1`), the alignment gate, and a PMTiles archive, against argus-atlas on :8105 |
+| `darkroom` | frontend + argus-darkroom | Guarded generation at `/darkroom`. Needs `DARKROOM_SINGGUARD_URL` and ComfyUI; not part of `full`, because no SingGuard is bundled and darkroom refuses to start without one |
 | `full` | frontend + curator + lens + quarry server + forge + proof + atlas | End-to-end acquire → curate → caption → forge → evaluate → bake (set `ARGUS_CURATOR_UI_MODE=live`) |
 
 **argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
@@ -285,6 +286,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `QUARRY_CORS_ORIGINS` | _(unset = read-only `*`)_ | Comma-separated studio origins the quarry server allows; required for **Fetch into the pool** (argus-quarry ≥ 0.3.1) |
 | `ARGUS_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (`/forge`) |
 | `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
+| `ARGUS_DARKROOM_URL` | `http://localhost:8106` | URL the **browser** uses to reach argus-darkroom (the `/darkroom` generation view) |
 | `ARGUS_ATLAS_URL` | `http://localhost:8105` | URL the **browser** uses to reach argus-atlas (the `/atlas` map-bake view) |
 | `ARGUS_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
 | `ARGUS_CURATOR_SOURCE_PATH` | *(empty)* | Default source path shown in the folder picker (path inside the curator container). `compose.yaml` sets `/data/images` |
@@ -303,8 +305,10 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `IMMICH_URL` / `IMMICH_API_KEY` | _(unset)_ | Enable the Immich integration on argus-lens (album captioning + pull-to-dataset) |
 | `DEM_DIR` | `./dem` | Host dir of DEMs and vector layers, mounted at `/data/dem` on argus-atlas |
 | `ATLAS_ALLOW_BAKE` / `ATLAS_ALLOW_OSM` | _(unset)_ | Let argus-atlas bake on the GPU / fetch OSM from Overpass; both off by default |
+| `DARKROOM_SINGGUARD_URL` | _(empty)_ | **Required** by argus-darkroom, which won't start without it. The other `DARKROOM_*` settings are in `.env.example` |
+| `DARKROOM_PUBLISH` | `127.0.0.1:8106` | Host address and port for argus-darkroom. Loopback by default: darkroom is not for public hosting |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
-| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` | `latest` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys |
+| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG` | `latest` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys |
 | `LENS_EXTRAS` | `server,local` | pip extras for a **source build** only (`-f compose.build.yaml`); ignored on the default pull path (`server,openai,replicate` for a cloud-only image) |
 | `PROOF_EXTRAS` | `server,cli` | pip extras for a **source build** only (`-f compose.build.yaml`); `server,cli,score` adds the identity/quality/safety scorer stack |
 | `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |
@@ -352,6 +356,7 @@ All captioning parameters are exposed in the UI with inline documentation:
 - [argus-quarry](https://github.com/smk762/argus-quarry) — provenance-first PD/CC0 image acquisition (the `gallery` compose profile)
 - [argus-forge](https://github.com/smk762/argus-forge) — training bridge: curated exports → ready-to-run LoRA training configs (the `forge` profile)
 - [argus-proof](https://github.com/smk762/argus-proof) — post-training LoRA evaluation and optimisation (the `proof` profile; [epic](https://github.com/smk762/argus-studio/issues/6))
+- [argus-darkroom](https://github.com/smk762/argus-darkroom) — guarded image generation: a check before, two after, and a record of every attempt
 - [argus-atlas](https://github.com/smk762/argus-atlas) — georeferenced fantasy-map overlays from real terrain: DEM in, PMTiles out (the `atlas` profile)
 
 ## License
