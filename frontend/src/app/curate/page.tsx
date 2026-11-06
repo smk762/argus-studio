@@ -25,8 +25,13 @@ import {
   type ScanSummary,
 } from "@/components/curator/types";
 import {
+  allowsDeleteAny,
+  allowsMinorExposedDelete,
   allowsScanControl,
   allowsScanDelete,
+  DELETE_ANY_DENIED,
+  deleteScanImages,
+  IMAGE_DELETE_DENIED,
   cancelScan,
   deleteCachedScan,
   getDetectors,
@@ -43,7 +48,8 @@ import {
   type ScanProgress,
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
-import { canExport, scanCheckedNsfw } from "@/lib/curatorSafety";
+import { canExport, isMinorExposed, scanCheckedNsfw } from "@/lib/curatorSafety";
+import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
 import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
 import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
@@ -113,6 +119,7 @@ export default function CuratePage() {
   const [serverScans, setServerScans] = useState<ScanList | null>(null);
   const [rerunning, setRerunning] = useState<string | null>(null);
   const [forgetting, setForgetting] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const usesServerList = useRef(false);
   const scansRequest = useRef(0);
   // For work that outlives the render it started in, such as an export.
@@ -432,11 +439,11 @@ export default function CuratePage() {
   };
 
   /**
-   * A move export has already dropped these rows on the server. Stop showing
-   * them. The export outlives the panel, so another scan may be on screen by
-   * now, and rel paths mean nothing across scans.
+   * The server has already dropped these rows, after a move export or a delete.
+   * Stop showing them. Either can outlast the view, so another scan may be on
+   * screen by now, and rel paths mean nothing across scans.
    */
-  const dropMoved = (movedScanId: string, moved: string[]) => {
+  const dropGone = (movedScanId: string, moved: string[]) => {
     void refreshScans();
     if (scanOnScreen.current !== movedScanId) return;
     const gone = new Set(moved);
@@ -456,6 +463,29 @@ export default function CuratePage() {
       .catch(() => {
         /* the rows are already gone from the grid */
       });
+  };
+
+  /** A delete can fail partway, so the rows are refetched whatever it reports. */
+  const deleteRows = async (rows: ImageResult[]) => {
+    if (!summary || rows.length === 0 || deleting) return;
+    const shown = new Set(filtered.map((row) => row.rel_path));
+    const hidden = rows.filter((row) => !shown.has(row.rel_path)).length;
+    if (!window.confirm(deleteConfirmText(rows.length, hidden))) return;
+    const deletedFrom = summary.scan_id;
+    setDeleting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const outcome = await deleteScanImages(deletedFrom, rows);
+      dropGone(deletedFrom, outcome.deleted);
+      const report = deleteReport(rows.length, outcome);
+      if (report.failed) setError(report.text);
+      else setNotice(report.text);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete those images");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const toggle = useCallback((relPath: string) => {
@@ -480,6 +510,7 @@ export default function CuratePage() {
     },
     [summary, filters],
   );
+  const minorExposed = useMemo(() => summary?.results.filter(isMinorExposed) ?? [], [summary]);
 
   const selectedResults = useMemo(
     () => (summary ? summary.results.filter((r) => selected.has(r.rel_path)) : []),
@@ -663,7 +694,7 @@ export default function CuratePage() {
                     summary={summary}
                     selectedResults={selectedResults}
                     health={health}
-                    onMoved={dropMoved}
+                    onMoved={dropGone}
                   />
                 )}
               </>
@@ -717,6 +748,17 @@ export default function CuratePage() {
                       >
                         Clear
                       </button>
+                      {isLive() && (
+                        <DeleteActions
+                          selectedCount={selectedResults.length}
+                          flaggedCount={minorExposed.length}
+                          health={health}
+                          busy={scanning || loading}
+                          deleting={deleting}
+                          onDeleteSelected={() => void deleteRows(selectedResults)}
+                          onDeleteFlagged={() => void deleteRows(minorExposed)}
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -784,6 +826,60 @@ export default function CuratePage() {
         onClose={() => setDetail(null)}
       />
     </div>
+  );
+}
+
+/**
+ * Minor-exposed frames can never be selected, so they get their own action. It
+ * is also the only delete a server without `delete_any` accepts.
+ */
+function DeleteActions({
+  selectedCount,
+  flaggedCount,
+  health,
+  busy,
+  deleting,
+  onDeleteSelected,
+  onDeleteFlagged,
+}: {
+  selectedCount: number;
+  flaggedCount: number;
+  health: Health | null;
+  busy: boolean;
+  deleting: boolean;
+  onDeleteSelected: () => void;
+  onDeleteFlagged: () => void;
+}) {
+  const waiting = busy ? "Wait for the scan to finish." : null;
+  const anyImage = allowsDeleteAny(health);
+  const flagged = allowsMinorExposedDelete(health);
+  const selectedReason = waiting ?? capabilityReason(anyImage, DELETE_ANY_DENIED);
+  const flaggedReason = waiting ?? capabilityReason(flagged, IMAGE_DELETE_DENIED);
+  const style =
+    "rounded-lg border border-accent-red/40 px-2.5 py-1 text-xs text-accent-red transition-colors enabled:cursor-pointer enabled:hover:bg-accent-red/10 disabled:opacity-40";
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onDeleteSelected}
+        disabled={selectedCount === 0 || deleting || selectedReason !== null}
+        title={selectedReason ?? "Delete the selected source files from disk"}
+        className={style}
+      >
+        {deleting ? "Deleting…" : `Delete selected (${selectedCount})`}
+      </button>
+      {flaggedCount > 0 && (
+        <button
+          type="button"
+          onClick={onDeleteFlagged}
+          disabled={deleting || flaggedReason !== null}
+          title={flaggedReason ?? "Delete every frame held as under 18 with exposure from disk"}
+          className={style}
+        >
+          Delete under-18 exposed ({flaggedCount})
+        </button>
+      )}
+    </>
   );
 }
 

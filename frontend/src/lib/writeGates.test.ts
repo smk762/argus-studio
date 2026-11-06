@@ -164,6 +164,88 @@ describe("curator scan control", () => {
   });
 });
 
+describe("curator image delete", () => {
+  const curator = (extra: object) => json({ status: "ok", service: "argus-curator", version: "0.14.1", ...extra });
+  const plain = (rel_path: string) => ({ rel_path, passed: true, faces: [] }) as never;
+  const flagged = (rel_path: string) =>
+    ({
+      rel_path,
+      passed: true,
+      faces: [{ primary: true, attributes: { age_years: 15, age_source: "mivolo" } }],
+      nsfw: { exposed_score: 0.6 },
+    }) as never;
+  const sentPaths = (bodies: string[]) => bodies.map((body) => JSON.parse(body).rel_paths);
+  let bodies: string[];
+  const accept: Route = (init) => {
+    bodies.push(String(init?.body));
+    return json({ rel_paths: [], total: 0 });
+  };
+
+  beforeEach(() => {
+    bodies = [];
+  });
+
+  it("refuses an ordinary frame without delete_any and sends nothing", async () => {
+    routes["GET /health"] = () => curator({ delete_any: false });
+    routes["POST /scan/s1/delete"] = accept;
+    const { deleteScanImages } = await import("@/lib/curatorApi");
+    const { CapabilityRefused } = await import("@/lib/capabilities");
+
+    const err = await deleteScanImages("s1", [flagged("a"), plain("b")]).catch((e) => e);
+    expect(err).toBeInstanceOf(CapabilityRefused);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("refuses everything on a server that predates the field", async () => {
+    routes["GET /health"] = () => curator({});
+    routes["POST /scan/s1/delete"] = accept;
+    const { deleteScanImages } = await import("@/lib/curatorApi");
+
+    await expect(deleteScanImages("s1", [flagged("a")])).rejects.toThrow("predates image delete");
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("batches with delete_any", async () => {
+    routes["GET /health"] = () => curator({ delete_any: true });
+    routes["POST /scan/s1/delete"] = accept;
+    const { deleteScanImages } = await import("@/lib/curatorApi");
+
+    const rows = Array.from({ length: 201 }, (_, i) => plain(`${i}.jpg`));
+    const outcome = await deleteScanImages("s1", rows);
+    expect(outcome.deleted).toHaveLength(201);
+    expect(sentPaths(bodies).map((paths) => paths.length)).toEqual([200, 1]);
+  });
+
+  it("sends flagged frames singly without delete_any, so one 403 keeps only that frame", async () => {
+    routes["GET /health"] = () => curator({ delete_any: false });
+    routes["POST /scan/s1/delete"] = (init) => {
+      bodies.push(String(init?.body));
+      return JSON.parse(String(init?.body)).rel_paths[0] === "b"
+        ? json({ detail: "deleting this image is disabled" }, 403)
+        : json({ rel_paths: [], total: 0 });
+    };
+    const { deleteScanImages } = await import("@/lib/curatorApi");
+
+    const outcome = await deleteScanImages("s1", [flagged("a"), flagged("b"), flagged("c")]);
+    expect(sentPaths(bodies)).toEqual([["a"], ["b"], ["c"]]);
+    expect(outcome).toEqual({ deleted: ["a", "c"], refused: ["b"], error: null });
+  });
+
+  it("reports what went before a failure and stops", async () => {
+    routes["GET /health"] = () => curator({ delete_any: true });
+    let replies = 0;
+    routes["POST /scan/s1/delete"] = () =>
+      ++replies === 1 ? json({ rel_paths: [], total: 0 }) : json({ detail: "could not delete: disk" }, 400);
+    const { deleteScanImages } = await import("@/lib/curatorApi");
+
+    const rows = Array.from({ length: 401 }, (_, i) => plain(`${i}.jpg`));
+    const outcome = await deleteScanImages("s1", rows);
+    expect(outcome.deleted).toHaveLength(200);
+    expect(outcome.error?.message).toContain("could not delete");
+    expect(replies).toBe(2);
+  });
+});
+
 describe("forge, atlas and quarry writes", () => {
   it("forge: a dry-run preview is never gated; a write is", async () => {
     routes["GET /health"] = () => json({ status: "ok", service: "argus-forge", version: "0.1.1", training: "disabled" });

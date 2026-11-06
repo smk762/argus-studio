@@ -193,6 +193,10 @@ services:
       # demo can't relocate source images; the ExportPanel disables the option
       # to match. Uncomment to permit it.
       # - CURATOR_ALLOW_MOVE=1
+      # POST /scan/{id}/delete removes source files. Without this it takes only
+      # frames curator reads as under 18 with exposure. Uncomment to let /curate
+      # delete any selected image.
+      # - CURATOR_ALLOW_DELETE=1
     volumes:
       - ${DATASET_DIR:-./data}:/data/images
       # Resolve argus-quarry's published symlinks (they point into the raw pool).
