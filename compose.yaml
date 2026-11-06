@@ -123,7 +123,12 @@ services:
       # not take the lease.)
       - ARGUS_IDLE_UNLOAD_S=${ARGUS_IDLE_UNLOAD_S:-}
       - ARGUS_GPU_COORDINATOR=${ARGUS_GPU_COORDINATOR:-none}
+      # Used by the lease coordinator, which compose.gpu.yaml turns on. Lens and
+      # curator must name the same lock file, in the same host directory below.
+      - ARGUS_GPU_LEASE_PATH=/run/argus-gpu/argus-gpu.lock
+      - ARGUS_GPU_LEASE_TIMEOUT_S=${ARGUS_GPU_LEASE_TIMEOUT_S:-300}
     volumes:
+      - ${ARGUS_GPU_LOCK_DIR:-/tmp/argus-gpu}:/run/argus-gpu
       # Shared dataset (RW so lens can write caption sidecars next to source images).
       - ${DATASET_DIR:-./data}:/data/images
       # Curator's export root. A move-mode export deletes the sources, so the
@@ -193,7 +198,36 @@ services:
       # demo can't relocate source images; the ExportPanel disables the option
       # to match. Uncomment to permit it.
       # - CURATOR_ALLOW_MOVE=1
+      # Detector models, under the cache mount below. A file that isn't there
+      # leaves that detector reported as unavailable. Build them with
+      # `argus-curator fairface-convert`, `mivolo-convert`, `places365-convert`
+      # and `garments-convert`.
+      - ARGUS_CURATOR_FAIRFACE_MODEL=/root/.cache/argus_curator/models/fairface_res34_race7.onnx
+      - ARGUS_CURATOR_MIVOLO_MODEL=/root/.cache/argus_curator/models/mivolo_v2_d1_384.onnx
+      - ARGUS_CURATOR_PLACES365_MODEL=/root/.cache/argus_curator/models/places365_resnet18.onnx
+      - ARGUS_CURATOR_GARMENTS_MODEL=/root/.cache/argus_curator/models/yolos_fashionpedia.onnx
+      # NudeNet nudity check, on by default. Unset: the nudenet service below.
+      # Point it elsewhere in .env, or set it empty to switch it off.
+      - ARGUS_CURATOR_NUDENET_URL=${ARGUS_CURATOR_NUDENET_URL-http://nudenet:8080}
+      - ARGUS_CURATOR_NUDENET_TIMEOUT=${ARGUS_CURATOR_NUDENET_TIMEOUT:-}
+      - ARGUS_CURATOR_NUDENET_WORKERS=${ARGUS_CURATOR_NUDENET_WORKERS:-}
+      # EraX second detector, off unless .env sets a URL (no published image).
+      - ARGUS_CURATOR_ERAX_URL=${ARGUS_CURATOR_ERAX_URL-}
+      # SingGuard policy check, off unless .env sets a URL (no server is bundled:
+      # it runs a vision language model).
+      - ARGUS_CURATOR_SINGGUARD_URL=${ARGUS_CURATOR_SINGGUARD_URL-}
+      # cascade: fast on every frame, slow only on what fast flags.
+      - ARGUS_CURATOR_SINGGUARD_THINKING=${ARGUS_CURATOR_SINGGUARD_THINKING-cascade}
+      # What the scan already knows, sent as context. Empty sends the image alone.
+      - ARGUS_CURATOR_SINGGUARD_CONTEXT=${ARGUS_CURATOR_SINGGUARD_CONTEXT-age,folder,caption,scene}
+      - ARGUS_CURATOR_SINGGUARD_POLICY_FILE=${ARGUS_CURATOR_SINGGUARD_POLICY_FILE:-}
+      # One argus GPU job at a time, shared with lens: see the lens service.
+      # compose.gpu.yaml turns the lease on. A CPU image never takes it.
+      - ARGUS_GPU_COORDINATOR=${ARGUS_GPU_COORDINATOR:-none}
+      - ARGUS_GPU_LEASE_PATH=/run/argus-gpu/argus-gpu.lock
+      - ARGUS_GPU_LEASE_TIMEOUT_S=${ARGUS_GPU_LEASE_TIMEOUT_S:-300}
     volumes:
+      - ${ARGUS_GPU_LOCK_DIR:-/tmp/argus-gpu}:/run/argus-gpu
       - ${DATASET_DIR:-./data}:/data/images
       # Resolve argus-quarry's published symlinks (they point into the raw pool).
       - ${QUARRY_HOME:-./quarry}:/data/quarry:ro
@@ -201,6 +235,19 @@ services:
       - ${HOME}/.cache/argus_curator:/root/.cache/argus_curator
       - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/root/.cache/huggingface
       - ${HOME}/.insightface:/root/.insightface
+    restart: unless-stopped
+
+  # NudeNet detector server (AGPL-3.0, notAI-tech/NudeNet). Curator only talks to
+  # it over HTTP, as http://nudenet:8080; no port is published. Pinned by digest
+  # because upstream publishes only `latest`, and it is amd64 only.
+  nudenet:
+    profiles: ["curator", "forge", "full"]
+    image: ghcr.io/notai-tech/nudenet@sha256:5d8fb3a20980680b73b7776745ee5b1983851c201a706cbdf3dd827c143783e9
+    # The image's start command runs `ulimit -n 1000000 && <worker> & <api>`.
+    # Where Docker's default limit is lower that ulimit fails, the inference
+    # worker never starts and the API waits for warmup forever.
+    ulimits:
+      nofile: 1000000
     restart: unless-stopped
 
   # ── Training bridge (export -> ready-to-run LoRA training configs) ──────

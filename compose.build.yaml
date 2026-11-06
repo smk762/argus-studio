@@ -34,6 +34,9 @@ services:
   argus-curator:
     build:
       context: ../argus-curator
+      args:
+        # 1 builds the CUDA image, which compose.gpu.yaml expects.
+        GPU: ${CURATOR_GPU:-0}
 
   argus-forge:
     build:
