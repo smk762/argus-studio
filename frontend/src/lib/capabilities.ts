@@ -7,6 +7,7 @@
  * has committed to an action:
  *
  *   argus-curator  `allow_move`  destructive move-mode exports
+ *   argus-curator  `delete_any`  deleting any scanned image from disk
  *   argus-forge    `training`    live `POST /run` (demo-safe server posture)
  *   argus-proof    `read_only`   live evaluation + report writes
  *

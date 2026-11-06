@@ -1,17 +1,20 @@
 /** Thin client for the argus-curator API (:8101). */
 
 import { curatorUrl } from "@/lib/curatorEnv";
-import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
+import { capabilityOf, healthMemo, permits, requireCapability, type Capability } from "@/lib/capabilities";
 import type {
   CuratorConfig,
   Detectors,
   ExportRequest,
   ExportResult,
   FolderListing,
+  ImageResult,
   ScanSummary,
 } from "@/components/curator/types";
 import { buildScanBody, MANIFEST_VERSION } from "@/components/curator/types";
 import { asError } from "@/lib/apiError";
+import { isMinorExposed } from "@/lib/curatorSafety";
+import { deleteBatches, type DeleteOutcome } from "@/lib/scanDelete";
 import type { ScanChunk } from "@/lib/scanChunks";
 import { joinPath } from "@/lib/path";
 
@@ -173,6 +176,8 @@ export interface Health {
   scan_control?: boolean;
   /** DELETE /scan/{id} exists (curator 0.12 and later). */
   scan_delete?: boolean;
+  /** POST /scan/{id}/delete takes any scanned image, not only a minor-exposed one (curator 0.12 and later). */
+  delete_any?: boolean;
 }
 
 /**
@@ -205,6 +210,26 @@ export function allowsScanControl(health: Health | null): Capability {
  */
 export function allowsScanDelete(health: Health | null): Capability {
   return capabilityOf(health, (h) => h.scan_delete, false);
+}
+
+/**
+ * Whether this server deletes any scanned image from disk.
+ *
+ * Legacy `false`: `--allow-delete` arrived with curator 0.12, and it stays off
+ * unless a deployer turns it on.
+ */
+export function allowsDeleteAny(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.delete_any, false);
+}
+
+/**
+ * Whether this server deletes a minor-exposed image. It always does, whatever
+ * `delete_any` says, so the field being present is the whole check.
+ *
+ * Legacy `false`: an older server does not say, and this deletes files.
+ */
+export function allowsMinorExposedDelete(health: Health | null): Capability {
+  return capabilityOf(health, (h) => (typeof h.delete_any === "boolean" ? true : undefined), false);
 }
 
 /**
@@ -527,6 +552,58 @@ export async function deleteCachedScan(scanId: string, signal?: AbortSignal): Pr
   );
   const resp = await fetch(`${curatorUrl()}/scan/${encodeURIComponent(scanId)}`, { method: "DELETE", signal });
   if (!resp.ok) return asError(resp);
+}
+
+export const IMAGE_DELETE_DENIED = "This curator cannot delete images (it predates image delete).";
+export const DELETE_ANY_DENIED =
+  "This curator only deletes under-18 exposed images. Start it with CURATOR_ALLOW_DELETE=1 to delete others.";
+
+/**
+ * Delete source files from a scan (POST /scan/{id}/delete). The rows leave the
+ * cached scan too. A refusal throws; once requests have gone out the outcome
+ * says how far they got, because earlier files are already gone by then.
+ *
+ * Without `delete_any` the server applies its own under-18 rule, which flags
+ * fewer frames than {@link isMinorExposed} does, and one refused path refuses
+ * its whole request. So those frames go one per request, and a 403 keeps only
+ * that frame.
+ */
+export async function deleteScanImages(
+  scanId: string,
+  rows: readonly ImageResult[],
+  signal?: AbortSignal,
+): Promise<DeleteOutcome> {
+  const outcome: DeleteOutcome = { deleted: [], refused: [], error: null };
+  if (rows.length === 0) return outcome;
+  const flaggedOnly = rows.every(isMinorExposed);
+  await requireCapability(
+    curatorHealth,
+    flaggedOnly ? allowsMinorExposedDelete : allowsDeleteAny,
+    flaggedOnly ? IMAGE_DELETE_DENIED : DELETE_ANY_DENIED,
+    signal,
+  );
+  const paths = rows.map((row) => row.rel_path);
+  const anyImage = permits(allowsDeleteAny(await curatorHealth.current(signal)));
+  for (const batch of deleteBatches(paths, anyImage ? undefined : 1)) {
+    try {
+      const resp = await fetch(`${curatorUrl()}/scan/${encodeURIComponent(scanId)}/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rel_paths: batch }),
+        signal,
+      });
+      if (resp.status === 403 && !anyImage) {
+        outcome.refused.push(...batch);
+        continue;
+      }
+      if (!resp.ok) await asError(resp);
+      outcome.deleted.push(...batch);
+    } catch (err) {
+      outcome.error = err instanceof Error ? err : new Error("Could not delete those images");
+      break;
+    }
+  }
+  return outcome;
 }
 
 /** Stop whatever is running and delete every cached scan (POST /scans/purge). */
