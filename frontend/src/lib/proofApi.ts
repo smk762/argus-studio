@@ -37,6 +37,9 @@ export type RejectReasonCode =
 
 export interface RejectReason {
   code: RejectReasonCode;
+  /** Policy slug an `unsafe` reject is filed under (wire 1.3). A free string on
+   * the wire, so a slug newer than {@link POLICY_CATEGORIES} is still valid. */
+  category?: string | null;
   note?: string | null;
 }
 
@@ -139,6 +142,96 @@ export const REJECT_TAXONOMY: { code: RejectReasonCode; label: string; hint: str
 
 const REJECT_LABEL = new Map(REJECT_TAXONOMY.map((r) => [r.code, r.label]));
 export const rejectLabel = (code: RejectReasonCode): string => REJECT_LABEL.get(code) ?? code;
+
+/** Proof's policy taxonomy (argus_proof.moderation.PolicyCategory, `proof-policy-1`). */
+export const POLICY_CATEGORIES: { slug: string; label: string; hint: string }[] = [
+  { slug: "sexual", label: "Sexual", hint: "Sexual or adult content" },
+  { slug: "violence", label: "Violence", hint: "Graphic violence, gore" },
+  { slug: "hate", label: "Hate", hint: "Hateful or harassing depictions of protected groups" },
+  { slug: "self_harm", label: "Self-harm", hint: "Self-harm, suicide" },
+  { slug: "weapons", label: "Weapons", hint: "Indiscriminate or regulated weapons" },
+  { slug: "illegal", label: "Illegal", hint: "Depictions of illegal acts" },
+];
+
+const POLICY_LABEL = new Map(POLICY_CATEGORIES.map((c) => [c.slug, c.label]));
+/** A slug this client doesn't know shows as itself rather than being hidden. */
+export const policyLabel = (slug: string): string => POLICY_LABEL.get(slug) ?? slug;
+
+/** One reason as a reviewer reads it: "Unsafe · Violence", or just "Deformation". */
+export function reasonLabel(r: RejectReason): string {
+  return r.code === "unsafe" && r.category ? `${rejectLabel(r.code)} · ${policyLabel(r.category)}` : rejectLabel(r.code);
+}
+
+const unsafeCategory = (r: RejectReason): string | null => (r.code === "unsafe" && r.category ? r.category : null);
+
+/** The categories on these reasons' `unsafe` rejects, without repeats. */
+export function unsafeCategories(reasons: RejectReason[]): string[] {
+  return [...new Set(reasons.map(unsafeCategory).filter((c): c is string => c !== null))];
+}
+
+/** The chips to offer on an `unsafe` reject: the taxonomy, plus any stored slug
+ * outside it, so a reviewer can see it and can clear it. */
+export function categoryChoices(reasons: RejectReason[]): string[] {
+  return [...new Set([...POLICY_CATEGORIES.map((c) => c.slug), ...unsafeCategories(reasons)])];
+}
+
+/**
+ * Turn one policy category on or off for an image's `unsafe` reject. Each
+ * category is its own `unsafe` reason, so an image can sit under several.
+ *
+ * The first category fills an uncategorised reason, keeping its note. Clearing
+ * the last one leaves the reason uncategorised: taking a label off must not
+ * also take the reject off, since that would change the image's verdict.
+ */
+export function toggleUnsafeCategory(reasons: RejectReason[], category: string): RejectReason[] {
+  const isTarget = (r: RejectReason) => unsafeCategory(r) === category;
+  if (reasons.some(isTarget)) {
+    const others = reasons.some((r) => r.code === "unsafe" && !isTarget(r));
+    if (others) return reasons.filter((r) => !isTarget(r));
+    return reasons.map((r) => (isTarget(r) ? { ...r, category: null } : r));
+  }
+  const blank = reasons.findIndex((r) => r.code === "unsafe" && !r.category);
+  if (blank < 0) return [...reasons, { code: "unsafe", category }];
+  return reasons.map((r, i) => (i === blank ? { ...r, category } : r));
+}
+
+export interface UnsafeSlice {
+  /** A policy slug; null for `unsafe` rejects nobody has categorised. */
+  category: string | null;
+  images: number;
+}
+
+export interface UnsafeBreakdown {
+  /** Distinct images with an `unsafe` reject. Below the slices' sum when an
+   * image sits under more than one category. */
+  images: number;
+  /** Largest first, ties by slug, uncategorised always last. */
+  slices: UnsafeSlice[];
+}
+
+/**
+ * Count a run's `unsafe` rejects by policy category. Reasons are what's counted:
+ * an image under the safety floor with no `unsafe` reason isn't here, although
+ * argus_proof.acceptance would count it towards the unsafe rate.
+ */
+export function unsafeBreakdown(images: ImageScores[]): UnsafeBreakdown {
+  const counts = new Map<string | null, number>();
+  let total = 0;
+  for (const img of images) {
+    const unsafe = img.reject_reasons.filter((r) => r.code === "unsafe");
+    if (unsafe.length === 0) continue;
+    total += 1;
+    for (const category of new Set(unsafe.map(unsafeCategory))) {
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    }
+  }
+  const slices = [...counts.entries()].map(([category, n]) => ({ category, images: n }));
+  slices.sort((a, b) => {
+    if (a.category === null || b.category === null) return a.category === null ? 1 : -1;
+    return b.images - a.images || a.category.localeCompare(b.category);
+  });
+  return { images: total, slices };
+}
 
 /** The metric axes actually scored on an image (a missing scorer is omitted, not
  * a phantom zero). One source of truth for the mean, composite, and rendered
@@ -254,7 +347,8 @@ export function applyEdits(report: EvalReport, edits: Map<string, HitlEdit>, rat
 /** Drop the gate's machine-generated ``auto: …`` note from a reason the reviewer
  * merely endorsed, so it isn't recorded as if a human typed it. */
 function stripAutoNote(r: RejectReason): RejectReason {
-  return r.note?.startsWith("auto:") ? { code: r.code } : r;
+  const { note, ...rest } = r;
+  return note?.startsWith("auto:") ? rest : r;
 }
 
 /** The same laundering {@link editsToUpdates} applies before sending, for callers
