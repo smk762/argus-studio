@@ -1,24 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { createControls, type AtlasInputs } from "@/lib/atlasApi";
-
-export const inputClass =
-  "w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted/60 focus:border-accent-blue focus:outline-none disabled:opacity-50";
-
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-[11px] uppercase tracking-wide text-muted">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-/** An OSM extract's bbox as the `west,south,east,north` string the form edits. */
-function bboxText(bbox: number[] | null): string {
-  return bbox && bbox.length === 4 ? bbox.join(",") : "";
-}
+import { createControls, RESAMPLING_METHODS, type AtlasInputs, type Resampling } from "@/lib/atlasApi";
+import { bboxText, controlLayers, isVrt } from "@/lib/atlasView";
+import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
+import { CapabilityNotice } from "@/components/CapabilityNotice";
+import { Field, inputClass } from "@/components/atlas/fields";
+import { OsmFetch } from "@/components/atlas/OsmFetch";
 
 /**
  * Plan a canvas and write its GDAL controls (`POST /controls`). CPU only, so
@@ -30,10 +18,16 @@ function bboxText(bbox: number[] | null): string {
  */
 export function NewCanvas({
   inputs,
+  canGdal,
+  canOsm,
   onCreated,
+  onInputsChanged,
 }: {
   inputs: AtlasInputs | null;
+  canGdal: Capability;
+  canOsm: Capability;
   onCreated: (jobId: string) => void;
+  onInputsChanged: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [dem, setDem] = useState("");
@@ -43,6 +37,7 @@ export function NewCanvas({
   const [longSide, setLongSide] = useState("1024");
   const [resolution, setResolution] = useState("");
   const [seaLevel, setSeaLevel] = useState("");
+  const [resampling, setResampling] = useState<Resampling | "">("");
   const [jobId, setJobId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +54,9 @@ export function NewCanvas({
   };
 
   const num = (v: string) => (v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
-  const ready = dem && bbox.split(",").length === 4;
+  const aoi = bbox.replace(/\s+/g, "");
+  const ready = dem && aoi.split(",").length === 4;
+  const gdalReason = capabilityReason(canGdal, "GDAL is missing on this host, so it cannot build controls.");
 
   const submit = async () => {
     setBusy(true);
@@ -67,9 +64,10 @@ export function NewCanvas({
     try {
       const job = await createControls({
         dem,
-        bbox: bbox.replace(/\s+/g, ""),
-        layers: chosen?.layers,
+        bbox: aoi,
+        layers: controlLayers(chosen),
         sea_level: num(seaLevel),
+        resampling: resampling || undefined,
         long_side: sizing === "long_side" ? num(longSide) : undefined,
         resolution: sizing === "resolution" ? num(resolution) : undefined,
         job_id: jobId.trim() || undefined,
@@ -111,6 +109,7 @@ export function NewCanvas({
                 {dems.map((d) => (
                   <option key={d} value={d}>
                     {d}
+                    {isVrt(d) ? " (VRT mosaic)" : ""}
                   </option>
                 ))}
               </select>
@@ -120,7 +119,7 @@ export function NewCanvas({
                 <option value="">none — hillshade only</option>
                 {extracts.map((e) => (
                   <option key={e.name} value={e.name}>
-                    {e.name} ({Object.keys(e.layers).join(", ")})
+                    {e.name} ({Object.keys(controlLayers(e) ?? {}).join(", ")})
                   </option>
                 ))}
               </select>
@@ -129,6 +128,12 @@ export function NewCanvas({
               <input value={jobId} onChange={(e) => setJobId(e.target.value)} placeholder="garda-1" className={inputClass} />
             </Field>
           </div>
+          {isVrt(dem) && (
+            <p className="text-[11px] leading-relaxed text-muted">
+              A <span className="font-mono">.vrt</span> names its source tiles, so they must resolve from the atlas host.
+              The job pins the hash of the <span className="font-mono">.vrt</span> file only, not of those tiles.
+            </p>
+          )}
           <Field label="AOI (west,south,east,north in degrees)">
             <input
               value={bbox}
@@ -137,7 +142,17 @@ export function NewCanvas({
               className={`${inputClass} font-mono`}
             />
           </Field>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <OsmFetch
+            bbox={aoi}
+            existing={extracts.map((e) => e.name)}
+            canOsm={canOsm}
+            canGdal={canGdal}
+            onFetched={async (name) => {
+              await onInputsChanged();
+              setExtract(name);
+            }}
+          />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Canvas size by">
               <select
                 value={sizing}
@@ -160,12 +175,28 @@ export function NewCanvas({
             <Field label="Sea level (m, coasts)">
               <input value={seaLevel} onChange={(e) => setSeaLevel(e.target.value)} placeholder="unset" inputMode="decimal" className={inputClass} />
             </Field>
+            <Field label="Resampling">
+              <select
+                value={resampling}
+                onChange={(e) => setResampling(e.target.value as Resampling | "")}
+                className={inputClass}
+              >
+                <option value="">auto (by upsampling ratio)</option>
+                {RESAMPLING_METHODS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
+          {canGdal === false && gdalReason && <CapabilityNotice reason={gdalReason} />}
           <div className="flex flex-wrap items-center gap-4">
             <button
               type="button"
               onClick={submit}
-              disabled={!ready || busy}
+              disabled={!ready || busy || !permits(canGdal)}
+              title={gdalReason ?? undefined}
               className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {busy ? "Running GDAL…" : "Build controls"}

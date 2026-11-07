@@ -7,18 +7,23 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ArchiveBrowser } from "@/components/gallery/ArchiveBrowser";
 import {
+  externalUrl,
   getQuarryHealth,
+  getQuarryPhoto,
+  getQuarryReadiness,
   getQuarryStats,
   listQuarryPhotos,
   listQuarrySubjects,
+  parsePhotoId,
   quarryThumbUrl,
   type QuarryPhoto,
+  type QuarryReadiness,
   type QuarryStats,
   type QuarrySubject,
 } from "@/lib/galleryApi";
 import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
-import { useDeepLink } from "@/lib/deepLink";
+import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 
 const PAGE_SIZE = 60;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -54,14 +59,33 @@ export default function GalleryPage() {
   const [loading, setLoading] = useState(true);
   const [unreachable, setUnreachable] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [detail, setDetail] = useState<QuarryPhoto | null>(null);
+  // The open photo. `seed` is its grid row, shown while GET /photos/{id} answers;
+  // a `?photo=` link has none.
+  const [detail, setDetail] = useState<{ id: number; seed: QuarryPhoto | null } | null>(null);
+  // null until /ready has answered.
+  const [readiness, setReadiness] = useState<QuarryReadiness | null>(null);
+  const [checking, setChecking] = useState(false);
   // "pool" = what quarry has acquired; "sources" = the public-domain archives it can slice from.
   // `?view=sources` deep-links to the archive browser.
   const [view, setView] = useState<"pool" | "sources">("pool");
   useDeepLink((params) => {
     if (params.get("view") === "sources") setView("sources");
+    const photo = parsePhotoId(params.get("photo"));
+    if (photo !== null) setDetail({ id: photo, seed: null });
   });
   const [poolVersion, setPoolVersion] = useState(0);
+  // Only quarry's own "not ready" stops the pool routes. On `unknown` they still
+  // run, so a quarry without /ready behaves as it always has.
+  const serveable = readiness !== null && readiness !== "not_ready";
+
+  const openPhoto = (photo: QuarryPhoto) => {
+    setDetail({ id: photo.id, seed: photo });
+    replaceQuery({ photo: String(photo.id) });
+  };
+  const closePhoto = () => {
+    setDetail(null);
+    replaceQuery({ photo: null });
+  };
 
   // Reachability + stats (re-read after a slice lands in the pool).
   useEffect(() => {
@@ -70,11 +94,19 @@ export default function GalleryPage() {
       // allSettled: only a failed /health means "not running". An empty or
       // still-seeding pool 503s /stats, and that must not hide the Sources view,
       // which is how a fresh pool gets filled in the first place.
-      const [health, s] = await Promise.allSettled([getQuarryHealth(ctrl.signal), getQuarryStats(ctrl.signal)]);
+      const [health, ready, s] = await Promise.allSettled([
+        getQuarryHealth(ctrl.signal),
+        getQuarryReadiness(ctrl.signal),
+        getQuarryStats(ctrl.signal),
+      ]);
       if (ctrl.signal.aborted) return;
+      setChecking(false);
       if (health.status === "fulfilled") {
+        const state = ready.status === "fulfilled" ? ready.value : "unknown";
         setVersion(health.value.version);
+        setReadiness(state);
         setStats(s.status === "fulfilled" ? s.value : null);
+        if (state === "not_ready") setLoading(false);
       } else {
         setVersion("");
         setUnreachable(true);
@@ -86,13 +118,13 @@ export default function GalleryPage() {
 
   // Subject list follows the category filter.
   useEffect(() => {
-    if (unreachable) return;
+    if (!serveable) return;
     const ctrl = new AbortController();
     listQuarrySubjects(filters.category || undefined, ctrl.signal)
       .then(setSubjects)
       .catch(() => setSubjects([]));
     return () => ctrl.abort();
-  }, [filters.category, unreachable, poolVersion]);
+  }, [filters.category, serveable, poolVersion]);
 
   const loadPage = useCallback(
     async (offset: number, append: boolean) => {
@@ -120,9 +152,9 @@ export default function GalleryPage() {
 
   // Reload the grid whenever filters change.
   useEffect(() => {
-    if (unreachable) return;
+    if (!serveable) return;
     void loadPage(0, false);
-  }, [loadPage, unreachable, poolVersion]);
+  }, [loadPage, serveable, poolVersion]);
 
   const setFilter = (key: keyof Filters, value: string) =>
     setFilters((cur) => ({ ...cur, [key]: value, ...(key === "category" ? { subject: "" } : {}) }));
@@ -162,6 +194,15 @@ export default function GalleryPage() {
 
             {view === "sources" ? (
               <ArchiveBrowser onLanded={() => setPoolVersion((v) => v + 1)} />
+            ) : readiness === "not_ready" ? (
+              <PoolNotReady
+                checking={checking}
+                onSources={() => setView("sources")}
+                onCheck={() => {
+                  setChecking(true);
+                  setPoolVersion((v) => v + 1);
+                }}
+              />
             ) : (
             <>
             {/* Stats strip */}
@@ -251,7 +292,7 @@ export default function GalleryPage() {
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => setDetail(p)}
+                    onClick={() => openPhoto(p)}
                     className="group cursor-pointer overflow-hidden rounded-lg border border-border bg-surface text-left transition-colors hover:border-accent-amber/50"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -317,58 +358,147 @@ export default function GalleryPage() {
         right="Images: PD / CC0 as recorded per item"
       />
 
-      {/* Provenance detail */}
-      {detail && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setDetail(null)}
+      {detail && !unreachable && <PhotoDetail key={detail.id} id={detail.id} seed={detail.seed} onClose={closePhoto} />}
+    </div>
+  );
+}
+
+/** Quarry is up but `/ready` says it can't serve a pool. Sources stays open: it's how a new pool gets filled. */
+function PoolNotReady({ checking, onSources, onCheck }: { checking: boolean; onSources: () => void; onCheck: () => void }) {
+  return (
+    <div className="mx-auto max-w-xl space-y-4 py-20 text-center">
+      <h2 className="text-lg font-medium text-foreground/70">The pool is empty or not ready.</h2>
+      <p className="text-sm leading-relaxed text-muted">
+        Quarry is running, but it has no provenance database to serve yet. A new pool stays like this until its first
+        acquisition: run <span className="font-mono text-foreground/80">docker compose --profile gallery up</span>, or
+        slice one from <b>Sources</b>.
+      </p>
+      <p className="text-sm leading-relaxed text-muted">
+        If this pool has photos, check that <span className="font-mono text-foreground/80">QUARRY_HOME</span> is mounted.
+        Quarry reports a missing, unmigrated or unreadable database the same way.
+      </p>
+      <div className="flex justify-center gap-3">
+        <button
+          type="button"
+          onClick={onSources}
+          className="cursor-pointer rounded-lg bg-accent-amber px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90"
         >
-          <div
-            className="grid max-h-[85vh] w-full max-w-3xl grid-cols-1 overflow-y-auto rounded-xl border border-border bg-surface sm:grid-cols-[minmax(0,1fr)_280px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={quarryThumbUrl(detail.id, 1024)}
-              alt={detail.title ?? detail.subject}
-              className="max-h-[85vh] w-full object-contain bg-background"
-            />
-            <div className="space-y-3 p-4 text-sm">
+          Browse Sources
+        </button>
+        <button
+          type="button"
+          onClick={onCheck}
+          disabled={checking}
+          className="cursor-pointer rounded-lg border border-border bg-surface px-4 py-2 text-sm text-foreground transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {checking ? "Checking…" : "Check again"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One photograph's provenance, from `GET /photos/{id}`. The grid row shows at
+ * once when there is one. A failed read keeps it on screen and says so.
+ */
+function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | null; onClose: () => void }) {
+  const [photo, setPhoto] = useState<QuarryPhoto | null>(seed);
+  const [error, setError] = useState<string | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    getQuarryPhoto(id, ctrl.signal)
+      .then(setPhoto)
+      .catch((err) => {
+        if (!ctrl.signal.aborted) setError(err instanceof Error ? err.message : "Failed to load photo");
+      });
+    return () => ctrl.abort();
+  }, [id]);
+
+  const sourceUrl = externalUrl(photo?.source_url);
+  const originalUrl = externalUrl(photo?.remote_url);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div
+        className="grid max-h-[85vh] w-full max-w-3xl grid-cols-1 overflow-y-auto rounded-xl border border-border bg-surface sm:grid-cols-[minmax(0,1fr)_280px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {photo?.filename && !imageFailed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={quarryThumbUrl(id, 1024)}
+            alt={photo.title ?? photo.subject}
+            onError={() => setImageFailed(true)}
+            className="max-h-[85vh] w-full object-contain bg-background"
+          />
+        ) : (
+          <div className="flex min-h-64 items-center justify-center bg-background p-6 text-center text-xs text-muted">
+            {!photo ? (error ? "Nothing to show." : "Loading…") : "No pooled file for this record."}
+          </div>
+        )}
+        <div className="space-y-3 p-4 text-sm">
+          {error && (
+            <p className="text-xs text-accent-red">
+              {photo ? `Showing the grid's copy. Couldn't reload this record: ${error}` : error}
+            </p>
+          )}
+          {photo && (
+            <>
               <div>
-                <h3 className="font-medium text-foreground">{detail.title ?? detail.filename}</h3>
+                <h3 className="font-medium text-foreground">{photo.title ?? photo.filename ?? `Photo ${photo.id}`}</h3>
                 <p className="font-mono text-xs text-muted">
-                  {detail.category}/{detail.subject}
+                  {photo.category}/{photo.subject}
                 </p>
               </div>
               <dl className="space-y-1.5 text-xs">
-                <ProvRow label="Licence" value={detail.licence} highlight />
-                <ProvRow label="Source" value={detail.source} />
-                {detail.photographer && <ProvRow label="Photographer" value={detail.photographer} />}
-                {detail.year && <ProvRow label="Year" value={String(detail.year)} />}
-                {detail.attribution && <ProvRow label="Attribution" value={detail.attribution} />}
-                {detail.width && detail.height && <ProvRow label="Dimensions" value={`${detail.width}×${detail.height}`} />}
-                {detail.file_size && <ProvRow label="Size" value={formatBytes(detail.file_size)} />}
-                {detail.sha256 && <ProvRow label="SHA256" value={detail.sha256} mono />}
-                {detail.downloaded_at && <ProvRow label="Acquired" value={detail.downloaded_at} />}
+                <ProvRow label="Licence" value={photo.licence} highlight />
+                {photo.status !== "complete" && <ProvRow label="Status" value={photo.status} />}
+                <ProvRow label="Source" value={photo.source} />
+                {photo.photographer && <ProvRow label="Photographer" value={photo.photographer} />}
+                {photo.year && <ProvRow label="Year" value={String(photo.year)} />}
+                {photo.attribution && <ProvRow label="Attribution" value={photo.attribution} />}
+                {photo.width && photo.height && <ProvRow label="Dimensions" value={`${photo.width}×${photo.height}`} />}
+                {photo.file_size && <ProvRow label="Size" value={formatBytes(photo.file_size)} />}
+                {photo.filename && <ProvRow label="File" value={photo.filename} mono />}
+                {photo.sha256 && <ProvRow label="SHA256" value={photo.sha256} mono />}
+                {photo.downloaded_at && <ProvRow label="Acquired" value={photo.downloaded_at} />}
+                <ProvRow label="ID" value={String(photo.id)} mono />
               </dl>
               <div className="space-y-2 pt-1">
-                <a
-                  href={detail.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block truncate text-xs text-accent-amber hover:text-accent-amber/80"
-                >
-                  View source page ↗
-                </a>
-                <StageHandoff
-                  href={`/curate?folder=${encodeURIComponent(curateFolderFor(detail))}`}
-                  className="block w-full text-center"
-                />
+                {sourceUrl && (
+                  <a
+                    href={sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block truncate text-xs text-accent-amber hover:text-accent-amber/80"
+                  >
+                    View source page ↗
+                  </a>
+                )}
+                {originalUrl && (
+                  <a
+                    href={originalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block truncate text-xs text-accent-amber hover:text-accent-amber/80"
+                  >
+                    Original file ↗
+                  </a>
+                )}
+                {photo.status === "complete" && (
+                  <StageHandoff
+                    href={`/curate?folder=${encodeURIComponent(curateFolderFor(photo))}`}
+                    className="block w-full text-center"
+                  />
+                )}
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
