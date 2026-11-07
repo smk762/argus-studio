@@ -9,8 +9,11 @@ const TONE: Record<PolicyShield["state"], string> = {
 };
 
 /**
- * One policy's verdict. The mark inside says it without the colour. #124 unifies
- * this with the Shield marks from the standalone UIs.
+ * One policy's verdict. The mark inside says it without the colour.
+ *
+ * Deliberately not darkroom's Shield, whose flagged and illegal come from the
+ * record. A curator verdict is only safe or unsafe, so drawing it there would
+ * mean this page picking one of those for it.
  */
 export function GuardShield({ shield, className = "h-3.5 w-3.5" }: { shield: PolicyShield; className?: string }) {
   return (
