@@ -309,3 +309,108 @@ describe("lens writes", () => {
     await expect(captionFolder({ folder: "x" })).rejects.toThrow("reached the server");
   });
 });
+
+describe("curator scan and export options", () => {
+  const curator = (extra: object) => () =>
+    json({ status: "ok", service: "argus-curator", version: "0.14.1", manifest_version: "2.2", ...extra });
+  const scanConfig = async (patch: object) => {
+    const { defaultCuratorConfig } = await import("@/components/curator/types");
+    return { ...defaultCuratorConfig(), ...patch };
+  };
+  const off = { drop_nsfw: false, drop_no_face: false, drop_no_age: false };
+
+  it("refuses a prefilter on a curator that would ignore it", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/folder/stream"] = sent;
+    const { scanFolderStream, PREFILTER_DENIED } = await import("@/lib/curatorApi");
+    const cfg = await scanConfig({ prefilter: { ...off, drop_no_face: true } });
+
+    await expect(scanFolderStream("f", cfg, () => {})).rejects.toThrow(PREFILTER_DENIED);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("lets a plain scan through a curator that advertises nothing", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/folder/stream"] = sent;
+    const { scanFolderStream } = await import("@/lib/curatorApi");
+
+    await expect(scanFolderStream("f", await scanConfig({}), () => {})).rejects.toThrow("reached the server");
+  });
+
+  it("gates crops and watermark detection separately", async () => {
+    routes["GET /health"] = curator({ crops: true });
+    routes["POST /scan/folder/stream"] = sent;
+    const { defaultCrops } = await import("@/components/curator/types");
+    const { scanFolderStream, WATERMARK_DENIED } = await import("@/lib/curatorApi");
+
+    const crops = await scanConfig({ crops: { ...defaultCrops(), enabled: true } });
+    await expect(scanFolderStream("f", crops, () => {})).rejects.toThrow("reached the server");
+    const detect = await scanConfig({ crops: { ...defaultCrops(), enabled: true, detect: true } });
+    await expect(scanFolderStream("f", detect, () => {})).rejects.toThrow(WATERMARK_DENIED);
+  });
+
+  it("says what to do about a detector that is down", async () => {
+    routes["GET /health"] = curator({ crops: true, watermark_detect: true });
+    routes["POST /scan/folder/stream"] = () =>
+      json({ detail: "watermark detection requested but the detector did not answer" }, 503);
+    const { defaultCrops } = await import("@/components/curator/types");
+    const { scanFolderStream } = await import("@/lib/curatorApi");
+
+    const cfg = await scanConfig({ crops: { ...defaultCrops(), enabled: true, detect: true } });
+    await expect(scanFolderStream("f", cfg, () => {})).rejects.toThrow(/did not answer\. Start the detector/);
+  });
+
+  it("leaves another 503 as the curator said it", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/folder/stream"] = () => json({ detail: "GPU busy: lease timed out" }, 503);
+    const { scanFolderStream } = await import("@/lib/curatorApi");
+
+    await expect(scanFolderStream("f", await scanConfig({}), () => {})).rejects.toThrow("GPU busy: lease timed out");
+  });
+
+  const exportRequest = (extra: object = {}) =>
+    ({ scan_id: "s", selection: [], dest: "out", mode: "copy", preserve_structure: true, ...extra }) as never;
+
+  it("refuses carried sidecars and run stats on a curator without them", async () => {
+    routes["GET /health"] = curator({ export_root: "/data/out" });
+    routes["POST /export/stream"] = sent;
+    const { exportSelectionStream, EXPORT_SIDECARS_DENIED } = await import("@/lib/curatorApi");
+
+    await expect(exportSelectionStream(exportRequest({ carry_sidecars: true }), () => {})).rejects.toThrow(EXPORT_SIDECARS_DENIED);
+    await expect(exportSelectionStream(exportRequest({ run_stats: {} }), () => {})).rejects.toThrow(EXPORT_SIDECARS_DENIED);
+    expect(calls).toEqual(["GET /health"]);
+    await expect(exportSelectionStream(exportRequest({ run_stats: null }), () => {})).rejects.toThrow("reached the server");
+  });
+
+  it("refuses a link or a move of a cropped scan, and sends a copy", async () => {
+    routes["GET /health"] = curator({ export_root: "/data/out", allow_move: true });
+    routes["POST /export/stream"] = sent;
+    const { exportSelectionStream, CROPPED_COPY_ONLY } = await import("@/lib/curatorApi");
+
+    for (const mode of ["symlink", "move"]) {
+      await expect(exportSelectionStream(exportRequest({ mode }), () => {}, undefined, true)).rejects.toThrow(CROPPED_COPY_ONLY);
+    }
+    expect(calls).toEqual(["GET /health"]);
+    await expect(exportSelectionStream(exportRequest(), () => {}, undefined, true)).rejects.toThrow("reached the server");
+  });
+
+  it("posts a keep-set preview and reads its rows", async () => {
+    const seen: unknown[] = [];
+    routes["POST /scan/s1/select"] = (init) => {
+      seen.push(JSON.parse(String(init?.body)));
+      return json({ scan_id: "s1", total: 2, kept: 1, rows: [] });
+    };
+    const { previewKeepSet } = await import("@/lib/curatorApi");
+
+    const result = await previewKeepSet("s1", { min_score: 0.5, keep_similar: false });
+    expect(result.kept).toBe(1);
+    expect(seen).toEqual([{ min_score: 0.5, keep_similar: false }]);
+  });
+
+  it("shows why the curator refused a preview", async () => {
+    routes["POST /scan/s1/select"] = () => json({ detail: "scan s1 lies outside the source root" }, 400);
+    const { previewKeepSet } = await import("@/lib/curatorApi");
+
+    await expect(previewKeepSet("s1", { min_score: 0, keep_similar: false })).rejects.toThrow(/outside the source root/);
+  });
+});

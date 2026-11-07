@@ -165,6 +165,14 @@ function Card({
               {POSE_LABELS[img.primary_face_pose]}
             </span>
           )}
+          {img.crop && (
+            <span
+              className="ml-1 inline-block rounded bg-accent-teal/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-teal"
+              title={img.crop_source === "detected" ? "Cropped: watermark at the edge" : "Cropped by a box by hand"}
+            >
+              Cropped
+            </span>
+          )}
           {waiting.length > 0 && (
             <div className="truncate text-[10px] leading-tight text-accent-teal" title={`Still checking ${pendingCaption(waiting)}`}>
               Checking {pendingCaption(waiting)}
