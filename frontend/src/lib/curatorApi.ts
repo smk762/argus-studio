@@ -130,6 +130,18 @@ export function normalizeExportResult(result: ExportResult): NormalizedExportRes
 }
 
 /**
+ * The `export_root` to give lens, so it reads `exported_path` rather than the row's
+ * `abs_path`, which under copy is the source. Lens writes each `.txt` beside the
+ * file it read, so this also decides where captions land.
+ *
+ * Not for a symlink export: lens resolves the link before checking it is under the
+ * root, so every row would fail as escaping the root.
+ */
+export function captionExportRoot(result: Pick<NormalizedExportResult, "dest" | "mode">): string | undefined {
+  return result.mode === "symlink" ? undefined : result.dest;
+}
+
+/**
  * Absolute on-disk location of a transferred file, or null when it was not in
  * the handoff manifest. Mode-agnostic: the curator reports where every file
  * landed regardless of copy/symlink/move, so the caller — not this accessor —
