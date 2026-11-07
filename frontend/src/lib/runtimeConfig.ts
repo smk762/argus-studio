@@ -46,6 +46,8 @@ export interface RuntimeConfig {
   proofUrl: string;
   /** Browser-facing argus-atlas API base (georeferenced map bakes). */
   atlasUrl: string;
+  /** Browser-facing argus-darkroom API base (guarded generation). */
+  darkroomUrl: string;
   /** `demo` = bundled read-only sample, `live` = real backends. */
   curatorUiMode: CuratorUiMode;
   /** Scan input directory as seen by argus-curator (container path under Docker). */
@@ -175,6 +177,7 @@ export function resolveRuntimeConfig(
     forgeUrl: resolveBase(source, ["ARGUS_FORGE_URL", "NEXT_PUBLIC_FORGE_URL"], "http://localhost:8103"),
     proofUrl: resolveBase(source, ["ARGUS_PROOF_URL", "NEXT_PUBLIC_PROOF_URL"], "http://localhost:8104"),
     atlasUrl: resolveBase(source, ["ARGUS_ATLAS_URL", "NEXT_PUBLIC_ATLAS_URL"], "http://localhost:8105"),
+    darkroomUrl: resolveBase(source, ["ARGUS_DARKROOM_URL"], "http://localhost:8106"),
     curatorUiMode: resolveUiMode(
       firstNonEmpty(source, ["ARGUS_CURATOR_UI_MODE", "NEXT_PUBLIC_CURATOR_UI_MODE"]),
     ),

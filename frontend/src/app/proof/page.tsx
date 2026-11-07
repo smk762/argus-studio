@@ -187,7 +187,8 @@ export default function ProofPage() {
                   />
                   {/* A LoRA that passed is ready for the next stage: bake a georeferenced map with it. */}
                   {report.verdict.passed && (
-                    <div className="mt-6 flex justify-end">
+                    <div className="mt-6 flex justify-end gap-2">
+                      <StageHandoff href="/darkroom" />
                       <StageHandoff href="/atlas" />
                     </div>
                   )}

@@ -14,6 +14,7 @@
 #   docker compose --profile proof   up      # frontend + argus-proof
 #                                            # (post-training LoRA evaluation)
 #   docker compose --profile atlas   up      # frontend + argus-atlas
+#   docker compose --profile darkroom up     # frontend + argus-darkroom (not in full)
 #                                            # (georeferenced fantasy-map bakes)
 #   docker compose --profile full    up      # whole suite (pulls any MISSING images, then runs)
 #   docker compose --profile full    pull    # refresh images to the current *_TAG
@@ -21,7 +22,8 @@
 #
 # Pin a specific released version with the *_TAG vars in .env (default `latest`,
 # except LENS_TAG and ATLAS_TAG, which default to a pinned release; see .env.example):
-#   CURATOR_TAG / LENS_TAG / QUARRY_TAG / FORGE_TAG / PROOF_TAG / ATLAS_TAG.
+#   CURATOR_TAG / LENS_TAG / QUARRY_TAG / FORGE_TAG / PROOF_TAG / ATLAS_TAG /
+#   DARKROOM_TAG.
 # (Only `frontend` is always built locally from ./frontend — it is this repo,
 # argus-studio, and has no published image yet.)
 #
@@ -72,6 +74,7 @@ services:
       - ARGUS_FORGE_URL=${ARGUS_FORGE_URL-${NEXT_PUBLIC_FORGE_URL-http://localhost:8103}}
       - ARGUS_PROOF_URL=${ARGUS_PROOF_URL-${NEXT_PUBLIC_PROOF_URL-http://localhost:8104}}
       - ARGUS_ATLAS_URL=${ARGUS_ATLAS_URL-${NEXT_PUBLIC_ATLAS_URL-http://localhost:8105}}
+      - ARGUS_DARKROOM_URL=${ARGUS_DARKROOM_URL-http://localhost:8106}
       - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE-${NEXT_PUBLIC_CURATOR_UI_MODE-demo}}
       - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH-${NEXT_PUBLIC_CURATOR_SOURCE_PATH-/data/images}}
       - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH-/data/out}}
@@ -249,7 +252,7 @@ services:
   # it over HTTP, as http://nudenet:8080; no port is published. Pinned by digest
   # because upstream publishes only `latest`, and it is amd64 only.
   nudenet:
-    profiles: ["curator", "forge", "full"]
+    profiles: ["curator", "forge", "full", "darkroom"]
     image: ghcr.io/notai-tech/nudenet@sha256:5d8fb3a20980680b73b7776745ee5b1983851c201a706cbdf3dd827c143783e9
     # The image's start command runs `ulimit -n 1000000 && <worker> & <api>`.
     # Where Docker's default limit is lower that ulimit fails, the inference
@@ -372,6 +375,44 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
+  argus-darkroom:
+    # Guarded generation: a prompt is checked before anything renders, each
+    # output is checked twice and then released or destroyed, and every attempt
+    # keeps a record. Not in "full": it refuses to start without a SingGuard URL,
+    # and no SingGuard is bundled here. The URL has no `:?` guard either, because
+    # that would fail every other profile too.
+    profiles: ["darkroom"]
+    image: ghcr.io/smk762/argus-darkroom:${DARKROOM_TAG:-0.1.1}
+    ports:
+      # Loopback by default: darkroom is not for public hosting.
+      - "${DARKROOM_PUBLISH:-127.0.0.1:8106}:8106"
+    environment:
+      ARGUS_DARKROOM_SINGGUARD_URL: ${DARKROOM_SINGGUARD_URL:-${SINGGUARD_URL:-}}
+      # Shared with argus-proof and argus-atlas.
+      ARGUS_DARKROOM_COMFYUI_URL: ${COMFYUI_BASE_URL:-http://host.docker.internal:8188}
+      # Unset: the bundled nudenet service. Set empty: SFW generation is refused,
+      # since every SFW output would be omitted.
+      ARGUS_DARKROOM_NUDENET_URL: ${DARKROOM_NUDENET_URL-http://nudenet:8080}
+      # Curator's POST /faces?body=true. Empty: records carry no age check.
+      ARGUS_DARKROOM_AGE_URL: ${DARKROOM_AGE_URL:-}
+      ARGUS_DARKROOM_OLLAMA_URL: ${DARKROOM_OLLAMA_URL:-}
+      ARGUS_DARKROOM_OLLAMA_MODEL: ${DARKROOM_OLLAMA_MODEL:-}
+      ARGUS_DARKROOM_THINKING: ${DARKROOM_THINKING:-cascade}
+      # The checkpoint a form starts on: a name, or a folder under checkpoints/.
+      ARGUS_DARKROOM_DEFAULT_CHECKPOINT: ${DARKROOM_DEFAULT_CHECKPOINT:-sdxl}
+      ARGUS_DARKROOM_ALLOW_NSFW: ${DARKROOM_ALLOW_NSFW:-0}
+      ARGUS_DARKROOM_READ_ONLY: ${DARKROOM_READ_ONLY:-0}
+      # Name each origin: a wildcard allows reads and refuses every write.
+      ARGUS_DARKROOM_CORS_ORIGINS: ${DARKROOM_CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      - argus-darkroom:/data
+      # ro: the checkpoints/ + loras/ tree ComfyUI lists, hashed for the record.
+      # With extra_model_paths, that can differ from MODELS_DIR.
+      - ${DARKROOM_MODELS_DIR:-${MODELS_DIR:-./models}}:/models:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
   # ── Upstream acquisition (run-to-completion job, not a server) ──────────
   # Fetches PD/CC0 images into its own pool at /data/quarry/images, then
   # publishes a curator-ready <category>/<subject>/ tree into DATASET_DIR
@@ -436,5 +477,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  argus-darkroom:
   ollama:
     name: argus-ollama

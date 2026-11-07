@@ -164,6 +164,61 @@ describe("curator scan control", () => {
   });
 });
 
+describe("darkroom writes", () => {
+  const darkroom = (extra: object) => json({ version: "0.1.0", backends: {}, ...extra });
+  const request = { user_prompt: "a lake" } as never;
+  const handlers = { onPreflight() {}, onQueued() {}, onProgress() {}, onScan() {} };
+
+  it("refuses every write on a read-only server without sending it", async () => {
+    routes["GET /health"] = () => darkroom({ read_only: true });
+    routes["POST /preflight"] = sent;
+    routes["POST /generate/stream"] = sent;
+    routes["DELETE /record/r1"] = sent;
+    const { generate, preflight, removeImage } = await import("@/lib/darkroomApi");
+    const { CapabilityRefused } = await import("@/lib/capabilities");
+
+    for (const write of [() => preflight(request), () => generate(request, handlers), () => removeImage("r1")]) {
+      const err = await write().catch((e) => e);
+      expect(err).toBeInstanceOf(CapabilityRefused);
+      expect(err.denied).toBe(true);
+    }
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("refuses when /health can't be read", async () => {
+    routes["POST /preflight"] = sent;
+    const { preflight } = await import("@/lib/darkroomApi");
+
+    const err = await preflight(request).catch((e) => e);
+    expect(err.denied).toBe(false);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("sends a write when the server isn't read-only", async () => {
+    routes["GET /health"] = () => darkroom({ read_only: false });
+    routes["POST /preflight"] = sent;
+    const { preflight } = await import("@/lib/darkroomApi");
+
+    await expect(preflight(request)).rejects.toThrow("reached the server");
+  });
+
+  it("resolves with the record, and fails on a stream that ends without one", async () => {
+    routes["GET /health"] = () => darkroom({ read_only: false });
+    const frames = (text: string) => new Response(text, { headers: { "content-type": "text/event-stream" } });
+    const scans: unknown[] = [];
+    routes["POST /generate/stream"] = () =>
+      frames('event: scan\ndata: {"policy":"default"}\n\nevent: complete\ndata: {"record":{"id":"r1"}}\n\n');
+    const { generate } = await import("@/lib/darkroomApi");
+
+    const record = await generate(request, { ...handlers, onScan: (scan) => scans.push(scan) });
+    expect(record.id).toBe("r1");
+    expect(scans).toEqual([{ policy: "default" }]);
+
+    routes["POST /generate/stream"] = () => frames('event: error\ndata: {"detail":"no image was released"}\n\n');
+    await expect(generate(request, handlers)).rejects.toThrow("no image was released");
+  });
+});
+
 describe("curator image delete", () => {
   const curator = (extra: object) => json({ status: "ok", service: "argus-curator", version: "0.14.1", ...extra });
   const plain = (rel_path: string) => ({ rel_path, passed: true, faces: [] }) as never;
