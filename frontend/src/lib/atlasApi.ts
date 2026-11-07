@@ -64,6 +64,8 @@ export interface BakeParams {
   sampler: string;
   scheduler: string;
   preset: string | null;
+  /** The style recipe these params came from. Only `argus-atlas chunk` sets it. */
+  recipe?: string | null;
 }
 
 /** `aligned` is the alignment-gate verdict; a failed gate keeps the PNG and leaves `geotiff` null. */
@@ -94,6 +96,49 @@ export interface TilesRecord {
 
 export type JobStatus = "controls" | "baked" | "unaligned" | "tiled";
 
+/** A job baked as one XYZ tile. `image` stays null until the crop to `inner` passes its gate. */
+export interface ChunkRecord {
+  z: number;
+  x: number;
+  y: number;
+  size: number;
+  margin: number;
+  inner: Grid;
+  neighbours: { tile: string; job_id: string; image: FileRef }[];
+  image: FileRef | null;
+}
+
+/** The recipe a chunk was baked with, and the digest of its canonical JSON. */
+export interface RecipeRecord {
+  recipe: { name: string; preset: string | null; checkpoint: string; lora: string | null };
+  sha256: string;
+}
+
+export type LabelScheme = "naturalearth" | "osm" | null;
+
+/** Place names `argus-atlas labels --job` wrote. A CLI step: no route builds them. */
+export interface LabelsRecord {
+  source: FileRef;
+  scheme: LabelScheme;
+  zoom: number;
+  cutoff: string;
+  count: number;
+  file: FileRef;
+  completed_at: string;
+}
+
+/** GET /jobs/{id}/labels: EPSG:4326 points, most important (lowest rank) first. */
+export interface LabelFeature {
+  type: "Feature";
+  properties: { name: string; rank: number; kind: string };
+  geometry: { type: string; coordinates: number[] };
+}
+
+export interface LabelCollection {
+  type: "FeatureCollection";
+  features: LabelFeature[];
+}
+
 /** `job.json` — everything about one canvas, from DEM to archive. */
 export interface JobSidecar {
   atlas_version: string;
@@ -111,6 +156,12 @@ export interface JobSidecar {
   commands: GdalCommand[];
   bake: BakeRecord | null;
   tiles: TilesRecord | null;
+  // Optional: sidecar 0.2 added chunk, recipe and timings; 0.3 added labels.
+  chunk?: ChunkRecord | null;
+  recipe?: RecipeRecord | null;
+  labels?: LabelsRecord | null;
+  /** Wall-clock seconds per stage. */
+  timings?: Record<string, number>;
 }
 
 /** One row of GET /jobs. */
@@ -127,6 +178,10 @@ export interface JobDigest {
   layers: string[];
   has_composite: boolean;
   has_archive: boolean;
+  has_labels?: boolean;
+  /** `z/x/y` for a chunk job. */
+  chunk?: string | null;
+  recipe?: string | null;
 }
 
 export interface AtlasJob {
@@ -160,10 +215,14 @@ export interface AtlasPreset {
   recommended: boolean;
 }
 
-/** An OSM extract under ATLAS_DEM_DIR; `layers` maps layer name -> the vector name /controls takes. */
+/**
+ * An OSM extract under ATLAS_DEM_DIR; `layers` maps layer name -> the vector name
+ * /controls takes. `name` is the directory (`osm/garda`), and `bbox` is whatever
+ * `osm.json` recorded, which is the `west,south,east,north` text.
+ */
 export interface OsmExtract {
   name: string;
-  bbox: number[] | null;
+  bbox: string | number[] | null;
   zoom: number | null;
   osm_base: string | null;
   layers: Record<string, string>;
@@ -177,11 +236,49 @@ export interface AtlasInputs {
   osm: OsmExtract[];
 }
 
+/** The engine as `GET /doctor` found it. */
+export interface DoctorBackend {
+  name: string;
+  reachable: boolean;
+  version: string | null;
+  detail: string | null;
+}
+
+/** GET /doctor: everything a bake needs, probed on the host. */
+export interface AtlasDoctor {
+  gdal: {
+    version: string | null;
+    /** Each GDAL tool atlas calls -> its resolved path, or null when missing. */
+    tools: Record<string, string | null>;
+    tiler: string | null;
+  };
+  pmtiles: { library: string | null; cli: string | null };
+  backend: DoctorBackend;
+  bake_allowed: boolean;
+  jobs_dir: string;
+  dem_dir: string;
+  models_dir: string;
+  workflow: string;
+}
+
 // --- capabilities ------------------------------------------------------------
 
 /** Live baking (POST /bake/stream). Off unless the host sets ATLAS_ALLOW_BAKE=1. */
 export function allowsBake(health: AtlasHealth | null): Capability {
   return capabilityOf(health, (h) => (typeof h.read_only === "boolean" ? !h.read_only : undefined), false);
+}
+
+/**
+ * GDAL on the host, which `POST /controls`, `/tiles` and `/osm` all need (503
+ * without it). A read-only host still allows them: `read_only` is about baking.
+ */
+export function allowsGdal(health: AtlasHealth | null): Capability {
+  return capabilityOf(health, (h) => (h.gdal === undefined ? undefined : h.gdal !== null), true);
+}
+
+/** The server fetching OSM itself (POST /osm). Off unless the host sets ATLAS_ALLOW_OSM=1. */
+export function allowsOsm(health: AtlasHealth | null): Capability {
+  return capabilityOf(health, (h) => h.osm_allowed, false);
 }
 
 // --- reads -------------------------------------------------------------------
@@ -192,7 +289,7 @@ async function fetchAtlasHealth(signal?: AbortSignal): Promise<AtlasHealth> {
   return resp.json();
 }
 
-/** The posture {@link bakeStream} gates on. */
+/** The posture the write fetchers gate on. */
 const atlasHealth = healthMemo(fetchAtlasHealth);
 
 export async function getAtlasHealth(signal?: AbortSignal): Promise<AtlasHealth> {
@@ -225,6 +322,20 @@ export async function getJob(jobId: string, signal?: AbortSignal): Promise<Atlas
   return resp.json();
 }
 
+/** GET /doctor. Probes the bake backend over HTTP, so it can take a while on a dead host. */
+export async function getDoctor(signal?: AbortSignal): Promise<AtlasDoctor> {
+  const resp = await fetch(`${atlasUrl()}/doctor`, { signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** A job's place names. 404s when `job.json` records none or the file has gone. */
+export async function getLabels(jobId: string, signal?: AbortSignal): Promise<LabelCollection> {
+  const resp = await fetch(`${atlasUrl()}/jobs/${encodeURIComponent(jobId)}/labels`, { signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
 /**
  * A control (`hillshade`, `slope`, `composite`, `land`, a layer name) or the
  * painted `fantasy` image as PNG. `version` busts the browser cache when a
@@ -242,6 +353,12 @@ export function archiveUrl(jobId: string): string {
 
 // --- writes ------------------------------------------------------------------
 
+const NO_GDAL = "GDAL is missing on this argus-atlas host. Use the Docker image, which ships GDAL 3.11.";
+
+/** gdalwarp methods atlas accepts (`gdal_ops.RESAMPLING_METHODS`); leave it unset for atlas's auto choice. */
+export const RESAMPLING_METHODS = ["bilinear", "cubic", "cubicspline", "lanczos", "average"] as const;
+export type Resampling = (typeof RESAMPLING_METHODS)[number];
+
 /** POST /controls — names, not paths: `dem` and layer files are relative to ATLAS_DEM_DIR. */
 export interface ControlsRequest {
   dem: string;
@@ -250,17 +367,66 @@ export interface ControlsRequest {
   land?: string;
   layers?: Record<string, string>;
   sea_level?: number;
+  resampling?: Resampling;
   long_side?: number;
   resolution?: number;
   job_id?: string;
 }
 
 /** Plan the canvas and write the GDAL controls for a new job (CPU only, allowed on read-only hosts). */
-export async function createControls(req: ControlsRequest): Promise<AtlasJob> {
+export async function createControls(req: ControlsRequest, signal?: AbortSignal): Promise<AtlasJob> {
+  await requireCapability(atlasHealth, allowsGdal, NO_GDAL, signal);
   const resp = await fetch(`${atlasUrl()}/controls`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
+    signal,
+  });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/**
+ * Layers `POST /osm` can fetch for a canvas. `places` also exists but is left out:
+ * it feeds `argus-atlas labels`, which has no route, and is never a control.
+ */
+export const OSM_LAYERS = ["water", "rivers", "roads", "rail", "forest", "urban", "buildings", "glaciers"] as const;
+/** What `POST /osm` fetches when it is not told. */
+export const OSM_DEFAULT_LAYERS: readonly string[] = ["water", "rivers", "roads", "forest", "urban"];
+
+export interface OsmRequest {
+  /** The extract's directory under `<ATLAS_DEM_DIR>/osm/`: an id, never a path. */
+  name: string;
+  /** `west,south,east,north` in degrees. */
+  bbox: string;
+  zoom?: number;
+  layers?: string[];
+}
+
+export interface OsmResult {
+  name: string;
+  /** Layer name -> the vector name /controls takes. */
+  layers: Record<string, string>;
+  /** Asked for but empty at this zoom (`buildings` below 13). */
+  skipped: string[];
+  osm_base: string | null;
+  extract_bytes: number;
+}
+
+/** Fetch OSM layers from Overpass into `ATLAS_DEM_DIR/osm/<name>/`, replacing an extract of that name. */
+export async function fetchOsm(req: OsmRequest, signal?: AbortSignal): Promise<OsmResult> {
+  await requireCapability(
+    atlasHealth,
+    allowsOsm,
+    "OSM fetching is off on this argus-atlas host (set ATLAS_ALLOW_OSM=1 to enable it).",
+    signal,
+  );
+  await requireCapability(atlasHealth, allowsGdal, NO_GDAL, signal);
+  const resp = await fetch(`${atlasUrl()}/osm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    signal,
   });
   if (!resp.ok) return asError(resp);
   return resp.json();
@@ -281,10 +447,14 @@ export interface BakeRequest {
   denoise?: number;
 }
 
-/** One NDJSON frame: `controls`, `generate`, `georeference`, then `done` or `error`. */
+/**
+ * One NDJSON frame: `controls`, `generate`, `georeference`, then `done` or `error`.
+ * `tiles` frames follow `done` in atlas's `chunk` command; `POST /bake/stream`
+ * doesn't send them at 0.3.0a1, but they are on the wire type.
+ */
 export interface BakeProgress {
   job_id: string;
-  type: "controls" | "generate" | "georeference" | "done" | "error";
+  type: "controls" | "generate" | "georeference" | "tiles" | "done" | "error";
   message: string;
 }
 
@@ -321,13 +491,31 @@ export async function bakeStream(
   if (!done) throw new Error("Bake stream ended without a result");
 }
 
+/**
+ * `POST /tiles` answered 409: the job has nothing gated to tile. Atlas's
+ * NotTileableError (a chunk whose crop failed), no aligned GeoTIFF, or the
+ * alignment gate failing on the re-check. The message is the server's reason.
+ */
+export class NotTileableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NotTileableError";
+  }
+}
+
 /** Cut the PMTiles archive for an aligned bake (re-runs the alignment gate first). */
-export async function cutTiles(jobId: string): Promise<TilesRecord> {
+export async function cutTiles(jobId: string, signal?: AbortSignal): Promise<TilesRecord> {
+  await requireCapability(atlasHealth, allowsGdal, NO_GDAL, signal);
   const resp = await fetch(`${atlasUrl()}/tiles`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ job_id: jobId }),
+    signal,
   });
+  if (resp.status === 409) {
+    const refused: Error = await asError(resp).catch((err) => err);
+    throw new NotTileableError(refused.message);
+  }
   if (!resp.ok) return asError(resp);
   return resp.json();
 }

@@ -1,18 +1,29 @@
 /** Thin client for the argus-curator API (:8101). */
 
 import { curatorUrl } from "@/lib/curatorEnv";
-import { capabilityOf, healthMemo, permits, requireCapability, type Capability } from "@/lib/capabilities";
+import {
+  capabilityOf,
+  CapabilityRefused,
+  healthMemo,
+  permits,
+  requireCapability,
+  type Capability,
+} from "@/lib/capabilities";
 import type {
   CuratorConfig,
   Detectors,
   ExportRequest,
   ExportResult,
   FolderListing,
+  GuardPolicyInfo,
   ImageResult,
   ScanSummary,
+  SelectRequest,
+  SelectResult,
 } from "@/components/curator/types";
-import { buildScanBody, MANIFEST_VERSION } from "@/components/curator/types";
+import { buildScanBody, MANIFEST_VERSION, prefilterOn } from "@/components/curator/types";
 import { asError } from "@/lib/apiError";
+import { readPolicyCatalog } from "@/lib/curatorGuard";
 import { isMinorExposed } from "@/lib/curatorSafety";
 import { deleteBatches, type DeleteOutcome } from "@/lib/scanDelete";
 import type { ScanChunk } from "@/lib/scanChunks";
@@ -178,6 +189,18 @@ export interface Health {
   scan_delete?: boolean;
   /** POST /scan/{id}/delete takes any scanned image, not only a minor-exposed one (curator 0.12 and later). */
   delete_any?: boolean;
+  /** `GET /guard/policies` exists (curator 0.8 and later). */
+  guard_policy_text?: boolean;
+  /** `FaceConfig.set_age` exists (curator 0.7 and later). */
+  set_age?: boolean;
+  /** `ScanRequest.prefilter` exists (curator 0.12 and later). */
+  prefilter?: boolean;
+  /** `ScanRequest.crops` exists (curator 0.14 and later). */
+  crops?: boolean;
+  /** `CropConfig.detect` exists. The detector's URL is `/detectors.watermark`. */
+  watermark_detect?: boolean;
+  /** `carry_sidecars` and `run_stats` on an export (curator 0.13 and later). */
+  export_sidecars?: boolean;
 }
 
 /**
@@ -230,6 +253,42 @@ export function allowsDeleteAny(health: Health | null): Capability {
  */
 export function allowsMinorExposedDelete(health: Health | null): Capability {
   return capabilityOf(health, (h) => (typeof h.delete_any === "boolean" ? true : undefined), false);
+}
+
+/** Whether this server serves its policy wording. Legacy `false`: an older curator has no such route. */
+export function allowsGuardPolicyText(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.guard_policy_text, false);
+}
+
+/** Whether frames with no face can take the set's age. Legacy `false`: an older curator ignores the field. */
+export function allowsSetAge(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.set_age, false);
+}
+
+/**
+ * Whether this server drops images before the late phases. Legacy `false`: an
+ * older curator ignores the block and runs every check on every image.
+ */
+export function allowsPrefilter(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.prefilter, false);
+}
+
+/** Whether this server crops. Legacy `false`: an older curator would scan the frames uncropped. */
+export function allowsCrops(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.crops, false);
+}
+
+/** Whether this server looks for watermarks. Legacy `false`, like {@link allowsCrops}. */
+export function allowsWatermarkDetect(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.watermark_detect, false);
+}
+
+/**
+ * Whether this server carries sidecars and writes run stats. Legacy `false`:
+ * an older curator ignores both, and under move the captions stay behind.
+ */
+export function allowsExportSidecars(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.export_sidecars, false);
 }
 
 /**
@@ -291,6 +350,13 @@ export async function getDetectors(signal?: AbortSignal): Promise<Detectors> {
   return resp.json();
 }
 
+/** Every policy a scan can name, with its wording. Requests still pick one by name, never by text. */
+export async function getGuardPolicies(signal?: AbortSignal): Promise<GuardPolicyInfo[]> {
+  const resp = await fetch(`${curatorUrl()}/guard/policies`, { signal });
+  if (!resp.ok) return asError(resp);
+  return readPolicyCatalog(await resp.json());
+}
+
 export async function listFolders(path = "", signal?: AbortSignal): Promise<FolderListing> {
   const params = new URLSearchParams(path ? { path } : {});
   const resp = await fetch(`${curatorUrl()}/folders?${params.toString()}`, { signal });
@@ -298,13 +364,46 @@ export async function listFolders(path = "", signal?: AbortSignal): Promise<Fold
   return resp.json();
 }
 
+export const SET_AGE_DENIED = "This curator cannot read a set's age (it predates curator 0.7).";
+export const PREFILTER_DENIED = "This curator cannot drop images before the late checks (it predates the prefilter).";
+export const CROPS_DENIED = "This curator cannot crop images (it predates crops).";
+export const WATERMARK_DENIED = "This curator cannot look for watermarks (it predates watermark detection).";
+export const EXPORT_SIDECARS_DENIED = "This curator cannot carry sidecars or write run stats (it predates curator 0.13).";
+export const CROPPED_COPY_ONLY = "This scan cropped images, so it exports by copy only.";
+
+/** A scan that names a check this server would silently skip is refused before it starts. */
+async function requireScanCapabilities(cfg: CuratorConfig, signal?: AbortSignal): Promise<void> {
+  if (cfg.faces.set_age) await requireCapability(curatorHealth, allowsSetAge, SET_AGE_DENIED, signal);
+  if (prefilterOn(cfg.prefilter)) await requireCapability(curatorHealth, allowsPrefilter, PREFILTER_DENIED, signal);
+  if (!cfg.crops.enabled) return;
+  await requireCapability(curatorHealth, allowsCrops, CROPS_DENIED, signal);
+  if (cfg.crops.detect) await requireCapability(curatorHealth, allowsWatermarkDetect, WATERMARK_DENIED, signal);
+}
+
+/**
+ * Throw a refused scan's `detail`. `/detectors.watermark` only says the URL is
+ * set, so a scan can pass every check here and still get the 503 for a detector
+ * that is stopped or loading (curator 0.14.1). Say what to do about it.
+ */
+async function scanRefused(resp: Response): Promise<never> {
+  try {
+    return await asError(resp);
+  } catch (err) {
+    if (resp.status === 503 && err instanceof Error && /watermark detection/i.test(err.message)) {
+      throw new Error(`${err.message}. Start the detector, or turn off Detect watermarks, and scan again.`);
+    }
+    throw err;
+  }
+}
+
 export async function scanFolder(folder: string, cfg: CuratorConfig): Promise<ScanSummary> {
+  await requireScanCapabilities(cfg);
   const resp = await fetch(`${curatorUrl()}/scan/folder`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(buildScanBody(folder, cfg)),
   });
-  if (!resp.ok) return asError(resp);
+  if (!resp.ok) return scanRefused(resp);
   return resp.json();
 }
 
@@ -481,13 +580,14 @@ export async function scanFolderStream(
   onChunk?: (chunk: ScanChunk) => void,
   signal?: AbortSignal,
 ): Promise<ScanSummary> {
+  await requireScanCapabilities(cfg, signal);
   const resp = await fetch(`${curatorUrl()}/scan/folder/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(buildScanBody(folder, cfg)),
     signal,
   });
-  if (!resp.ok || !resp.body) return asError(resp);
+  if (!resp.ok || !resp.body) return scanRefused(resp);
   return readSseStream<ScanProgress, ScanSummary, ScanChunk>(resp.body, onProgress, "Scan", onChunk);
 }
 
@@ -626,13 +726,33 @@ export interface ExportProgress {
 }
 
 /**
+ * What this filter would keep (POST /scan/{id}/select, curator 0.4). Writes
+ * nothing and creates nothing, so it is a read that happens to take a body, and
+ * no `/health` field covers it. It therefore has no capability gate.
+ */
+export async function previewKeepSet(scanId: string, body: SelectRequest, signal?: AbortSignal): Promise<SelectResult> {
+  const resp = await fetch(`${curatorUrl()}/scan/${encodeURIComponent(scanId)}/select`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/**
  * Stream an export over SSE (POST /export/stream), resolving with the final
  * result normalized so the app never branches on the curator's manifest version.
+ *
+ * `scanCropped` is the row-level fact behind the curator's copy-only rule, which
+ * this request alone cannot show. See `scanHasCrops`.
  */
 export async function exportSelectionStream(
   req: ExportRequest,
   onProgress: (p: ExportProgress) => void,
   signal?: AbortSignal,
+  scanCropped = false,
 ): Promise<NormalizedExportResult> {
   // Manifest first: it is the only check that must precede a move, since the
   // post-export refusal in normalizeExportResult lands after the sources are gone.
@@ -656,6 +776,10 @@ export async function exportSelectionStream(
       signal,
     );
   }
+  if (req.carry_sidecars || req.run_stats != null) {
+    await requireCapability(curatorHealth, allowsExportSidecars, EXPORT_SIDECARS_DENIED, signal);
+  }
+  if (scanCropped && req.mode !== "copy") throw new CapabilityRefused(CROPPED_COPY_ONLY, true);
   const resp = await fetch(`${curatorUrl()}/export/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

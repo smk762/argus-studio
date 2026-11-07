@@ -321,6 +321,90 @@ describe("forge, atlas and quarry writes", () => {
     expect(calls).toEqual(["GET /health"]);
   });
 
+  describe("atlas GDAL and OSM writes", () => {
+    const atlas = (extra: object) => () =>
+      json({ status: "ok", service: "argus-atlas", version: "0.3.0a1", read_only: true, gdal: "GDAL 3.11.4", ...extra });
+    const controls = { dem: "d.tif", bbox: "1,2,3,4" };
+    const osm = { name: "garda", bbox: "1,2,3,4" };
+
+    it("a read-only host still builds controls and cuts tiles: read_only is about baking", async () => {
+      routes["GET /health"] = atlas({});
+      routes["POST /controls"] = sent;
+      routes["POST /tiles"] = sent;
+      const { createControls, cutTiles } = await import("@/lib/atlasApi");
+
+      await expect(createControls(controls)).rejects.toThrow("reached the server");
+      await expect(cutTiles("j")).rejects.toThrow("reached the server");
+      expect(calls).toEqual(["GET /health", "POST /controls", "POST /tiles"]);
+    });
+
+    it("refuses controls, tiles and OSM on a host without GDAL", async () => {
+      routes["GET /health"] = atlas({ gdal: null, osm_allowed: true });
+      routes["POST /controls"] = sent;
+      routes["POST /tiles"] = sent;
+      routes["POST /osm"] = sent;
+      const { createControls, cutTiles, fetchOsm } = await import("@/lib/atlasApi");
+      const { CapabilityRefused } = await import("@/lib/capabilities");
+
+      for (const write of [() => createControls(controls), () => cutTiles("j"), () => fetchOsm(osm)]) {
+        const err = await write().catch((e) => e);
+        expect(err).toBeInstanceOf(CapabilityRefused);
+        expect(err.message).toMatch(/GDAL is missing/);
+      }
+      expect(calls.filter((c) => c.startsWith("POST"))).toEqual([]);
+    });
+
+    it("sends to a server older than the gdal field", async () => {
+      routes["GET /health"] = () => json({ status: "ok", service: "argus-atlas", version: "0.0.9" });
+      routes["POST /controls"] = sent;
+      const { createControls } = await import("@/lib/atlasApi");
+
+      await expect(createControls(controls)).rejects.toThrow("reached the server");
+    });
+
+    it("refuses OSM unless the host opts in", async () => {
+      routes["GET /health"] = atlas({ osm_allowed: false });
+      routes["POST /osm"] = sent;
+      const { fetchOsm } = await import("@/lib/atlasApi");
+      const { CapabilityRefused } = await import("@/lib/capabilities");
+
+      const err = await fetchOsm(osm).catch((e) => e);
+      expect(err).toBeInstanceOf(CapabilityRefused);
+      expect(err.denied).toBe(true);
+      expect(err.message).toMatch(/ATLAS_ALLOW_OSM/);
+      expect(calls).toEqual(["GET /health"]);
+    });
+
+    it("refuses OSM on a server that never advertised osm_allowed", async () => {
+      routes["GET /health"] = atlas({});
+      routes["POST /osm"] = sent;
+      const { fetchOsm } = await import("@/lib/atlasApi");
+
+      await expect(fetchOsm(osm)).rejects.toThrow(/ATLAS_ALLOW_OSM/);
+      expect(calls).toEqual(["GET /health"]);
+    });
+
+    it("sends OSM once allowed, without needing bake to be on, on the page's health", async () => {
+      routes["GET /health"] = atlas({ osm_allowed: true });
+      routes["POST /osm"] = sent;
+      const { fetchOsm, getAtlasHealth } = await import("@/lib/atlasApi");
+
+      await getAtlasHealth();
+      await expect(fetchOsm(osm)).rejects.toThrow("reached the server");
+      expect(calls).toEqual(["GET /health", "POST /osm"]);
+    });
+
+    it("fails safe when /health is unreachable", async () => {
+      routes["POST /osm"] = sent;
+      routes["POST /controls"] = sent;
+      const { createControls, fetchOsm } = await import("@/lib/atlasApi");
+
+      await expect(fetchOsm(osm)).rejects.toThrow(/unreachable/);
+      await expect(createControls(controls)).rejects.toThrow(/unreachable/);
+      expect(calls.filter((c) => c.startsWith("POST"))).toEqual([]);
+    });
+  });
+
   it("quarry: a server that never advertised fetch_allowed is refused", async () => {
     routes["GET /health"] = () => json({ status: "ok", service: "argus-quarry", version: "0.2.3", quarry_home: "/q" });
     routes["POST /archives/pd12m/fetch"] = sent;
@@ -362,5 +446,121 @@ describe("lens writes", () => {
     const { captionFolder } = await import("@/lib/lensApi");
 
     await expect(captionFolder({ folder: "x" })).rejects.toThrow("reached the server");
+  });
+});
+
+describe("curator scan and export options", () => {
+  const curator = (extra: object) => () =>
+    json({ status: "ok", service: "argus-curator", version: "0.14.1", manifest_version: "2.2", ...extra });
+  const scanConfig = async (patch: object) => {
+    const { defaultCuratorConfig } = await import("@/components/curator/types");
+    return { ...defaultCuratorConfig(), ...patch };
+  };
+  const off = { drop_nsfw: false, drop_no_face: false, drop_no_age: false };
+
+  it("refuses a prefilter on a curator that would ignore it", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/folder/stream"] = sent;
+    const { scanFolderStream, PREFILTER_DENIED } = await import("@/lib/curatorApi");
+    const cfg = await scanConfig({ prefilter: { ...off, drop_no_face: true } });
+
+    await expect(scanFolderStream("f", cfg, () => {})).rejects.toThrow(PREFILTER_DENIED);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("lets a plain scan through a curator that advertises nothing", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/folder/stream"] = sent;
+    const { scanFolderStream } = await import("@/lib/curatorApi");
+
+    await expect(scanFolderStream("f", await scanConfig({}), () => {})).rejects.toThrow("reached the server");
+  });
+
+  it("gates crops and watermark detection separately", async () => {
+    routes["GET /health"] = curator({ crops: true });
+    routes["POST /scan/folder/stream"] = sent;
+    const { defaultCrops } = await import("@/components/curator/types");
+    const { scanFolderStream, WATERMARK_DENIED } = await import("@/lib/curatorApi");
+
+    const crops = await scanConfig({ crops: { ...defaultCrops(), enabled: true } });
+    await expect(scanFolderStream("f", crops, () => {})).rejects.toThrow("reached the server");
+    const detect = await scanConfig({ crops: { ...defaultCrops(), enabled: true, detect: true } });
+    await expect(scanFolderStream("f", detect, () => {})).rejects.toThrow(WATERMARK_DENIED);
+  });
+
+  it("says what to do about a detector that is down", async () => {
+    routes["GET /health"] = curator({ crops: true, watermark_detect: true });
+    routes["POST /scan/folder/stream"] = () =>
+      json({ detail: "watermark detection requested but the detector did not answer" }, 503);
+    const { defaultCrops } = await import("@/components/curator/types");
+    const { scanFolderStream } = await import("@/lib/curatorApi");
+
+    const cfg = await scanConfig({ crops: { ...defaultCrops(), enabled: true, detect: true } });
+    await expect(scanFolderStream("f", cfg, () => {})).rejects.toThrow(/did not answer\. Start the detector/);
+  });
+
+  it("leaves another 503 as the curator said it", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/folder/stream"] = () => json({ detail: "GPU busy: lease timed out" }, 503);
+    const { scanFolderStream } = await import("@/lib/curatorApi");
+
+    await expect(scanFolderStream("f", await scanConfig({}), () => {})).rejects.toThrow("GPU busy: lease timed out");
+  });
+
+  it("refuses a set age on a curator that would ignore it", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/folder/stream"] = sent;
+    const { defaultCuratorConfig } = await import("@/components/curator/types");
+    const { scanFolderStream, SET_AGE_DENIED } = await import("@/lib/curatorApi");
+    const cfg = await scanConfig({ faces: { ...defaultCuratorConfig().faces, set_age: true } });
+
+    await expect(scanFolderStream("f", cfg, () => {})).rejects.toThrow(SET_AGE_DENIED);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  const exportRequest = (extra: object = {}) =>
+    ({ scan_id: "s", selection: [], dest: "out", mode: "copy", preserve_structure: true, ...extra }) as never;
+
+  it("refuses carried sidecars and run stats on a curator without them", async () => {
+    routes["GET /health"] = curator({ export_root: "/data/out" });
+    routes["POST /export/stream"] = sent;
+    const { exportSelectionStream, EXPORT_SIDECARS_DENIED } = await import("@/lib/curatorApi");
+
+    await expect(exportSelectionStream(exportRequest({ carry_sidecars: true }), () => {})).rejects.toThrow(EXPORT_SIDECARS_DENIED);
+    await expect(exportSelectionStream(exportRequest({ run_stats: {} }), () => {})).rejects.toThrow(EXPORT_SIDECARS_DENIED);
+    expect(calls).toEqual(["GET /health"]);
+    await expect(exportSelectionStream(exportRequest({ run_stats: null }), () => {})).rejects.toThrow("reached the server");
+  });
+
+  it("refuses a link or a move of a cropped scan, and sends a copy", async () => {
+    routes["GET /health"] = curator({ export_root: "/data/out", allow_move: true });
+    routes["POST /export/stream"] = sent;
+    const { exportSelectionStream, CROPPED_COPY_ONLY } = await import("@/lib/curatorApi");
+
+    for (const mode of ["symlink", "move"]) {
+      await expect(exportSelectionStream(exportRequest({ mode }), () => {}, undefined, true)).rejects.toThrow(CROPPED_COPY_ONLY);
+    }
+    expect(calls).toEqual(["GET /health"]);
+    await expect(exportSelectionStream(exportRequest(), () => {}, undefined, true)).rejects.toThrow("reached the server");
+  });
+
+  it("posts a keep-set preview and reads its rows", async () => {
+    const seen: unknown[] = [];
+    routes["POST /scan/s1/select"] = (init) => {
+      seen.push(JSON.parse(String(init?.body)));
+      return json({ scan_id: "s1", total: 2, kept: 1, rows: [] });
+    };
+    const { previewKeepSet } = await import("@/lib/curatorApi");
+
+    const result = await previewKeepSet("s1", { min_score: 0.5, keep_similar: false });
+    expect(result.kept).toBe(1);
+    expect(seen).toEqual([{ min_score: 0.5, keep_similar: false }]);
+  });
+
+  it("shows why the curator refused a preview", async () => {
+    routes["POST /scan/s1/select"] = () => json({ detail: "scan s1 lies outside the source root" }, 400);
+    const { previewKeepSet } = await import("@/lib/curatorApi");
+
+    await expect(previewKeepSet("s1", { min_score: 0, keep_similar: false })).rejects.toThrow(/outside the source root/);
   });
 });

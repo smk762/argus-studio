@@ -39,6 +39,8 @@ import {
   listLensFolders,
   type ImmichAlbum,
 } from "@/lib/lensApi";
+import { finalChoice } from "@/lib/captionFinal";
+import { sizedForBackend, tokenBudget, tokenBudgetsOf } from "@/lib/captionTokens";
 import { lensUrl } from "@/lib/curatorEnv";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
@@ -78,6 +80,8 @@ export default function Home() {
   // Lens's own category list once /profiles answers; the static list until then
   // (and in demo mode). An unknown category captions to an empty string (#102).
   const [categories, setCategories] = useState(() => categoryOptions(undefined, TARGET_CATEGORIES));
+  // Lens's token budgets once /profiles answers; `tokenBudget` falls back until then.
+  const [tokenBudgets, setTokenBudgets] = useState<Record<string, number>>({});
   const [proseEnrichment, setProseEnrichment] = useState(true);
   const [hybridPresets, setHybridPresets] = useState<Record<string, number>>(FALLBACK_HYBRID_PRESETS);
   const [hybrid, setHybrid] = useState<HybridBalanceValue>({
@@ -87,6 +91,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CaptionResult | null>(null);
+  // What `result` was sized for. The dropdown can move on after the run, and
+  // the result doesn't say.
+  const [resultBackend, setResultBackend] = useState("sdxl");
+  // A variant chosen as final, on this page only (see lib/captionFinal.ts).
+  const [finalVariant, setFinalVariant] = useState<string | null>(null);
   const [batchResult, setBatchResult] = useState<BatchCaptionResult | null>(null);
   const [batchSource, setBatchSource] = useState("");
   // The host folder the last batch wrote .txt sidecars into, or null when the
@@ -173,6 +182,7 @@ export default function Home() {
           // A category this lens doesn't know would caption to an empty string.
           setTargetCategory((cur) => (opts.some((o) => o.value === cur) ? cur : opts[0].value));
         }
+        setTokenBudgets(tokenBudgetsOf(profiles.token_budgets));
         const presets = profiles.hybrid_presets;
         if (presets && Object.keys(presets).length > 0) {
           setHybridPresets(presets);
@@ -188,6 +198,13 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  /** A new caption replaces the text a final choice pointed at, so the choice goes too. */
+  const showResult = (data: CaptionResult, backend: string) => {
+    setResult(data);
+    setResultBackend(sizedForBackend(data, backend));
+    setFinalVariant(null);
+  };
 
   const runUrl = async (url: string) => {
     if (!url) return;
@@ -218,7 +235,7 @@ export default function Home() {
       }
 
       const data: CaptionResult = await resp.json();
-      setResult(data);
+      showResult(data, targetBackend);
       setAnalyzedUrl(url);
       setLastSingle({ kind: "url", url });
     } catch (err) {
@@ -340,7 +357,7 @@ export default function Home() {
         setError(errors.length === 1 ? errors[0].error : `${errors.length} images failed: ${errors[0].error}`);
       } else if (rows.length === 1 && files.length === 1) {
         // Single upload: show the full variant/raw-output breakdown like URL mode.
-        setResult(rows[0]);
+        showResult(rows[0], targetBackend);
         // Revoke the previous blob URL before minting a new one — re-captioning
         // the same upload would otherwise leak one per run.
         if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -721,7 +738,7 @@ export default function Home() {
               >
                 {TARGET_BACKENDS.map((b) => (
                   <option key={b.value} value={b.value}>
-                    {b.label} ({b.tokens} tokens)
+                    {b.label} ({tokenBudget(b.value, tokenBudgets)} tokens)
                   </option>
                 ))}
               </select>
@@ -813,7 +830,7 @@ export default function Home() {
                   {result.backend_name}
                 </span>
               </div>
-              <ExportButtons result={result} imageUrl={analyzedUrl} />
+              <ExportButtons result={result} finalVariant={finalVariant} imageUrl={analyzedUrl} />
               {lastSingle && (
                 <button
                   type="button"
@@ -841,7 +858,13 @@ export default function Home() {
             <div className="space-y-6 scrollbar-thin">
               <SubjectCount result={result} />
               <RefinementRecord result={result} />
-              <CaptionVariants result={result} />
+              <CaptionVariants
+                result={result}
+                backend={resultBackend}
+                budgets={tokenBudgets}
+                finalVariant={finalVariant}
+                onChooseFinal={(variant) => setFinalVariant(finalChoice(result, variant))}
+              />
               <RawOutputs result={result} />
               <AutoRemoved result={result} />
               <CaptionExplain result={result} />

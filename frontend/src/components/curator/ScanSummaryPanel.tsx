@@ -1,5 +1,8 @@
 "use client";
 
+import { setAgeOutcome } from "@/lib/curatorAttributes";
+import { policiesRun } from "@/lib/curatorGuard";
+import { reasonLabel } from "@/lib/curatorKeepSet";
 import { CATEGORY_LABELS, type ScanSummary } from "./types";
 
 interface Props {
@@ -9,6 +12,9 @@ interface Props {
 export function ScanSummaryPanel({ summary }: Props) {
   const rejectEntries = Object.entries(summary.reject_reasons).sort(([, a], [, b]) => b - a);
   const profile = summary.target_profile;
+  const cropped = summary.results.filter((row) => row.crop != null).length;
+  const setAge = setAgeOutcome(summary);
+  const policies = policiesRun(summary);
 
   return (
     <div className="space-y-5 rounded-xl border border-border bg-surface p-5">
@@ -33,7 +39,17 @@ export function ScanSummaryPanel({ summary }: Props) {
           color={summary.faces_config.enabled ? "accent-green" : "accent-amber"}
         />
         <Badge label="Similar clusters" value={String(summary.similar_clusters)} color="accent-amber" />
+        {summary.faces_config.fairface && <Badge label="FairFace" value="on" color="accent-green" />}
+        {summary.faces_config.mivolo && <Badge label="MiVOLO" value="on" color="accent-green" />}
+        {summary.scenes_config?.enabled && <Badge label="Scenes" value="on" color="accent-green" />}
+        {summary.garments_config?.enabled && <Badge label="Garments" value="on" color="accent-green" />}
+        {summary.nsfw_config?.enabled === true && <Badge label="NudeNet" value="on" color="accent-green" />}
+        {summary.erax_config?.enabled === true && <Badge label="EraX" value="on" color="accent-green" />}
+        {policies.length > 0 && <Badge label="SingGuard" value={policies.join(", ")} color="accent-green" />}
+        {summary.crop_config?.enabled && <Badge label="Cropped" value={String(cropped)} color="accent-teal" />}
       </div>
+
+      {setAge && <p className="text-xs text-muted">{setAge}</p>}
 
       {rejectEntries.length > 0 && (
         <div>
@@ -43,7 +59,9 @@ export function ScanSummaryPanel({ summary }: Props) {
               const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
               return (
                 <div key={reason} className="flex items-center gap-2">
-                  <div className="flex-1 truncate text-xs text-foreground/80">{reason}</div>
+                  <div className="flex-1 truncate text-xs text-foreground/80" title={reason}>
+                    {reasonLabel(reason)}
+                  </div>
                   <div
                     className="h-1.5 shrink-0 rounded-full bg-accent-red/60"
                     style={{ width: `${Math.max(pct, 2)}%`, maxWidth: "120px" }}

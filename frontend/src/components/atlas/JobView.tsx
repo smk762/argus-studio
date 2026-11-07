@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   archiveUrl,
   cutTiles,
+  getLabels,
+  NotTileableError,
   previewUrl,
   type AtlasJob,
   type AtlasPreset,
   type JobStatus,
+  type LabelCollection,
 } from "@/lib/atlasApi";
-import { type Capability } from "@/lib/capabilities";
+import { labelsCredit, MAX_LABELS, notTileableReason, placeLabels, stageTimings } from "@/lib/atlasView";
+import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
+import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { BakePanel } from "@/components/atlas/BakePanel";
+import { JobBadges } from "@/components/atlas/JobBadges";
 
 export const STATUS_DOT: Record<JobStatus, string> = {
   controls: "bg-muted",
@@ -53,11 +59,13 @@ export function JobView({
   job,
   presets,
   canBake,
+  canGdal,
   onChanged,
 }: {
   job: AtlasJob;
   presets: AtlasPreset[];
   canBake: Capability;
+  canGdal: Capability;
   onChanged: () => void;
 }) {
   const s = job.sidecar;
@@ -70,20 +78,55 @@ export function JobView({
   const [opacity, setOpacity] = useState(70);
   const [tiling, setTiling] = useState(false);
   const [tilesError, setTilesError] = useState<string | null>(null);
+  const [tilesRefused, setTilesRefused] = useState<string | null>(null);
   const [showCommands, setShowCommands] = useState(false);
+  const [showLabels, setShowLabels] = useState(true);
+  const [collection, setCollection] = useState<LabelCollection | null>(null);
+  const [labelsError, setLabelsError] = useState<string | null>(null);
 
   const bake = s.bake;
   const tiles = s.tiles;
   const painted = bake ? previewUrl(s.job_id, "fantasy", bake.completed_at) : null;
+  const timings = stageTimings(s.timings);
+  const blocked = notTileableReason(s);
+  const gdalReason = capabilityReason(canGdal, "GDAL is missing on this host, so it cannot cut tiles.");
+
+  // Names are drawn by the page, never painted: nothing here touches the raster.
+  const labelsRecord = s.labels ?? null;
+  const labelsVersion = labelsRecord && labelsRecord.count > 0 ? labelsRecord.file.sha256 : null;
+  useEffect(() => {
+    if (!labelsVersion || !showLabels) return;
+    const ctrl = new AbortController();
+    (async () => {
+      try {
+        const loaded = await getLabels(s.job_id, ctrl.signal);
+        setCollection(loaded);
+        setLabelsError(null);
+      } catch (err) {
+        if (ctrl.signal.aborted) return;
+        setCollection(null);
+        setLabelsError(err instanceof Error ? err.message : "Could not load the labels");
+      }
+    })();
+    return () => ctrl.abort();
+  }, [s.job_id, labelsVersion, showLabels]);
+  const placed = useMemo(() => (collection ? placeLabels(collection, s.grid) : null), [collection, s.grid]);
 
   const tile = async () => {
     setTiling(true);
     setTilesError(null);
+    setTilesRefused(null);
     try {
       await cutTiles(s.job_id);
       onChanged();
     } catch (err) {
-      setTilesError(err instanceof Error ? err.message : "Tiling failed");
+      if (err instanceof NotTileableError) {
+        setTilesRefused(err.message);
+        // The sidecar we hold is out of date if the server knows better.
+        onChanged();
+      } else {
+        setTilesError(err instanceof Error ? err.message : "Tiling failed");
+      }
     } finally {
       setTiling(false);
     }
@@ -97,6 +140,11 @@ export function JobView({
         <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[job.status]}`} />
         <h2 className="font-mono text-base text-foreground">{s.job_id}</h2>
         <span className="text-xs text-muted">{STATUS_LABEL[job.status]}</span>
+        <JobBadges
+          chunk={s.chunk ? `${s.chunk.z}/${s.chunk.x}/${s.chunk.y}` : null}
+          recipe={s.recipe?.recipe.name}
+          recipeTitle={s.recipe?.sha256}
+        />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -125,6 +173,22 @@ export function JobView({
               {k}
             </button>
           ))}
+          {labelsRecord && (
+            <button
+              type="button"
+              onClick={() => setShowLabels((v) => !v)}
+              aria-pressed={showLabels}
+              disabled={labelsRecord.count === 0}
+              title={labelsRecord.count === 0 ? `No names survive at z${labelsRecord.zoom}` : labelsRecord.cutoff}
+              className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
+                showLabels && labelsRecord.count > 0
+                  ? "border-accent-amber/60 bg-accent-amber/10 text-accent-amber"
+                  : "border-border text-muted hover:bg-surface-hover"
+              }`}
+            >
+              labels ({labelsRecord.count})
+            </button>
+          )}
           {painted && (
             <label className="ml-auto flex items-center gap-2 text-[11px] text-muted">
               control
@@ -160,7 +224,32 @@ export function JobView({
               style={{ opacity: opacity / 100 }}
             />
           )}
+          {showLabels &&
+            placed?.labels.map((label, i) => (
+              <span
+                key={`${label.name}-${i}`}
+                title={`${label.kind}, rank ${label.rank}`}
+                className="pointer-events-none absolute flex items-center gap-1 text-[11px] font-medium whitespace-nowrap text-white [text-shadow:0_0_3px_#000,0_0_3px_#000]"
+                style={{
+                  left: `${label.x * 100}%`,
+                  top: `${label.y * 100}%`,
+                  // Near the right edge the name goes to the left of its point, so it isn't clipped.
+                  transform: label.x > 0.75 ? "translate(calc(-100% + 3px), -50%)" : "translate(-3px, -50%)",
+                  flexDirection: label.x > 0.75 ? "row-reverse" : "row",
+                }}
+              >
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white shadow-[0_0_2px_#000]" />
+                {label.name}
+              </span>
+            ))}
         </div>
+        {showLabels && labelsError && <p className="text-center text-[11px] text-accent-red">{labelsError}</p>}
+        {showLabels && placed && (
+          <p className="text-center text-[11px] text-muted">
+            {placed.total > MAX_LABELS ? `Showing the top ${MAX_LABELS} of ${placed.total} names. ` : ""}
+            {labelsCredit(labelsRecord?.scheme ?? null)}
+          </p>
+        )}
         {!painted && (
           <p className="text-center text-[11px] text-muted">
             Not baked yet. If the relief looks right, the georeferencing is already fixed; a bake only changes pixel colours.
@@ -176,8 +265,12 @@ export function JobView({
               Alignment gate failed{bake.error ? `: ${bake.error}` : ""}. The PNG is kept for inspection; no GeoTIFF was written.
             </p>
           )}
+          {bake.aligned && bake.error && <p className="text-xs text-accent-red">{bake.error}</p>}
           <dl className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
             <div><dt className="inline text-muted">Preset </dt><dd className="inline font-mono">{bake.params.preset ?? "—"}</dd></div>
+            {bake.params.recipe && (
+              <div><dt className="inline text-muted">Recipe </dt><dd className="inline font-mono">{bake.params.recipe}</dd></div>
+            )}
             <div><dt className="inline text-muted">Seed </dt><dd className="inline font-mono">{bake.params.seed}</dd></div>
             <div>
               <dt className="inline text-muted">Checkpoint </dt>
@@ -224,17 +317,53 @@ export function JobView({
             <button
               type="button"
               onClick={tile}
-              disabled={tiling}
+              disabled={tiling || blocked !== null || !permits(canGdal)}
+              title={blocked ?? gdalReason ?? undefined}
               className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {tiling ? "Cutting tiles…" : "Cut PMTiles archive"}
             </button>
           )}
           {tilesError && <span className="text-xs text-accent-red">{tilesError}</span>}
+          {!tiles && (tilesRefused ?? blocked) && (
+            <div className="w-full">
+              <CapabilityNotice reason={tilesRefused ?? blocked} />
+            </div>
+          )}
+          {!tiles && !blocked && canGdal === false && gdalReason && (
+            <div className="w-full">
+              <CapabilityNotice reason={gdalReason} />
+            </div>
+          )}
         </section>
       )}
 
-      <BakePanel key={s.job_id} jobId={s.job_id} presets={presets} canBake={canBake} onBaked={onChanged} />
+      <BakePanel
+        key={s.job_id}
+        jobId={s.job_id}
+        presets={presets}
+        canBake={canBake}
+        recipe={s.recipe?.recipe.name}
+        onBaked={onChanged}
+      />
+
+      {timings.stages.length > 0 && (
+        <section className="space-y-1">
+          <h3 className="text-xs font-semibold tracking-widest text-muted uppercase">Stage timings</h3>
+          <dl className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-[11px]">
+            {timings.stages.map((t) => (
+              <div key={t.stage}>
+                <dt className="inline text-muted">{t.stage} </dt>
+                <dd className="inline text-foreground">{t.text}</dd>
+              </div>
+            ))}
+            <div>
+              <dt className="inline text-muted">total </dt>
+              <dd className="inline text-foreground">{timings.total}</dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
       {/* Provenance */}
       <section className="space-y-2">

@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   allowsExport,
+  allowsExportSidecars,
   allowsMove,
+  CROPPED_COPY_ONLY,
+  EXPORT_SIDECARS_DENIED,
   exportSelectionStream,
   exportedAbsPath,
   exportedRelPath,
@@ -19,17 +22,22 @@ import { capabilityReason, permits } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { StageHandoff } from "@/components/StageHandoff";
 import { framesLeftOut } from "@/lib/curatorSafety";
+import { buildRunStats, exportNotes, faceNamesBody, faceNamesProblem, scanHasCrops } from "@/lib/curatorExport";
 import { joinPath, normalizeRoot } from "@/lib/path";
 import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
 import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
+import { KeepSetPanel } from "./KeepSetPanel";
 import {
   LENS_CATEGORY,
   MANIFEST_VERSION,
   datasetSizeStatus,
+  type CapOptions,
+  type CuratorFilters,
   type ImageResult,
   type ManifestRow,
   type ScanSummary,
+  type SelectRequest,
 } from "./types";
 
 const HINT_TONE: Record<string, string> = {
@@ -44,6 +52,10 @@ interface Props {
   selectedResults: ImageResult[];
   /** Curator /health, fetched once by the parent (live only; null until known). */
   health: Health | null;
+  /** The rail's facets, which the keep-set preview sends to the curator. */
+  filters: CuratorFilters;
+  /** Replace the selection with what the preview kept. */
+  onUseKeepSet: (relPaths: string[]) => void;
   /**
    * A move export drops those rows from the cached scan. The paths are the
    * ones the curator actually moved, so the grid can stop requesting their thumbs.
@@ -87,6 +99,7 @@ const manifestRow = (summary: ScanSummary, r: ImageResult, loc: RowLocators): Ma
   primary_face_pose: r.primary_face_pose,
   score: Number(r.score.toFixed(4)),
   similar_group: r.similar_group,
+  crop: r.crop ?? null,
 });
 
 /**
@@ -158,10 +171,17 @@ function demoManifestRows(summary: ScanSummary, rows: ImageResult[], dest: strin
   );
 }
 
-export function ExportPanel({ summary, selectedResults, health, onMoved }: Props) {
+export function ExportPanel({ summary, selectedResults, health, filters, onUseKeepSet, onMoved }: Props) {
   const [dest, setDest] = useState(localOutputPath() || "/data/out");
-  const [mode, setMode] = useState<Mode>("copy");
+  const [pickedMode, setMode] = useState<Mode>("copy");
+  // A cropped row can only be written by copying it, and the curator refuses the rest.
+  const copyOnly = scanHasCrops(summary.results);
+  const mode: Mode = copyOnly ? "copy" : pickedMode;
   const [preserve, setPreserve] = useState(true);
+  const [writeXmp, setWriteXmp] = useState(false);
+  const [faceNames, setFaceNames] = useState<Record<string, string>>({});
+  const [carrySidecars, setCarrySidecars] = useState(false);
+  const [runStats, setRunStats] = useState(false);
   const [toCaption, setToCaption] = useState(false);
   const [trigger, setTrigger] = useState("");
   const [busy, setBusy] = useState(false);
@@ -187,6 +207,9 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
   // curator can be refused while the files are still where they started.
   const manifestOk = speaksSupportedManifest(health);
   const manifestDenied = manifestOk === false;
+  const sidecars = allowsExportSidecars(health);
+  const sidecarsReason = capabilityReason(sidecars, EXPORT_SIDECARS_DENIED);
+  const namesProblem = writeXmp ? faceNamesProblem(faceNames) : null;
 
   // This panel exports; /forge configures training (argus-studio#78). Two entry
   // points to POST /config meant two trainer lists with different authority and
@@ -231,7 +254,7 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
   // advice was obsolete, and following it makes the curator flatten and rename
   // colliding basenames — irreversible under mode: "move".
 
-  const runLiveExport = async () => {
+  const runLiveExport = async (capped?: SelectRequest & CapOptions) => {
     setBusy(true);
     setError(null);
     setResult(null);
@@ -246,23 +269,31 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
     // trigger a bogus "only N of M matched" refusal, and re-scanning mid-export
     // would silently stamp every row with a different scan's target_profile.
     const runSummary = summary;
-    const runResults = selectedResults;
+    // A capped export is the curator's pick, so any row of the scan may land.
+    const runResults = capped ? summary.results : selectedResults;
     try {
       // 1) Transfer files (+ manifest/report) on the curator, streaming
       // progress. A failure here is fatal — the later steps need the export.
       const exported = await exportSelectionStream(
         {
           scan_id: runSummary.scan_id,
-          selection: runResults.map((r) => r.rel_path),
+          ...(capped ?? { selection: runResults.map((r) => r.rel_path), min_score: 0, keep_similar: true }),
           dest: dest.trim(),
           mode,
           preserve_structure: preserve,
-          min_score: 0,
-          keep_similar: true,
           write_manifest: true,
           caption_url: null, // captioning is orchestrated below for live progress
+          write_xmp: writeXmp,
+          face_names: writeXmp ? faceNamesBody(faceNames) : null,
+          carry_sidecars: carrySidecars && permits(sidecars),
+          run_stats:
+            runStats && permits(sidecars)
+              ? buildRunStats(runSummary, capped ? null : runResults, health?.version ?? null, undefined, capped ?? null)
+              : null,
         },
         setTransfer,
+        undefined,
+        scanHasCrops(runSummary.results),
       ).catch((err: unknown) => {
         setError(`Export failed (argus-curator): ${errMsg(err)}`);
         if (mode === "move") onMoved?.(runSummary.scan_id, []);
@@ -274,7 +305,10 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
         const moved = runResults.map((row) => row.rel_path).filter((rel) => exportedRelPath(exported, rel) != null);
         onMoved?.(runSummary.scan_id, moved);
       }
-      setLeftOut(framesLeftOut(runResults, (rel) => exportedRelPath(exported, rel) != null));
+      const chosen = new Set(exported.selected_rel_paths ?? []);
+      setLeftOut(
+        framesLeftOut(capped ? runResults.filter((row) => chosen.has(row.rel_path)) : runResults, (rel) => exportedRelPath(exported, rel) != null),
+      );
 
       // Whether this export's manifest can be handed to argus-lens, decided
       // once and surfaced by the result panel (NOT via setError — the transfer
@@ -355,6 +389,7 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
   // there is no summary yet, so fall back to the intent — otherwise the link
   // would offer to caption an export that is being captioned as it renders.
   const handoffCaptioned = captionSummary ? captionSummary.captioned > 0 : toCaption && !manifestProblem;
+  const notes = result ? exportNotes(result) : { notes: [], warning: null };
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
@@ -371,6 +406,14 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
 
       {isLive() ? (
         <>
+          <KeepSetPanel
+            summary={summary}
+            filters={filters}
+            disabled={busy}
+            onUse={onUseKeepSet}
+            exportBlocked={!dest.trim() ? "Enter a destination below." : !permits(canExport) || manifestDenied || namesProblem ? "Export is unavailable. See below." : null}
+            onExportCapped={(request) => void runLiveExport(request)}
+          />
           <p className="text-[11px] leading-relaxed text-muted">
             Transfers the selected images to a folder on the curator host and writes{" "}
             <span className="font-mono text-foreground/80">manifest.jsonl</span> for argus-lens.
@@ -391,7 +434,7 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
               // unless health positively permits it (allowMove === true), so a
               // still-loading or unreachable /health can't leave a destructive
               // move armed and surface a raw 403 after the user commits.
-              const gated = m === "move" && !permits(allowMove);
+              const gated = (m === "move" && !permits(allowMove)) || (copyOnly && m !== "copy");
               // capabilityReason covers BOTH negative cases: without it the
               // not-yet-known `null` produced a greyed button with no tooltip at
               // all, so a curator whose /health never answered left the control
@@ -407,7 +450,7 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
                   type="button"
                   onClick={() => setMode(m)}
                   disabled={busy || gated}
-                  title={m === "move" ? (moveReason ?? undefined) : undefined}
+                  title={copyOnly && m !== "copy" ? CROPPED_COPY_ONLY : m === "move" ? (moveReason ?? undefined) : undefined}
                   className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     mode === m
                       ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal"
@@ -419,6 +462,7 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
               );
             })}
           </div>
+          {copyOnly && <p className="text-[11px] leading-relaxed text-muted">{CROPPED_COPY_ONLY}</p>}
           {exportRootUnset && (
             <CapabilityNotice
               reason={
@@ -452,6 +496,50 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
             />
             Preserve folder structure
           </label>
+          <ExportCheck
+            label="Write XMP sidecars"
+            checked={writeXmp}
+            onChange={setWriteXmp}
+            disabled={busy}
+            title="Face regions, the names below and the content rating, merged onto a sidecar beside the source. Ages are never written, and the source's own sidecar is not changed."
+          />
+          {writeXmp && summary.face_clusters.length > 0 && (
+            <div className="space-y-1.5 rounded-lg border border-border bg-background/60 p-2.5">
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted">
+                Names for the XMP (optional)
+              </span>
+              {summary.face_clusters.map((cluster) => (
+                <label key={cluster.cluster_id} className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 truncate font-mono text-[11px] text-muted" title={cluster.cluster_id}>
+                    {cluster.cluster_id}
+                  </span>
+                  <input
+                    type="text"
+                    value={faceNames[cluster.cluster_id] ?? ""}
+                    onChange={(e) => setFaceNames((prev) => ({ ...prev, [cluster.cluster_id]: e.target.value }))}
+                    disabled={busy}
+                    placeholder="Unnamed"
+                    className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted focus:border-accent-green/50 focus:outline-none disabled:opacity-50"
+                  />
+                </label>
+              ))}
+              {namesProblem && <p className="text-[11px] text-accent-red">{namesProblem}</p>}
+            </div>
+          )}
+          <ExportCheck
+            label="Carry sidecars"
+            checked={carrySidecars && permits(sidecars)}
+            onChange={setCarrySidecars}
+            disabled={busy || !permits(sidecars)}
+            title={sidecarsReason ?? "Bring each image's .txt, .xmp and .json along, moved or copied the same way. Under symlink they are copied, so a caption written into the export never reaches the source."}
+          />
+          <ExportCheck
+            label="Write run_stats.json"
+            checked={runStats && permits(sidecars)}
+            onChange={setRunStats}
+            disabled={busy || !permits(sidecars)}
+            title={sidecarsReason ?? "This scan's counts and settings, in the export folder. No paths, ages or scores."}
+          />
           <label
             className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
             title={`After export, the manifest is streamed to ${lensUrl() || "this origin"}/caption/manifest/stream so you can watch captioning progress image-by-image.`}
@@ -492,7 +580,7 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
           )}
           <button
             type="button"
-            disabled={disabled || !dest.trim() || !permits(canExport) || manifestDenied}
+            disabled={disabled || !dest.trim() || !permits(canExport) || manifestDenied || namesProblem !== null}
             onClick={() => void runLiveExport()}
             className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -585,6 +673,12 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
             {result.mode === "move" ? "Moved" : result.mode === "symlink" ? "Symlinked" : "Copied"} {result.copied} images
             {result.skipped > 0 ? ` (${result.skipped} skipped)` : ""}.
           </div>
+          {notes.notes.map((note) => (
+            <div key={note} className="text-foreground/80">
+              {note}
+            </div>
+          ))}
+          {notes.warning && <div className="text-accent-orange/90">{notes.warning}</div>}
           {leftOut && <div className="text-accent-orange/90">{leftOut}</div>}
           {/* The transfer succeeded but nothing downstream can read it — say so
               here rather than letting a green box imply the handoff worked. */}
@@ -596,6 +690,9 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
           )}
           {result.manifest_path && (
             <div className="break-all font-mono text-[11px] text-foreground/80">{result.manifest_path}</div>
+          )}
+          {result.run_stats_path && (
+            <div className="break-all font-mono text-[11px] text-foreground/80">{result.run_stats_path}</div>
           )}
           {captionSummary && (
             <div className="text-accent-purple">
@@ -647,6 +744,27 @@ export function ExportPanel({ summary, selectedResults, health, onMoved }: Props
         </div>
       )}
     </div>
+  );
+}
+
+function ExportCheck({ label, checked, onChange, disabled, title }: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled: boolean;
+  title: string;
+}) {
+  return (
+    <label className={`flex items-center gap-2 text-sm text-foreground ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`} title={title}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        className="h-4 w-4 cursor-pointer accent-accent-teal disabled:cursor-not-allowed disabled:opacity-50"
+      />
+      {label}
+    </label>
   );
 }
 

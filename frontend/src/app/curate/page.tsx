@@ -17,15 +17,16 @@ import { IngestPanel } from "@/components/curator/IngestPanel";
 import {
   defaultCuratorConfig,
   defaultFilters,
-  matchesFilters,
   type CuratorConfig,
   type CuratorFilters,
   type Detectors,
+  type GuardPolicyInfo,
   type ImageResult,
   type ScanSummary,
 } from "@/components/curator/types";
 import {
   allowsDeleteAny,
+  allowsGuardPolicyText,
   allowsMinorExposedDelete,
   allowsScanControl,
   allowsScanDelete,
@@ -35,6 +36,7 @@ import {
   cancelScan,
   deleteCachedScan,
   getDetectors,
+  getGuardPolicies,
   getHealth,
   getScan,
   isDeterminatePhase,
@@ -48,7 +50,11 @@ import {
   type ScanProgress,
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
+import { matchesFilters } from "@/lib/curatorFacets";
+import { policiesRun } from "@/lib/curatorGuard";
+import { sortResults, type ResultSort } from "@/lib/curatorModeration";
 import { canExport, isMinorExposed, scanCheckedNsfw } from "@/lib/curatorSafety";
+import { scanFormProblem } from "@/lib/curatorScanForm";
 import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
 import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
 import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
@@ -115,6 +121,8 @@ export default function CuratePage() {
   const [view, setView] = useState<View>("grid");
   const [detail, setDetail] = useState<ImageResult | null>(null);
   const [detectors, setDetectors] = useState<Detectors | null>(null);
+  const [policyCatalog, setPolicyCatalog] = useState<GuardPolicyInfo[] | null>(null);
+  const [sort, setSort] = useState<ResultSort>("scan");
   const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
   const [serverScans, setServerScans] = useState<ScanList | null>(null);
   const [rerunning, setRerunning] = useState<string | null>(null);
@@ -211,6 +219,17 @@ export default function CuratePage() {
       .catch(() => setVersion(""));
     return () => ctrl.abort();
   }, []);
+
+  // The wording is curator's own and listed with or without a SingGuard server.
+  const policyText = permits(allowsGuardPolicyText(health));
+  useEffect(() => {
+    if (!policyText) return;
+    const ctrl = new AbortController();
+    getGuardPolicies(ctrl.signal)
+      .then(setPolicyCatalog)
+      .catch(() => setPolicyCatalog(null));
+    return () => ctrl.abort();
+  }, [policyText]);
 
   const applySummary = useCallback((data: ScanSummary) => {
     setSummary(data);
@@ -502,13 +521,16 @@ export default function CuratePage() {
     });
   }, [summary]);
 
-  const filtered = useMemo(
-    () => {
-      if (!summary) return [];
-      const active = knownClusterFilters(filters, summary);
-      return summary.results.filter((r) => matchesFilters(r, active));
-    },
+  const activeFilters = useMemo(
+    () => (summary ? knownClusterFilters(filters, summary) : filters),
     [summary, filters],
+  );
+  const officialPolicy = summary?.guard_config?.policy ?? null;
+  const policies = useMemo(() => (summary ? policiesRun(summary) : []), [summary]);
+  const filtered = useMemo(
+    () =>
+      sortResults(summary?.results.filter((r) => matchesFilters(r, activeFilters, officialPolicy)) ?? [], sort),
+    [summary, activeFilters, officialPolicy, sort],
   );
   const minorExposed = useMemo(() => summary?.results.filter(isMinorExposed) ?? [], [summary]);
 
@@ -525,6 +547,7 @@ export default function CuratePage() {
       return new Set([...prev].filter((relPath) => visible.has(relPath)));
     });
   const clearSelection = () => setSelected(new Set());
+  const formProblem = scanFormProblem(config, detectors);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -583,11 +606,13 @@ export default function CuratePage() {
                   />
                   <button
                     type="submit"
-                    disabled={loading || purging || !folderPath.trim()}
+                    disabled={loading || purging || !folderPath.trim() || formProblem !== null}
+                    title={formProblem ?? undefined}
                     className="w-full cursor-pointer rounded-lg bg-accent-teal px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-teal/90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {loading ? "Scanning…" : "Scan folder"}
                   </button>
+                  {formProblem && <p className="text-[11px] leading-relaxed text-accent-orange/90">{formProblem}</p>}
                   <ScanControlButtons
                     scanning={scanning}
                     scanId={scanId}
@@ -601,7 +626,14 @@ export default function CuratePage() {
                 </div>
                 <div className="rounded-xl border border-border bg-surface p-4">
                   {detectors && <DetectorBadges detectors={detectors} />}
-                  <ScanConfigPanel value={config} onChange={setConfig} loading={loading} />
+                  <ScanConfigPanel
+                    value={config}
+                    onChange={setConfig}
+                    loading={loading}
+                    detectors={detectors}
+                    health={health}
+                    policyCatalog={policyCatalog}
+                  />
                 </div>
               </form>
 
@@ -694,6 +726,8 @@ export default function CuratePage() {
                     summary={summary}
                     selectedResults={selectedResults}
                     health={health}
+                    filters={activeFilters}
+                    onUseKeepSet={(paths) => setSelected(new Set(paths))}
                     onMoved={dropGone}
                   />
                 )}
@@ -725,7 +759,20 @@ export default function CuratePage() {
                         Cluster review ({summary.similar_clusters})
                       </TabButton>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-xs text-muted">
+                        <span className="sr-only">Sort results</span>
+                        <select
+                          aria-label="Sort results"
+                          value={sort}
+                          onChange={(e) => setSort(e.target.value as ResultSort)}
+                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+                        >
+                          <option value="scan">Scan order</option>
+                          <option value="score">Best score</option>
+                          {scanCheckedNsfw(summary) && <option value="exposed">Most exposed</option>}
+                        </select>
+                      </label>
                       <span className="text-xs text-muted">{selected.size} selected</span>
                       <button
                         type="button"
@@ -767,6 +814,8 @@ export default function CuratePage() {
                       scanId={summary.scan_id}
                       nsfwRan={scanCheckedNsfw(summary)}
                       pending={pending}
+                      policies={policies}
+                      officialPolicy={officialPolicy}
                       results={filtered}
                       selected={selected}
                       onToggle={toggle}
@@ -818,6 +867,8 @@ export default function CuratePage() {
         scanId={summary?.scan_id ?? ""}
         nsfwRan={summary ? scanCheckedNsfw(summary) : false}
         pending={pending}
+        policies={policies}
+        officialPolicy={officialPolicy}
         img={detail ? (summary?.results.find((row) => row.rel_path === detail.rel_path) ?? detail) : null}
         list={filtered}
         selected={detail ? selected.has(detail.rel_path) : false}
@@ -1061,6 +1112,15 @@ const DETECTOR_INFO: { key: keyof Detectors; label: string; hint: string }[] = [
   { key: "clip", label: "clip", hint: "CLIP embeddings — powers the diversity weighting" },
   { key: "insightface", label: "faces", hint: "InsightFace — face detection, pose buckets, identity clustering" },
   { key: "onnxruntime", label: "onnx", hint: "ONNX runtime for the face models" },
+  { key: "fairface", label: "fairface", hint: "FairFace — predicted race, gender and age bracket" },
+  { key: "mivolo", label: "mivolo", hint: "MiVOLO — age in years, which the under-18 rule reads" },
+  { key: "bodies", label: "bodies", hint: "Person detector — lets MiVOLO read bodies" },
+  { key: "nudenet", label: "nudenet", hint: "NudeNet URL set — nudity scores and content ratings" },
+  { key: "erax", label: "erax", hint: "EraX URL set — a second detector that fills NudeNet's gaps" },
+  { key: "singguard", label: "singguard", hint: "SingGuard URL set — policy verdicts" },
+  { key: "watermark", label: "watermark", hint: "Watermark detector URL set — crops" },
+  { key: "places365", label: "scenes", hint: "Places365 — scene labels and indoor or outdoor" },
+  { key: "garments", label: "garments", hint: "Fashionpedia — garment detection" },
 ];
 
 /** What the curator backend can actually do (GET /detectors) — explains greyed-out options. */

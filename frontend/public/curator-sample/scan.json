@@ -26,7 +26,49 @@
     "model": "buffalo_l",
     "min_det_score": 0.5,
     "cluster_eps": 0.5,
+    "device": "auto",
+    "fairface": false,
+    "mivolo": true,
+    "set_age": false,
+    "mivolo_body": false
+  },
+  "scenes_config": {
+    "enabled": true,
+    "top_k": 5,
     "device": "auto"
+  },
+  "garments_config": {
+    "enabled": true,
+    "min_conf": 0.3,
+    "device": "auto"
+  },
+  "nsfw_config": {
+    "enabled": true
+  },
+  "erax_config": {
+    "enabled": false
+  },
+  "guard_config": {
+    "enabled": true,
+    "policy": "adult",
+    "variants": [
+      "adult-granular"
+    ]
+  },
+  "prefilter_config": {
+    "drop_nsfw": false,
+    "drop_no_face": false,
+    "drop_no_age": false
+  },
+  "crop_config": {
+    "enabled": false,
+    "sidecars": true,
+    "boxes": {},
+    "detect": false,
+    "min_conf": 0.4,
+    "max_cut": 0.15,
+    "margin": 4,
+    "reject_overlay": true
   },
   "total": 14,
   "passed": 11,
@@ -48,7 +90,15 @@
         300,
         320,
         400
-      ]
+      ],
+      "attributes": {
+        "gender": "female",
+        "gender_conf": 0.93,
+        "gender_source": "mivolo",
+        "age": "30-39",
+        "age_years": 31.0,
+        "age_source": "mivolo"
+      }
     },
     {
       "cluster_id": "face_2",
@@ -59,7 +109,15 @@
         310,
         310,
         390
-      ]
+      ],
+      "attributes": {
+        "gender": "male",
+        "gender_conf": 0.93,
+        "gender_source": "mivolo",
+        "age": "40-49",
+        "age_years": 44.0,
+        "age_source": "mivolo"
+      }
     }
   ],
   "results": [
@@ -92,7 +150,15 @@
           "primary": true,
           "yaw": 4.0,
           "pitch": -6.0,
-          "pose": "frontal"
+          "pose": "frontal",
+          "attributes": {
+            "gender": "female",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "30-39",
+            "age_years": 31.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -106,7 +172,82 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "frontal",
-      "primary_face_yaw": 4.0
+      "primary_face_yaw": 4.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "dressing_room",
+            "conf": 0.62
+          }
+        ],
+        "environment": "indoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "dress",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": true,
+          "color": "#7a2f4b"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "female",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "30-39",
+        "age_years": 31.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/studio/02.jpg",
@@ -137,7 +278,15 @@
           "primary": true,
           "yaw": 28.0,
           "pitch": -6.0,
-          "pose": "three_quarter"
+          "pose": "three_quarter",
+          "attributes": {
+            "gender": "female",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "30-39",
+            "age_years": 32.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -151,7 +300,84 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 28.0
+      "primary_face_yaw": 28.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "park",
+            "conf": 0.62
+          }
+        ],
+        "environment": "outdoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "jacket",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": false,
+          "color": "#2b3a55"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "female",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "30-39",
+        "age_years": 32.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {
+          "FEMALE_BREAST_COVERED": 0.31
+        }
+      },
+      "content_rating": "suggestive",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/studio/02_copy.jpg",
@@ -182,7 +408,15 @@
           "primary": true,
           "yaw": 58.0,
           "pitch": -6.0,
-          "pose": "profile"
+          "pose": "profile",
+          "attributes": {
+            "gender": "female",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "30-39",
+            "age_years": 33.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -196,7 +430,84 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "profile",
-      "primary_face_yaw": 58.0
+      "primary_face_yaw": 58.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "television_studio",
+            "conf": 0.62
+          }
+        ],
+        "environment": "indoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "shirt_blouse",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": false,
+          "color": "#d8d2c4"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "female",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "30-39",
+        "age_years": 33.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": false,
+          "rules": [
+            "A. Sexual Content Risk"
+          ],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "slow"
+        }
+      }
     },
     {
       "rel_path": "personA/outdoor/03.jpg",
@@ -227,7 +538,15 @@
           "primary": true,
           "yaw": -36.0,
           "pitch": -6.0,
-          "pose": "three_quarter"
+          "pose": "three_quarter",
+          "attributes": {
+            "gender": "female",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "30-39",
+            "age_years": 31.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -241,7 +560,82 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": -36.0
+      "primary_face_yaw": -36.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "dressing_room",
+            "conf": 0.62
+          }
+        ],
+        "environment": "indoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "dress",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": false,
+          "color": "#7a2f4b"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "female",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "30-39",
+        "age_years": 31.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/outdoor/04.jpg",
@@ -272,7 +666,15 @@
           "primary": true,
           "yaw": -7.0,
           "pitch": -6.0,
-          "pose": "frontal"
+          "pose": "frontal",
+          "attributes": {
+            "gender": "female",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "30-39",
+            "age_years": 32.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -286,7 +688,82 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "frontal",
-      "primary_face_yaw": -7.0
+      "primary_face_yaw": -7.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "park",
+            "conf": 0.62
+          }
+        ],
+        "environment": "outdoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "jacket",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": true,
+          "color": "#2b3a55"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "female",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "30-39",
+        "age_years": 32.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/outdoor/05.jpg",
@@ -317,7 +794,15 @@
           "primary": true,
           "yaw": 41.0,
           "pitch": -6.0,
-          "pose": "three_quarter"
+          "pose": "three_quarter",
+          "attributes": {
+            "gender": "female",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "30-39",
+            "age_years": 33.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -331,7 +816,82 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 41.0
+      "primary_face_yaw": 41.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "television_studio",
+            "conf": 0.62
+          }
+        ],
+        "environment": "indoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "shirt_blouse",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": false,
+          "color": "#d8d2c4"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "female",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "30-39",
+        "age_years": 33.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personB/set1/01.jpg",
@@ -362,7 +922,15 @@
           "primary": true,
           "yaw": -62.0,
           "pitch": -6.0,
-          "pose": "profile"
+          "pose": "profile",
+          "attributes": {
+            "gender": "male",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "40-49",
+            "age_years": 44.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -376,7 +944,82 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "profile",
-      "primary_face_yaw": -62.0
+      "primary_face_yaw": -62.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "dressing_room",
+            "conf": 0.62
+          }
+        ],
+        "environment": "indoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "dress",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": false,
+          "color": "#7a2f4b"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "male",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "40-49",
+        "age_years": 44.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personB/set1/02.jpg",
@@ -407,7 +1050,15 @@
           "primary": true,
           "yaw": 11.0,
           "pitch": -6.0,
-          "pose": "frontal"
+          "pose": "frontal",
+          "attributes": {
+            "gender": "male",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "40-49",
+            "age_years": 45.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -421,7 +1072,82 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "frontal",
-      "primary_face_yaw": 11.0
+      "primary_face_yaw": 11.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "park",
+            "conf": 0.62
+          }
+        ],
+        "environment": "outdoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "jacket",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": false,
+          "color": "#2b3a55"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "male",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "40-49",
+        "age_years": 45.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personB/set2/03.jpg",
@@ -452,7 +1178,15 @@
           "primary": true,
           "yaw": 33.0,
           "pitch": -6.0,
-          "pose": "three_quarter"
+          "pose": "three_quarter",
+          "attributes": {
+            "gender": "male",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "40-49",
+            "age_years": 46.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -466,7 +1200,82 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 33.0
+      "primary_face_yaw": 33.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "television_studio",
+            "conf": 0.62
+          }
+        ],
+        "environment": "indoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "shirt_blouse",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": true,
+          "color": "#d8d2c4"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "male",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "40-49",
+        "age_years": 46.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personB/set2/04.jpg",
@@ -497,7 +1306,15 @@
           "primary": true,
           "yaw": -52.0,
           "pitch": -6.0,
-          "pose": "profile"
+          "pose": "profile",
+          "attributes": {
+            "gender": "male",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "40-49",
+            "age_years": 44.0,
+            "age_source": "mivolo"
+          }
         }
       ],
       "face_count": 1,
@@ -511,7 +1328,82 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "profile",
-      "primary_face_yaw": -52.0
+      "primary_face_yaw": -52.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "dressing_room",
+            "conf": 0.62
+          }
+        ],
+        "environment": "indoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "dress",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": false,
+          "color": "#7a2f4b"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "male",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "40-49",
+        "age_years": 44.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "mixed/group_shot.jpg",
@@ -542,7 +1434,15 @@
           "primary": true,
           "yaw": 19.0,
           "pitch": -6.0,
-          "pose": "three_quarter"
+          "pose": "three_quarter",
+          "attributes": {
+            "gender": "female",
+            "gender_conf": 0.9,
+            "gender_source": "mivolo",
+            "age": "30-39",
+            "age_years": 32.0,
+            "age_source": "mivolo"
+          }
         },
         {
           "bbox": [
@@ -570,7 +1470,82 @@
       },
       "phash": "1f2e3d4c5b6a7980",
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 19.0
+      "primary_face_yaw": 19.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "park",
+            "conf": 0.62
+          }
+        ],
+        "environment": "outdoor",
+        "environment_conf": 0.88
+      },
+      "garments": [
+        {
+          "label": "jacket",
+          "conf": 0.81,
+          "bbox": [
+            100,
+            500,
+            400,
+            700
+          ],
+          "touches_edge": false,
+          "color": "#2b3a55"
+        }
+      ],
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": {
+        "gender": "female",
+        "gender_conf": 0.9,
+        "gender_source": "mivolo",
+        "age": "30-39",
+        "age_years": 32.0,
+        "age_source": "mivolo"
+      },
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/rejects/blurry.jpg",
@@ -594,7 +1569,25 @@
       "phash": "0a0a0a0a0a0a0a0a",
       "score_breakdown": {},
       "primary_face_pose": null,
-      "primary_face_yaw": null
+      "primary_face_yaw": null,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": null,
+      "garments": null,
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": null,
+      "set_age": null,
+      "nsfw": null,
+      "content_rating": null,
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": null,
+      "guard_variants": null
     },
     {
       "rel_path": "personA/rejects/lowres.jpg",
@@ -618,7 +1611,25 @@
       "phash": "0b0b0b0b0b0b0b0b",
       "score_breakdown": {},
       "primary_face_pose": null,
-      "primary_face_yaw": null
+      "primary_face_yaw": null,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": null,
+      "garments": null,
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": null,
+      "set_age": null,
+      "nsfw": null,
+      "content_rating": null,
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": null,
+      "guard_variants": null
     },
     {
       "rel_path": "misc/wide_banner.jpg",
@@ -642,7 +1653,25 @@
       "phash": "0c0c0c0c0c0c0c0c",
       "score_breakdown": {},
       "primary_face_pose": null,
-      "primary_face_yaw": null
+      "primary_face_yaw": null,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "scene": null,
+      "garments": null,
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_attributes": null,
+      "set_age": null,
+      "nsfw": null,
+      "content_rating": null,
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": null,
+      "guard_variants": null
     }
   ]
 }

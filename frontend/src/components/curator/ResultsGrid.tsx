@@ -1,7 +1,10 @@
 "use client";
 
+import { cardAge, checkWarnings } from "@/lib/curatorAttributes";
+import { policyShields } from "@/lib/curatorGuard";
 import { canExport, exportBlockReason } from "@/lib/curatorSafety";
 import { imagePending, pendingCaption } from "@/lib/scanChunks";
+import { GuardShield } from "./GuardShield";
 import { SafeThumb } from "./SafeThumb";
 import { statusExplanation } from "./imageExplain";
 import { POSE_LABELS, type ImageResult } from "./types";
@@ -13,12 +16,15 @@ interface Props {
   nsfwRan: boolean;
   /** Checks still running. Empty once the scan has finished. */
   pending?: readonly string[];
+  /** Policies the scan ran, official first. */
+  policies?: readonly string[];
+  officialPolicy?: string | null;
   selected: Set<string>;
   onToggle: (relPath: string) => void;
   onOpen: (img: ImageResult) => void;
 }
 
-export function ResultsGrid({ scanId, results, nsfwRan, pending = [], selected, onToggle, onOpen }: Props) {
+export function ResultsGrid({ scanId, results, nsfwRan, pending = [], policies = [], officialPolicy = null, selected, onToggle, onOpen }: Props) {
   if (results.length === 0) {
     return <div className="py-10 text-center text-sm text-muted">No images match the current facets.</div>;
   }
@@ -31,6 +37,8 @@ export function ResultsGrid({ scanId, results, nsfwRan, pending = [], selected, 
           img={img}
           nsfwRan={nsfwRan}
           pending={pending}
+          policies={policies}
+          officialPolicy={officialPolicy}
           selected={selected.has(img.rel_path)}
           onToggle={() => onToggle(img.rel_path)}
           onOpen={() => onOpen(img)}
@@ -55,6 +63,8 @@ function Card({
   img,
   nsfwRan,
   pending,
+  policies,
+  officialPolicy,
   selected,
   onToggle,
   onOpen,
@@ -63,6 +73,8 @@ function Card({
   img: ImageResult;
   nsfwRan: boolean;
   pending: readonly string[];
+  policies: readonly string[];
+  officialPolicy: string | null;
   selected: boolean;
   onToggle: () => void;
   onOpen: () => void;
@@ -70,6 +82,9 @@ function Card({
   const exportable = canExport(img);
   const blocked = exportBlockReason(img);
   const waiting = imagePending(img, pending);
+  const age = cardAge(img);
+  const warnings = checkWarnings(img);
+  const shields = policyShields(img, policies, officialPolicy, pending.includes("guard"));
   const border = selected
     ? "border-accent-green/70 ring-2 ring-accent-green/40"
     : !img.passed
@@ -163,6 +178,37 @@ function Card({
               }
             >
               {POSE_LABELS[img.primary_face_pose]}
+            </span>
+          )}
+          {age && (
+            <span
+              className="ml-1 inline-block rounded bg-accent-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple"
+              title="A model's estimate"
+            >
+              {age}
+            </span>
+          )}
+          {warnings.length > 0 && (
+            <span
+              className="ml-1 inline-block rounded bg-accent-orange/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-orange"
+              title={warnings.join(" ")}
+            >
+              Unchecked
+            </span>
+          )}
+          {img.crop && (
+            <span
+              className="ml-1 inline-block rounded bg-accent-teal/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-teal"
+              title={img.crop_source === "detected" ? "Cropped: watermark at the edge" : "Cropped by a box by hand"}
+            >
+              Cropped
+            </span>
+          )}
+          {shields.length > 0 && (
+            <span className="ml-1 inline-flex items-center gap-0.5 align-middle">
+              {shields.map((shield) => (
+                <GuardShield key={shield.policy} shield={shield} />
+              ))}
             </span>
           )}
           {waiting.length > 0 && (

@@ -220,6 +220,9 @@ services:
       - ARGUS_CURATOR_NUDENET_WORKERS=${ARGUS_CURATOR_NUDENET_WORKERS:-}
       # EraX second detector, off unless .env sets a URL (no published image).
       - ARGUS_CURATOR_ERAX_URL=${ARGUS_CURATOR_ERAX_URL-}
+      # Watermark detector for crops, off unless .env sets a URL (no server is
+      # bundled). A scan asking for it gets a 503 while the detector is down.
+      - ARGUS_CURATOR_WATERMARK_URL=${ARGUS_CURATOR_WATERMARK_URL-}
       # SingGuard policy check, off unless .env sets a URL (no server is bundled:
       # it runs a vision language model).
       - ARGUS_CURATOR_SINGGUARD_URL=${ARGUS_CURATOR_SINGGUARD_URL-}
@@ -363,6 +366,10 @@ services:
       # ro: the same checkpoints/ + loras/ tree ComfyUI loads, so each bake
       # SHA256-pins its weights.
       - ${MODELS_DIR:-./models}:/data/models:ro
+      # Optional, ro: style recipes (<name>.json) for the CLI's `chunk` and
+      # `chunks --recipe <name>`, which look under /data/recipes. No API route
+      # reads them. Unset, this is an empty ./recipes, which changes nothing.
+      - ${ATLAS_RECIPES_DIR:-./recipes}:/data/recipes:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
