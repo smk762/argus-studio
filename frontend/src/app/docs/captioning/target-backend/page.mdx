@@ -49,6 +49,10 @@ assembled, then never seen by the model.
 the run, single or batch. It pairs with [Target style](/docs/captioning/target-style),
 which decides the *shape* of the tokens the budget is spent on.
 
+For a single image, the Caption tool shows each variant's token use against the
+budget and flags any that run over. The counts are lens's own word-based estimate,
+not a tokenizer's, so read them as approximate.
+
 ## Try it
 
 - Open the [Caption tool](/) and expand the **Target Backend** info panel — it reads
