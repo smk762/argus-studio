@@ -74,6 +74,11 @@ export function exposedReading(img: ImageResult): number {
   return Math.max(fromLabels, nsfw.exposed_score ?? 0);
 }
 
+/** Rejected, and not left to the under-18 action, which a server without `delete_any` also accepts. Deleting shows nothing. */
+export function isDeletableReject(img: ImageResult): boolean {
+  return img.passed === false && !isMinorExposed(img);
+}
+
 /** A MiVOLO age under 18 sharing the frame with an exposed detection of at least 0.2. */
 export function isMinorExposed(img: ImageResult): boolean {
   if (img.nsfw == null) return false;

@@ -164,6 +164,40 @@ describe("curator scan control", () => {
   });
 });
 
+describe("darkroom purge", () => {
+  const darkroom = (extra: object) => json({ version: "0.1.0", backends: {}, ...extra });
+
+  it("is refused without devmode, or on a read-only server, and sends nothing", async () => {
+    const { allowsDarkroomPurge, purgeAll, purgeRecord } = await import("@/lib/darkroomApi");
+    const { CapabilityRefused, permits } = await import("@/lib/capabilities");
+    routes["POST /purge"] = sent;
+    routes["POST /purge/r1"] = sent;
+    for (const extra of [{ devmode: false, read_only: false }, { devmode: true, read_only: true }, {}]) {
+      routes["GET /health"] = () => darkroom(extra);
+      calls.length = 0;
+      const { getDarkroomHealth } = await import("@/lib/darkroomApi");
+      expect(permits(allowsDarkroomPurge(await getDarkroomHealth()))).toBe(false);
+      for (const write of [() => purgeAll(), () => purgeRecord("r1")]) {
+        expect(await write().catch((e) => e)).toBeInstanceOf(CapabilityRefused);
+      }
+      expect(calls.filter((call) => call.startsWith("POST"))).toEqual([]);
+    }
+  });
+
+  it("sends darkroom's confirm body under devmode", async () => {
+    const bodies: unknown[] = [];
+    routes["GET /health"] = () => darkroom({ devmode: true, read_only: false });
+    routes["POST /purge/r%201"] = (init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return json({ records: 1, images: 1 });
+    };
+    const { getDarkroomHealth, purgeRecord } = await import("@/lib/darkroomApi");
+    await getDarkroomHealth();
+    expect(await purgeRecord("r 1")).toEqual({ records: 1, images: 1 });
+    expect(bodies).toEqual([{ confirm: "purge" }]);
+  });
+});
+
 describe("darkroom writes", () => {
   const darkroom = (extra: object) => json({ version: "0.1.0", backends: {}, ...extra });
   const request = { user_prompt: "a lake" } as never;
