@@ -6,6 +6,7 @@
  */
 
 import type { CuratorConfig, Detectors } from "@/components/curator/types";
+import { guardProblem } from "@/lib/curatorGuard";
 
 /** The first prefilter rule whose check will not run. Without it, the face rules would drop every image. */
 export function prefilterProblem(cfg: CuratorConfig, detectors: Detectors | null): string | null {
@@ -39,5 +40,10 @@ export function modelProblem(cfg: CuratorConfig, detectors: Detectors | null): s
 }
 
 export function scanFormProblem(cfg: CuratorConfig, detectors: Detectors | null): string | null {
-  return modelProblem(cfg, detectors) ?? prefilterProblem(cfg, detectors) ?? cropsProblem(cfg, detectors);
+  return (
+    modelProblem(cfg, detectors) ??
+    prefilterProblem(cfg, detectors) ??
+    cropsProblem(cfg, detectors) ??
+    guardProblem(cfg.guard, detectors?.singguard_policies ?? [])
+  );
 }

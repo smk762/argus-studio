@@ -42,6 +42,19 @@
     "min_conf": 0.3,
     "device": "auto"
   },
+  "nsfw_config": {
+    "enabled": true
+  },
+  "erax_config": {
+    "enabled": false
+  },
+  "guard_config": {
+    "enabled": true,
+    "policy": "adult",
+    "variants": [
+      "adult-granular"
+    ]
+  },
   "prefilter_config": {
     "drop_nsfw": false,
     "drop_no_face": false,
@@ -199,7 +212,42 @@
         "age_years": 31.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/studio/02.jpg",
@@ -292,7 +340,44 @@
         "age_years": 32.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {
+          "FEMALE_BREAST_COVERED": 0.31
+        }
+      },
+      "content_rating": "suggestive",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/studio/02_copy.jpg",
@@ -385,7 +470,44 @@
         "age_years": 33.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": false,
+          "rules": [
+            "A. Sexual Content Risk"
+          ],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "slow"
+        }
+      }
     },
     {
       "rel_path": "personA/outdoor/03.jpg",
@@ -478,7 +600,42 @@
         "age_years": 31.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/outdoor/04.jpg",
@@ -571,7 +728,42 @@
         "age_years": 32.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/outdoor/05.jpg",
@@ -664,7 +856,42 @@
         "age_years": 33.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personB/set1/01.jpg",
@@ -757,7 +984,42 @@
         "age_years": 44.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personB/set1/02.jpg",
@@ -850,7 +1112,42 @@
         "age_years": 45.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personB/set2/03.jpg",
@@ -943,7 +1240,42 @@
         "age_years": 46.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personB/set2/04.jpg",
@@ -1036,7 +1368,42 @@
         "age_years": 44.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "mixed/group_shot.jpg",
@@ -1143,7 +1510,42 @@
         "age_years": 32.0,
         "age_source": "mivolo"
       },
-      "set_age": null
+      "set_age": null,
+      "nsfw": {
+        "detections": [],
+        "exposed_score": 0.0,
+        "labels": {}
+      },
+      "content_rating": "safe",
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": null,
+        "model": "sample",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": null,
+          "model": "sample",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      }
     },
     {
       "rel_path": "personA/rejects/blurry.jpg",
@@ -1178,7 +1580,14 @@
       "people_check": null,
       "people_error": null,
       "primary_face_attributes": null,
-      "set_age": null
+      "set_age": null,
+      "nsfw": null,
+      "content_rating": null,
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": null,
+      "guard_variants": null
     },
     {
       "rel_path": "personA/rejects/lowres.jpg",
@@ -1213,7 +1622,14 @@
       "people_check": null,
       "people_error": null,
       "primary_face_attributes": null,
-      "set_age": null
+      "set_age": null,
+      "nsfw": null,
+      "content_rating": null,
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": null,
+      "guard_variants": null
     },
     {
       "rel_path": "misc/wide_banner.jpg",
@@ -1248,7 +1664,14 @@
       "people_check": null,
       "people_error": null,
       "primary_face_attributes": null,
-      "set_age": null
+      "set_age": null,
+      "nsfw": null,
+      "content_rating": null,
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": null,
+      "guard_variants": null
     }
   ]
 }

@@ -26,9 +26,13 @@ import { canExport } from "@/lib/curatorSafety";
 export function selectBody(
   filters: CuratorFilters,
   keepSimilar: boolean,
-  summary: Pick<ScanSummary, "garments_config"> | null = null,
+  summary: Partial<Pick<ScanSummary, "garments_config" | "guard_config" | "nsfw_config">> | null = null,
 ): SelectRequest {
   const listed = <T,>(values: readonly T[]): T[] | null => (values.length > 0 ? [...values] : null);
+  // The curator refuses these on a scan that did not run the check.
+  const nsfwRan = summary?.nsfw_config?.enabled === true;
+  const guardRan = summary?.guard_config?.enabled === true;
+  const guardOn = guardRan && (filters.guardUnsafe || filters.guardRules.length > 0);
   return {
     min_score: filters.minScore,
     keep_similar: keepSimilar,
@@ -48,6 +52,10 @@ export function selectBody(
     // The curator refuses a floor under what the scan recorded.
     min_garment_conf: Math.max(filters.minGarmentConf, summary?.garments_config?.min_conf ?? 0),
     garments_uncropped: filters.garmentsUncropped,
+    content_ratings: nsfwRan ? listed(filters.contentRatings) : null,
+    guard_unsafe: guardRan && filters.guardUnsafe,
+    guard_rules: guardRan && !filters.guardUnsafe ? listed(filters.guardRules) : null,
+    guard_policies: guardOn ? listed(filters.guardPolicies) : null,
   };
 }
 
@@ -69,6 +77,7 @@ export function facetsNotSent(filters: CuratorFilters): string[] {
   const out: string[] = [];
   if (filters.singleFaceOnly) out.push("Single-face only");
   if (filters.requireKnownFace) out.push("Require a known face");
+  if (filters.guardView !== "all") out.push("the verdict view");
   return out;
 }
 
@@ -97,6 +106,10 @@ const REASON_LABELS: Record<string, string> = {
   "garment-low-confidence": "Garment below the confidence",
   "garment-cropped": "Garment cut off by the frame",
   "diversity-trimmed": "Trimmed by the cap",
+  "nsfw-unchecked": "Not scored by NudeNet",
+  "guard-unchecked": "No SingGuard verdict",
+  "guard-unsafe": "Judged unsafe",
+  "guard-rule-unknown": "Unsafe, with no rule named",
   "prefilter:nsfw": "Prefilter: exposed",
   "prefilter:no-face": "Prefilter: no face",
   "prefilter:no-age": "Prefilter: no age",
@@ -110,6 +123,7 @@ const REASON_LABELS: Record<string, string> = {
 /** A reason without the detail that differs frame by frame: the named file, or a bracket. */
 export function reasonKind(reason: string): string {
   if (reason.startsWith("similar-to:")) return "similar-to";
+  if (reason.startsWith("content-rating:")) return reason;
   return reason.split("(")[0].trim();
 }
 
@@ -117,6 +131,10 @@ export function reasonKind(reason: string): string {
 export function reasonLabel(reason: string): string {
   const kind = reasonKind(reason);
   if (Object.hasOwn(REASON_LABELS, kind)) return REASON_LABELS[kind];
+  if (kind.startsWith("content-rating:")) return `Rated ${kind.slice("content-rating:".length)}`;
+  // A guard reason can end in the policy that said so: `guard-unsafe:adult-granular`.
+  const [base, policy] = kind.split(":");
+  if (policy && Object.hasOwn(REASON_LABELS, base)) return `${REASON_LABELS[base]} (${policy})`;
   const words = kind.replace(/[-_:]+/g, " ").trim();
   return words ? words[0].toUpperCase() + words.slice(1) : "Left out";
 }

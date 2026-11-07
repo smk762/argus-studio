@@ -70,6 +70,41 @@ describe("selectBody: readings", () => {
   });
 });
 
+describe("selectBody: moderation", () => {
+  const ran = {
+    nsfw_config: { enabled: true },
+    guard_config: { enabled: true, policy: "adult", variants: ["x"] },
+  };
+
+  it("sends a rule in full, never a letter", () => {
+    const body = selectBody({ ...defaultFilters(), guardRules: ["B. Depicted Crime"], guardPolicies: ["x"] }, false, ran);
+    expect(body).toMatchObject({ guard_unsafe: false, guard_rules: ["B. Depicted Crime"], guard_policies: ["x"] });
+  });
+
+  it("lets Drop every unsafe stand in for the rule list", () => {
+    const body = selectBody({ ...defaultFilters(), guardUnsafe: true, guardRules: ["A. Risk"] }, false, ran);
+    expect(body).toMatchObject({ guard_unsafe: true, guard_rules: null });
+  });
+
+  it("sends no policies unless a filter reads them", () => {
+    expect(selectBody({ ...defaultFilters(), guardPolicies: ["x"] }, false, ran).guard_policies).toBeNull();
+  });
+
+  it("sends ratings", () => {
+    expect(selectBody({ ...defaultFilters(), contentRatings: ["safe"] }, false, ran).content_ratings).toEqual(["safe"]);
+  });
+
+  it("leaves out filters the curator would refuse on a scan without the check", () => {
+    const filters = { ...defaultFilters(), contentRatings: ["safe" as const], guardUnsafe: true, guardRules: ["A. Risk"] };
+    expect(selectBody(filters, false, { nsfw_config: { enabled: false } })).toMatchObject({
+      content_ratings: null,
+      guard_unsafe: false,
+      guard_rules: null,
+      guard_policies: null,
+    });
+  });
+});
+
 describe("capProblem", () => {
   const cap = { max_keep: 10 };
 
@@ -96,6 +131,7 @@ describe("facetsNotSent", () => {
       "Single-face only",
       "Require a known face",
     ]);
+    expect(facetsNotSent({ ...defaultFilters(), guardView: "split" })).toEqual(["the verdict view"]);
   });
 });
 
@@ -111,6 +147,8 @@ describe("reasons", () => {
     expect(reasonLabel("crop:overlay")).toBe("Watermark over the image");
     expect(reasonLabel("garment-new-rule")).toBe("Garment new rule");
     expect(reasonLabel("constructor")).toBe("Constructor");
+    expect(reasonLabel("guard-unsafe:adult-granular")).toBe("Judged unsafe (adult-granular)");
+    expect(reasonLabel("content-rating:explicit")).toBe("Rated explicit");
   });
 
   it("tallies what was left out, most common first", () => {
