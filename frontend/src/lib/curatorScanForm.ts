@@ -6,6 +6,7 @@
  */
 
 import type { CuratorConfig, Detectors } from "@/components/curator/types";
+import { guardProblem } from "@/lib/curatorGuard";
 
 /** The first prefilter rule whose check will not run. Without it, the face rules would drop every image. */
 export function prefilterProblem(cfg: CuratorConfig, detectors: Detectors | null): string | null {
@@ -24,6 +25,25 @@ export function cropsProblem(cfg: CuratorConfig, detectors: Detectors | null): s
   return null;
 }
 
+/** A model the form asks for that this curator does not have. Again can bring one back from another server. */
+export function modelProblem(cfg: CuratorConfig, detectors: Detectors | null): string | null {
+  if (!detectors) return null;
+  const wanted: [boolean, boolean | undefined, string][] = [
+    [cfg.faces.fairface === true, detectors.fairface, "FairFace"],
+    [cfg.faces.mivolo === true || cfg.faces.set_age === true, detectors.mivolo, "MiVOLO"],
+    [cfg.faces.mivolo_body === true, detectors.mivolo && detectors.bodies, "Read bodies"],
+    [cfg.scenes.enabled, detectors.places365, "Places365"],
+    [cfg.garments.enabled, detectors.garments, "Fashionpedia"],
+  ];
+  const missing = wanted.find(([asked, have]) => asked && !have);
+  return missing ? `${missing[2]} is on, and this curator does not have it.` : null;
+}
+
 export function scanFormProblem(cfg: CuratorConfig, detectors: Detectors | null): string | null {
-  return prefilterProblem(cfg, detectors) ?? cropsProblem(cfg, detectors);
+  return (
+    modelProblem(cfg, detectors) ??
+    prefilterProblem(cfg, detectors) ??
+    cropsProblem(cfg, detectors) ??
+    guardProblem(cfg.guard, detectors?.singguard_policies ?? [])
+  );
 }

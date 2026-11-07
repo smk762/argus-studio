@@ -2,7 +2,7 @@
  * What an export asks for beyond the transfer, and what it reports back.
  */
 
-import type { ExportResult, ImageResult, ScanSummary } from "@/components/curator/types";
+import type { ExportResult, ImageResult, ScanSummary, SelectRequest } from "@/components/curator/types";
 
 /** Curator refuses a name over this, and a blank one. */
 export const MAX_FACE_NAME = 200;
@@ -55,9 +55,11 @@ export function exportNotes(
  */
 export function buildRunStats(
   summary: ScanSummary,
-  exporting: readonly ImageResult[],
+  /** Null for a capped export, whose rows the curator picks. */
+  exporting: readonly ImageResult[] | null,
   curatorVersion: string | null,
   now: Date = new Date(),
+  keepRequest: SelectRequest | null = null,
 ): Record<string, unknown> {
   return {
     generated_at: now.toISOString(),
@@ -72,12 +74,22 @@ export function buildRunStats(
       rejected: summary.rejected,
       duplicates: summary.duplicates,
       reject_reasons: summary.reject_reasons,
-      exporting: exporting.length,
-      cropped: exporting.filter((row) => row.crop != null).length,
+      exporting: exporting?.length ?? null,
+      cropped: exporting?.filter((row) => row.crop != null).length ?? null,
     },
+    keep_request: keepRequest,
     config: {
       faces: summary.faces_config.enabled,
+      fairface: summary.faces_config.fairface === true,
+      mivolo: summary.faces_config.mivolo === true,
+      set_age: summary.faces_config.set_age === true,
+      scenes: summary.scenes_config?.enabled === true,
+      garments: summary.garments_config?.enabled === true,
       nsfw: summary.nsfw_config?.enabled === true,
+      erax: summary.erax_config?.enabled === true,
+      guard: summary.guard_config?.enabled === true,
+      policy: summary.guard_config?.enabled === true ? summary.guard_config.policy : null,
+      variants: summary.guard_config?.enabled === true ? (summary.guard_config.variants ?? []) : [],
       prefilter: summary.prefilter_config ?? null,
       crops: summary.crop_config?.enabled === true,
       watermark_detect: summary.crop_config?.enabled === true && summary.crop_config.detect === true,

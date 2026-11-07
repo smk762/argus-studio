@@ -6,6 +6,8 @@
  * POST /export. The shared TargetProfile is the contract argus-lens inherits.
  */
 
+import { guardBody } from "@/lib/curatorGuard";
+
 /**
  * Version of the argus-curator handoff manifest. Mirrors
  * `argus_curator.models.MANIFEST_VERSION`; stamped on each row we build so the
@@ -37,6 +39,29 @@ export const POSE_LABELS: Record<FacePose, string> = {
   three_quarter: "3/4",
   profile: "Profile",
 };
+
+// FairFace and MiVOLO labels, in the curator's order. A model's prediction from
+// appearance, not a fact about anyone.
+export const FACE_RACES = [
+  "white",
+  "black",
+  "latino_hispanic",
+  "east_asian",
+  "southeast_asian",
+  "indian",
+  "middle_eastern",
+] as const;
+export const FACE_GENDERS = ["male", "female"] as const;
+export const FACE_AGES = ["0-2", "3-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70+"] as const;
+export const SCENE_ENVIRONMENTS = ["indoor", "outdoor"] as const;
+
+export type FaceRace = (typeof FACE_RACES)[number];
+export type FaceGender = (typeof FACE_GENDERS)[number];
+export type FaceAge = (typeof FACE_AGES)[number];
+export type SceneEnvironment = (typeof SCENE_ENVIRONMENTS)[number];
+export const CONTENT_RATINGS = ["safe", "suggestive", "explicit"] as const;
+export type ContentRating = (typeof CONTENT_RATINGS)[number];
+export type AttributeSource = "fairface" | "mivolo";
 
 export interface TargetProfile {
   target_style: TargetStyle;
@@ -74,8 +99,48 @@ export interface FaceConfig {
   min_det_score: number;
   cluster_eps: number;
   device: string;
+  /** Race, gender and age bracket. Implies face detection on the curator. */
+  fairface?: boolean;
   /** MiVOLO ages. Implies face detection on the curator. */
   mivolo?: boolean;
+  /** Frames with no face take the set's age when one identity holds the scan. Implies MiVOLO. */
+  set_age?: boolean;
+  /** Give MiVOLO each face's body too, and age a body with no face. Implies MiVOLO. */
+  mivolo_body?: boolean;
+}
+
+/** Places365 tags on whole images. */
+export interface SceneConfig {
+  enabled: boolean;
+  top_k: number;
+  device: string;
+}
+
+/** SingGuard. `enabled` null means on whenever a URL is configured. A finished scan records true or false. */
+export interface GuardConfig {
+  enabled?: boolean | null;
+  /** The official verdict, and what the filters read by default. */
+  policy: string;
+  /** Extra policies to judge every image under: one more pass each. */
+  variants: string[];
+}
+
+/** One entry of `GET /guard/policies` (curator 0.8). */
+export interface GuardPolicyInfo {
+  name: string;
+  /** The name results record, such as `custom-<hash>` for a policy file. */
+  recorded?: string | null;
+  source?: string | null;
+  /** Null when SingGuard applies its own rules, or the policy file cannot be read. */
+  text?: string | null;
+  error?: string | null;
+}
+
+/** Fashionpedia garments on whole images. Nothing under `min_conf` is recorded. */
+export interface GarmentConfig {
+  enabled: boolean;
+  min_conf: number;
+  device: string;
 }
 
 /** Opt-in drops after the identities phase. A match becomes a `prefilter:*` reject (curator 0.12). */
@@ -124,6 +189,60 @@ export interface AgeReading {
   age_source?: string | null;
 }
 
+/**
+ * Predicted attributes of a face, or an identity's pooled prediction. Each
+ * `*_conf` is the chosen label's probability. A MiVOLO age is a regression, so
+ * it sets `age_years`, `age` is its bracket, and `age_conf` is null.
+ */
+export interface FaceAttributes extends AgeReading {
+  race?: FaceRace | null;
+  race_conf?: number | null;
+  gender?: FaceGender | null;
+  gender_conf?: number | null;
+  gender_source?: AttributeSource | null;
+  age?: FaceAge | null;
+  age_conf?: number | null;
+  /** MiVOLO read this face's body as well. */
+  age_body?: boolean | null;
+}
+
+/** An age for a frame with no face, read off the set. An inference, not a reading of the frame. */
+export interface SetAge {
+  years: number;
+  cluster_id?: string;
+  faces?: number;
+  share?: number;
+}
+
+/** One person box. `face_index` null means no face matched, so any age is from the body alone. */
+export interface PersonDetection extends AgeReading {
+  bbox?: [number, number, number, number];
+  det_score?: number;
+  face_index?: number | null;
+  age_body?: boolean | null;
+}
+
+export interface SceneLabel {
+  label: string;
+  conf: number;
+}
+
+export interface SceneTags {
+  /** Top-k labels, most probable first. */
+  categories: SceneLabel[];
+  environment: SceneEnvironment;
+  environment_conf: number;
+}
+
+export interface GarmentDetection {
+  label: string;
+  conf: number;
+  bbox: [number, number, number, number];
+  /** The box reaches the frame edge, so the garment is likely cut off. */
+  touches_edge?: boolean;
+  color?: string;
+}
+
 export interface FaceDetection {
   bbox: [number, number, number, number]; // [x, y, w, h]
   det_score: number;
@@ -132,13 +251,35 @@ export interface FaceDetection {
   yaw: number | null;
   pitch: number | null;
   pose: FacePose | null;
-  attributes?: AgeReading | null;
+  attributes?: FaceAttributes | null;
+  /** Index into `ImageResult.people` when a person box was matched. */
+  person_index?: number | null;
 }
 
 /** NudeNet's reading of one image. Absent or null means the image was not scored. */
 export interface NsfwResult {
   exposed_score?: number | null;
   labels?: Record<string, number> | null;
+  detections?: { label: string; score: number; bbox: [number, number, number, number] }[] | null;
+}
+
+/** EraX's own classes, not NudeNet's. */
+export interface EraxResult {
+  labels?: Record<string, number> | null;
+  detections?: { label: string; score: number; bbox: [number, number, number, number] }[] | null;
+}
+
+/** A verdict, not a score: which rules fired, as this policy names them. */
+export interface GuardResult {
+  safe?: boolean;
+  /** Full names from the verdict. A rule's letter differs by policy, so match on these. */
+  rules?: string[] | null;
+  explanation?: string | null;
+  model?: string | null;
+  /** The name recorded for the policy, which may be `custom-<hash>`. */
+  policy?: string | null;
+  /** The pass that decided it. */
+  thinking?: string | null;
 }
 
 export interface ImageResult {
@@ -163,17 +304,34 @@ export interface ImageResult {
   primary_face_pose: FacePose | null;
   primary_face_yaw: number | null;
   /** MiVOLO/FairFace attributes of the primary face, when that check ran. */
-  primary_face_attributes?: AgeReading | null;
+  primary_face_attributes?: FaceAttributes | null;
+  /** Why detection failed here. With this set, `face_count` 0 means unchecked, not faceless. */
+  face_error?: string | null;
   /** Set age standing in for a passing frame with no face of its own. */
-  set_age?: { years: number } | null;
-  /** Body-only people (no matched face) whose MiVOLO age still counts. */
-  people?: ({ face_index?: number | null } & AgeReading)[] | null;
+  set_age?: SetAge | null;
+  /** Person boxes. Body-only people (no matched face) keep a MiVOLO age that still counts. */
+  people?: PersonDetection[] | null;
+  /** How the person check went. Null means not asked for, or face detection failed first. */
+  people_check?: "ok" | "detection_failed" | "body_ages_failed" | null;
+  people_error?: string | null;
+  /** Places365. Null means not run. */
+  scene?: SceneTags | null;
+  /** Fashionpedia, most confident first. Null means not run; empty means none found. */
+  garments?: GarmentDetection[] | null;
   /** NudeNet. Null on a finished scan means not scored — never "clear". */
   nsfw?: NsfwResult | null;
   /** NudeNet failed and `nsfw` is EraX's hits alone, or nothing. */
   nudenet_failed?: boolean;
+  /** Read off `nsfw`. Null means not checked. */
+  content_rating?: ContentRating | null;
+  /** EraX. Null means not checked, or the check failed. */
+  erax?: EraxResult | null;
+  /** `nsfw` was filled from EraX because NudeNet did not score the frame. */
+  erax_filled?: boolean;
   /** Policy verdict, once the guard check has run. Absent while it is pending. */
-  guard?: { safe?: boolean } | null;
+  guard?: GuardResult | null;
+  /** Only when variants ran: every policy's verdict by name, the official one included. A missing name means that check failed. */
+  guard_variants?: Record<string, GuardResult> | null;
   /** The crop every check saw, in the source's displayed pixels. `width`, `height` and every box are of the cropped frame. */
   crop?: CropBox | null;
   crop_source?: "manual" | "detected" | null;
@@ -206,6 +364,8 @@ export interface FaceCluster {
   size: number;
   representative_rel_path: string;
   representative_bbox: [number, number, number, number] | null;
+  /** Pooled over every member face. */
+  attributes?: FaceAttributes | null;
 }
 
 export interface ScanSummary {
@@ -214,6 +374,8 @@ export interface ScanSummary {
   target_profile: TargetProfile;
   config: ScanConfig;
   faces_config: FaceConfig;
+  scenes_config?: SceneConfig | null;
+  garments_config?: GarmentConfig | null;
   total: number;
   passed: number;
   rejected: number;
@@ -221,8 +383,13 @@ export interface ScanSummary {
   similar_clusters: number;
   reject_reasons: Record<string, number>;
   face_clusters: FaceCluster[];
+  /** When `faces.set_age` asked: the age given to frames with no face, or why none was. */
+  set_age?: SetAge | null;
+  set_age_skipped?: string | null;
   /** What the finished scan actually ran. `enabled: true` means NudeNet scored it. */
   nsfw_config?: { enabled?: boolean | null } | null;
+  erax_config?: { enabled?: boolean | null } | null;
+  guard_config?: GuardConfig | null;
   prefilter_config?: PrefilterConfig | null;
   crop_config?: CropConfig | null;
   results: ImageResult[];
@@ -234,17 +401,13 @@ export interface ScanSummary {
 /** Transfer modes the curator accepts. Only `move` relocates (deletes) the source. */
 export type ExportMode = "copy" | "symlink" | "move";
 
-export interface ExportRequest {
+export interface ExportRequest extends SelectRequest, CapOptions {
   scan_id?: string | null;
+  /** Naming a selection makes the curator ignore every filter on this request. */
   selection?: string[] | null;
   dest: string;
   mode: "copy" | "symlink" | "move";
   preserve_structure: boolean;
-  min_score: number;
-  keep_similar: boolean;
-  max_keep?: number | null;
-  face_clusters?: string[] | null;
-  face_poses?: FacePose[] | null;
   write_manifest: boolean;
   caption_url?: string | null;
   /** Write `<file>.xmp` beside each exported file (curator 0.9). */
@@ -266,7 +429,34 @@ export interface SelectRequest {
   keep_similar: boolean;
   face_clusters?: string[] | null;
   face_poses?: FacePose[] | null;
+  face_races?: FaceRace[] | null;
+  face_genders?: FaceGender[] | null;
+  face_ages?: FaceAge[] | null;
+  min_age_years?: number | null;
+  max_age_years?: number | null;
+  min_attribute_conf?: number;
+  scenes?: string[] | null;
+  scene_environments?: SceneEnvironment[] | null;
+  min_scene_conf?: number;
+  garments?: string[] | null;
+  exclude_garments?: string[] | null;
+  min_garment_conf?: number;
   garments_uncropped?: boolean;
+  /** An image NudeNet never checked has no rating, so it drops out once this is set. */
+  content_ratings?: ContentRating[] | null;
+  /** Drop frames judged unsafe, under any rule. */
+  guard_unsafe?: boolean;
+  /** Drop frames where one of these fired. Always the full recorded name, never a letter. */
+  guard_rules?: string[] | null;
+  /** Which policies' verdicts the two above read. Null is the official one. */
+  guard_policies?: string[] | null;
+}
+
+/** Only an export can trim by diversity: `/select` never does, so a capped export goes without a `selection`. */
+export interface CapOptions {
+  max_keep?: number | null;
+  diversify_scenes?: boolean;
+  diversify_outfits?: boolean;
 }
 
 export interface SelectRow {
@@ -363,7 +553,16 @@ export interface Detectors {
   insightface: boolean;
   onnxruntime: boolean;
   /** Absent on a curator older than the check. */
+  fairface?: boolean;
   mivolo?: boolean;
+  /** InsightFace's person detector, for `faces.mivolo_body`. */
+  bodies?: boolean;
+  places365?: boolean;
+  garments?: boolean;
+  erax?: boolean;
+  singguard?: boolean;
+  /** Names a scan can pass as `guard.policy`. Empty without a server. */
+  singguard_policies?: string[];
   /** A NudeNet URL is set. Reachability is not probed. */
   nudenet?: boolean;
   /** A watermark detector URL is set. Reachability is not probed, so a scan can still get a 503. */
@@ -545,6 +744,9 @@ export interface CuratorConfig {
   profile: TargetProfile;
   config: ScanConfig;
   faces: FaceConfig;
+  scenes: SceneConfig;
+  garments: GarmentConfig;
+  guard: Pick<GuardConfig, "policy" | "variants">;
   prefilter: PrefilterConfig;
   crops: CropConfig;
 }
@@ -598,8 +800,14 @@ export function defaultCuratorConfig(): CuratorConfig {
       min_det_score: 0.5,
       cluster_eps: 0.5,
       device: "auto",
+      fairface: false,
       mivolo: false,
+      set_age: false,
+      mivolo_body: false,
     },
+    scenes: { enabled: false, top_k: 5, device: "auto" },
+    garments: { enabled: false, min_conf: 0.3, device: "auto" },
+    guard: { policy: "default", variants: [] },
     prefilter: defaultPrefilter(),
     crops: defaultCrops(),
   };
@@ -609,17 +817,27 @@ export function prefilterOn(prefilter: PrefilterConfig): boolean {
   return prefilter.drop_nsfw || prefilter.drop_no_face || prefilter.drop_no_age;
 }
 
+/** The implications the curator's FaceConfig validator applies, so the form and the record agree. */
+export function facesBody(faces: FaceConfig): FaceConfig {
+  const mivolo = faces.mivolo === true || faces.set_age === true || faces.mivolo_body === true;
+  return { ...faces, mivolo, enabled: faces.enabled || faces.fairface === true || mivolo };
+}
+
 /**
- * Build the POST /scan/folder request body from the editable config. `prefilter`
- * and `crops` go only when asked for: a curator too old to know them ignores
- * the block, and the scan would quietly run without them.
+ * Build the POST /scan/folder request body from the editable config. `prefilter`,
+ * `crops`, `scenes` and `garments` go only when asked for: a curator too old to
+ * know one ignores the block, and the scan would quietly run without it.
  */
 export function buildScanBody(folder: string, cfg: CuratorConfig): Record<string, unknown> {
+  const guard = guardBody(cfg.guard);
   return {
     folder,
     target_profile: cfg.profile,
     config: { ...cfg.config, min_short_side: clampShortSide(cfg.config.min_short_side) },
-    faces: cfg.faces,
+    faces: facesBody(cfg.faces),
+    ...(cfg.scenes.enabled ? { scenes: cfg.scenes } : {}),
+    ...(cfg.garments.enabled ? { garments: cfg.garments } : {}),
+    ...(guard ? { guard } : {}),
     ...(prefilterOn(cfg.prefilter) ? { prefilter: cfg.prefilter } : {}),
     ...(cfg.crops.enabled ? { crops: cfg.crops } : {}),
   };
@@ -640,6 +858,30 @@ export interface CuratorFilters {
   singleFaceOnly: boolean;
   /** Drop images with no recognised face (primary_face_cluster == null). */
   requireKnownFace: boolean;
+  /** Primary-face predictions. Empty means all. A frame without the reading drops out once one is set. */
+  faceRaces: FaceRace[];
+  faceGenders: FaceGender[];
+  faceAges: FaceAge[];
+  minAgeYears: number | null;
+  maxAgeYears: number | null;
+  minAttributeConf: number;
+  scenes: string[];
+  sceneEnvironments: SceneEnvironment[];
+  minSceneConf: number;
+  garments: string[];
+  excludeGarments: string[];
+  minGarmentConf: number;
+  /** With `garments`: a match must clear the frame edge. */
+  garmentsUncropped: boolean;
+  contentRatings: ContentRating[];
+  /** Hide frames any listed policy judged unsafe. */
+  guardUnsafe: boolean;
+  /** Hide unsafe frames naming one of these full rule names. */
+  guardRules: string[];
+  /** Which policies the two above read. Empty is the official one. */
+  guardPolicies: string[];
+  /** View only: the curator has no such filter. */
+  guardView: "all" | "unsafe" | "split" | "safe";
 }
 
 export function defaultFilters(): CuratorFilters {
@@ -651,21 +893,23 @@ export function defaultFilters(): CuratorFilters {
     hideDuplicates: false,
     singleFaceOnly: false,
     requireKnownFace: false,
+    faceRaces: [],
+    faceGenders: [],
+    faceAges: [],
+    minAgeYears: null,
+    maxAgeYears: null,
+    minAttributeConf: 0,
+    scenes: [],
+    sceneEnvironments: [],
+    minSceneConf: 0.1,
+    garments: [],
+    excludeGarments: [],
+    minGarmentConf: 0.5,
+    garmentsUncropped: false,
+    contentRatings: [],
+    guardUnsafe: false,
+    guardRules: [],
+    guardPolicies: [],
+    guardView: "all",
   };
-}
-
-/** True when an image should be shown / is eligible under the current facets. */
-export function matchesFilters(img: ImageResult, f: CuratorFilters): boolean {
-  if (img.score < f.minScore) return false;
-  if (f.passedOnly && !img.passed) return false;
-  if (f.hideDuplicates && img.is_duplicate) return false;
-  if (f.singleFaceOnly && img.face_count !== 1) return false;
-  if (f.requireKnownFace && !img.primary_face_cluster) return false;
-  if (f.faceClusters.length > 0) {
-    if (!img.primary_face_cluster || !f.faceClusters.includes(img.primary_face_cluster)) return false;
-  }
-  if (f.poses.length > 0) {
-    if (!img.primary_face_pose || !f.poses.includes(img.primary_face_pose)) return false;
-  }
-  return true;
 }

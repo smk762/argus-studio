@@ -15,6 +15,7 @@ import type {
   ExportRequest,
   ExportResult,
   FolderListing,
+  GuardPolicyInfo,
   ImageResult,
   ScanSummary,
   SelectRequest,
@@ -22,6 +23,7 @@ import type {
 } from "@/components/curator/types";
 import { buildScanBody, MANIFEST_VERSION, prefilterOn } from "@/components/curator/types";
 import { asError } from "@/lib/apiError";
+import { readPolicyCatalog } from "@/lib/curatorGuard";
 import { isMinorExposed } from "@/lib/curatorSafety";
 import { deleteBatches, type DeleteOutcome } from "@/lib/scanDelete";
 import type { ScanChunk } from "@/lib/scanChunks";
@@ -187,6 +189,10 @@ export interface Health {
   scan_delete?: boolean;
   /** POST /scan/{id}/delete takes any scanned image, not only a minor-exposed one (curator 0.12 and later). */
   delete_any?: boolean;
+  /** `GET /guard/policies` exists (curator 0.8 and later). */
+  guard_policy_text?: boolean;
+  /** `FaceConfig.set_age` exists (curator 0.7 and later). */
+  set_age?: boolean;
   /** `ScanRequest.prefilter` exists (curator 0.12 and later). */
   prefilter?: boolean;
   /** `ScanRequest.crops` exists (curator 0.14 and later). */
@@ -247,6 +253,16 @@ export function allowsDeleteAny(health: Health | null): Capability {
  */
 export function allowsMinorExposedDelete(health: Health | null): Capability {
   return capabilityOf(health, (h) => (typeof h.delete_any === "boolean" ? true : undefined), false);
+}
+
+/** Whether this server serves its policy wording. Legacy `false`: an older curator has no such route. */
+export function allowsGuardPolicyText(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.guard_policy_text, false);
+}
+
+/** Whether frames with no face can take the set's age. Legacy `false`: an older curator ignores the field. */
+export function allowsSetAge(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.set_age, false);
 }
 
 /**
@@ -334,6 +350,13 @@ export async function getDetectors(signal?: AbortSignal): Promise<Detectors> {
   return resp.json();
 }
 
+/** Every policy a scan can name, with its wording. Requests still pick one by name, never by text. */
+export async function getGuardPolicies(signal?: AbortSignal): Promise<GuardPolicyInfo[]> {
+  const resp = await fetch(`${curatorUrl()}/guard/policies`, { signal });
+  if (!resp.ok) return asError(resp);
+  return readPolicyCatalog(await resp.json());
+}
+
 export async function listFolders(path = "", signal?: AbortSignal): Promise<FolderListing> {
   const params = new URLSearchParams(path ? { path } : {});
   const resp = await fetch(`${curatorUrl()}/folders?${params.toString()}`, { signal });
@@ -341,6 +364,7 @@ export async function listFolders(path = "", signal?: AbortSignal): Promise<Fold
   return resp.json();
 }
 
+export const SET_AGE_DENIED = "This curator cannot read a set's age (it predates curator 0.7).";
 export const PREFILTER_DENIED = "This curator cannot drop images before the late checks (it predates the prefilter).";
 export const CROPS_DENIED = "This curator cannot crop images (it predates crops).";
 export const WATERMARK_DENIED = "This curator cannot look for watermarks (it predates watermark detection).";
@@ -349,6 +373,7 @@ export const CROPPED_COPY_ONLY = "This scan cropped images, so it exports by cop
 
 /** A scan that names a check this server would silently skip is refused before it starts. */
 async function requireScanCapabilities(cfg: CuratorConfig, signal?: AbortSignal): Promise<void> {
+  if (cfg.faces.set_age) await requireCapability(curatorHealth, allowsSetAge, SET_AGE_DENIED, signal);
   if (prefilterOn(cfg.prefilter)) await requireCapability(curatorHealth, allowsPrefilter, PREFILTER_DENIED, signal);
   if (!cfg.crops.enabled) return;
   await requireCapability(curatorHealth, allowsCrops, CROPS_DENIED, signal);

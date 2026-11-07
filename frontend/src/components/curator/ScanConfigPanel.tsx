@@ -10,18 +10,22 @@ import {
   clampShortSide,
   type CuratorConfig,
   type Detectors,
+  type GuardPolicyInfo,
   type TargetCategory,
 } from "./types";
 import {
   allowsCrops,
   allowsPrefilter,
+  allowsSetAge,
   allowsWatermarkDetect,
   CROPS_DENIED,
   PREFILTER_DENIED,
+  SET_AGE_DENIED,
   WATERMARK_DENIED,
   type Health,
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
+import { GuardPolicyPicker } from "./GuardPolicyPicker";
 
 const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; border: string }> = {
   "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
@@ -37,20 +41,28 @@ interface Props {
   /** `/detectors`. Null until known, which offers nothing a curator may not have. */
   detectors: Detectors | null;
   health: Health | null;
+  /** Policy wording from `GET /guard/policies`. Null when this curator has none. */
+  policyCatalog: readonly GuardPolicyInfo[] | null;
 }
 
-export function ScanConfigPanel({ value, onChange, loading, detectors, health }: Props) {
+export function ScanConfigPanel({ value, onChange, loading, detectors, health, policyCatalog }: Props) {
   const setProfile = (patch: Partial<CuratorConfig["profile"]>) =>
     onChange({ ...value, profile: { ...value.profile, ...patch } });
   const setConfig = (patch: Partial<CuratorConfig["config"]>) =>
     onChange({ ...value, config: { ...value.config, ...patch } });
   const setFaces = (patch: Partial<CuratorConfig["faces"]>) =>
     onChange({ ...value, faces: { ...value.faces, ...patch } });
+  const setScenes = (patch: Partial<CuratorConfig["scenes"]>) =>
+    onChange({ ...value, scenes: { ...value.scenes, ...patch } });
+  const setGarments = (patch: Partial<CuratorConfig["garments"]>) =>
+    onChange({ ...value, garments: { ...value.garments, ...patch } });
   const setPrefilter = (patch: Partial<CuratorConfig["prefilter"]>) =>
     onChange({ ...value, prefilter: { ...value.prefilter, ...patch } });
   const setCrops = (patch: Partial<CuratorConfig["crops"]>) =>
     onChange({ ...value, crops: { ...value.crops, ...patch } });
 
+  const setAge = allowsSetAge(health);
+  const setAgeReason = capabilityReason(setAge, SET_AGE_DENIED);
   const prefilter = allowsPrefilter(health);
   const prefilterReason = capabilityReason(prefilter, PREFILTER_DENIED);
   const crops = allowsCrops(health);
@@ -179,7 +191,9 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health }:
           </label>
           <Toggle
             value={value.faces.enabled}
-            onChange={(v) => setFaces({ enabled: v, mivolo: v ? value.faces.mivolo : false })}
+            onChange={(v) =>
+              setFaces(v ? { enabled: true } : { enabled: false, fairface: false, mivolo: false, set_age: false, mivolo_body: false })
+            }
             disabled={loading}
           />
         </div>
@@ -214,13 +228,42 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health }:
                 ))}
               </div>
             </div>
+            {detectors?.fairface && (
+              <Check
+                label="FairFace attributes"
+                checked={value.faces.fairface === true}
+                onChange={(v) => setFaces({ fairface: v })}
+                disabled={loading}
+                hint="Predicted race, gender and age bracket for each face. A guess from appearance, not a fact about anyone."
+              />
+            )}
             {detectors?.mivolo && (
               <Check
                 label="MiVOLO ages"
                 checked={value.faces.mivolo === true}
-                onChange={(v) => setFaces({ mivolo: v })}
+                onChange={(v) =>
+                  setFaces(v ? { mivolo: true } : { mivolo: false, set_age: false, mivolo_body: false })
+                }
                 disabled={loading}
                 hint="An age in years for each face. It is a model's estimate, and the under-18 rule reads it."
+              />
+            )}
+            {detectors?.mivolo && (
+              <Check
+                label="Set: one person"
+                checked={value.faces.set_age === true}
+                onChange={(v) => setFaces({ set_age: v, mivolo: v ? true : value.faces.mivolo })}
+                disabled={loading || !permits(setAge)}
+                hint={setAgeReason ?? "For a folder of one person: frames with no face take the set's age, so the under-18 rule has something to read. A mixed folder gets nothing."}
+              />
+            )}
+            {detectors?.mivolo && detectors.bodies && (
+              <Check
+                label="Read bodies too"
+                checked={value.faces.mivolo_body === true}
+                onChange={(v) => setFaces({ mivolo_body: v, mivolo: v ? true : value.faces.mivolo })}
+                disabled={loading}
+                hint="Under evaluation. MiVOLO reads each person's body as well, and a person with no face gets a body-only age."
               />
             )}
           </div>
@@ -228,6 +271,54 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health }:
       </div>
 
       <hr className="border-border" />
+
+      {(detectors?.places365 || detectors?.garments) && (
+        <>
+          <div className="space-y-3">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted">Scenes &amp; Wardrobe</label>
+            {detectors.places365 && (
+              <Check
+                label="Scenes (Places365)"
+                checked={value.scenes.enabled}
+                onChange={(v) => setScenes({ enabled: v })}
+                disabled={loading}
+                hint="Scene labels and indoor or outdoor for each frame."
+              />
+            )}
+            {value.scenes.enabled && (
+              <Slider label="Labels per frame" value={value.scenes.top_k} min={1} max={20} step={1}
+                onChange={(v) => setScenes({ top_k: v })} disabled={loading} />
+            )}
+            {detectors.garments && (
+              <Check
+                label="Garments (Fashionpedia)"
+                checked={value.garments.enabled}
+                onChange={(v) => setGarments({ enabled: v })}
+                disabled={loading}
+                hint="The slowest local check. Needed for the wardrobe facets and spreading across outfits."
+              />
+            )}
+            {value.garments.enabled && (
+              <Slider label="Record from confidence" value={value.garments.min_conf} min={0} max={1} step={0.05}
+                format={(v) => v.toFixed(2)} onChange={(v) => setGarments({ min_conf: v })} disabled={loading} />
+            )}
+          </div>
+          <hr className="border-border" />
+        </>
+      )}
+
+      {detectors?.singguard && (detectors.singguard_policies?.length ?? 0) > 0 && (
+        <>
+          <GuardPolicyPicker
+            available={detectors.singguard_policies ?? []}
+            choice={value.guard}
+            catalog={policyCatalog}
+            disabled={loading}
+            onChange={(guard) => onChange({ ...value, guard })}
+          />
+          <hr className="border-border" />
+        </>
+      )}
 
       {/* Prefilter: reject early, so scenes, garments and SingGuard skip the frame. */}
       <div>

@@ -9,8 +9,10 @@
  */
 
 import type {
+  CapOptions,
   CuratorFilters,
   ImageResult,
+  ScanSummary,
   SelectRequest,
   SelectResult,
 } from "@/components/curator/types";
@@ -21,13 +23,53 @@ import { canExport } from "@/lib/curatorSafety";
  * the rail's toggle only hides them. `min_score` is always sent because the
  * curator's own default is 0.6.
  */
-export function selectBody(filters: CuratorFilters, keepSimilar: boolean): SelectRequest {
+export function selectBody(
+  filters: CuratorFilters,
+  keepSimilar: boolean,
+  summary: Partial<Pick<ScanSummary, "garments_config" | "guard_config" | "nsfw_config">> | null = null,
+): SelectRequest {
+  const listed = <T,>(values: readonly T[]): T[] | null => (values.length > 0 ? [...values] : null);
+  // The curator refuses these on a scan that did not run the check.
+  const nsfwRan = summary?.nsfw_config?.enabled === true;
+  const guardRan = summary?.guard_config?.enabled === true;
+  const guardOn = guardRan && (filters.guardUnsafe || filters.guardRules.length > 0);
   return {
     min_score: filters.minScore,
     keep_similar: keepSimilar,
-    face_clusters: filters.faceClusters.length > 0 ? [...filters.faceClusters] : null,
-    face_poses: filters.poses.length > 0 ? [...filters.poses] : null,
+    face_clusters: listed(filters.faceClusters),
+    face_poses: listed(filters.poses),
+    face_races: listed(filters.faceRaces),
+    face_genders: listed(filters.faceGenders),
+    face_ages: listed(filters.faceAges),
+    min_age_years: filters.minAgeYears,
+    max_age_years: filters.maxAgeYears,
+    min_attribute_conf: filters.minAttributeConf,
+    scenes: listed(filters.scenes),
+    scene_environments: listed(filters.sceneEnvironments),
+    min_scene_conf: filters.minSceneConf,
+    garments: listed(filters.garments),
+    exclude_garments: listed(filters.excludeGarments),
+    // The curator refuses a floor under what the scan recorded.
+    min_garment_conf: Math.max(filters.minGarmentConf, summary?.garments_config?.min_conf ?? 0),
+    garments_uncropped: filters.garmentsUncropped,
+    content_ratings: nsfwRan ? listed(filters.contentRatings) : null,
+    guard_unsafe: guardRan && filters.guardUnsafe,
+    guard_rules: guardRan && !filters.guardUnsafe ? listed(filters.guardRules) : null,
+    guard_policies: guardOn ? listed(filters.guardPolicies) : null,
   };
+}
+
+/**
+ * Why a capped export cannot go yet, or null. It names no selection, so the
+ * curator picks from its own keep set. A frame this app holds but the curator
+ * keeps would go out, so that refuses here. Fresh means the viewer has seen
+ * this set.
+ */
+export function capProblem(cap: CapOptions, fresh: boolean, kept: number, usable: number): string | null {
+  if (!Number.isInteger(cap.max_keep) || (cap.max_keep ?? 0) < 1) return "Enter how many to keep.";
+  if (!fresh) return "Preview the keep set first.";
+  if (usable < kept) return "The curator's keep set has frames this app holds, so use the selection instead.";
+  return null;
 }
 
 /** Facets on now that the curator has no field for, so a preview leaves them out. */
@@ -35,6 +77,7 @@ export function facetsNotSent(filters: CuratorFilters): string[] {
   const out: string[] = [];
   if (filters.singleFaceOnly) out.push("Single-face only");
   if (filters.requireKnownFace) out.push("Require a known face");
+  if (filters.guardView !== "all") out.push("the verdict view");
   return out;
 }
 
@@ -46,6 +89,27 @@ const REASON_LABELS: Record<string, string> = {
   rejected: "Rejected",
   "face-cluster-excluded": "Other identity",
   "face-pose-excluded": "Other head pose",
+  "face-attributes-missing": "No face attributes",
+  "face-race-excluded": "Other race (predicted)",
+  "face-gender-excluded": "Other gender (predicted)",
+  "face-age-excluded": "Other age bracket (predicted)",
+  "face-age-out-of-range": "Age outside the range",
+  "face-age-years-missing": "No age in years",
+  "scene-missing": "No scene tags",
+  "scene-excluded": "Other scene",
+  "scene-low-confidence": "Scene below the confidence",
+  "scene-environment-excluded": "Other environment",
+  "scene-environment-low-confidence": "Environment below the confidence",
+  "garments-missing": "No garment reading",
+  "garment-excluded": "Excluded garment",
+  "garment-not-found": "Garment not found",
+  "garment-low-confidence": "Garment below the confidence",
+  "garment-cropped": "Garment cut off by the frame",
+  "diversity-trimmed": "Trimmed by the cap",
+  "nsfw-unchecked": "Not scored by NudeNet",
+  "guard-unchecked": "No SingGuard verdict",
+  "guard-unsafe": "Judged unsafe",
+  "guard-rule-unknown": "Unsafe, with no rule named",
   "prefilter:nsfw": "Prefilter: exposed",
   "prefilter:no-face": "Prefilter: no face",
   "prefilter:no-age": "Prefilter: no age",
@@ -59,6 +123,7 @@ const REASON_LABELS: Record<string, string> = {
 /** A reason without the detail that differs frame by frame: the named file, or a bracket. */
 export function reasonKind(reason: string): string {
   if (reason.startsWith("similar-to:")) return "similar-to";
+  if (reason.startsWith("content-rating:")) return reason;
   return reason.split("(")[0].trim();
 }
 
@@ -66,6 +131,10 @@ export function reasonKind(reason: string): string {
 export function reasonLabel(reason: string): string {
   const kind = reasonKind(reason);
   if (Object.hasOwn(REASON_LABELS, kind)) return REASON_LABELS[kind];
+  if (kind.startsWith("content-rating:")) return `Rated ${kind.slice("content-rating:".length)}`;
+  // A guard reason can end in the policy that said so: `guard-unsafe:adult-granular`.
+  const [base, policy] = kind.split(":");
+  if (policy && Object.hasOwn(REASON_LABELS, base)) return `${REASON_LABELS[base]} (${policy})`;
   const words = kind.replace(/[-_:]+/g, " ").trim();
   return words ? words[0].toUpperCase() + words.slice(1) : "Left out";
 }

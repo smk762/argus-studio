@@ -80,6 +80,21 @@ describe("configFromSummary", () => {
       crop_config: { ...old.crops, enabled: true, detect: true, max_cut: 0.2, boxes: { "keep.jpg": box } },
     });
     expect(ran.prefilter.drop_nsfw).toBe(true);
+    expect(old.scenes.enabled).toBe(false);
+    expect(old.guard).toEqual({ policy: "default", variants: [] });
+    expect(
+      configFromSummary({
+        ...summary([image("keep.jpg")]),
+        guard_config: { enabled: true, policy: "adult", variants: ["adult-cinematic"] },
+      }).guard,
+    ).toEqual({ policy: "adult", variants: ["adult-cinematic"] });
+    expect(
+      configFromSummary({
+        ...summary([image("keep.jpg")]),
+        scenes_config: { enabled: true, top_k: 3, device: "auto" },
+        garments_config: { enabled: true, min_conf: 0.4, device: "auto" },
+      }),
+    ).toMatchObject({ scenes: { enabled: true, top_k: 3 }, garments: { enabled: true, min_conf: 0.4 } });
     expect(ran.crops).toMatchObject({ enabled: true, detect: true, max_cut: 0.2, boxes: { "keep.jpg": box } });
   });
 });
