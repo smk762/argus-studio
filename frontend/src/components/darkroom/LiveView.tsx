@@ -15,6 +15,8 @@ export function LiveView({ live, onStop, onClear }: { live: LiveState; onStop: (
   const scanned = scannedCount(live);
   const refused = live.preflight?.outcome === "refused";
   const stageIndex = refused ? 0 : STAGES.indexOf(live.phase as (typeof STAGES)[number]);
+  // A refusal completes too, but nothing past pre-flight ran.
+  const finished = live.phase === "complete" && !refused;
   const rows: PolicyRow[] = live.policies.map((policy) => ({ policy, enforcing: policy === live.enforcing, pair: live.cells[policy] ?? null }));
   const steps = live.progress;
   const renderPct = steps ? Math.round((steps.step / Math.max(1, steps.total)) * 100) : 0;
@@ -39,8 +41,8 @@ export function LiveView({ live, onStop, onClear }: { live: LiveState; onStop: (
         </div>
         <ol className="mt-3 grid grid-cols-5 gap-1 text-xs" aria-label="Stages">
           {STAGES.map((stage, index) => {
-            const done = index < stageIndex || live.phase === "complete";
-            const current = index === stageIndex && live.phase !== "complete";
+            const done = index < stageIndex || finished;
+            const current = index === stageIndex && !finished;
             return (
               <li key={stage} className="space-y-1">
                 <div className={`h-1.5 rounded-full ${done ? "bg-accent-green" : current ? "bg-accent-purple" : "bg-border"}`} aria-hidden="true" />
@@ -76,7 +78,7 @@ export function LiveView({ live, onStop, onClear }: { live: LiveState; onStop: (
         <Card>
           <SectionTitle>Output scans</SectionTitle>
           <p className="mt-1 text-xs text-muted">Each cell fills in as its scan finishes. Grey dashes are still pending.</p>
-          <div className="mt-3 overflow-x-auto">
+          <div className="mt-3">
             <ShieldGrid guard={{ enforcing_policy: live.enforcing, advisory_policies: live.policies.filter((name) => name !== live.enforcing), scans: {} }} rows={rows} />
           </div>
         </Card>

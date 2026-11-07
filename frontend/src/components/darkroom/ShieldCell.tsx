@@ -53,7 +53,7 @@ export function ShieldCell({
         <Shield state={state} letters={letters} size={size} withLabel={withLabel} labelBelow={labelBelow} />
       </button>
       {show ? (
-        <div id={id} role="tooltip" className="absolute left-1/2 top-full z-20 mt-1 w-72 -translate-x-1/2 rounded-md border border-border bg-surface p-3 text-left text-xs shadow-soft">
+        <div id={id} role="tooltip" className="absolute left-1/2 top-full z-20 mt-1 w-72 max-w-[80vw] -translate-x-1/2 rounded-md border border-border bg-surface p-3 text-left text-xs shadow-soft">
           <ShieldDetail cell={cell} heading={heading} />
         </div>
       ) : null}

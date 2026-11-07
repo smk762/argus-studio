@@ -139,6 +139,14 @@ export function fromRecord(record: GenerationRecord, base: ComposeState): Compos
   };
 }
 
+/** A LoRA's trigger words from the comma-separated text of its box. */
+export function parseTriggerWords(text: string): string[] {
+  return text
+    .split(",")
+    .map((word) => word.trim())
+    .filter(Boolean);
+}
+
 export function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 32);
 }

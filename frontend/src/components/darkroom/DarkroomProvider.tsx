@@ -85,6 +85,8 @@ export function DarkroomProvider({ children }: { children: ReactNode }) {
     };
   }, [tick]);
 
+  const catalogued = policies != null && models != null;
+
   useEffect(() => {
     // The sample has no server to poll. Refresh looks for one again.
     if (sample) return;
@@ -92,13 +94,15 @@ export function DarkroomProvider({ children }: { children: ReactNode }) {
       try {
         const next = await getDarkroomHealth();
         setHealth(next);
-        setError(null);
+        // Darkroom answers again, but the form still needs the catalogue the first load missed.
+        if (catalogued) setError(null);
+        else reload();
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : String(caught));
       }
     }, HEALTH_POLL_MS);
     return () => clearInterval(timer);
-  }, [sample]);
+  }, [sample, catalogued, reload]);
 
   const value = useMemo<Darkroom>(
     () => ({

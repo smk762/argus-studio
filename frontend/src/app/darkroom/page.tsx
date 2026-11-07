@@ -85,7 +85,7 @@ function DarkroomStage() {
             )}
           </nav>
 
-          {recordId ? <RecordView id={recordId} /> : view === "history" ? <History /> : <ComposePane />}
+          {recordId ? <RecordView key={recordId} id={recordId} /> : view === "history" ? <History /> : <ComposePane />}
         </div>
       </main>
 

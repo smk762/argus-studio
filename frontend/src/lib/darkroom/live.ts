@@ -23,6 +23,7 @@ export type LiveEvent =
   | { type: "progress"; progress: ProgressEvent }
   | { type: "scan"; scan: ScanEvent }
   | { type: "complete"; record: GenerationRecord }
+  | { type: "record"; record: GenerationRecord }
   | { type: "error"; error: string }
   | { type: "reset" };
 
@@ -64,6 +65,8 @@ export function liveReducer(state: LiveState, event: LiveEvent): LiveState {
     }
     case "complete":
       return { ...state, phase: "complete", record: event.record };
+    case "record":
+      return state.record?.id === event.record.id ? { ...state, record: event.record } : state;
     case "error":
       return { ...state, phase: "error", error: event.error };
     case "reset":

@@ -64,7 +64,7 @@ export function ResultView({ record, actions }: { record: GenerationRecord; acti
             <Card>
               <SectionTitle>Output scans</SectionTitle>
               <p className="mt-1 text-xs text-muted">Each policy judged the image alone, then with the final prompt. Hover or tap a shield for the rule and SingGuard&apos;s words.</p>
-              <div className="mt-3 overflow-x-auto">
+              <div className="mt-3">
                 <ShieldGrid guard={record.guard} />
               </div>
             </Card>

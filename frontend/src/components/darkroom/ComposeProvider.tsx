@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 
-import { generate, preflight as runPreflight, type Preflight } from "@/lib/darkroomApi";
+import { generate, preflight as runPreflight, type GenerationRecord, type Preflight } from "@/lib/darkroomApi";
 import { canExpand, defaultCompose, normaliseCompose, toRequest, type ComposeState } from "@/lib/darkroom/compose";
 import { IDLE, isRunning, liveReducer, type LiveState } from "@/lib/darkroom/live";
 
@@ -35,6 +35,8 @@ export interface Compose {
   /** Close the stream. Darkroom finishes on its own; the record still lands in history. */
   stop: () => void;
   clearLive: () => void;
+  /** A record darkroom has changed since the stream delivered it. */
+  recordChanged: (record: GenerationRecord) => void;
   /** Which pane shows. A record, when one is open, sits over it. */
   view: DarkroomView;
   setView: (view: DarkroomView) => void;
@@ -88,6 +90,10 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
     const request = toRequest(compose, expandable);
     const key = JSON.stringify(request);
     setPreflight({ state: "checking", result: null, error: null, forRequest: key });
+    // The verdict shows in the Generate pane, and only with no finished generation in it.
+    if (!controller.current) dispatch({ type: "reset" });
+    setRecordId(null);
+    setView("generate");
     try {
       const result = await runPreflight(request);
       setPreflight({ state: "done", result, error: null, forRequest: key });
@@ -140,14 +146,16 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
     if (!controller.current) dispatch({ type: "reset" });
   }, []);
 
+  const recordChanged = useCallback((record: GenerationRecord) => dispatch({ type: "record", record }), []);
+
   const openRecord = useCallback((id: string) => setRecordId(id), []);
   const closeRecord = useCallback(() => setRecordId(null), []);
 
   const preflightCurrent = preflight.forRequest === JSON.stringify(toRequest(compose, expandable));
 
   const value = useMemo<Compose>(
-    () => ({ compose, ready, update, replace, preflight, check, preflightCurrent, live, running, start, stop, clearLive, view, setView, recordId, openRecord, closeRecord }),
-    [compose, ready, update, replace, preflight, check, preflightCurrent, live, running, start, stop, clearLive, view, recordId, openRecord, closeRecord],
+    () => ({ compose, ready, update, replace, preflight, check, preflightCurrent, live, running, start, stop, clearLive, recordChanged, view, setView, recordId, openRecord, closeRecord }),
+    [compose, ready, update, replace, preflight, check, preflightCurrent, live, running, start, stop, clearLive, recordChanged, view, recordId, openRecord, closeRecord],
   );
   return <ComposeContext.Provider value={value}>{children}</ComposeContext.Provider>;
 }

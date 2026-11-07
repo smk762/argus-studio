@@ -69,6 +69,7 @@ export function History() {
         </label>
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
+      {data && data.total > data.records.length ? <p className="text-xs text-muted">Showing the newest {data.records.length} of {data.total} records. The count and the filters here cover only those; the archive has them all.</p> : null}
       {!records && !error ? (
         <p className="flex items-center gap-2 text-sm text-foreground/70">
           <Spinner /> Loading records…

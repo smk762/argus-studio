@@ -1,8 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type InputHTMLAttributes, type ReactNode } from "react";
 
-import { NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, randomSeed } from "@/lib/darkroom/compose";
+import { NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, parseTriggerWords, randomSeed } from "@/lib/darkroom/compose";
 import { THINKING_MODES, type ThinkingMode } from "@/lib/darkroomApi";
 
 import { useCompose } from "./ComposeProvider";
@@ -22,6 +22,53 @@ function Field({ label, htmlFor, hint, children }: { label: string; htmlFor?: st
       <div className="mt-1">{children}</div>
       {hint ? <p className="mt-1 text-xs text-muted">{hint}</p> : null}
     </div>
+  );
+}
+
+type DraftNumberProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "min" | "max" | "onChange" | "onBlur"> & {
+  value: number;
+  min: number;
+  max: number;
+  onValue: (value: number) => void;
+};
+
+/** A number field that lets a half-typed value sit in the box and passes on only what is inside the limits. Leaving it shows the value in force. */
+function DraftNumber({ value, min, max, onValue, ...input }: DraftNumberProps) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      {...input}
+      type="number"
+      min={min}
+      max={max}
+      value={draft ?? value}
+      onChange={(event) => {
+        const text = event.target.value;
+        setDraft(text);
+        const parsed = Number(text);
+        if (text !== "" && parsed >= min && parsed <= max) onValue(parsed);
+      }}
+      onBlur={() => setDraft(null)}
+    />
+  );
+}
+
+/** Keeps the text as typed, since the parsed words drop the comma or space a next word starts from. A change from outside the box replaces it. */
+function TriggerWordsInput({ name, words, onWords }: { name: string; words: string[]; onWords: (words: string[]) => void }) {
+  const [draft, setDraft] = useState(words.join(", "));
+  const current = parseTriggerWords(draft).join("\n") === words.join("\n");
+  return (
+    <input
+      type="text"
+      value={current ? draft : words.join(", ")}
+      placeholder="none"
+      aria-label={`Trigger words for ${name}`}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        onWords(parseTriggerWords(event.target.value));
+      }}
+      className={`${FIELD} w-36`}
+    />
   );
 }
 
@@ -77,27 +124,19 @@ export function ComposeForm() {
                 </span>
                 <label className="flex items-center gap-1 text-xs text-muted">
                   weight
-                  <input
-                    type="number"
+                  <DraftNumber
                     step="0.05"
-                    min="-2"
-                    max="2"
+                    min={-2}
+                    max={2}
                     value={lora.weight}
                     aria-label={`Weight for ${lora.name}`}
-                    onChange={(event) => update((current) => ({ ...current, loras: current.loras.map((entry, i) => (i === index ? { ...entry, weight: Number(event.target.value) } : entry)) }))}
+                    onValue={(weight) => update((current) => ({ ...current, loras: current.loras.map((entry, i) => (i === index ? { ...entry, weight } : entry)) }))}
                     className={`${FIELD} w-20`}
                   />
                 </label>
                 <label className="flex items-center gap-1 text-xs text-muted">
                   trigger words
-                  <input
-                    type="text"
-                    value={lora.trigger_words.join(", ")}
-                    placeholder="none"
-                    aria-label={`Trigger words for ${lora.name}`}
-                    onChange={(event) => update((current) => ({ ...current, loras: current.loras.map((entry, i) => (i === index ? { ...entry, trigger_words: event.target.value.split(",").map((word) => word.trim()).filter(Boolean) } : entry)) }))}
-                    className={`${FIELD} w-36`}
-                  />
+                  <TriggerWordsInput name={lora.name} words={lora.trigger_words} onWords={(trigger_words) => update((current) => ({ ...current, loras: current.loras.map((entry, i) => (i === index ? { ...entry, trigger_words } : entry)) }))} />
                 </label>
                 <Button small aria-label={`Remove ${lora.name}`} onClick={() => update((current) => ({ ...current, loras: current.loras.filter((_, i) => i !== index) }))}>
                   ×
@@ -147,7 +186,7 @@ export function ComposeForm() {
             </select>
           </Field>
           <Field label="Steps" htmlFor="steps">
-            <input id="steps" type="number" min={1} max={150} value={compose.sampling.steps} onChange={(event) => update((c) => ({ ...c, sampling: { ...c.sampling, steps: Math.max(1, Math.floor(Number(event.target.value) || 1)) } }))} className={FIELD} />
+            <DraftNumber id="steps" min={1} max={150} value={compose.sampling.steps} onValue={(steps) => update((c) => ({ ...c, sampling: { ...c.sampling, steps: Math.floor(steps) } }))} className={FIELD} />
           </Field>
           <Field label="CFG" htmlFor="cfg">
             <input id="cfg" type="number" min={0} max={30} step={0.5} value={compose.sampling.cfg} onChange={(event) => update((c) => ({ ...c, sampling: { ...c.sampling, cfg: Number(event.target.value) } }))} className={FIELD} />
@@ -197,7 +236,7 @@ export function ComposeForm() {
           </select>
         </Field>
         <Field label="NudeNet blur threshold" htmlFor="threshold" hint="Under an NSFW policy, an exposed score at or above this blurs the image until revealed. It changes the request, not a verdict.">
-          <input id="threshold" type="number" min={NSFW_THRESHOLD_MIN} max={NSFW_THRESHOLD_MAX} step={0.05} value={compose.nsfwThreshold} onChange={(event) => update({ nsfwThreshold: Math.min(NSFW_THRESHOLD_MAX, Math.max(NSFW_THRESHOLD_MIN, Number(event.target.value))) })} className={FIELD} />
+          <DraftNumber id="threshold" min={NSFW_THRESHOLD_MIN} max={NSFW_THRESHOLD_MAX} step={0.05} value={compose.nsfwThreshold} onValue={(nsfwThreshold) => update({ nsfwThreshold })} className={FIELD} />
         </Field>
       </div>
 

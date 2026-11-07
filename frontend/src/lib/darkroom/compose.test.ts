@@ -3,11 +3,19 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { canExpand, defaultCompose, enforceBlock, fromRecord, generateBlock, normaliseCompose, policyMode, toRequest } from "./compose";
+import { canExpand, defaultCompose, enforceBlock, fromRecord, generateBlock, normaliseCompose, parseTriggerWords, policyMode, toRequest } from "./compose";
 import { fixtureRecord } from "./fixture.test-util";
 import type { Health, Models, Policies } from "@/lib/darkroomApi";
 
 const FIXTURE = join(__dirname, "fixture");
+
+describe("parseTriggerWords", () => {
+  it("keeps multi-word triggers whole and drops empty entries", () => {
+    expect(parseTriggerWords(" oil painting, sks ,, ")).toEqual(["oil painting", "sks"]);
+    expect(parseTriggerWords("")).toEqual([]);
+  });
+});
+
 const policyFile = JSON.parse(readFileSync(join(FIXTURE, "policies.json"), "utf8")) as { default: string; policies: Omit<Policies["policies"][number], "enforceable">[] };
 const models = JSON.parse(readFileSync(join(FIXTURE, "models.json"), "utf8")) as Models;
 

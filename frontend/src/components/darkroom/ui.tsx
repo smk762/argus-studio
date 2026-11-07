@@ -21,8 +21,8 @@ export function Badge({ children, className = "", title }: { children: ReactNode
   );
 }
 
-export function Card({ children, className = "", as: Tag = "section" }: { children: ReactNode; className?: string; as?: "section" | "div" | "article" | "aside" }) {
-  return <Tag className={`rounded-lg border border-border/60 bg-surface p-4 ${className}`}>{children}</Tag>;
+export function Card({ children, className = "", as: Tag = "section", "aria-labelledby": labelledBy }: { children: ReactNode; className?: string; as?: "section" | "div" | "article" | "aside"; "aria-labelledby"?: string }) {
+  return <Tag aria-labelledby={labelledBy} className={`rounded-lg border border-border/60 bg-surface p-4 ${className}`}>{children}</Tag>;
 }
 
 export function SectionTitle({ children, className = "" }: { children: ReactNode; className?: string }) {

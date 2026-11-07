@@ -65,6 +65,13 @@ describe("live reducer", () => {
     expect(isRunning(state)).toBe(false);
   });
 
+  it("replaces the delivered record when darkroom changes it, and ignores any other", () => {
+    const record = fixtureRecord("fx-passed");
+    const state = liveReducer({ ...IDLE, phase: "complete", record }, { type: "record", record: { ...record, removed_at: "2026-11-07T00:00:00Z" } });
+    expect(state.record?.removed_at).toBe("2026-11-07T00:00:00Z");
+    expect(liveReducer(state, { type: "record", record: fixtureRecord("fx-failed") })).toBe(state);
+  });
+
   it("stays at pre-flight when the verdict refuses, and records an error", () => {
     let state = liveReducer(IDLE, { type: "start", request });
     state = liveReducer(state, { type: "preflight", preflight: preflight("refused") });

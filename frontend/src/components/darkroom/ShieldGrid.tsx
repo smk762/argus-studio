@@ -17,7 +17,6 @@ export function ShieldGrid({ guard, rows: given }: { guard: GridGuard; rows?: Po
   const rows = given ?? policyRows(guard);
   const contexts: ScanContext[] = ["isolated", "with_prompt"];
   return (
-    <div className="overflow-x-auto">
       <table className="w-full border-separate border-spacing-y-1 text-sm">
       <thead>
         <tr className="text-xs uppercase tracking-wide text-muted">
@@ -39,7 +38,7 @@ export function ShieldGrid({ guard, rows: given }: { guard: GridGuard; rows?: Po
           <tr key={row.policy} className="align-middle">
             <th scope="row" className="pr-3 text-left font-normal">
               <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="font-mono text-sm text-foreground">{row.policy}</span>
+                <span className="font-mono text-sm text-foreground [overflow-wrap:anywhere]">{row.policy}</span>
                 {row.enforcing ? (
                   <Badge className="border-accent-purple/60 text-accent-teal" title="Its verdict decides pre-flight and sets the mode">
                     enforcing
@@ -65,7 +64,6 @@ export function ShieldGrid({ guard, rows: given }: { guard: GridGuard; rows?: Po
         ))}
       </tbody>
       </table>
-    </div>
   );
 }
 

@@ -13,7 +13,7 @@ import { Notice, Spinner } from "./ui";
 
 /** `GET /record/{id}` and the result view for it. A generation that just finished shows its record while the fetch confirms it. */
 export function RecordView({ id }: { id: string }) {
-  const { live } = useCompose();
+  const { live, recordChanged } = useCompose();
   const { record: fetchRecord, sample } = useDarkroom();
   const { data: fetched, error, loading } = useLoad(`${id}|${sample}`, () => fetchRecord(id));
   // The record darkroom returned from DELETE /record/{id}, which supersedes the fetched one until the page changes.
@@ -30,7 +30,18 @@ export function RecordView({ id }: { id: string }) {
   return (
     <>
       {loading && !fetched ? <p className="sr-only">Confirming with darkroom…</p> : null}
-      <ResultView record={record} actions={<RecordActions record={record} onRemoved={setUpdated} />} />
+      <ResultView
+        record={record}
+        actions={
+          <RecordActions
+            record={record}
+            onRemoved={(next) => {
+              setUpdated(next);
+              recordChanged(next);
+            }}
+          />
+        }
+      />
     </>
   );
 }
