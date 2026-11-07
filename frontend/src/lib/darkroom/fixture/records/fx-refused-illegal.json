@@ -5,9 +5,8 @@
   "darkroom_version": "0.0.0+fixture",
   "outcome": "refused",
   "outcome_reason": "adult-granular:A",
-  "critical": true,
+  "critical": false,
   "removed_at": null,
-  "error": null,
   "request": {
     "mode": "nsfw",
     "user_prompt": "schoolgirl in uniform, suggestive pose",
@@ -16,15 +15,7 @@
     "negative_prompt": "blurry, low quality, text, watermark",
     "expansion": null,
     "seed": null,
-    "sampling": {
-      "sampler": "dpmpp_2m",
-      "scheduler": "karras",
-      "steps": 28,
-      "cfg": 5.5,
-      "clip_skip": 1,
-      "width": 512,
-      "height": 512
-    },
+    "sampling": null,
     "checkpoint": null,
     "vae": null,
     "loras": [],

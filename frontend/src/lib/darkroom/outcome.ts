@@ -1,6 +1,6 @@
 import { minorExposedText } from "./age";
 import { CONTEXT_LABEL, firedCell, reasonParts, uncheckedCell } from "./shields";
-import type { GenerationRecord, Outcome } from "@/lib/darkroomApi";
+import type { CellState, GenerationRecord, Outcome } from "@/lib/darkroomApi";
 
 export const OUTCOME_LABEL: Record<Outcome, string> = {
   passed: "Passed",
@@ -21,29 +21,38 @@ export const OUTCOME_TONE: Record<Outcome, string> = {
   failed: "text-foreground/70 border-border",
 };
 
+/**
+ * The line under the overall shield, for the worst cell in the grid. It speaks for SingGuard only: a record can be
+ * safe here and still be deleted or omitted, by the age rule or NudeNet.
+ */
+export const OVERALL_NOTE: Record<CellState, string> = {
+  safe: "SingGuard found no rule violations.",
+  unchecked: "SingGuard found no violations, but at least one scan did not complete.",
+  flagged: "SingGuard flagged a rule. The scans show where.",
+  illegal: "SingGuard found an illegal rule. The scans show where.",
+};
+
 export interface DeletedSummary {
   headline: string;
   lines: string[];
 }
 
-/** What a deleted tile says: every reason that applied, since a rule, the age rule and a failed check can land together. */
+function reasonLine(record: GenerationRecord, part: string): string {
+  if (part === "minor-exposed") return minorExposedText(record.guard.age);
+  if (part === "unchecked") {
+    const unchecked = uncheckedCell(record);
+    const where = unchecked ? `${CONTEXT_LABEL[unchecked.context].toLowerCase()} scan under ${unchecked.policy}` : "a scan under the enforcing policy";
+    const error = unchecked?.cell.error ? ` (${unchecked.cell.error})` : "";
+    return `The ${where} did not complete${error}. Darkroom fails closed: an unchecked enforcing cell deletes the image.`;
+  }
+  const fired = firedCell(record, part);
+  if (fired) return `Rule ${fired.rule} fired under ${fired.policy}, in the ${CONTEXT_LABEL[fired.context].toLowerCase()} scan.`;
+  return `Reason: ${part}.`;
+}
+
+/** What a deleted tile says: a line per reason, since rules, the age rule and a failed check can land together. */
 export function deletedSummary(record: GenerationRecord): DeletedSummary {
-  const parts = reasonParts(record.outcome_reason);
-  const lines: string[] = [];
-  const fired = firedCell(record);
-  if (fired?.cell.result) {
-    const rule = fired.cell.result.rules[0] ?? "a rule";
-    lines.push(`Rule ${rule} fired under ${fired.policy}, in the ${CONTEXT_LABEL[fired.context].toLowerCase()} scan.`);
-  }
-  if (parts.includes("minor-exposed")) lines.push(minorExposedText(record.guard.age));
-  if (parts.includes("unchecked")) {
-    const cell = uncheckedCell(record);
-    const where = cell ? `${CONTEXT_LABEL[cell.context].toLowerCase()} scan under ${cell.policy}` : "a scan under the enforcing policy";
-    const error = cell?.cell.error ? ` (${cell.cell.error})` : "";
-    lines.push(`The ${where} did not complete${error}. Darkroom fails closed: an unchecked enforcing cell deletes the image.`);
-  }
-  if (lines.length === 0 && record.outcome_reason) lines.push(`Reason: ${record.outcome_reason}.`);
-  return { headline: "This image was destroyed.", lines };
+  return { headline: "This image was destroyed.", lines: reasonParts(record.outcome_reason).map((part) => reasonLine(record, part)) };
 }
 
 /** What an omitted tile says. It must not read like a deletion. */

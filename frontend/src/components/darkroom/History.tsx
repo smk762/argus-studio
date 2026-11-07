@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 
-import { getRecords, imageUrl } from "@/lib/darkroomApi";
 import { OUTCOME_LABEL, OUTCOME_TONE, hasImage } from "@/lib/darkroom/outcome";
-import { allCells, overallState, promptChangedVerdict, ruleLetters } from "@/lib/darkroom/shields";
+import { REASON_WORDS, matchesRule, promptChangedVerdict, reasonParts, recordRules, rowVerdict, type RuleHit } from "@/lib/darkroom/shields";
 import { ago, formatWhen } from "@/lib/darkroom/time";
 import { OUTCOMES, type GenerationRecord, type Mode, type Outcome } from "@/lib/darkroomApi";
 import { useLoad } from "@/lib/darkroom/useLoad";
 
 import { useCompose } from "./ComposeProvider";
+import { useDarkroom } from "./DarkroomProvider";
 import { Shield } from "./Shield";
 import { Badge, Notice, Spinner } from "./ui";
 
@@ -20,14 +20,18 @@ interface HistoryFilter {
   mode: Mode | null;
   /** Only records where the isolated and with-prompt scans disagree. */
   changed: boolean;
+  /** A `policy:letter` code or a reason word, matched here because darkroom has no such filter. */
+  rule: string | null;
 }
 
-/** `GET /records`, filtered by outcome and mode on darkroom's side and by "Prompt changed the verdict" here. */
+/** `GET /records`, filtered by outcome and mode on darkroom's side and by "Prompt changed the verdict" and the rule here. */
 export function History() {
-  const [filter, setFilterState] = useState<HistoryFilter>({ outcome: null, mode: null, changed: false });
-  const { data, error } = useLoad(`${filter.outcome ?? ""}|${filter.mode ?? ""}`, () => getRecords({ outcome: filter.outcome, mode: filter.mode, pageSize: PAGE_SIZE }));
+  const [filter, setFilterState] = useState<HistoryFilter>({ outcome: null, mode: null, changed: false, rule: null });
+  const { records: fetchRecords, sample } = useDarkroom();
+  const { data, error } = useLoad(`${filter.outcome ?? ""}|${filter.mode ?? ""}|${sample}`, () => fetchRecords({ outcome: filter.outcome, mode: filter.mode, pageSize: PAGE_SIZE }));
   const fetched = data?.records ?? null;
-  const records = fetched && filter.changed ? fetched.filter(promptChangedVerdict) : fetched;
+  const narrowed = filter.changed || filter.rule != null;
+  const records = fetched?.filter((record) => (!filter.changed || promptChangedVerdict(record)) && (!filter.rule || matchesRule(record, filter.rule))) ?? null;
 
   const setFilter = (patch: Partial<HistoryFilter>) => {
     setFilterState((current) => ({ ...current, ...patch }));
@@ -40,7 +44,7 @@ export function History() {
           History
         </h1>
         <span className="text-sm text-foreground/70" aria-live="polite">
-          {records && fetched ? (filter.changed && fetched.length > 0 ? `${records.length} of ${fetched.length} record${fetched.length === 1 ? "" : "s"}` : `${records.length} record${records.length === 1 ? "" : "s"}`) : ""}
+          {records && fetched ? (narrowed && fetched.length > 0 ? `${records.length} of ${fetched.length} record${fetched.length === 1 ? "" : "s"}` : `${records.length} record${records.length === 1 ? "" : "s"}`) : ""}
         </span>
       </header>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2" role="group" aria-label="Filters">
@@ -55,6 +59,7 @@ export function History() {
             ["nsfw", "NSFW"],
           ]}
         />
+        <RuleSelect records={fetched ?? []} value={filter.rule} onChange={(rule) => setFilter({ rule })} />
         <label className="flex items-center gap-1.5 text-sm text-foreground" title="Only records where a policy's isolated and with-prompt scans disagree.">
           <input type="checkbox" checked={filter.changed} onChange={(event) => setFilter({ changed: event.target.checked })} className="accent-accent-purple" />
           <span>Prompt changed the verdict</span>
@@ -70,7 +75,7 @@ export function History() {
         </p>
       ) : null}
       {records && records.length === 0 ? (
-        <p className="text-sm text-foreground/70">{fetched && fetched.length > 0 && filter.changed ? "No record here where the prompt changed the verdict." : "No records match."}</p>
+        <p className="text-sm text-foreground/70">{fetched && fetched.length > 0 && narrowed ? "No record here matches these filters." : "No records match."}</p>
       ) : null}
       {records && records.length > 0 ? (
         <ul className="space-y-2">
@@ -80,6 +85,48 @@ export function History() {
         </ul>
       ) : null}
     </section>
+  );
+}
+
+/** The rules on the records in view, grouped by policy because a letter means something different under each one. */
+function RuleSelect({ records, value, onChange }: { records: GenerationRecord[]; value: string | null; onChange: (rule: string | null) => void }) {
+  const byPolicy = new Map<string, Map<string, RuleHit>>();
+  for (const record of records) {
+    for (const hit of recordRules(record)) {
+      if (!byPolicy.has(hit.policy)) byPolicy.set(hit.policy, new Map());
+      byPolicy.get(hit.policy)?.set(hit.code, hit);
+    }
+  }
+  const words = REASON_WORDS.filter((word) => records.some((record) => reasonParts(record.outcome_reason).includes(word)));
+  return (
+    <label className="flex items-center text-sm">
+      <span className="sr-only">Rule</span>
+      <select value={value ?? ""} onChange={(event) => onChange(event.target.value || null)} className="max-w-[320px] rounded-md border border-border/60 bg-surface px-2 py-1 text-sm text-foreground">
+        <option value="">All rules</option>
+        {[...byPolicy.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([policy, hits]) => (
+            <optgroup key={policy} label={policy}>
+              {[...hits.values()]
+                .sort((a, b) => a.rule.localeCompare(b.rule))
+                .map((hit) => (
+                  <option key={hit.code} value={hit.code}>
+                    {hit.policy} · {hit.rule}
+                  </option>
+                ))}
+            </optgroup>
+          ))}
+        {words.length > 0 ? (
+          <optgroup label="Other reasons">
+            {words.map((word) => (
+              <option key={word} value={word}>
+                {word}
+              </option>
+            ))}
+          </optgroup>
+        ) : null}
+      </select>
+    </label>
   );
 }
 
@@ -100,8 +147,7 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
 
 function HistoryRow({ record }: { record: GenerationRecord }) {
   const { openRecord } = useCompose();
-  const worst = overallState(record.guard);
-  const letters = worst ? ruleLetters(allCells(record.guard).find((cell) => cell.state === worst)?.result) : [];
+  const verdict = rowVerdict(record);
   const changed = promptChangedVerdict(record);
   return (
     <li>
@@ -122,7 +168,7 @@ function HistoryRow({ record }: { record: GenerationRecord }) {
             ≠
           </span>
         ) : null}
-        {worst ? <Shield state={worst} letters={letters} size="h-7 w-7" title={`Overall: ${worst}`} /> : <span className="w-7" />}
+        {verdict ? <Shield state={verdict.state} letters={verdict.letters} size="h-7 w-7" title={verdict.title} /> : <span className="w-7" />}
       </button>
     </li>
   );
@@ -130,12 +176,13 @@ function HistoryRow({ record }: { record: GenerationRecord }) {
 
 /** A thumbnail for a served image. Anything else gets a plain mark and no img element. */
 function Thumb({ record }: { record: GenerationRecord }) {
+  const { image } = useDarkroom();
   if (hasImage(record)) {
     const blur = record.guard.nudenet?.blur ?? false;
     return (
       <span className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-surface-hover">
         {/* eslint-disable-next-line @next/next/no-img-element -- loaded by record id from darkroom */}
-        <img src={imageUrl(record.id)} alt="" className={`h-full w-full object-cover ${blur ? "blur-md" : ""}`} draggable={false} />
+        <img src={image(record.id)} alt="" className={`h-full w-full object-cover ${blur ? "blur-md" : ""}`} draggable={false} />
       </span>
     );
   }

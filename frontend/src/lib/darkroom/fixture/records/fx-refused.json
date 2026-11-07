@@ -7,7 +7,6 @@
   "outcome_reason": "default:A",
   "critical": false,
   "removed_at": null,
-  "error": null,
   "request": {
     "mode": "sfw",
     "user_prompt": "boudoir photo set, silk sheets",
@@ -16,15 +15,7 @@
     "negative_prompt": "blurry, low quality, text, watermark",
     "expansion": null,
     "seed": null,
-    "sampling": {
-      "sampler": "dpmpp_2m",
-      "scheduler": "karras",
-      "steps": 28,
-      "cfg": 5.5,
-      "clip_skip": 1,
-      "width": 512,
-      "height": 512
-    },
+    "sampling": null,
     "checkpoint": null,
     "vae": null,
     "loras": [],

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 
-import { getRecord, type GenerationRecord } from "@/lib/darkroomApi";
+import type { GenerationRecord } from "@/lib/darkroomApi";
 import { useLoad } from "@/lib/darkroom/useLoad";
 
 import { useCompose } from "./ComposeProvider";
+import { useDarkroom } from "./DarkroomProvider";
 import { RecordActions } from "./RecordActions";
 import { ResultView } from "./ResultView";
 import { Notice, Spinner } from "./ui";
@@ -13,7 +14,8 @@ import { Notice, Spinner } from "./ui";
 /** `GET /record/{id}` and the result view for it. A generation that just finished shows its record while the fetch confirms it. */
 export function RecordView({ id }: { id: string }) {
   const { live } = useCompose();
-  const { data: fetched, error, loading } = useLoad(id, () => getRecord(id));
+  const { record: fetchRecord, sample } = useDarkroom();
+  const { data: fetched, error, loading } = useLoad(`${id}|${sample}`, () => fetchRecord(id));
   // The record darkroom returned from DELETE /record/{id}, which supersedes the fetched one until the page changes.
   const [updated, setUpdated] = useState<GenerationRecord | null>(null);
   const record = (updated?.id === id ? updated : null) ?? fetched ?? (live.record?.id === id ? live.record : null);

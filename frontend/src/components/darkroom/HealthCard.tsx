@@ -2,16 +2,10 @@
 
 import { darkroomUrl } from "@/lib/curatorEnv";
 
+import { BACKENDS } from "@/lib/darkroom/health";
+
 import { useDarkroom } from "./DarkroomProvider";
 import { Button, Card, SectionTitle, Spinner } from "./ui";
-
-const BACKENDS: { key: keyof NonNullable<ReturnType<typeof useDarkroom>["health"]>["backends"]; label: string; note: string }[] = [
-  { key: "singguard", label: "SingGuard", note: "Darkroom never runs unguarded; Generate waits for this." },
-  { key: "comfyui", label: "ComfyUI", note: "Renders the image." },
-  { key: "nudenet", label: "NudeNet", note: "Exposure score. Without it SFW generation is refused." },
-  { key: "ollama", label: "Ollama", note: "Optional prompt expansion. Never a guard." },
-  { key: "age", label: "Age check", note: "MiVOLO estimate from detected faces, when the extra is installed." },
-];
 
 /** What `/health` says about darkroom and the servers behind it. */
 export function HealthCard() {

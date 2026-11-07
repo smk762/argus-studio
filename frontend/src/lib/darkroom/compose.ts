@@ -42,6 +42,10 @@ export function enforceBlock(policy: PolicyInfo): string | null {
   return "SFW generation needs NudeNet, which this server does not have.";
 }
 
+function startingCheckpoint(models: Models | null): string {
+  return models?.default_checkpoint ?? models?.checkpoints[0]?.name ?? "";
+}
+
 export function defaultCompose(health: Health | null, policies: Policies | null, models: Models | null): ComposeState {
   const enforcing = policies?.default ?? health?.default_policy ?? "default";
   const thinking = (THINKING.includes(health?.thinking as ThinkingMode) ? health?.thinking : "cascade") as ThinkingMode;
@@ -49,7 +53,7 @@ export function defaultCompose(health: Health | null, policies: Policies | null,
     userPrompt: "",
     negativePrompt: DEFAULT_NEGATIVE,
     expand: false,
-    checkpoint: models?.checkpoints[0]?.name ?? "",
+    checkpoint: startingCheckpoint(models),
     loras: [],
     sampling: {
       ...DEFAULT_SAMPLING,
@@ -84,18 +88,23 @@ export function normaliseCompose(state: ComposeState, policies: Policies | null,
     if (advisory.length !== state.advisoryPolicies.length || advisory.some((name, index) => name !== state.advisoryPolicies[index])) next = { ...next, advisoryPolicies: advisory };
   }
   if (models) {
-    if (!models.checkpoints.some((checkpoint) => checkpoint.name === next.checkpoint)) next = { ...next, checkpoint: models.checkpoints[0]?.name ?? "" };
+    if (!models.checkpoints.some((checkpoint) => checkpoint.name === next.checkpoint)) next = { ...next, checkpoint: startingCheckpoint(models) };
     const loras = next.loras.filter((lora) => models.loras.some((known) => known.name === lora.name));
     if (loras.length !== next.loras.length) next = { ...next, loras };
   }
   return next;
 }
 
-export function toRequest(state: ComposeState): GenerateRequest {
+/** Whether a request may ask for expansion. The checkbox and `toRequest` both read this, so what the form shows is what is sent. */
+export function canExpand(health: Health | null): boolean {
+  return health == null || health.backends.ollama;
+}
+
+export function toRequest(state: ComposeState, expandable = true): GenerateRequest {
   return {
     user_prompt: state.userPrompt,
     negative_prompt: state.negativePrompt,
-    expand: state.expand,
+    expand: state.expand && expandable,
     enforcing_policy: state.enforcingPolicy,
     advisory_policies: state.advisoryPolicies,
     thinking: state.thinking,
@@ -107,7 +116,10 @@ export function toRequest(state: ComposeState): GenerateRequest {
   };
 }
 
-/** The form refilled from a record, seed held, so Regenerate repeats the run exactly. A refused record resolved no models, so those stay as they are. */
+/**
+ * The form refilled from a record, seed held, so Regenerate repeats the run exactly. A record refused in pre-flight
+ * resolved no models and may hold no seed or sampling, so for those the form keeps what it has and the seed stays free.
+ */
 export function fromRecord(record: GenerationRecord, base: ComposeState): ComposeState {
   const { request, guard } = record;
   return {
@@ -116,7 +128,7 @@ export function fromRecord(record: GenerationRecord, base: ComposeState): Compos
     negativePrompt: request.negative_prompt,
     expand: request.expanded_prompt != null,
     checkpoint: request.checkpoint?.name ?? base.checkpoint,
-    loras: request.loras.map((lora) => ({ name: lora.name, weight: lora.weight, trigger_words: [...(lora.trigger_words ?? [])] })),
+    loras: request.checkpoint ? request.loras.map((lora) => ({ name: lora.name, weight: lora.weight, trigger_words: [...(lora.trigger_words ?? [])] })) : base.loras,
     sampling: request.sampling ? { ...request.sampling } : base.sampling,
     seed: request.seed,
     seedLocked: request.seed != null,
@@ -131,11 +143,14 @@ export function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 32);
 }
 
+/** One wording, shared with the client's refusal. */
+export const READ_ONLY_BLOCK = DARKROOM_READ_ONLY_REASON;
+
 /** Generate is offered only when darkroom answers and SingGuard is reachable. The reason otherwise. */
 export function generateBlock(health: Health | null, error: string | null, state: ComposeState, policies: Policies | null): string | null {
   if (error) return `Darkroom is not reachable: ${error}`;
   if (!health) return "Waiting for darkroom's /health.";
-  if (health.read_only) return DARKROOM_READ_ONLY_REASON;
+  if (health.read_only) return READ_ONLY_BLOCK;
   if (!health.backends.singguard) return "SingGuard is unreachable. Darkroom never runs unguarded.";
   if (!health.backends.comfyui) return "ComfyUI is unreachable.";
   if (policyMode(policies, state.enforcingPolicy) === "sfw" && !health.sfw_available) return "SFW generation needs NudeNet, which this server does not have.";

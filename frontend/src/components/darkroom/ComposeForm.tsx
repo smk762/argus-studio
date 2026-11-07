@@ -2,8 +2,8 @@
 
 import type { ReactNode } from "react";
 
-import { NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, SIZES, generateBlock, randomSeed } from "@/lib/darkroom/compose";
-import { DARKROOM_READ_ONLY_REASON, THINKING_MODES, type ThinkingMode } from "@/lib/darkroomApi";
+import { NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, randomSeed } from "@/lib/darkroom/compose";
+import { THINKING_MODES, type ThinkingMode } from "@/lib/darkroomApi";
 
 import { useCompose } from "./ComposeProvider";
 import { useDarkroom } from "./DarkroomProvider";
@@ -29,7 +29,7 @@ function Field({ label, htmlFor, hint, children }: { label: string; htmlFor?: st
 export function ComposeForm() {
   const { health, policies, models, error } = useDarkroom();
   const { compose, ready, update, check, preflight, start, stop, running } = useCompose();
-  const ollamaDown = health != null && !health.backends.ollama;
+  const ollamaDown = !canExpand(health);
   const checking = preflight.state === "checking";
   const block = generateBlock(health, error, compose, policies);
   const readOnly = health?.read_only === true;
@@ -205,7 +205,7 @@ export function ComposeForm() {
         <Button
           onClick={() => void check()}
           disabled={!ready || checking || running || readOnly || !compose.userPrompt.trim()}
-          title={readOnly ? DARKROOM_READ_ONLY_REASON : !compose.userPrompt.trim() ? "Write a prompt first." : "POST /preflight: the text-only check, before anything is generated"}
+          title={readOnly ? READ_ONLY_BLOCK : !compose.userPrompt.trim() ? "Write a prompt first." : "POST /preflight: the text-only check, before anything is generated"}
         >
           {checking ? <Spinner /> : null}
           Check

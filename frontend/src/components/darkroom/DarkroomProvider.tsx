@@ -2,7 +2,21 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { getDarkroomHealth, getModels, getPolicies, type Health, type Models, type Policies } from "@/lib/darkroomApi";
+import { curatorUiMode } from "@/lib/curatorEnv";
+import {
+  getDarkroomHealth,
+  getModels,
+  getPolicies,
+  getRecord,
+  getRecords,
+  imageUrl,
+  type GenerationRecord,
+  type Health,
+  type Models,
+  type Policies,
+  type RecordPage,
+  type RecordQuery,
+} from "@/lib/darkroomApi";
 
 export interface Darkroom {
   health: Health | null;
@@ -12,7 +26,14 @@ export interface Darkroom {
   error: string | null;
   loading: boolean;
   reload: () => void;
+  /** True while the page shows the bundled sample: demo mode with no darkroom answering. */
+  sample: boolean;
+  records: (query: RecordQuery) => Promise<RecordPage>;
+  record: (id: string) => Promise<GenerationRecord>;
+  image: (id: string) => string;
 }
+
+type Sample = typeof import("@/lib/darkroom/sample");
 
 const DarkroomContext = createContext<Darkroom | null>(null);
 
@@ -24,6 +45,7 @@ export function DarkroomProvider({ children }: { children: ReactNode }) {
   const [policies, setPolicies] = useState<Policies | null>(null);
   const [models, setModels] = useState<Models | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sample, setSample] = useState<Sample | null>(null);
   const [tick, setTick] = useState(0);
   const [loadedTick, setLoadedTick] = useState(-1);
   const loading = loadedTick !== tick;
@@ -39,9 +61,20 @@ export function DarkroomProvider({ children }: { children: ReactNode }) {
         setHealth(nextHealth);
         setPolicies(nextPolicies);
         setModels(nextModels);
+        setSample(null);
         setError(null);
       } catch (caught) {
         if (cancelled) return;
+        if (curatorUiMode() === "demo") {
+          const bundled = await import("@/lib/darkroom/sample");
+          if (cancelled) return;
+          setHealth(bundled.SAMPLE_HEALTH);
+          setPolicies(bundled.SAMPLE_POLICIES);
+          setModels(bundled.SAMPLE_MODELS);
+          setSample(bundled);
+          setError(null);
+          return;
+        }
         setError(caught instanceof Error ? caught.message : String(caught));
       } finally {
         if (!cancelled) setLoadedTick(tick);
@@ -53,6 +86,8 @@ export function DarkroomProvider({ children }: { children: ReactNode }) {
   }, [tick]);
 
   useEffect(() => {
+    // The sample has no server to poll. Refresh looks for one again.
+    if (sample) return;
     const timer = setInterval(async () => {
       try {
         const next = await getDarkroomHealth();
@@ -63,9 +98,23 @@ export function DarkroomProvider({ children }: { children: ReactNode }) {
       }
     }, HEALTH_POLL_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [sample]);
 
-  const value = useMemo<Darkroom>(() => ({ health, policies, models, error, loading, reload }), [health, policies, models, error, loading, reload]);
+  const value = useMemo<Darkroom>(
+    () => ({
+      health,
+      policies,
+      models,
+      error,
+      loading,
+      reload,
+      sample: sample != null,
+      records: (query) => (sample ? Promise.resolve(sample.sampleRecords(query)) : getRecords(query)),
+      record: (id) => (sample ? Promise.resolve().then(() => sample.sampleRecord(id)) : getRecord(id)),
+      image: (id) => (sample ? sample.sampleImageUrl(id) : imageUrl(id)),
+    }),
+    [health, policies, models, error, loading, reload, sample],
+  );
   return <DarkroomContext.Provider value={value}>{children}</DarkroomContext.Provider>;
 }
 

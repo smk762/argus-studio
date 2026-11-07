@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 
 import { generate, preflight as runPreflight, type Preflight } from "@/lib/darkroomApi";
-import { defaultCompose, normaliseCompose, toRequest, type ComposeState } from "@/lib/darkroom/compose";
+import { canExpand, defaultCompose, normaliseCompose, toRequest, type ComposeState } from "@/lib/darkroom/compose";
 import { IDLE, isRunning, liveReducer, type LiveState } from "@/lib/darkroom/live";
 
 import { useDarkroom } from "./DarkroomProvider";
@@ -73,13 +73,19 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
     setCompose((current) => (typeof patch === "function" ? patch(current) : { ...current, ...patch }));
   }, []);
 
-  const replace = useCallback((next: ComposeState) => {
-    touched.current = true;
-    setCompose(next);
-  }, []);
+  // A record can name a model or a policy this server no longer offers.
+  const replace = useCallback(
+    (next: ComposeState) => {
+      touched.current = true;
+      setCompose(normaliseCompose(next, policies, models));
+    },
+    [policies, models],
+  );
+
+  const expandable = canExpand(health);
 
   const check = useCallback(async () => {
-    const request = toRequest(compose);
+    const request = toRequest(compose, expandable);
     const key = JSON.stringify(request);
     setPreflight({ state: "checking", result: null, error: null, forRequest: key });
     try {
@@ -90,13 +96,13 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
       setPreflight({ state: "error", result: null, error: caught instanceof Error ? caught.message : String(caught), forRequest: key });
       return null;
     }
-  }, [compose]);
+  }, [compose, expandable]);
 
   const running = isRunning(live);
 
   const start = useCallback(() => {
     if (controller.current) return;
-    const request = toRequest(compose);
+    const request = toRequest(compose, expandable);
     const abort = new AbortController();
     controller.current = abort;
     dispatch({ type: "start", request });
@@ -127,7 +133,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         controller.current = null;
       });
-  }, [compose]);
+  }, [compose, expandable]);
 
   const stop = useCallback(() => controller.current?.abort(), []);
   const clearLive = useCallback(() => {
@@ -137,7 +143,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
   const openRecord = useCallback((id: string) => setRecordId(id), []);
   const closeRecord = useCallback(() => setRecordId(null), []);
 
-  const preflightCurrent = preflight.forRequest === JSON.stringify(toRequest(compose));
+  const preflightCurrent = preflight.forRequest === JSON.stringify(toRequest(compose, expandable));
 
   const value = useMemo<Compose>(
     () => ({ compose, ready, update, replace, preflight, check, preflightCurrent, live, running, start, stop, clearLive, view, setView, recordId, openRecord, closeRecord }),

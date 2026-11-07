@@ -1,6 +1,6 @@
 "use client";
 
-import { OUTCOME_LABEL, OUTCOME_TONE, hasImage } from "@/lib/darkroom/outcome";
+import { OUTCOME_LABEL, OUTCOME_TONE, OVERALL_NOTE, hasImage } from "@/lib/darkroom/outcome";
 import { allCells, overallState, ruleLetters } from "@/lib/darkroom/shields";
 import { ago, formatWhen } from "@/lib/darkroom/time";
 import type { GenerationRecord } from "@/lib/darkroomApi";
@@ -53,7 +53,7 @@ export function ResultView({ record, actions }: { record: GenerationRecord; acti
               <Shield state={worst} letters={worstLetters} size="h-10 w-10" title={`Overall: ${worst}`} />
               <div>
                 <p className="text-sm font-medium capitalize text-foreground">Overall: {worst}</p>
-                <p className="text-xs text-muted">The worst cell in the grid.</p>
+                <p className="text-xs text-muted">{OVERALL_NOTE[worst]}</p>
               </div>
             </div>
           ) : null}

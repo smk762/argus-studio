@@ -77,8 +77,9 @@ export interface RecordRequest {
   final_prompt: string;
   negative_prompt: string;
   expansion: { model: string; system_prompt_sha256: string } | null;
-  /** Null on a record refused in pre-flight, like the fields below: nothing was resolved or hashed. */
+  /** Null on a record refused in pre-flight unless the request held a seed: none was drawn. */
   seed: number | null;
+  /** This and the fields below are null on a record refused in pre-flight: nothing was resolved or hashed. `loras` is empty. */
   sampling: SamplingParams | null;
   checkpoint: ModelRef | null;
   vae: ModelRef | null;
@@ -135,13 +136,13 @@ export interface GenerationRecord {
   darkroom_version: string;
   outcome: Outcome;
   /**
-   * Comma-joined when more than one applies: `policy:letter` rule codes ("default:B"), "illegal", "minor-exposed",
-   * "unchecked"; or "sfw-exposed", "sfw-unchecked", the generation error, or null. Read it with `reasonParts`.
+   * Refused, deleted and review records join every reason with ", ": `policy:letter` codes, and for a deletion
+   * "minor-exposed" and "unchecked" ("adult-granular:A, minor-exposed"). Read those with `reasonParts`. Otherwise
+   * "unchecked", "sfw-exposed", "sfw-unchecked", the generation error, or null.
    */
   outcome_reason: string | null;
   critical: boolean;
   removed_at: string | null;
-  error: string | null;
   request: RecordRequest;
   guard: GuardBlock;
   /** Null for refused and failed records: nothing was rendered. */
@@ -200,6 +201,8 @@ export interface ModelOption {
 }
 
 export interface Models {
+  /** The one a form starts on, resolved by darkroom. Null when its setting matches nothing. */
+  default_checkpoint: string | null;
   checkpoints: ModelOption[];
   loras: ModelOption[];
   vaes: ModelOption[];
@@ -250,6 +253,8 @@ export interface PreflightWarning {
 }
 
 export interface Preflight {
+  /** False from `POST /preflight`, which never expands: an expansion differs per run. Absent on the stream's `preflight` event, which judged the real one. */
+  expansion_applied?: boolean;
   mode: Mode;
   enforcing_policy: string;
   advisory_policies: string[];
@@ -339,6 +344,9 @@ export function getRecords(query: RecordQuery = {}, signal?: AbortSignal): Promi
 }
 
 /** Images load by record id only. A deleted, omitted or refused record answers 404 here. */
+/** The most `GET /records` serves at once. Darkroom answers 422 above it. */
+export const MAX_PAGE_SIZE = 200;
+
 export const imageUrl = (id: string): string => `${darkroomUrl()}/image/${encodeURIComponent(id)}`;
 export const archiveUrl = (): string => `${darkroomUrl()}/archive`;
 

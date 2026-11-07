@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 
-import { imageUrl } from "@/lib/darkroomApi";
 import { deletedSummary, omittedSummary } from "@/lib/darkroom/outcome";
 import { ruleLetters } from "@/lib/darkroom/shields";
 import type { Cell, GenerationRecord } from "@/lib/darkroomApi";
 
+import { useDarkroom } from "./DarkroomProvider";
 import { PreflightColumn } from "./ShieldGrid";
 import { Badge, Button, Notice } from "./ui";
 
@@ -14,6 +14,7 @@ const TILE = "aspect-square w-full max-w-[512px] rounded-lg";
 
 /** A served image. Blurred when darkroom set `blur`, until the user reveals it; the img stays in the DOM. */
 export function ImageTile({ record }: { record: GenerationRecord }) {
+  const { image } = useDarkroom();
   const blur = record.guard.nudenet?.blur ?? false;
   const [revealed, setRevealed] = useState(false);
   const hidden = blur && !revealed;
@@ -21,7 +22,7 @@ export function ImageTile({ record }: { record: GenerationRecord }) {
     <figure className={`relative overflow-hidden border border-border/60 bg-surface-hover ${TILE}`}>
       {/* eslint-disable-next-line @next/next/no-img-element -- loaded by record id from darkroom, not a static asset */}
       <img
-        src={imageUrl(record.id)}
+        src={image(record.id)}
         alt={`Image for record ${record.id}: ${record.request.user_prompt}`}
         width={record.image?.width}
         height={record.image?.height}
@@ -86,7 +87,7 @@ export function FailedTile({ record }: { record: GenerationRecord }) {
     <div role="group" aria-label="Failed generation" className={`flex flex-col justify-center gap-3 border border-border bg-surface p-6 ${TILE}`}>
       <Badge className="w-fit border-border text-foreground/70">failed</Badge>
       <p className="text-subheading font-semibold text-foreground">Generation failed.</p>
-      <p className="break-words text-sm text-foreground/70">{record.error ?? record.outcome_reason ?? "Darkroom did not say why."}</p>
+      <p className="break-words text-sm text-foreground/70">{record.outcome_reason ?? "Darkroom did not say why."}</p>
       <p className="text-xs text-muted">No image was produced. The record keeps the request, so the same seed can be run again.</p>
     </div>
   );

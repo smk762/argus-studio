@@ -90,26 +90,43 @@ export function overallState(guard: Pick<GenerationRecord["guard"], "scans">): C
   return worst === "pending" ? null : worst;
 }
 
+export interface RowVerdict {
+  state: CellState;
+  letters: string[];
+  title: string;
+}
+
+/** The shield on a history row: the worst scan cell, or for a refusal, which has no scans, the worst pre-flight cell. */
+export function rowVerdict(record: Pick<GenerationRecord, "outcome" | "guard">): RowVerdict | null {
+  const refused = record.outcome === "refused";
+  const cells = refused ? Object.values(record.guard.preflight ?? {}) : allCells(record.guard);
+  const state = worstState(cells.map((cell) => cell.state));
+  if (state == null || state === "pending") return null;
+  return { state, letters: ruleLetters(cells.find((cell) => cell.state === state)?.result), title: `${refused ? "Pre-flight" : "Overall"}: ${state}` };
+}
+
 export interface FiredCell {
   policy: string;
   context: ScanContext;
   cell: Cell;
 }
 
-/** A record's `outcome_reason`, which joins every reason that applied ("default:A, minor-exposed"). */
-export function reasonParts(reason: string | null | undefined): string[] {
-  return (reason ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+export interface FiredRule extends FiredCell {
+  /** The rule as the policy names it: "H. Non-Consensual Sexual Content". */
+  rule: string;
 }
 
 const CONTEXTS: readonly ScanContext[] = ["isolated", "with_prompt"];
 
-/** A `policy:letter` code split in two. A word such as "minor-exposed" is not a code. */
-function ruleCode(part: string): { policy: string; letter: string } | null {
-  const split = part.lastIndexOf(":");
-  return split > 0 ? { policy: part.slice(0, split), letter: part.slice(split + 1) } : null;
+/** A record's `outcome_reason`, which joins every reason that applied ("default:A, minor-exposed"). */
+export function reasonParts(reason: string | null | undefined): string[] {
+  return (reason ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
-/** The first enforcing scan cell that could not be read, which is what `unchecked` means. */
+/** The first enforcing scan cell that could not be read, which is what the `unchecked` reason means. */
 export function uncheckedCell(record: Pick<GenerationRecord, "guard">): FiredCell | null {
   for (const row of policyRows(record.guard)) {
     if (!row.enforcing || !row.pair) continue;
@@ -121,22 +138,63 @@ export function uncheckedCell(record: Pick<GenerationRecord, "guard">): FiredCel
   return null;
 }
 
-/** The scan cell behind the record's first rule code: an illegal cell before a flagged one. */
-export function firedCell(record: Pick<GenerationRecord, "outcome_reason" | "guard">): FiredCell | null {
-  const codes = reasonParts(record.outcome_reason).flatMap((part) => ruleCode(part) ?? []);
-  const rows = policyRows(record.guard);
-  for (const code of codes) {
-    for (const wanted of ["illegal", "flagged"] as const) {
-      for (const row of rows) {
-        if (row.policy !== code.policy || !row.pair) continue;
-        for (const context of CONTEXTS) {
-          const cell = row.pair[context];
-          if (cell?.state === wanted && ruleLetters(cell.result).includes(code.letter)) return { policy: row.policy, context, cell };
-        }
-      }
+/**
+ * The scan cell behind one `policy:letter` code from `reasonParts`: an illegal cell before a flagged one. Only that
+ * policy's row is read, because a letter means something different under each policy. Null for a word such as
+ * "minor-exposed", and for a code no cell carries.
+ */
+export function firedCell(record: Pick<GenerationRecord, "guard">, code: string): FiredRule | null {
+  const split = code.indexOf(":");
+  if (split <= 0) return null;
+  const policy = code.slice(0, split);
+  const letter = ruleLetter(code.slice(split + 1));
+  const pair = policyRows(record.guard).find((row) => row.policy === policy)?.pair;
+  if (!pair) return null;
+  for (const wanted of ["illegal", "flagged"] as const) {
+    for (const context of CONTEXTS) {
+      const cell = pair[context];
+      const rule = cell?.state === wanted ? cell.result?.rules.find((name) => ruleLetter(name) === letter) : undefined;
+      if (cell && rule) return { policy, context, cell, rule };
     }
   }
   return null;
+}
+
+export interface RuleHit {
+  /** `policy:letter`, as darkroom writes a rule into `outcome_reason`. */
+  code: string;
+  policy: string;
+  /** The rule as the policy names it. */
+  rule: string;
+}
+
+/** The reasons a record can carry that are not a policy's rule. */
+export const REASON_WORDS: readonly string[] = ["minor-exposed", "unchecked", "sfw-exposed", "sfw-unchecked"];
+
+/** Every rule that fired on a record, in any cell: pre-flight or scan, enforcing or advisory. */
+export function recordRules(record: Pick<GenerationRecord, "guard">): RuleHit[] {
+  const { preflight, scans } = record.guard;
+  const cells: [string, Cell | null][] = [
+    ...Object.entries(preflight ?? {}),
+    ...Object.entries(scans ?? {}).flatMap(([policy, pair]): [string, Cell | null][] => [
+      [policy, pair.isolated],
+      [policy, pair.with_prompt],
+    ]),
+  ];
+  const hits = new Map<string, RuleHit>();
+  for (const [policy, cell] of cells) {
+    for (const rule of cell?.result?.rules ?? []) {
+      const code = `${policy}:${ruleLetter(rule)}`;
+      if (!hits.has(code)) hits.set(code, { code, policy, rule });
+    }
+  }
+  return [...hits.values()];
+}
+
+/** Whether a record matches the history's rule filter: a rule that fired on it, or a word in its reason. */
+export function matchesRule(record: Pick<GenerationRecord, "outcome_reason" | "guard">, wanted: string): boolean {
+  if (REASON_WORDS.includes(wanted)) return reasonParts(record.outcome_reason).includes(wanted);
+  return recordRules(record).some((hit) => hit.code === wanted);
 }
 
 export const CONTEXT_LABEL: Record<ScanContext, string> = { isolated: "Isolated", with_prompt: "With prompt" };

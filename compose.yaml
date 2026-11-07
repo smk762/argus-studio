@@ -374,7 +374,7 @@ services:
     # and no SingGuard is bundled here. The URL has no `:?` guard either, because
     # that would fail every other profile too.
     profiles: ["darkroom"]
-    image: ghcr.io/smk762/argus-darkroom:${DARKROOM_TAG:-0.1.0}
+    image: ghcr.io/smk762/argus-darkroom:${DARKROOM_TAG:-0.1.1}
     ports:
       # Loopback by default: darkroom is not for public hosting.
       - "${DARKROOM_PUBLISH:-127.0.0.1:8106}:8106"
@@ -390,6 +390,8 @@ services:
       ARGUS_DARKROOM_OLLAMA_URL: ${DARKROOM_OLLAMA_URL:-}
       ARGUS_DARKROOM_OLLAMA_MODEL: ${DARKROOM_OLLAMA_MODEL:-}
       ARGUS_DARKROOM_THINKING: ${DARKROOM_THINKING:-cascade}
+      # The checkpoint a form starts on: a name, or a folder under checkpoints/.
+      ARGUS_DARKROOM_DEFAULT_CHECKPOINT: ${DARKROOM_DEFAULT_CHECKPOINT:-sdxl}
       ARGUS_DARKROOM_ALLOW_NSFW: ${DARKROOM_ALLOW_NSFW:-0}
       ARGUS_DARKROOM_READ_ONLY: ${DARKROOM_READ_ONLY:-0}
       # Name each origin: a wildcard allows reads and refuses every write.

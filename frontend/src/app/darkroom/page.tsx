@@ -30,7 +30,7 @@ const TABS: { view: DarkroomView; label: string }[] = [
 ];
 
 function DarkroomStage() {
-  const { health, error } = useDarkroom();
+  const { health, error, sample } = useDarkroom();
   const { view, setView, recordId, closeRecord } = useCompose();
   // null = loading, "" = unreachable, else the server version.
   const version = error ? "" : (health?.version ?? null);
@@ -42,13 +42,17 @@ function DarkroomStage() {
         logo={{ letter: "D" }}
         title="Argus Darkroom"
         subtitle="Guarded image generation, with a record of every attempt"
-        badge={<ApiVersionBadge label="argus-darkroom" version={version} prefix="v" />}
+        badge={<ApiVersionBadge label="argus-darkroom" version={version} prefix={sample ? "" : "v"} />}
       />
 
       <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <aside className="space-y-4">
           <HealthCard />
-          {health?.read_only ? <CapabilityNotice reason={DARKROOM_READ_ONLY_REASON} /> : null}
+          {sample ? (
+            <CapabilityNotice reason="No darkroom is answering, so this is a bundled read-only sample: canned verdicts on flat drawings. Start the darkroom profile to generate." />
+          ) : health?.read_only ? (
+            <CapabilityNotice reason={DARKROOM_READ_ONLY_REASON} />
+          ) : null}
           <Card>
             <ComposeForm />
           </Card>
@@ -70,13 +74,15 @@ function DarkroomStage() {
                 {tab.label}
               </Button>
             ))}
-            <a
-              href={archiveUrl()}
-              className="ml-auto text-xs text-muted underline decoration-border underline-offset-2 hover:text-foreground"
-              title="Every record and stored image, as a zip"
-            >
-              Download archive
-            </a>
+            {sample ? null : (
+              <a
+                href={archiveUrl()}
+                className="ml-auto text-xs text-muted underline decoration-border underline-offset-2 hover:text-foreground"
+                title="Every record and stored image, as a zip"
+              >
+                Download archive
+              </a>
+            )}
           </nav>
 
           {recordId ? <RecordView id={recordId} /> : view === "history" ? <History /> : <ComposePane />}
