@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   allowsBake,
+  allowsGdal,
+  allowsOsm,
   getAtlasHealth,
   getInputs,
   getJob,
@@ -18,6 +20,8 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { NewCanvas } from "@/components/atlas/NewCanvas";
 import { JobView, STATUS_DOT } from "@/components/atlas/JobView";
+import { JobBadges } from "@/components/atlas/JobBadges";
+import { DoctorPanel } from "@/components/atlas/DoctorPanel";
 
 export default function AtlasPage() {
   // version: null = loading, "" = unreachable, else the server version.
@@ -95,7 +99,14 @@ export default function AtlasPage() {
     [selected, loadJob],
   );
 
+  // After POST /osm: the new extract is only named by /inputs.
+  const reloadInputs = useCallback(async () => {
+    setInputs(await getInputs());
+  }, []);
+
   const canBake = allowsBake(health);
+  const canGdal = allowsGdal(health);
+  const canOsm = allowsOsm(health);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -125,7 +136,14 @@ export default function AtlasPage() {
                 GDAL is missing on the atlas host, so it cannot build controls or tiles. Use the Docker image, which ships GDAL 3.11.
               </p>
             )}
-            <NewCanvas inputs={inputs} onCreated={(id) => void refresh(id)} />
+            <DoctorPanel />
+            <NewCanvas
+              inputs={inputs}
+              canGdal={canGdal}
+              canOsm={canOsm}
+              onCreated={(id) => void refresh(id)}
+              onInputsChanged={reloadInputs}
+            />
             <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
               {/* Scrolls on its own beside the job view: a working host holds dozens of canvases. */}
               <aside className="space-y-1 lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
@@ -147,6 +165,7 @@ export default function AtlasPage() {
                         {j.width}×{j.height} · {j.resolution.toFixed(0)} m/px · z{j.native_zoom}
                         {j.layers.length > 0 ? ` · ${j.layers.length} layers` : ""}
                       </span>
+                      <JobBadges chunk={j.chunk} recipe={j.recipe} className="mt-1" />
                     </span>
                   </button>
                 ))}
@@ -160,6 +179,7 @@ export default function AtlasPage() {
                     job={job}
                     presets={presets}
                     canBake={canBake}
+                    canGdal={canGdal}
                     onChanged={() => void refresh(job.job_id)}
                   />
                 )}

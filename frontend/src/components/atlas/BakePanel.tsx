@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { bakeStream, type AtlasPreset, type BakeProgress } from "@/lib/atlasApi";
 import { permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
-import { Field, inputClass } from "@/components/atlas/NewCanvas";
+import { Field, inputClass } from "@/components/atlas/fields";
 
 /**
  * Bake one job through the host's diffusion backend (`POST /bake/stream`),
- * streaming atlas's `controls → generate → georeference → done | error` frames.
+ * streaming atlas's `controls → generate → georeference → done | error` frames
+ * (and `tiles` after `done`, should the server ever send them here).
  *
  * The preset menu is the demo-friendly path: a preset fills prompt, negative,
  * denoise, cfg and steps on the server, so the form only needs a checkpoint.
@@ -19,11 +20,14 @@ export function BakePanel({
   jobId,
   presets,
   canBake,
+  recipe,
   onBaked,
 }: {
   jobId: string;
   presets: AtlasPreset[];
   canBake: Capability;
+  /** The recipe a chunk was baked from: a bake from here can't keep it. */
+  recipe?: string;
   onBaked: () => void;
 }) {
   const [preset, setPreset] = useState("antique");
@@ -88,6 +92,17 @@ export function BakePanel({
               Live baking is disabled on this host: it paints on a GPU through ComfyUI. Stored bakes, previews and
               archives stay viewable. To enable it, start the server with{" "}
               <span className="font-mono">ATLAS_ALLOW_BAKE=1</span>.
+            </>
+          }
+        />
+      )}
+      {recipe && (
+        <CapabilityNotice
+          reason={
+            <>
+              This chunk was baked from recipe <span className="font-mono">{recipe}</span>. Baking it here paints from
+              other params, so atlas drops the recipe from the job and later chunks stop matching it. Re-run{" "}
+              <span className="font-mono">argus-atlas chunk --recipe {recipe}</span> to keep it.
             </>
           }
         />
