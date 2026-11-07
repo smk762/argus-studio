@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { attributeLine, bodyAgeLines, checkWarnings, garmentRows, sceneRows } from "@/lib/curatorAttributes";
 import { canExport, exportBlockReason, thumbSafety } from "@/lib/curatorSafety";
 import { SafeThumb } from "./SafeThumb";
-import { breakdownTooltip, statusExplanation } from "./imageExplain";
+import { breakdownTooltip, cropRows, statusExplanation } from "./imageExplain";
 import { POSE_LABELS, type ImageResult } from "./types";
 
 interface Props {
@@ -43,6 +44,9 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], img, list, sel
   const exportable = canExport(img);
   const blocked = exportBlockReason(img);
   const safety = thumbSafety(img, nsfwRan, pending);
+  const crop = cropRows(img);
+  const bodies = bodyAgeLines(img);
+  const warnings = checkWarnings(img);
 
   return (
     <div
@@ -140,6 +144,7 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], img, list, sel
                   ["pHash", img.phash],
                 ]}
               />
+              {crop && <StatBlock title="Crop" rows={crop} />}
               {(img.group_size > 1 || img.is_duplicate) && (
                 <StatBlock
                   title="Near-duplicate cluster"
@@ -184,11 +189,33 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], img, list, sel
                         <span className="ml-2 text-muted">det {f.det_score.toFixed(2)}</span>
                         {f.pose && <span className="ml-2 text-accent-purple">{POSE_LABELS[f.pose]}</span>}
                         {f.primary && <span className="ml-2 text-accent-teal">primary</span>}
+                        {attributeLine(f.attributes) && (
+                          <span className="mt-0.5 block text-muted">{attributeLine(f.attributes)}</span>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
+              {(bodies.length > 0 || img.set_age) && (
+                <StatBlock
+                  title="Ages without a face"
+                  rows={[
+                    ...bodies.map((line, i): [string, string] => [`Person ${i + 1}`, line]),
+                    ...(img.set_age ? ([["Set age", `≈${Math.round(img.set_age.years)}y, from the set`]] as [string, string][]) : []),
+                  ]}
+                />
+              )}
+              {warnings.length > 0 && (
+                <div className="rounded-xl border border-accent-orange/30 bg-accent-orange/5 p-4 text-xs leading-relaxed text-accent-orange">
+                  {warnings.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+              )}
+              <StatBlock title="Scene" rows={sceneRows(img.scene)} />
+              <StatBlock title="Garments" rows={garmentRows(img.garments)} />
 
               <ScoreBreakdown img={img} />
 

@@ -17,7 +17,6 @@ import { IngestPanel } from "@/components/curator/IngestPanel";
 import {
   defaultCuratorConfig,
   defaultFilters,
-  matchesFilters,
   type CuratorConfig,
   type CuratorFilters,
   type Detectors,
@@ -48,7 +47,9 @@ import {
   type ScanProgress,
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
+import { matchesFilters } from "@/lib/curatorFacets";
 import { canExport, isMinorExposed, scanCheckedNsfw } from "@/lib/curatorSafety";
+import { scanFormProblem } from "@/lib/curatorScanForm";
 import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
 import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
 import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
@@ -502,13 +503,13 @@ export default function CuratePage() {
     });
   }, [summary]);
 
-  const filtered = useMemo(
-    () => {
-      if (!summary) return [];
-      const active = knownClusterFilters(filters, summary);
-      return summary.results.filter((r) => matchesFilters(r, active));
-    },
+  const activeFilters = useMemo(
+    () => (summary ? knownClusterFilters(filters, summary) : filters),
     [summary, filters],
+  );
+  const filtered = useMemo(
+    () => summary?.results.filter((r) => matchesFilters(r, activeFilters)) ?? [],
+    [summary, activeFilters],
   );
   const minorExposed = useMemo(() => summary?.results.filter(isMinorExposed) ?? [], [summary]);
 
@@ -525,6 +526,7 @@ export default function CuratePage() {
       return new Set([...prev].filter((relPath) => visible.has(relPath)));
     });
   const clearSelection = () => setSelected(new Set());
+  const formProblem = scanFormProblem(config, detectors);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -583,11 +585,13 @@ export default function CuratePage() {
                   />
                   <button
                     type="submit"
-                    disabled={loading || purging || !folderPath.trim()}
+                    disabled={loading || purging || !folderPath.trim() || formProblem !== null}
+                    title={formProblem ?? undefined}
                     className="w-full cursor-pointer rounded-lg bg-accent-teal px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-teal/90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {loading ? "Scanning…" : "Scan folder"}
                   </button>
+                  {formProblem && <p className="text-[11px] leading-relaxed text-accent-orange/90">{formProblem}</p>}
                   <ScanControlButtons
                     scanning={scanning}
                     scanId={scanId}
@@ -601,7 +605,7 @@ export default function CuratePage() {
                 </div>
                 <div className="rounded-xl border border-border bg-surface p-4">
                   {detectors && <DetectorBadges detectors={detectors} />}
-                  <ScanConfigPanel value={config} onChange={setConfig} loading={loading} />
+                  <ScanConfigPanel value={config} onChange={setConfig} loading={loading} detectors={detectors} health={health} />
                 </div>
               </form>
 
@@ -694,6 +698,8 @@ export default function CuratePage() {
                     summary={summary}
                     selectedResults={selectedResults}
                     health={health}
+                    filters={activeFilters}
+                    onUseKeepSet={(paths) => setSelected(new Set(paths))}
                     onMoved={dropGone}
                   />
                 )}
@@ -1061,6 +1067,11 @@ const DETECTOR_INFO: { key: keyof Detectors; label: string; hint: string }[] = [
   { key: "clip", label: "clip", hint: "CLIP embeddings — powers the diversity weighting" },
   { key: "insightface", label: "faces", hint: "InsightFace — face detection, pose buckets, identity clustering" },
   { key: "onnxruntime", label: "onnx", hint: "ONNX runtime for the face models" },
+  { key: "fairface", label: "fairface", hint: "FairFace — predicted race, gender and age bracket" },
+  { key: "mivolo", label: "mivolo", hint: "MiVOLO — age in years, which the under-18 rule reads" },
+  { key: "bodies", label: "bodies", hint: "Person detector — lets MiVOLO read bodies" },
+  { key: "places365", label: "scenes", hint: "Places365 — scene labels and indoor or outdoor" },
+  { key: "garments", label: "garments", hint: "Fashionpedia — garment detection" },
 ];
 
 /** What the curator backend can actually do (GET /detectors) — explains greyed-out options. */

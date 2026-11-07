@@ -67,6 +67,29 @@ describe("configFromSummary", () => {
     expect(cfg.config.diversity_weight).toBe(0.2);
     expect(cfg.config.min_short_side).toBe(512);
   });
+
+  it("refills the prefilter and crops, and falls back on a scan from before them", () => {
+    const old = configFromSummary(summary([image("keep.jpg")]));
+    expect(old.prefilter.drop_nsfw).toBe(false);
+    expect(old.crops.enabled).toBe(false);
+
+    const box = { left: 1, top: 2, right: 3, bottom: 4 };
+    const ran = configFromSummary({
+      ...summary([image("keep.jpg")]),
+      prefilter_config: { drop_nsfw: true, drop_no_face: false, drop_no_age: false },
+      crop_config: { ...old.crops, enabled: true, detect: true, max_cut: 0.2, boxes: { "keep.jpg": box } },
+    });
+    expect(ran.prefilter.drop_nsfw).toBe(true);
+    expect(old.scenes.enabled).toBe(false);
+    expect(
+      configFromSummary({
+        ...summary([image("keep.jpg")]),
+        scenes_config: { enabled: true, top_k: 3, device: "auto" },
+        garments_config: { enabled: true, min_conf: 0.4, device: "auto" },
+      }),
+    ).toMatchObject({ scenes: { enabled: true, top_k: 3 }, garments: { enabled: true, min_conf: 0.4 } });
+    expect(ran.crops).toMatchObject({ enabled: true, detect: true, max_cut: 0.2, boxes: { "keep.jpg": box } });
+  });
 });
 
 describe("withoutRelPaths", () => {
