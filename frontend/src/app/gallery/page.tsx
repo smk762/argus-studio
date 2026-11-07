@@ -381,7 +381,7 @@ function PoolNotReady({ checking, onSources, onCheck }: { checking: boolean; onS
         <button
           type="button"
           onClick={onSources}
-          className="cursor-pointer rounded-lg bg-accent-amber px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90"
+          className="cursor-pointer rounded-lg bg-accent-amber px-4 py-2 text-sm font-medium text-on-accent transition-opacity hover:opacity-90"
         >
           Browse Sources
         </button>
@@ -518,7 +518,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       type="button"
       onClick={onClick}
       className={`cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-        active ? "bg-accent-amber text-black" : "text-muted hover:text-foreground"
+        active ? "bg-accent-amber text-on-accent" : "text-muted hover:text-foreground"
       }`}
     >
       {children}

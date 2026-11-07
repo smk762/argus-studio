@@ -273,7 +273,7 @@ Immich (optional):  argus-lens ⇄ IMMICH_URL  (album captioning, write-back, pu
 
 Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `argus-lens` and `argus-curator` HTTP servers and renders results. No backend code lives in this repo — the suite `compose.yaml` runs the backends from published GHCR images by default (or builds them from their sibling repositories when you layer `compose.build.yaml`).
 
-- **Frontend** — Next.js 15 (App Router) + Tailwind CSS v4, dark theme
+- **Frontend** — Next.js 15 (App Router) + Tailwind CSS v4, light and dark themes
 - **Captioning server** — `argus-lens[server]` (see [argus-lens](https://github.com/smk762/argus-lens))
 - **Curation server** — `argus-curator[server]` (optional `gpu` extra; see [argus-curator](https://github.com/smk762/argus-curator))
 

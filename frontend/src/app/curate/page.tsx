@@ -608,7 +608,7 @@ export default function CuratePage() {
                     type="submit"
                     disabled={loading || purging || !folderPath.trim() || formProblem !== null}
                     title={formProblem ?? undefined}
-                    className="w-full cursor-pointer rounded-lg bg-accent-teal px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-teal/90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="w-full cursor-pointer rounded-lg bg-accent-teal px-4 py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-teal/90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {loading ? "Scanning…" : "Scan folder"}
                   </button>

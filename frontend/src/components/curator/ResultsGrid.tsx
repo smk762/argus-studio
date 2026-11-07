@@ -51,11 +51,11 @@ export function ResultsGrid({ scanId, results, nsfwRan, pending = [], policies =
 function ScoreBadge({ score }: { score: number }) {
   const color =
     score >= 0.7
-      ? "bg-accent-green/20 text-accent-green"
+      ? "text-accent-green"
       : score >= 0.4
-        ? "bg-accent-amber/20 text-accent-amber"
-        : "bg-accent-red/20 text-accent-red";
-  return <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${color}`}>{score.toFixed(2)}</span>;
+        ? "text-accent-amber"
+        : "text-accent-red";
+  return <span className={`rounded bg-surface/90 px-1.5 py-0.5 font-mono text-[10px] font-bold ${color}`}>{score.toFixed(2)}</span>;
 }
 
 function Card({
@@ -118,7 +118,7 @@ function Card({
           exportable ? "cursor-pointer" : ""
         } ${
           selected
-            ? "border-accent-green bg-accent-green text-black"
+            ? "border-accent-green bg-accent-green text-on-accent"
             : "border-white/40 bg-black/40 text-transparent hover:border-accent-green/70"
         }`}
       >
@@ -132,7 +132,7 @@ function Card({
         </div>
         {img.group_size > 1 && (
           <span
-            className="pointer-events-none absolute bottom-1 left-1 z-10 rounded bg-accent-amber/20 px-1.5 py-0.5 font-mono text-[10px] text-accent-amber"
+            className="pointer-events-none absolute bottom-1 left-1 z-10 rounded bg-surface/90 px-1.5 py-0.5 font-mono text-[10px] text-accent-amber"
             title={`Near-duplicate cluster g${img.similar_group} (${img.group_size} images)`}
           >
             g{img.similar_group}
@@ -142,12 +142,12 @@ function Card({
         {img.face_count > 0 && (
           <div className="pointer-events-none absolute bottom-1 right-1 z-10 flex flex-wrap justify-end gap-0.5">
             {clusters.slice(0, 2).map((c) => (
-              <span key={c} className="rounded bg-accent-teal/20 px-1 py-0.5 font-mono text-[9px] text-accent-teal">
+              <span key={c} className="rounded bg-surface/90 px-1 py-0.5 font-mono text-[9px] text-accent-teal">
                 {c}
               </span>
             ))}
             {img.face_count > 1 && clusters.length <= 1 && (
-              <span className="rounded bg-accent-pink/20 px-1 py-0.5 font-mono text-[9px] text-accent-pink">
+              <span className="rounded bg-surface/90 px-1 py-0.5 font-mono text-[9px] text-accent-pink">
                 {img.face_count} faces
               </span>
             )}

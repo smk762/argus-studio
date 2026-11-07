@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Nav } from "@/components/Nav";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { stageFor, type StageTone } from "@/lib/pipeline";
 
 // Full class strings (not interpolated fragments) so Tailwind's JIT keeps them.
@@ -53,7 +54,10 @@ export function SiteHeader({
             </div>
           </div>
         </div>
-        {badge}
+        <div className="flex shrink-0 items-center gap-3">
+          {badge}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

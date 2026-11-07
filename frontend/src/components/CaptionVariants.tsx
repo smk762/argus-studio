@@ -52,8 +52,8 @@ const VARIANT_STYLES: Record<string, VariantStyle> = {
   },
   lighting: {
     label: "LIGHTING",
-    border: "border-l-amber-300",
-    labelColor: "text-amber-300",
+    border: "border-l-accent-yellow",
+    labelColor: "text-accent-yellow",
   },
   action: {
     label: "ACTION",

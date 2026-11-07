@@ -57,7 +57,7 @@ export function SafeThumb({ scanId, img, nsfwRan, pending = [], fit = "cover", r
       )}
       {hidden && (
         <div
-          className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 bg-black/45 p-2 text-center"
+          className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 bg-black/60 p-2 text-center"
           title={safety.reason}
         >
           <span className="text-[10px] font-medium leading-tight text-white/90">{safety.label}</span>
