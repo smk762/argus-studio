@@ -432,10 +432,10 @@ export default function Home() {
   useEffect(() => {
     if (mode !== "immich" || immichAlbums !== null) return;
     let cancelled = false;
-    setImmichError(null);
     listImmichAlbums()
       .then((albums) => {
         if (cancelled) return;
+        setImmichError(null);
         setImmichAlbums(albums);
         if (albums.length > 0) setAlbumId((cur) => cur || albums[0].id);
       })

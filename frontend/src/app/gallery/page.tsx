@@ -153,6 +153,7 @@ export default function GalleryPage() {
   // Reload the grid whenever filters change.
   useEffect(() => {
     if (!serveable) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a fetch that follows the filters; only its spinner is set at once.
     void loadPage(0, false);
   }, [loadPage, serveable, poolVersion]);
 
