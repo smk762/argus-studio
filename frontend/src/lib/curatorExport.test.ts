@@ -73,6 +73,12 @@ describe("buildRunStats", () => {
     });
   });
 
+  it("records the request behind a capped export, whose rows it cannot know", () => {
+    const keep = { min_score: 0.5, keep_similar: false };
+    const stats = buildRunStats(summary, null, null, new Date(), keep);
+    expect(stats).toMatchObject({ images: { exporting: null, cropped: null }, keep_request: keep });
+  });
+
   it("names no file", () => {
     expect(JSON.stringify(buildRunStats(summary, [row()], null))).not.toContain('"a"');
   });

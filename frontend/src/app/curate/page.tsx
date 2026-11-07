@@ -17,7 +17,6 @@ import { IngestPanel } from "@/components/curator/IngestPanel";
 import {
   defaultCuratorConfig,
   defaultFilters,
-  matchesFilters,
   type CuratorConfig,
   type CuratorFilters,
   type Detectors,
@@ -48,6 +47,7 @@ import {
   type ScanProgress,
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
+import { matchesFilters } from "@/lib/curatorFacets";
 import { canExport, isMinorExposed, scanCheckedNsfw } from "@/lib/curatorSafety";
 import { scanFormProblem } from "@/lib/curatorScanForm";
 import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
@@ -1067,6 +1067,11 @@ const DETECTOR_INFO: { key: keyof Detectors; label: string; hint: string }[] = [
   { key: "clip", label: "clip", hint: "CLIP embeddings — powers the diversity weighting" },
   { key: "insightface", label: "faces", hint: "InsightFace — face detection, pose buckets, identity clustering" },
   { key: "onnxruntime", label: "onnx", hint: "ONNX runtime for the face models" },
+  { key: "fairface", label: "fairface", hint: "FairFace — predicted race, gender and age bracket" },
+  { key: "mivolo", label: "mivolo", hint: "MiVOLO — age in years, which the under-18 rule reads" },
+  { key: "bodies", label: "bodies", hint: "Person detector — lets MiVOLO read bodies" },
+  { key: "places365", label: "scenes", hint: "Places365 — scene labels and indoor or outdoor" },
+  { key: "garments", label: "garments", hint: "Fashionpedia — garment detection" },
 ];
 
 /** What the curator backend can actually do (GET /detectors) — explains greyed-out options. */

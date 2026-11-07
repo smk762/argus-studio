@@ -95,6 +95,8 @@ function emptySummary(chunk: ScanChunk, requested?: CuratorConfig): ScanSummary 
     target_profile: cfg.profile,
     config: cfg.config,
     faces_config: cfg.faces,
+    scenes_config: cfg.scenes,
+    garments_config: cfg.garments,
     total: 0,
     passed: 0,
     rejected: 0,

@@ -9,8 +9,10 @@
  */
 
 import type {
+  CapOptions,
   CuratorFilters,
   ImageResult,
+  ScanSummary,
   SelectRequest,
   SelectResult,
 } from "@/components/curator/types";
@@ -21,13 +23,45 @@ import { canExport } from "@/lib/curatorSafety";
  * the rail's toggle only hides them. `min_score` is always sent because the
  * curator's own default is 0.6.
  */
-export function selectBody(filters: CuratorFilters, keepSimilar: boolean): SelectRequest {
+export function selectBody(
+  filters: CuratorFilters,
+  keepSimilar: boolean,
+  summary: Pick<ScanSummary, "garments_config"> | null = null,
+): SelectRequest {
+  const listed = <T,>(values: readonly T[]): T[] | null => (values.length > 0 ? [...values] : null);
   return {
     min_score: filters.minScore,
     keep_similar: keepSimilar,
-    face_clusters: filters.faceClusters.length > 0 ? [...filters.faceClusters] : null,
-    face_poses: filters.poses.length > 0 ? [...filters.poses] : null,
+    face_clusters: listed(filters.faceClusters),
+    face_poses: listed(filters.poses),
+    face_races: listed(filters.faceRaces),
+    face_genders: listed(filters.faceGenders),
+    face_ages: listed(filters.faceAges),
+    min_age_years: filters.minAgeYears,
+    max_age_years: filters.maxAgeYears,
+    min_attribute_conf: filters.minAttributeConf,
+    scenes: listed(filters.scenes),
+    scene_environments: listed(filters.sceneEnvironments),
+    min_scene_conf: filters.minSceneConf,
+    garments: listed(filters.garments),
+    exclude_garments: listed(filters.excludeGarments),
+    // The curator refuses a floor under what the scan recorded.
+    min_garment_conf: Math.max(filters.minGarmentConf, summary?.garments_config?.min_conf ?? 0),
+    garments_uncropped: filters.garmentsUncropped,
   };
+}
+
+/**
+ * Why a capped export cannot go yet, or null. It names no selection, so the
+ * curator picks from its own keep set. A frame this app holds but the curator
+ * keeps would go out, so that refuses here. Fresh means the viewer has seen
+ * this set.
+ */
+export function capProblem(cap: CapOptions, fresh: boolean, kept: number, usable: number): string | null {
+  if (!Number.isInteger(cap.max_keep) || (cap.max_keep ?? 0) < 1) return "Enter how many to keep.";
+  if (!fresh) return "Preview the keep set first.";
+  if (usable < kept) return "The curator's keep set has frames this app holds, so use the selection instead.";
+  return null;
 }
 
 /** Facets on now that the curator has no field for, so a preview leaves them out. */
@@ -46,6 +80,23 @@ const REASON_LABELS: Record<string, string> = {
   rejected: "Rejected",
   "face-cluster-excluded": "Other identity",
   "face-pose-excluded": "Other head pose",
+  "face-attributes-missing": "No face attributes",
+  "face-race-excluded": "Other race (predicted)",
+  "face-gender-excluded": "Other gender (predicted)",
+  "face-age-excluded": "Other age bracket (predicted)",
+  "face-age-out-of-range": "Age outside the range",
+  "face-age-years-missing": "No age in years",
+  "scene-missing": "No scene tags",
+  "scene-excluded": "Other scene",
+  "scene-low-confidence": "Scene below the confidence",
+  "scene-environment-excluded": "Other environment",
+  "scene-environment-low-confidence": "Environment below the confidence",
+  "garments-missing": "No garment reading",
+  "garment-excluded": "Excluded garment",
+  "garment-not-found": "Garment not found",
+  "garment-low-confidence": "Garment below the confidence",
+  "garment-cropped": "Garment cut off by the frame",
+  "diversity-trimmed": "Trimmed by the cap",
   "prefilter:nsfw": "Prefilter: exposed",
   "prefilter:no-face": "Prefilter: no face",
   "prefilter:no-age": "Prefilter: no age",

@@ -187,6 +187,8 @@ export interface Health {
   scan_delete?: boolean;
   /** POST /scan/{id}/delete takes any scanned image, not only a minor-exposed one (curator 0.12 and later). */
   delete_any?: boolean;
+  /** `FaceConfig.set_age` exists (curator 0.7 and later). */
+  set_age?: boolean;
   /** `ScanRequest.prefilter` exists (curator 0.12 and later). */
   prefilter?: boolean;
   /** `ScanRequest.crops` exists (curator 0.14 and later). */
@@ -247,6 +249,11 @@ export function allowsDeleteAny(health: Health | null): Capability {
  */
 export function allowsMinorExposedDelete(health: Health | null): Capability {
   return capabilityOf(health, (h) => (typeof h.delete_any === "boolean" ? true : undefined), false);
+}
+
+/** Whether frames with no face can take the set's age. Legacy `false`: an older curator ignores the field. */
+export function allowsSetAge(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.set_age, false);
 }
 
 /**
@@ -341,6 +348,7 @@ export async function listFolders(path = "", signal?: AbortSignal): Promise<Fold
   return resp.json();
 }
 
+export const SET_AGE_DENIED = "This curator cannot read a set's age (it predates curator 0.7).";
 export const PREFILTER_DENIED = "This curator cannot drop images before the late checks (it predates the prefilter).";
 export const CROPS_DENIED = "This curator cannot crop images (it predates crops).";
 export const WATERMARK_DENIED = "This curator cannot look for watermarks (it predates watermark detection).";
@@ -349,6 +357,7 @@ export const CROPPED_COPY_ONLY = "This scan cropped images, so it exports by cop
 
 /** A scan that names a check this server would silently skip is refused before it starts. */
 async function requireScanCapabilities(cfg: CuratorConfig, signal?: AbortSignal): Promise<void> {
+  if (cfg.faces.set_age) await requireCapability(curatorHealth, allowsSetAge, SET_AGE_DENIED, signal);
   if (prefilterOn(cfg.prefilter)) await requireCapability(curatorHealth, allowsPrefilter, PREFILTER_DENIED, signal);
   if (!cfg.crops.enabled) return;
   await requireCapability(curatorHealth, allowsCrops, CROPS_DENIED, signal);
