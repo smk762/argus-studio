@@ -5,6 +5,8 @@ import { useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, parseTriggerWords, randomSeed } from "@/lib/darkroom/compose";
 import { THINKING_MODES, type ThinkingMode } from "@/lib/darkroomApi";
 
+import { Tooltip } from "@/components/Tooltip";
+
 import { useCompose } from "./ComposeProvider";
 import { useDarkroom } from "./DarkroomProvider";
 import { PolicyPicker } from "./PolicyPicker";
@@ -79,7 +81,9 @@ export function ComposeForm() {
   const ollamaDown = !canExpand(health);
   const checking = preflight.state === "checking";
   const block = generateBlock(health, error, compose, policies);
+  const generateTip = block ?? "POST /generate/stream: pre-flight, then render, then the scans";
   const readOnly = health?.read_only === true;
+  const checkTip = readOnly ? READ_ONLY_BLOCK : !compose.userPrompt.trim() ? "Write a prompt first." : "POST /preflight: the text-only check, before anything is generated";
 
   return (
     <div className="space-y-5">
@@ -241,22 +245,22 @@ export function ComposeForm() {
       </div>
 
       <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border/40 bg-surface py-4">
-        <Button
-          onClick={() => void check()}
-          disabled={!ready || checking || running || readOnly || !compose.userPrompt.trim()}
-          title={readOnly ? READ_ONLY_BLOCK : !compose.userPrompt.trim() ? "Write a prompt first." : "POST /preflight: the text-only check, before anything is generated"}
-        >
-          {checking ? <Spinner /> : null}
-          Check
-        </Button>
+        <Tooltip text={checkTip}>
+          <Button onClick={() => void check()} disabled={!ready || checking || running || readOnly || !compose.userPrompt.trim()} aria-description={checkTip}>
+            {checking ? <Spinner /> : null}
+            Check
+          </Button>
+        </Tooltip>
         {running ? (
           <Button tone="danger" onClick={stop} title="Close the stream. Darkroom finishes on its own and keeps the record.">
             Stop
           </Button>
         ) : (
-          <Button tone="primary" onClick={start} disabled={!ready || block != null} title={block ?? "POST /generate/stream: pre-flight, then render, then the scans"}>
-            Generate
-          </Button>
+          <Tooltip text={generateTip}>
+            <Button tone="primary" onClick={start} disabled={!ready || block != null} aria-description={generateTip}>
+              Generate
+            </Button>
+          </Tooltip>
         )}
         {block && ready && !running ? <p className="basis-full text-xs text-muted">{block}</p> : null}
       </div>

@@ -8,6 +8,8 @@ import { ago, formatWhen } from "@/lib/darkroom/time";
 import { OUTCOMES, type GenerationRecord, type Mode, type Outcome } from "@/lib/darkroomApi";
 import { useLoad } from "@/lib/darkroom/useLoad";
 
+import { Info } from "@/components/Tooltip";
+
 import { useCompose } from "./ComposeProvider";
 import { useDarkroom } from "./DarkroomProvider";
 import { Shield } from "./Shield";
@@ -60,12 +62,13 @@ export function History() {
           ]}
         />
         <RuleSelect records={fetched ?? []} value={filter.rule} onChange={(rule) => setFilter({ rule })} />
-        <label className="flex items-center gap-1.5 text-sm text-foreground" title="Only records where a policy's isolated and with-prompt scans disagree.">
+        <label className="flex items-center gap-1.5 text-sm text-foreground">
           <input type="checkbox" checked={filter.changed} onChange={(event) => setFilter({ changed: event.target.checked })} className="accent-accent-purple" />
           <span>Prompt changed the verdict</span>
           <span aria-hidden="true" className="rounded-sm border border-accent-amber/60 px-1 text-xs font-bold text-accent-amber">
             ≠
           </span>
+          <Info text="Only records where a policy's isolated and with-prompt scans disagree." />
         </label>
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}

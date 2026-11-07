@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 
+import { Tooltip } from "@/components/Tooltip";
 import { applyTheme, nextTheme, readTheme, serverTheme, subscribeTheme, THEME_ORDER, type Theme } from "@/lib/theme";
 
 const LABEL: Record<Theme, string> = { system: "System theme", light: "Light theme", dark: "Dark theme" };
@@ -32,29 +33,30 @@ export function ThemeToggle() {
   const next = nextTheme(theme);
   const label = `${LABEL[theme]}. Switch to ${LABEL[next].toLowerCase()}.`;
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={() => applyTheme(next)}
-      className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-    >
-      {THEME_ORDER.map((name) => (
-        <svg
-          key={name}
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          data-theme-icon={name}
-          className="h-4.5 w-4.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          {ICON[name]}
-        </svg>
-      ))}
-    </button>
+    <Tooltip text={label} className="shrink-0">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={() => applyTheme(next)}
+        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+      >
+        {THEME_ORDER.map((name) => (
+          <svg
+            key={name}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            data-theme-icon={name}
+            className="h-4.5 w-4.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            {ICON[name]}
+          </svg>
+        ))}
+      </button>
+    </Tooltip>
   );
 }

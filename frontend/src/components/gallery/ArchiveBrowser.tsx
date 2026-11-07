@@ -20,6 +20,7 @@ import {
 import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
+import { Info } from "@/components/Tooltip";
 
 const PAGE_SIZE = 48;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -342,11 +343,9 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
               </select>
             )}
             {facets?.dated ? (
-              <span
-                className="flex items-center gap-1 text-xs text-muted"
-                title={`Only ${facets.dated.toLocaleString()} captions mention a year; a range matches only those.`}
-              >
+              <span className="flex items-center gap-1 text-xs text-muted">
                 year
+                <Info text={`Only ${facets.dated.toLocaleString()} captions mention a year; a range matches only those.`} />
                 <input
                   value={form.yearMin}
                   onChange={(e) => apply({ yearMin: e.target.value }, false)}

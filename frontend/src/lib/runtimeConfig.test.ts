@@ -68,6 +68,27 @@ describe("resolveRuntimeConfig", () => {
   });
 });
 
+describe("standalone UI links", () => {
+  it("are empty unless configured, with no dev default", () => {
+    const c = resolveRuntimeConfig({});
+    expect([c.lightboxUrl, c.cullUrl, c.safelightUrl]).toEqual(["", "", ""]);
+    expect(resolveRuntimeConfig({ ARGUS_CULL_URL: "  " }).cullUrl).toBe("");
+  });
+
+  it("take an absolute URL or a path, without the trailing slash", () => {
+    expect(resolveRuntimeConfig({ ARGUS_LIGHTBOX_URL: "https://lightbox.example/" }).lightboxUrl).toBe("https://lightbox.example");
+    expect(resolveRuntimeConfig({ ARGUS_SAFELIGHT_URL: "/safelight/" }).safelightUrl).toBe("/safelight");
+  });
+
+  it("drop anything that isn't http(s) or a path", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(resolveRuntimeConfig({ ARGUS_CULL_URL: "javascript:alert(1)" }).cullUrl).toBe("");
+    expect(resolveRuntimeConfig({ ARGUS_CULL_URL: "cull:3020" }).cullUrl).toBe("");
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+});
+
 describe("runtimeConfigScript", () => {
   it("escapes < so a value cannot close the inline script tag", () => {
     const script = runtimeConfigScript(resolveRuntimeConfig({ ARGUS_LENS_URL: "/x</script><script>alert(1)" }));

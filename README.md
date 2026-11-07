@@ -291,6 +291,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
 | `ARGUS_DARKROOM_URL` | `http://localhost:8106` | URL the **browser** uses to reach argus-darkroom (the `/darkroom` generation view) |
 | `ARGUS_ATLAS_URL` | `http://localhost:8105` | URL the **browser** uses to reach argus-atlas (the `/atlas` map-bake view) |
+| `ARGUS_LIGHTBOX_URL`, `ARGUS_CULL_URL`, `ARGUS_SAFELIGHT_URL` | _(empty)_ | Footer links to the standalone demo UIs. A UI left empty gets no link |
 | `ARGUS_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
 | `ARGUS_CURATOR_SOURCE_PATH` | *(empty)* | Default source path shown in the folder picker (path inside the curator container). `compose.yaml` sets `/data/images` |
 | `ARGUS_CURATOR_OUTPUT_PATH` | *(empty)* | Default export destination (path inside the curator container). `compose.yaml` sets `/data/out` |
