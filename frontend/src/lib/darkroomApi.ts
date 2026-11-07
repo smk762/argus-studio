@@ -11,7 +11,7 @@
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import { darkroomUrl } from "@/lib/curatorEnv";
-import { parseSseFrames } from "@/lib/darkroom/sse";
+import { readSseFrames } from "@/lib/sse";
 
 export type Outcome = "refused" | "passed" | "review" | "deleted" | "omitted" | "failed";
 export const OUTCOMES: readonly Outcome[] = ["passed", "review", "deleted", "omitted", "refused", "failed"];
@@ -371,20 +371,6 @@ export async function removeImage(id: string, signal?: AbortSignal): Promise<Gen
   return resp.json();
 }
 
-async function readSse(body: ReadableStream<Uint8Array>, onEvent: (event: string, data: unknown) => void): Promise<void> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let rest = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    rest += decoder.decode(value ?? new Uint8Array(), { stream: !done });
-    const parsed = parseSseFrames(rest);
-    rest = parsed.rest;
-    for (const frame of parsed.events) onEvent(frame.event, frame.data);
-    if (done) break;
-  }
-}
-
 export interface GenerateHandlers {
   onPreflight: (preflight: Preflight) => void;
   onQueued: () => void;
@@ -413,7 +399,7 @@ export async function generate(
   if (!resp.body) throw new Error("Darkroom's response had no body.");
   let record: GenerationRecord | null = null;
   let failure: string | null = null;
-  await readSse(resp.body, (event, data) => {
+  await readSseFrames(resp.body, ({ event, data }) => {
     if (event === "preflight") handlers.onPreflight(data as Preflight);
     else if (event === "queued") handlers.onQueued();
     else if (event === "progress") handlers.onProgress(data as ProgressEvent);

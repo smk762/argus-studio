@@ -23,6 +23,7 @@ import type {
 } from "@/components/curator/types";
 import { buildScanBody, MANIFEST_VERSION, prefilterOn } from "@/components/curator/types";
 import { asError } from "@/lib/apiError";
+import { readSseFrames } from "@/lib/sse";
 import { readPolicyCatalog } from "@/lib/curatorGuard";
 import { isMinorExposed } from "@/lib/curatorSafety";
 import { deleteBatches, type DeleteOutcome } from "@/lib/scanDelete";
@@ -471,55 +472,16 @@ export async function readSseStream<TProgress, TComplete, TChunk = unknown>(
   label: string,
   onChunk?: (chunk: TChunk) => void,
 ): Promise<TComplete> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let complete: TComplete | null = null;
-
-  // Returns the `complete` payload when this frame carried one. Kept as a
-  // return value rather than a captured assignment so the narrowing below
-  // sees it — TypeScript does not track writes made inside a closure.
-  const handleFrame = (frame: string): TComplete | undefined => {
-    let event = "message";
-    let data = "";
-    for (const line of frame.split("\n")) {
-      if (line.startsWith("event:")) event = line.slice(6).trim();
-      else if (line.startsWith("data:")) data += line.slice(5).trim();
-    }
-    if (!data) return undefined;
-    const payload = JSON.parse(data);
-    if (event === "progress") onProgress(payload as TProgress);
-    else if (event === "chunk") onChunk?.(payload as TChunk);
-    else if (event === "complete") return payload as TComplete;
-    else if (event === "error") throw new Error(streamErrorMessage(payload, label));
+  let complete: TComplete | undefined;
+  await readSseFrames(body, ({ event, data }) => {
+    if (event === "progress") onProgress(data as TProgress);
+    else if (event === "chunk") onChunk?.(data as TChunk);
+    else if (event === "complete") complete = (data as TComplete) ?? complete;
+    else if (event === "error") throw new Error(streamErrorMessage(data, label));
     else if (event === "cancelled") throw new StreamCancelled(label);
-    return undefined;
-  };
+  });
 
-  // An `event: error` frame (or a JSON.parse failure on a truncated tail) throws
-  // out of handleFrame. Without this finally the reader keeps its lock and the
-  // response body is never cancelled, so each failed export leaks a dangling
-  // stream — a handful of retries exhaust the browser's per-host connection pool
-  // and every later curator request hangs.
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      // SSE frames are separated by a blank line; keep the trailing partial.
-      const frames = buffer.split("\n\n");
-      buffer = frames.pop() ?? "";
-      for (const frame of frames) {
-        if (frame.trim()) complete = handleFrame(frame) ?? complete;
-      }
-    }
-    if (buffer.trim()) complete = handleFrame(buffer) ?? complete;
-  } finally {
-    await reader.cancel().catch(() => {});
-    reader.releaseLock();
-  }
-
-  if (complete === null) throw new Error(`${label} stream ended without a result`);
+  if (complete == null) throw new Error(`${label} stream ended without a result`);
   return complete;
 }
 

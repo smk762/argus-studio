@@ -27,9 +27,28 @@ function formatDetail(detail: unknown, status: number): string {
   return `Server error: ${status}`;
 }
 
-/** Throw the response's FastAPI `detail` (any shape) as a readable Error. */
-export async function asError(resp: Response): Promise<never> {
+/**
+ * A backend's refusal, as a plain `Error` so existing error spans render
+ * `message` as they always have. `status` is the HTTP status.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+/** The response's FastAPI `detail` (any shape), as readable text. */
+export async function readError(resp: Response): Promise<string> {
   const body: unknown = await resp.json().catch(() => null);
   const detail = body && typeof body === "object" ? (body as { detail?: unknown }).detail : null;
-  throw new Error(formatDetail(detail, resp.status));
+  return formatDetail(detail, resp.status);
+}
+
+/** Throw the response's FastAPI `detail` as an {@link ApiError}. */
+export async function asError(resp: Response): Promise<never> {
+  throw new ApiError(await readError(resp), resp.status);
 }
