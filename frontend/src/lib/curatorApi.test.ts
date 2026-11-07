@@ -6,6 +6,7 @@ import {
   allowsExport,
   allowsMinorExposedDelete,
   allowsMove,
+  captionExportRoot,
   exportedAbsPath,
   exportedRelPath,
   manifestMajor,
@@ -170,5 +171,16 @@ describe("curator capabilities", () => {
     expect(speaksSupportedManifest(health({ manifest_version: "3.0" }))).toBe(false);
     expect(speaksSupportedManifest(health())).toBe(true);
     expect(speaksSupportedManifest(health({ manifest_version: "garbage" }))).toBe(true);
+  });
+});
+
+describe("captionExportRoot", () => {
+  it("points lens at the export for copy and move", () => {
+    expect(captionExportRoot({ dest: "/data/out/a", mode: "copy" })).toBe("/data/out/a");
+    expect(captionExportRoot({ dest: "/data/out/a", mode: "move" })).toBe("/data/out/a");
+  });
+
+  it("leaves a symlink export on abs_path, since lens would refuse the resolved link", () => {
+    expect(captionExportRoot({ dest: "/data/out/a", mode: "symlink" })).toBeUndefined();
   });
 });

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   allowsExport,
   allowsExportSidecars,
+  captionExportRoot,
   allowsMove,
   CROPPED_COPY_ONLY,
   EXPORT_SIDECARS_DENIED,
@@ -335,6 +336,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
         try {
           const sum = await captionManifestStream(toJsonl(rows), setCaption, {
             trigger_word: trigger.trim() || undefined,
+            export_root: captionExportRoot(exported),
             signal: ctrl.signal,
           });
           setCaptionSummary(sum);
