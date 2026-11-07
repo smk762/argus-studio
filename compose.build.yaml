@@ -16,6 +16,7 @@
 # Requires the sibling repos checked out next to this one:
 #   ../argus-curator  ../argus-lens  ../argus-quarry  ../argus-forge  ../argus-proof
 #   ../argus-atlas
+#   ../argus-darkroom
 #
 # Layers cleanly with compose.gpu.yaml (add -f compose.gpu.yaml as well).
 # (frontend is always built from ./frontend in the base file — not repeated here.)
@@ -54,6 +55,10 @@ services:
   argus-atlas:
     build:
       context: ../argus-atlas
+
+  argus-darkroom:
+    build:
+      context: ../argus-darkroom
 
   # Both quarry services build from the same repo and tag the same image; they
   # differ only in the `command:` set in compose.yaml (the job runs `run …`, the

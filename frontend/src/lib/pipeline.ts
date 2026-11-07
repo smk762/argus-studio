@@ -32,6 +32,7 @@ export const PIPELINE: readonly PipelineStage[] = [
   { href: "/forge", label: "Forge", stage: 4, tone: "amber", handoff: "Configure training in Forge" },
   { href: "/proof", label: "Proof", stage: 5, tone: "green", handoff: "Evaluate a trained LoRA in Proof" },
   { href: "/atlas", label: "Atlas", stage: 6, tone: "blue", handoff: "Bake a map in Atlas" },
+  { href: "/darkroom", label: "Darkroom", stage: 7, tone: "purple", handoff: "Generate in Darkroom" },
   { href: "/docs", label: "Docs", stage: null, tone: "purple" },
 ] as const;
 

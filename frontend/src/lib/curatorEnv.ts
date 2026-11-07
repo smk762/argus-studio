@@ -58,6 +58,11 @@ export function atlasUrl(): string {
   return runtimeConfig().atlasUrl;
 }
 
+/** URL the browser uses to reach the argus-darkroom API (guarded generation). */
+export function darkroomUrl(): string {
+  return runtimeConfig().darkroomUrl;
+}
+
 /** Scan input directory as seen by argus-curator (container path under Docker). */
 export function localSourcePath(): string {
   return runtimeConfig().curatorSourcePath;
