@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { defaultFilters, type ImageResult, type SelectResult } from "@/components/curator/types";
-import { facetsNotSent, keptPaths, leftOutReasons, reasonKind, reasonLabel, selectBody } from "@/lib/curatorKeepSet";
+import { capProblem, facetsNotSent, keptPaths, leftOutReasons, reasonKind, reasonLabel, selectBody } from "@/lib/curatorKeepSet";
 
 const row = (rel_path: string, extra: Partial<ImageResult> = {}): ImageResult =>
   ({ rel_path, passed: true, faces: [], nsfw: null, ...extra }) as ImageResult;
@@ -15,17 +15,77 @@ const result = (rows: [string, string][]): SelectResult => ({
 
 describe("selectBody", () => {
   it("always sends a score, since the curator's own default is 0.6", () => {
-    expect(selectBody(defaultFilters(), false)).toEqual({
+    expect(selectBody(defaultFilters(), false)).toMatchObject({
       min_score: 0,
       keep_similar: false,
       face_clusters: null,
       face_poses: null,
+      garments: null,
+      min_scene_conf: 0.1,
+      min_garment_conf: 0.5,
     });
   });
 
   it("sends only the facets that are on", () => {
     const body = selectBody({ ...defaultFilters(), minScore: 0.4, faceClusters: ["face_1"], poses: ["profile"] }, true);
     expect(body).toMatchObject({ min_score: 0.4, keep_similar: true, face_clusters: ["face_1"], face_poses: ["profile"] });
+  });
+});
+
+describe("selectBody: readings", () => {
+  it("sends the attribute, scene and garment facets", () => {
+    const body = selectBody(
+      {
+        ...defaultFilters(),
+        faceGenders: ["female"],
+        faceAges: ["20-29"],
+        faceRaces: ["white"],
+        minAgeYears: 18,
+        maxAgeYears: 40,
+        scenes: ["bedroom"],
+        sceneEnvironments: ["indoor"],
+        garments: ["coat"],
+        excludeGarments: ["hat"],
+        garmentsUncropped: true,
+      },
+      false,
+    );
+    expect(body).toMatchObject({
+      face_genders: ["female"],
+      face_ages: ["20-29"],
+      face_races: ["white"],
+      min_age_years: 18,
+      max_age_years: 40,
+      scenes: ["bedroom"],
+      scene_environments: ["indoor"],
+      garments: ["coat"],
+      exclude_garments: ["hat"],
+      garments_uncropped: true,
+    });
+  });
+
+  it("keeps the garment floor at what the scan recorded, or the curator refuses", () => {
+    const summary = { garments_config: { enabled: true, min_conf: 0.6, device: "auto" } };
+    expect(selectBody(defaultFilters(), false, summary).min_garment_conf).toBe(0.6);
+  });
+});
+
+describe("capProblem", () => {
+  const cap = { max_keep: 10 };
+
+  it("wants a whole number of at least one", () => {
+    expect(capProblem({ max_keep: null }, true, 5, 5)).toMatch(/how many/);
+    expect(capProblem({ max_keep: 0 }, true, 5, 5)).toMatch(/how many/);
+    expect(capProblem({ max_keep: 2.5 }, true, 5, 5)).toMatch(/how many/);
+  });
+
+  it("wants a preview of this exact set", () => {
+    expect(capProblem(cap, false, 5, 5)).toMatch(/Preview/);
+  });
+
+  it("refuses when the curator would export a frame this app holds", () => {
+    expect(capProblem(cap, true, 5, 4)).toMatch(/holds/);
+    expect(capProblem(cap, true, 5, 5)).toBeNull();
   });
 });
 
@@ -49,7 +109,7 @@ describe("reasons", () => {
   it("labels known reasons and keeps a newer one readable", () => {
     expect(reasonLabel("prefilter:no-age")).toBe("Prefilter: no age");
     expect(reasonLabel("crop:overlay")).toBe("Watermark over the image");
-    expect(reasonLabel("garment-cropped")).toBe("Garment cropped");
+    expect(reasonLabel("garment-new-rule")).toBe("Garment new rule");
     expect(reasonLabel("constructor")).toBe("Constructor");
   });
 

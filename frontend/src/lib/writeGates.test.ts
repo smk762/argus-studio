@@ -452,6 +452,17 @@ describe("curator scan and export options", () => {
     await expect(scanFolderStream("f", await scanConfig({}), () => {})).rejects.toThrow("GPU busy: lease timed out");
   });
 
+  it("refuses a set age on a curator that would ignore it", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/folder/stream"] = sent;
+    const { defaultCuratorConfig } = await import("@/components/curator/types");
+    const { scanFolderStream, SET_AGE_DENIED } = await import("@/lib/curatorApi");
+    const cfg = await scanConfig({ faces: { ...defaultCuratorConfig().faces, set_age: true } });
+
+    await expect(scanFolderStream("f", cfg, () => {})).rejects.toThrow(SET_AGE_DENIED);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
   const exportRequest = (extra: object = {}) =>
     ({ scan_id: "s", selection: [], dest: "out", mode: "copy", preserve_structure: true, ...extra }) as never;
 

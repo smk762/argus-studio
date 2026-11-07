@@ -1,5 +1,6 @@
 "use client";
 
+import { cardAge, checkWarnings } from "@/lib/curatorAttributes";
 import { canExport, exportBlockReason } from "@/lib/curatorSafety";
 import { imagePending, pendingCaption } from "@/lib/scanChunks";
 import { SafeThumb } from "./SafeThumb";
@@ -70,6 +71,8 @@ function Card({
   const exportable = canExport(img);
   const blocked = exportBlockReason(img);
   const waiting = imagePending(img, pending);
+  const age = cardAge(img);
+  const warnings = checkWarnings(img);
   const border = selected
     ? "border-accent-green/70 ring-2 ring-accent-green/40"
     : !img.passed
@@ -163,6 +166,22 @@ function Card({
               }
             >
               {POSE_LABELS[img.primary_face_pose]}
+            </span>
+          )}
+          {age && (
+            <span
+              className="ml-1 inline-block rounded bg-accent-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple"
+              title="A model's estimate"
+            >
+              {age}
+            </span>
+          )}
+          {warnings.length > 0 && (
+            <span
+              className="ml-1 inline-block rounded bg-accent-orange/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-orange"
+              title={warnings.join(" ")}
+            >
+              Unchecked
             </span>
           )}
           {img.crop && (

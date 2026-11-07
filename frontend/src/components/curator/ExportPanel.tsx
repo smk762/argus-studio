@@ -32,10 +32,12 @@ import {
   LENS_CATEGORY,
   MANIFEST_VERSION,
   datasetSizeStatus,
+  type CapOptions,
   type CuratorFilters,
   type ImageResult,
   type ManifestRow,
   type ScanSummary,
+  type SelectRequest,
 } from "./types";
 
 const HINT_TONE: Record<string, string> = {
@@ -252,7 +254,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
   // advice was obsolete, and following it makes the curator flatten and rename
   // colliding basenames — irreversible under mode: "move".
 
-  const runLiveExport = async () => {
+  const runLiveExport = async (capped?: SelectRequest & CapOptions) => {
     setBusy(true);
     setError(null);
     setResult(null);
@@ -267,25 +269,27 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
     // trigger a bogus "only N of M matched" refusal, and re-scanning mid-export
     // would silently stamp every row with a different scan's target_profile.
     const runSummary = summary;
-    const runResults = selectedResults;
+    // A capped export is the curator's pick, so any row of the scan may land.
+    const runResults = capped ? summary.results : selectedResults;
     try {
       // 1) Transfer files (+ manifest/report) on the curator, streaming
       // progress. A failure here is fatal — the later steps need the export.
       const exported = await exportSelectionStream(
         {
           scan_id: runSummary.scan_id,
-          selection: runResults.map((r) => r.rel_path),
+          ...(capped ?? { selection: runResults.map((r) => r.rel_path), min_score: 0, keep_similar: true }),
           dest: dest.trim(),
           mode,
           preserve_structure: preserve,
-          min_score: 0,
-          keep_similar: true,
           write_manifest: true,
           caption_url: null, // captioning is orchestrated below for live progress
           write_xmp: writeXmp,
           face_names: writeXmp ? faceNamesBody(faceNames) : null,
           carry_sidecars: carrySidecars && permits(sidecars),
-          run_stats: runStats && permits(sidecars) ? buildRunStats(runSummary, runResults, health?.version ?? null) : null,
+          run_stats:
+            runStats && permits(sidecars)
+              ? buildRunStats(runSummary, capped ? null : runResults, health?.version ?? null, undefined, capped ?? null)
+              : null,
         },
         setTransfer,
         undefined,
@@ -301,7 +305,10 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
         const moved = runResults.map((row) => row.rel_path).filter((rel) => exportedRelPath(exported, rel) != null);
         onMoved?.(runSummary.scan_id, moved);
       }
-      setLeftOut(framesLeftOut(runResults, (rel) => exportedRelPath(exported, rel) != null));
+      const chosen = new Set(exported.selected_rel_paths ?? []);
+      setLeftOut(
+        framesLeftOut(capped ? runResults.filter((row) => chosen.has(row.rel_path)) : runResults, (rel) => exportedRelPath(exported, rel) != null),
+      );
 
       // Whether this export's manifest can be handed to argus-lens, decided
       // once and surfaced by the result panel (NOT via setError — the transfer
@@ -399,7 +406,14 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
 
       {isLive() ? (
         <>
-          <KeepSetPanel summary={summary} filters={filters} disabled={busy} onUse={onUseKeepSet} />
+          <KeepSetPanel
+            summary={summary}
+            filters={filters}
+            disabled={busy}
+            onUse={onUseKeepSet}
+            exportBlocked={!dest.trim() ? "Enter a destination below." : !permits(canExport) || manifestDenied || namesProblem ? "Export is unavailable. See below." : null}
+            onExportCapped={(request) => void runLiveExport(request)}
+          />
           <p className="text-[11px] leading-relaxed text-muted">
             Transfers the selected images to a folder on the curator host and writes{" "}
             <span className="font-mono text-foreground/80">manifest.jsonl</span> for argus-lens.

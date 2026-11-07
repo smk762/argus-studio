@@ -25,6 +25,8 @@ export function configFromSummary(summary: ScanSummary): CuratorConfig {
       min_short_side: clampShortSide(summary.config?.min_short_side),
     },
     faces: { ...base.faces, ...summary.faces_config },
+    scenes: { ...base.scenes, ...summary.scenes_config },
+    garments: { ...base.garments, ...summary.garments_config },
     prefilter: { ...base.prefilter, ...summary.prefilter_config },
     crops: { ...base.crops, ...summary.crop_config },
   };
