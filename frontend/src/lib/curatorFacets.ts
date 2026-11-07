@@ -6,6 +6,8 @@
  */
 
 import type { CuratorFilters, FaceAge, FaceGender, FaceRace, ImageResult, SceneEnvironment } from "@/components/curator/types";
+import { guardFilterMatches, matchesGuardView, shieldState } from "@/lib/curatorGuard";
+import { contentRating } from "@/lib/curatorModeration";
 
 function attributesMatch(img: ImageResult, f: CuratorFilters): boolean {
   const lists: [string | null | undefined, number | null | undefined, readonly string[]][] = [
@@ -48,8 +50,14 @@ function garmentsMatch(img: ImageResult, f: CuratorFilters): boolean {
   return !f.garmentsUncropped || hits.some((g) => !g.touches_edge);
 }
 
+function ratingMatches(img: ImageResult, f: CuratorFilters): boolean {
+  if (f.contentRatings.length === 0) return true;
+  const rating = contentRating(img);
+  return rating != null && f.contentRatings.includes(rating);
+}
+
 /** True when an image should be shown / is eligible under the current facets. */
-export function matchesFilters(img: ImageResult, f: CuratorFilters): boolean {
+export function matchesFilters(img: ImageResult, f: CuratorFilters, officialPolicy: string | null = null): boolean {
   if (img.score < f.minScore) return false;
   if (f.passedOnly && !img.passed) return false;
   if (f.hideDuplicates && img.is_duplicate) return false;
@@ -61,7 +69,14 @@ export function matchesFilters(img: ImageResult, f: CuratorFilters): boolean {
   if (f.poses.length > 0) {
     if (!img.primary_face_pose || !f.poses.includes(img.primary_face_pose)) return false;
   }
-  return attributesMatch(img, f) && sceneMatches(img, f) && garmentsMatch(img, f);
+  return (
+    attributesMatch(img, f) &&
+    sceneMatches(img, f) &&
+    garmentsMatch(img, f) &&
+    ratingMatches(img, f) &&
+    guardFilterMatches(img, f) &&
+    matchesGuardView(shieldState(img, officialPolicy), f.guardView)
+  );
 }
 
 export interface FacetCounts {

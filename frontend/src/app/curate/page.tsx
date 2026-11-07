@@ -20,11 +20,13 @@ import {
   type CuratorConfig,
   type CuratorFilters,
   type Detectors,
+  type GuardPolicyInfo,
   type ImageResult,
   type ScanSummary,
 } from "@/components/curator/types";
 import {
   allowsDeleteAny,
+  allowsGuardPolicyText,
   allowsMinorExposedDelete,
   allowsScanControl,
   allowsScanDelete,
@@ -34,6 +36,7 @@ import {
   cancelScan,
   deleteCachedScan,
   getDetectors,
+  getGuardPolicies,
   getHealth,
   getScan,
   isDeterminatePhase,
@@ -48,6 +51,8 @@ import {
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { matchesFilters } from "@/lib/curatorFacets";
+import { policiesRun } from "@/lib/curatorGuard";
+import { sortResults, type ResultSort } from "@/lib/curatorModeration";
 import { canExport, isMinorExposed, scanCheckedNsfw } from "@/lib/curatorSafety";
 import { scanFormProblem } from "@/lib/curatorScanForm";
 import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
@@ -116,6 +121,8 @@ export default function CuratePage() {
   const [view, setView] = useState<View>("grid");
   const [detail, setDetail] = useState<ImageResult | null>(null);
   const [detectors, setDetectors] = useState<Detectors | null>(null);
+  const [policyCatalog, setPolicyCatalog] = useState<GuardPolicyInfo[] | null>(null);
+  const [sort, setSort] = useState<ResultSort>("scan");
   const [history, setHistory] = useState<ScanHistoryEntry[]>([]);
   const [serverScans, setServerScans] = useState<ScanList | null>(null);
   const [rerunning, setRerunning] = useState<string | null>(null);
@@ -212,6 +219,17 @@ export default function CuratePage() {
       .catch(() => setVersion(""));
     return () => ctrl.abort();
   }, []);
+
+  // The wording is curator's own and listed with or without a SingGuard server.
+  const policyText = permits(allowsGuardPolicyText(health));
+  useEffect(() => {
+    if (!policyText) return;
+    const ctrl = new AbortController();
+    getGuardPolicies(ctrl.signal)
+      .then(setPolicyCatalog)
+      .catch(() => setPolicyCatalog(null));
+    return () => ctrl.abort();
+  }, [policyText]);
 
   const applySummary = useCallback((data: ScanSummary) => {
     setSummary(data);
@@ -507,9 +525,12 @@ export default function CuratePage() {
     () => (summary ? knownClusterFilters(filters, summary) : filters),
     [summary, filters],
   );
+  const officialPolicy = summary?.guard_config?.policy ?? null;
+  const policies = useMemo(() => (summary ? policiesRun(summary) : []), [summary]);
   const filtered = useMemo(
-    () => summary?.results.filter((r) => matchesFilters(r, activeFilters)) ?? [],
-    [summary, activeFilters],
+    () =>
+      sortResults(summary?.results.filter((r) => matchesFilters(r, activeFilters, officialPolicy)) ?? [], sort),
+    [summary, activeFilters, officialPolicy, sort],
   );
   const minorExposed = useMemo(() => summary?.results.filter(isMinorExposed) ?? [], [summary]);
 
@@ -605,7 +626,14 @@ export default function CuratePage() {
                 </div>
                 <div className="rounded-xl border border-border bg-surface p-4">
                   {detectors && <DetectorBadges detectors={detectors} />}
-                  <ScanConfigPanel value={config} onChange={setConfig} loading={loading} detectors={detectors} health={health} />
+                  <ScanConfigPanel
+                    value={config}
+                    onChange={setConfig}
+                    loading={loading}
+                    detectors={detectors}
+                    health={health}
+                    policyCatalog={policyCatalog}
+                  />
                 </div>
               </form>
 
@@ -731,7 +759,20 @@ export default function CuratePage() {
                         Cluster review ({summary.similar_clusters})
                       </TabButton>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-xs text-muted">
+                        <span className="sr-only">Sort results</span>
+                        <select
+                          aria-label="Sort results"
+                          value={sort}
+                          onChange={(e) => setSort(e.target.value as ResultSort)}
+                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+                        >
+                          <option value="scan">Scan order</option>
+                          <option value="score">Best score</option>
+                          {scanCheckedNsfw(summary) && <option value="exposed">Most exposed</option>}
+                        </select>
+                      </label>
                       <span className="text-xs text-muted">{selected.size} selected</span>
                       <button
                         type="button"
@@ -773,6 +814,8 @@ export default function CuratePage() {
                       scanId={summary.scan_id}
                       nsfwRan={scanCheckedNsfw(summary)}
                       pending={pending}
+                      policies={policies}
+                      officialPolicy={officialPolicy}
                       results={filtered}
                       selected={selected}
                       onToggle={toggle}
@@ -824,6 +867,8 @@ export default function CuratePage() {
         scanId={summary?.scan_id ?? ""}
         nsfwRan={summary ? scanCheckedNsfw(summary) : false}
         pending={pending}
+        policies={policies}
+        officialPolicy={officialPolicy}
         img={detail ? (summary?.results.find((row) => row.rel_path === detail.rel_path) ?? detail) : null}
         list={filtered}
         selected={detail ? selected.has(detail.rel_path) : false}
@@ -1070,6 +1115,10 @@ const DETECTOR_INFO: { key: keyof Detectors; label: string; hint: string }[] = [
   { key: "fairface", label: "fairface", hint: "FairFace — predicted race, gender and age bracket" },
   { key: "mivolo", label: "mivolo", hint: "MiVOLO — age in years, which the under-18 rule reads" },
   { key: "bodies", label: "bodies", hint: "Person detector — lets MiVOLO read bodies" },
+  { key: "nudenet", label: "nudenet", hint: "NudeNet URL set — nudity scores and content ratings" },
+  { key: "erax", label: "erax", hint: "EraX URL set — a second detector that fills NudeNet's gaps" },
+  { key: "singguard", label: "singguard", hint: "SingGuard URL set — policy verdicts" },
+  { key: "watermark", label: "watermark", hint: "Watermark detector URL set — crops" },
   { key: "places365", label: "scenes", hint: "Places365 — scene labels and indoor or outdoor" },
   { key: "garments", label: "garments", hint: "Fashionpedia — garment detection" },
 ];

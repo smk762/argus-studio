@@ -6,6 +6,8 @@
  * POST /export. The shared TargetProfile is the contract argus-lens inherits.
  */
 
+import { guardBody } from "@/lib/curatorGuard";
+
 /**
  * Version of the argus-curator handoff manifest. Mirrors
  * `argus_curator.models.MANIFEST_VERSION`; stamped on each row we build so the
@@ -57,6 +59,8 @@ export type FaceRace = (typeof FACE_RACES)[number];
 export type FaceGender = (typeof FACE_GENDERS)[number];
 export type FaceAge = (typeof FACE_AGES)[number];
 export type SceneEnvironment = (typeof SCENE_ENVIRONMENTS)[number];
+export const CONTENT_RATINGS = ["safe", "suggestive", "explicit"] as const;
+export type ContentRating = (typeof CONTENT_RATINGS)[number];
 export type AttributeSource = "fairface" | "mivolo";
 
 export interface TargetProfile {
@@ -110,6 +114,26 @@ export interface SceneConfig {
   enabled: boolean;
   top_k: number;
   device: string;
+}
+
+/** SingGuard. `enabled` null means on whenever a URL is configured. A finished scan records true or false. */
+export interface GuardConfig {
+  enabled?: boolean | null;
+  /** The official verdict, and what the filters read by default. */
+  policy: string;
+  /** Extra policies to judge every image under: one more pass each. */
+  variants: string[];
+}
+
+/** One entry of `GET /guard/policies` (curator 0.8). */
+export interface GuardPolicyInfo {
+  name: string;
+  /** The name results record, such as `custom-<hash>` for a policy file. */
+  recorded?: string | null;
+  source?: string | null;
+  /** Null when SingGuard applies its own rules, or the policy file cannot be read. */
+  text?: string | null;
+  error?: string | null;
 }
 
 /** Fashionpedia garments on whole images. Nothing under `min_conf` is recorded. */
@@ -236,6 +260,26 @@ export interface FaceDetection {
 export interface NsfwResult {
   exposed_score?: number | null;
   labels?: Record<string, number> | null;
+  detections?: { label: string; score: number; bbox: [number, number, number, number] }[] | null;
+}
+
+/** EraX's own classes, not NudeNet's. */
+export interface EraxResult {
+  labels?: Record<string, number> | null;
+  detections?: { label: string; score: number; bbox: [number, number, number, number] }[] | null;
+}
+
+/** A verdict, not a score: which rules fired, as this policy names them. */
+export interface GuardResult {
+  safe?: boolean;
+  /** Full names from the verdict. A rule's letter differs by policy, so match on these. */
+  rules?: string[] | null;
+  explanation?: string | null;
+  model?: string | null;
+  /** The name recorded for the policy, which may be `custom-<hash>`. */
+  policy?: string | null;
+  /** The pass that decided it. */
+  thinking?: string | null;
 }
 
 export interface ImageResult {
@@ -278,8 +322,16 @@ export interface ImageResult {
   nsfw?: NsfwResult | null;
   /** NudeNet failed and `nsfw` is EraX's hits alone, or nothing. */
   nudenet_failed?: boolean;
+  /** Read off `nsfw`. Null means not checked. */
+  content_rating?: ContentRating | null;
+  /** EraX. Null means not checked, or the check failed. */
+  erax?: EraxResult | null;
+  /** `nsfw` was filled from EraX because NudeNet did not score the frame. */
+  erax_filled?: boolean;
   /** Policy verdict, once the guard check has run. Absent while it is pending. */
-  guard?: { safe?: boolean } | null;
+  guard?: GuardResult | null;
+  /** Only when variants ran: every policy's verdict by name, the official one included. A missing name means that check failed. */
+  guard_variants?: Record<string, GuardResult> | null;
   /** The crop every check saw, in the source's displayed pixels. `width`, `height` and every box are of the cropped frame. */
   crop?: CropBox | null;
   crop_source?: "manual" | "detected" | null;
@@ -336,6 +388,8 @@ export interface ScanSummary {
   set_age_skipped?: string | null;
   /** What the finished scan actually ran. `enabled: true` means NudeNet scored it. */
   nsfw_config?: { enabled?: boolean | null } | null;
+  erax_config?: { enabled?: boolean | null } | null;
+  guard_config?: GuardConfig | null;
   prefilter_config?: PrefilterConfig | null;
   crop_config?: CropConfig | null;
   results: ImageResult[];
@@ -388,6 +442,14 @@ export interface SelectRequest {
   exclude_garments?: string[] | null;
   min_garment_conf?: number;
   garments_uncropped?: boolean;
+  /** An image NudeNet never checked has no rating, so it drops out once this is set. */
+  content_ratings?: ContentRating[] | null;
+  /** Drop frames judged unsafe, under any rule. */
+  guard_unsafe?: boolean;
+  /** Drop frames where one of these fired. Always the full recorded name, never a letter. */
+  guard_rules?: string[] | null;
+  /** Which policies' verdicts the two above read. Null is the official one. */
+  guard_policies?: string[] | null;
 }
 
 /** Only an export can trim by diversity: `/select` never does, so a capped export goes without a `selection`. */
@@ -497,6 +559,10 @@ export interface Detectors {
   bodies?: boolean;
   places365?: boolean;
   garments?: boolean;
+  erax?: boolean;
+  singguard?: boolean;
+  /** Names a scan can pass as `guard.policy`. Empty without a server. */
+  singguard_policies?: string[];
   /** A NudeNet URL is set. Reachability is not probed. */
   nudenet?: boolean;
   /** A watermark detector URL is set. Reachability is not probed, so a scan can still get a 503. */
@@ -680,6 +746,7 @@ export interface CuratorConfig {
   faces: FaceConfig;
   scenes: SceneConfig;
   garments: GarmentConfig;
+  guard: Pick<GuardConfig, "policy" | "variants">;
   prefilter: PrefilterConfig;
   crops: CropConfig;
 }
@@ -740,6 +807,7 @@ export function defaultCuratorConfig(): CuratorConfig {
     },
     scenes: { enabled: false, top_k: 5, device: "auto" },
     garments: { enabled: false, min_conf: 0.3, device: "auto" },
+    guard: { policy: "default", variants: [] },
     prefilter: defaultPrefilter(),
     crops: defaultCrops(),
   };
@@ -761,6 +829,7 @@ export function facesBody(faces: FaceConfig): FaceConfig {
  * know one ignores the block, and the scan would quietly run without it.
  */
 export function buildScanBody(folder: string, cfg: CuratorConfig): Record<string, unknown> {
+  const guard = guardBody(cfg.guard);
   return {
     folder,
     target_profile: cfg.profile,
@@ -768,6 +837,7 @@ export function buildScanBody(folder: string, cfg: CuratorConfig): Record<string
     faces: facesBody(cfg.faces),
     ...(cfg.scenes.enabled ? { scenes: cfg.scenes } : {}),
     ...(cfg.garments.enabled ? { garments: cfg.garments } : {}),
+    ...(guard ? { guard } : {}),
     ...(prefilterOn(cfg.prefilter) ? { prefilter: cfg.prefilter } : {}),
     ...(cfg.crops.enabled ? { crops: cfg.crops } : {}),
   };
@@ -803,6 +873,15 @@ export interface CuratorFilters {
   minGarmentConf: number;
   /** With `garments`: a match must clear the frame edge. */
   garmentsUncropped: boolean;
+  contentRatings: ContentRating[];
+  /** Hide frames any listed policy judged unsafe. */
+  guardUnsafe: boolean;
+  /** Hide unsafe frames naming one of these full rule names. */
+  guardRules: string[];
+  /** Which policies the two above read. Empty is the official one. */
+  guardPolicies: string[];
+  /** View only: the curator has no such filter. */
+  guardView: "all" | "unsafe" | "split" | "safe";
 }
 
 export function defaultFilters(): CuratorFilters {
@@ -827,5 +906,10 @@ export function defaultFilters(): CuratorFilters {
     excludeGarments: [],
     minGarmentConf: 0.5,
     garmentsUncropped: false,
+    contentRatings: [],
+    guardUnsafe: false,
+    guardRules: [],
+    guardPolicies: [],
+    guardView: "all",
   };
 }
