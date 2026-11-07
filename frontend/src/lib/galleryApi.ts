@@ -36,6 +36,27 @@ export function allowsFetch(health: QuarryHealth | null): Capability {
   return capabilityOf(health, (h) => h.fetch_allowed, false);
 }
 
+/**
+ * Whether quarry can serve its pool, separate from whether it's up. `/health` is
+ * liveness and answers 200 on an empty pool. `/ready` answers 503 until the
+ * provenance database opens.
+ *
+ * - `not_ready`: quarry's own 503. It has one reason for a pool that doesn't
+ *   exist yet and for one that's unmigrated or unreadable, so this can't tell
+ *   an empty pool from a broken one. An initialised pool with no photos is `ready`.
+ * - `unknown`: any other answer, such as a quarry older than `/ready` (404) or a
+ *   proxy's own 503. Callers carry on as if `/ready` didn't exist.
+ */
+export type QuarryReadiness = "ready" | "not_ready" | "unknown";
+
+export async function getQuarryReadiness(signal?: AbortSignal): Promise<QuarryReadiness> {
+  const resp = await fetch(`${quarryUrl()}/ready`, { signal });
+  if (resp.ok) return "ready";
+  if (resp.status !== 503) return "unknown";
+  const body = (await resp.json().catch(() => null)) as { status?: unknown } | null;
+  return body?.status === "unavailable" ? "not_ready" : "unknown";
+}
+
 export interface QuarryStats {
   subjects: number;
   photographs: number;
@@ -114,6 +135,34 @@ export async function listQuarryPhotos(filters: QuarryPhotoFilters, signal?: Abo
   const resp = await fetch(`${quarryUrl()}/photos?${params.toString()}`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+/** One photograph by id, whatever its status. `GET /photos` lists only `complete` ones. */
+export async function getQuarryPhoto(id: number, signal?: AbortSignal): Promise<QuarryPhoto> {
+  const resp = await fetch(`${quarryUrl()}/photos/${id}`, { signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** A `?photo=` value as a photo id, or null if it isn't one. */
+export function parsePhotoId(raw: string | null): number | null {
+  if (!raw || !/^[1-9][0-9]*$/.test(raw)) return null;
+  const id = Number(raw);
+  return Number.isSafeInteger(id) ? id : null;
+}
+
+/**
+ * A provenance link that's safe to put in an `href`, or null. These URLs come
+ * from third-party metadata, and React renders a `javascript:` href as given.
+ */
+export function externalUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const { protocol } = new URL(raw);
+    return protocol === "http:" || protocol === "https:" ? raw : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Build a /thumb URL for a pooled photograph. */
@@ -259,6 +308,13 @@ export async function searchArchive(
   p.set("limit", String(page.limit));
   p.set("offset", String(page.offset));
   const resp = await fetch(`${quarryUrl()}/archives/${encodeURIComponent(name)}/search?${p.toString()}`, { signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** One archive item by id. */
+export async function getArchiveItem(name: string, id: string, signal?: AbortSignal): Promise<ArchiveItem> {
+  const resp = await fetch(`${quarryUrl()}/archives/${encodeURIComponent(name)}/items/${encodeURIComponent(id)}`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
