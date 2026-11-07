@@ -4,7 +4,7 @@ import { policyByName, policySourceLabel, type PolicyChoice } from "@/lib/curato
 import type { GuardPolicyInfo } from "./types";
 
 interface Props {
-  /** `/detectors.singguard_policies`. */
+  /** What to offer: `offeredPolicies` over `/detectors.singguard_policies`. */
   available: readonly string[];
   choice: PolicyChoice;
   /** `GET /guard/policies`. Null on a curator without it, or until it answers. */

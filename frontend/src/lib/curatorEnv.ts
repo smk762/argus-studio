@@ -28,6 +28,11 @@ export function isLive(): boolean {
   return curatorUiMode() === "live";
 }
 
+/** True when this deployment offers what's held back from normal use. */
+export function devMode(): boolean {
+  return runtimeConfig().devMode;
+}
+
 /** URL the browser uses to reach the argus-curator API. */
 export function curatorUrl(): string {
   return runtimeConfig().curatorUrl;
