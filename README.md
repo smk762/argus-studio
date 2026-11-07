@@ -277,6 +277,10 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 - **Captioning server** — `argus-lens[server]` (see [argus-lens](https://github.com/smk762/argus-lens))
 - **Curation server** — `argus-curator[server]` (optional `gpu` extra; see [argus-curator](https://github.com/smk762/argus-curator))
 
+### Wire types
+
+`frontend/src/lib/generated/` holds TypeScript generated from the curator, forge and proof wire schemas. The schemas are committed under `frontend/schema/` and pinned to a release in `pins.json`. To move to a new release, change the tag in `pins.json`, run `npm run wire:pull`, and fix whatever `npm run typecheck` reports. `npm run wire:check` is the CI step that fails on drift, and needs no network or sibling checkout.
+
 ## Configuration
 
 | Variable | Default | Description |

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildScanBody, clampShortSide, defaultCuratorConfig, type ImageResult } from "@/components/curator/types";
 import {
   canExport,
+  isDeletableReject,
   exposedReading,
   framesLeftOut,
   isMinorExposed,
@@ -182,5 +183,23 @@ describe("short side floor", () => {
     const cfg = defaultCuratorConfig();
     cfg.config.min_short_side = 128;
     expect(buildScanBody("/data/images", cfg).config).toMatchObject({ min_short_side: 512 });
+  });
+});
+
+describe("isDeletableReject", () => {
+  const minor = {
+    passed: false,
+    nsfw: { exposed_score: 0.5, labels: {} },
+    primary_face_attributes: { age_years: 15, age_source: "mivolo" },
+  } as unknown as Partial<ImageResult>;
+
+  it("takes rejected frames only", () => {
+    expect(isDeletableReject(image({ passed: false }))).toBe(true);
+    expect(isDeletableReject(image({ passed: true }))).toBe(false);
+  });
+
+  it("leaves under-18 exposed frames to their own action", () => {
+    expect(isMinorExposed(image(minor))).toBe(true);
+    expect(isDeletableReject(image(minor))).toBe(false);
   });
 });

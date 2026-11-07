@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-import { allowsDarkroomWrite, DARKROOM_READ_ONLY_REASON, removeImage, type GenerationRecord } from "@/lib/darkroomApi";
+import { allowsDarkroomPurge, allowsDarkroomWrite, DARKROOM_READ_ONLY_REASON, purgeRecord, removeImage, type GenerationRecord } from "@/lib/darkroomApi";
 import { fromRecord } from "@/lib/darkroom/compose";
 import { hasImage } from "@/lib/darkroom/outcome";
 
-import { capabilityReason } from "@/lib/capabilities";
+import { capabilityReason, permits } from "@/lib/capabilities";
 
 import { useCompose } from "./ComposeProvider";
 import { useDarkroom } from "./DarkroomProvider";
@@ -14,7 +14,7 @@ import { Button } from "./ui";
 
 type CopyState = "idle" | "copied" | "failed";
 
-/** Every result offers Regenerate and Copy record; a record that still has an image also offers Remove image. */
+/** Every result offers Regenerate and Copy record; a record that still has an image also offers Remove image, and devmode offers Delete record. */
 export function RecordActions({ record, onRemoved }: { record: GenerationRecord; onRemoved?: (record: GenerationRecord) => void }) {
   const { compose, replace, running, closeRecord, setView } = useCompose();
   const { health } = useDarkroom();
@@ -23,6 +23,9 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [confirmingPurge, setConfirmingPurge] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (copy === "idle") return;
@@ -59,6 +62,19 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
     }
   };
 
+  const purge = async () => {
+    setPurging(true);
+    setPurgeError(null);
+    try {
+      await purgeRecord(record.id);
+      closeRecord();
+      setView("history");
+    } catch (caught) {
+      setPurgeError(caught instanceof Error ? caught.message : String(caught));
+      setPurging(false);
+    }
+  };
+
   return (
     <>
       <Button tone="primary" onClick={regenerate} disabled={running} title={running ? "Wait for the current generation to finish." : "Refill the form from this record, seed held, and open it."}>
@@ -82,6 +98,24 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
         ) : (
           <Button tone="danger" onClick={() => setConfirming(true)} disabled={writeBlock != null} title={writeBlock ?? "Ask darkroom to delete the image file. The record is kept, marked removed."}>
             Remove image
+          </Button>
+        )
+      ) : null}
+      {permits(allowsDarkroomPurge(health)) ? (
+        confirmingPurge ? (
+          <span role="group" aria-label="Confirm deleting the record" className="inline-flex flex-wrap items-center gap-2 text-sm text-foreground/70">
+            <span>Delete this record and any image? It leaves no trace in the history.</span>
+            <Button tone="danger" onClick={purge} disabled={purging}>
+              {purging ? "Deleting…" : "Delete for good"}
+            </Button>
+            <Button onClick={() => setConfirmingPurge(false)} disabled={purging}>
+              Keep
+            </Button>
+            {purgeError ? <span className="text-accent-red">{purgeError}</span> : null}
+          </span>
+        ) : (
+          <Button tone="danger" onClick={() => setConfirmingPurge(true)} disabled={running} title={running ? "Wait for the current generation to finish." : "Delete the record itself, as well as its image."}>
+            Delete record
           </Button>
         )
       ) : null}

@@ -409,6 +409,8 @@ services:
       ARGUS_DARKROOM_DEFAULT_CHECKPOINT: ${DARKROOM_DEFAULT_CHECKPOINT:-sdxl}
       ARGUS_DARKROOM_ALLOW_NSFW: ${DARKROOM_ALLOW_NSFW:-0}
       ARGUS_DARKROOM_READ_ONLY: ${DARKROOM_READ_ONLY:-0}
+      # Adds the purge routes behind /darkroom's Delete record and Delete everything.
+      ARGUS_DARKROOM_DEVMODE: ${DARKROOM_DEVMODE-${ARGUS_DEVMODE-${DEVMODE:-}}}
       # Name each origin: a wildcard allows reads and refuses every write.
       ARGUS_DARKROOM_CORS_ORIGINS: ${DARKROOM_CORS_ORIGINS:-http://localhost:3000}
     volumes:

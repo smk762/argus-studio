@@ -36,6 +36,9 @@ jobs:
 
       - run: npm ci
 
+      # Fails if src/lib/generated has drifted from the schemas in schema/pins.json.
+      - run: npm run wire:check
+
       - run: npm run lint
 
       - run: npm run typecheck

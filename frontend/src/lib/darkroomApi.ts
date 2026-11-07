@@ -283,6 +283,13 @@ export interface ScanEvent {
 
 export const DARKROOM_READ_ONLY_REASON = "This darkroom is read-only (ARGUS_DARKROOM_READ_ONLY). Records and images stay readable.";
 
+export const DARKROOM_PURGE_DENIED = "Deleting records needs ARGUS_DARKROOM_DEVMODE=1 on a writable darkroom.";
+
+/** Whether darkroom has its purge routes. They exist only under devmode, and `read_only` refuses them like any write. */
+export function allowsDarkroomPurge(health: Health | null): Capability {
+  return capabilityOf(health, (h) => (typeof h.devmode === "boolean" ? h.devmode && !h.read_only : undefined), false);
+}
+
 /**
  * Whether darkroom accepts writes. `read_only` refuses `POST /preflight` too, even
  * though a pre-flight generates nothing, so one capability covers every write.
@@ -369,6 +376,33 @@ export async function removeImage(id: string, signal?: AbortSignal): Promise<Gen
   const resp = await fetch(`${darkroomUrl()}/record/${encodeURIComponent(id)}`, { method: "DELETE", signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+export interface PurgeResult {
+  records: number;
+  images: number;
+}
+
+async function postPurge(path: string, signal?: AbortSignal): Promise<PurgeResult> {
+  await requireCapability(darkroomHealth, allowsDarkroomPurge, DARKROOM_PURGE_DENIED, signal);
+  const resp = await fetch(`${darkroomUrl()}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirm: "purge" }),
+    signal,
+  });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** Delete a record and its image. `removeImage` keeps the record, which is the audit trail; this doesn't. */
+export function purgeRecord(id: string, signal?: AbortSignal): Promise<PurgeResult> {
+  return postPurge(`/purge/${encodeURIComponent(id)}`, signal);
+}
+
+/** Delete every record and stored image. */
+export function purgeAll(signal?: AbortSignal): Promise<PurgeResult> {
+  return postPurge("/purge", signal);
 }
 
 export interface GenerateHandlers {

@@ -5,7 +5,8 @@ import { useState } from "react";
 import { OUTCOME_LABEL, OUTCOME_TONE, hasImage } from "@/lib/darkroom/outcome";
 import { REASON_WORDS, matchesRule, promptChangedVerdict, reasonParts, recordRules, rowVerdict, type RuleHit } from "@/lib/darkroom/shields";
 import { ago, formatWhen } from "@/lib/darkroom/time";
-import { OUTCOMES, type GenerationRecord, type Mode, type Outcome } from "@/lib/darkroomApi";
+import { allowsDarkroomPurge, OUTCOMES, purgeAll, type GenerationRecord, type Mode, type Outcome } from "@/lib/darkroomApi";
+import { permits } from "@/lib/capabilities";
 import { useLoad } from "@/lib/darkroom/useLoad";
 
 import { Info } from "@/components/Tooltip";
@@ -13,7 +14,7 @@ import { Info } from "@/components/Tooltip";
 import { useCompose } from "./ComposeProvider";
 import { useDarkroom } from "./DarkroomProvider";
 import { Shield } from "./Shield";
-import { Badge, Notice, Spinner } from "./ui";
+import { Badge, Button, Notice, Spinner } from "./ui";
 
 const PAGE_SIZE = 200;
 
@@ -26,11 +27,54 @@ interface HistoryFilter {
   rule: string | null;
 }
 
+/** Devmode's clean slate, whatever the filters show. It asks first, since nothing brings records back. */
+function PurgeAll({ onPurged }: { onPurged: () => void }) {
+  const { running } = useCompose();
+  const [confirming, setConfirming] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const purge = async () => {
+    setPurging(true);
+    setError(null);
+    try {
+      await purgeAll();
+      setConfirming(false);
+      onPurged();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setPurging(false);
+    }
+  };
+
+  if (!confirming) {
+    return (
+      <Button small tone="danger" onClick={() => setConfirming(true)} disabled={running} title={running ? "Wait for the current generation to finish." : "Delete every record and image, not just those the filters show."}>
+        Delete everything
+      </Button>
+    );
+  }
+  return (
+    <span role="group" aria-label="Confirm deleting every record" className="inline-flex flex-wrap items-center gap-2 text-sm text-foreground/70">
+      <span>Delete every record and image, including any the filters hide? This cannot be undone.</span>
+      <Button small tone="danger" onClick={purge} disabled={purging}>
+        {purging ? "Deleting…" : "Delete all for good"}
+      </Button>
+      <Button small onClick={() => setConfirming(false)} disabled={purging}>
+        Keep
+      </Button>
+      {error ? <span className="text-accent-red">{error}</span> : null}
+    </span>
+  );
+}
+
 /** `GET /records`, filtered by outcome and mode on darkroom's side and by "Prompt changed the verdict" and the rule here. */
 export function History() {
   const [filter, setFilterState] = useState<HistoryFilter>({ outcome: null, mode: null, changed: false, rule: null });
-  const { records: fetchRecords, sample } = useDarkroom();
-  const { data, error } = useLoad(`${filter.outcome ?? ""}|${filter.mode ?? ""}|${sample}`, () => fetchRecords({ outcome: filter.outcome, mode: filter.mode, pageSize: PAGE_SIZE }));
+  const { records: fetchRecords, sample, health } = useDarkroom();
+  const [purges, setPurges] = useState(0);
+  const { data, error } = useLoad(`${filter.outcome ?? ""}|${filter.mode ?? ""}|${sample}|${purges}`, () => fetchRecords({ outcome: filter.outcome, mode: filter.mode, pageSize: PAGE_SIZE }));
   const fetched = data?.records ?? null;
   const narrowed = filter.changed || filter.rule != null;
   const records = fetched?.filter((record) => (!filter.changed || promptChangedVerdict(record)) && (!filter.rule || matchesRule(record, filter.rule))) ?? null;
@@ -48,6 +92,7 @@ export function History() {
         <span className="text-sm text-foreground/70" aria-live="polite">
           {records && fetched ? (narrowed && fetched.length > 0 ? `${records.length} of ${fetched.length} record${fetched.length === 1 ? "" : "s"}` : `${records.length} record${records.length === 1 ? "" : "s"}`) : ""}
         </span>
+        {permits(allowsDarkroomPurge(health)) ? <PurgeAll onPurged={() => setPurges((count) => count + 1)} /> : null}
       </header>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2" role="group" aria-label="Filters">
         <FilterSelect label="Outcome" value={filter.outcome ?? ""} onChange={(value) => setFilter({ outcome: (value || null) as Outcome | null })} options={[["", "All outcomes"], ...OUTCOMES.map((value): [string, string] => [value, OUTCOME_LABEL[value]])]} />
