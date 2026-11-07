@@ -1,12 +1,17 @@
 /**
  * Wire types for the argus-curator API (:8101).
  *
- * These mirror `argus_curator.models` exactly — the curator emits these shapes
- * from POST /scan/folder and GET /scan/{id}, and consumes ExportRequest at
- * POST /export. The shared TargetProfile is the contract argus-lens inherits.
+ * Built from `@/lib/generated/curator`, which is generated from the curator's
+ * pinned wire schema. That schema marks every field with a default as optional,
+ * though the curator always sends them, so {@link Filled} names the ones this
+ * app reads without a check. The types still written out here are wider than
+ * the schema on purpose, and `@/lib/wire` fails typecheck if they stop fitting
+ * it. The shared TargetProfile is the contract argus-lens inherits.
  */
 
 import { guardBody } from "@/lib/curatorGuard";
+import type * as Wire from "@/lib/generated/curator";
+import type { Filled } from "@/lib/wire";
 
 /**
  * Version of the argus-curator handoff manifest. Mirrors
@@ -28,6 +33,7 @@ import { guardBody } from "@/lib/curatorGuard";
  */
 export const MANIFEST_VERSION = "2.2";
 
+// Hand-written until argus-cortex exports the taxonomy (smk762/argus-cortex#29).
 export type TargetStyle = "photo" | "anime";
 export type TargetCategory = "identity" | "wardrobe" | "pose_composition" | "setting";
 export type FacePose = "frontal" | "three_quarter" | "profile";
@@ -63,12 +69,7 @@ export const CONTENT_RATINGS = ["safe", "suggestive", "explicit"] as const;
 export type ContentRating = (typeof CONTENT_RATINGS)[number];
 export type AttributeSource = "fairface" | "mivolo";
 
-export interface TargetProfile {
-  target_style: TargetStyle;
-  target_backend: string | null;
-  checkpoint: string | null;
-  target_category: TargetCategory;
-}
+export type TargetProfile = Required<Wire.TargetProfile>;
 
 /** Curator's floor (argus-curator#114). A lower value fails ScanConfig validation. */
 export const MIN_SHORT_SIDE = 512;
@@ -78,45 +79,22 @@ export function clampShortSide(n: number): number {
   return Math.max(MIN_SHORT_SIDE, Math.round(n));
 }
 
-export interface ScanConfig {
-  min_short_side: number;
-  max_aspect_ratio: number;
-  blur_threshold: number;
-  cluster_distance: number;
-  weight_sharpness: number;
-  weight_resolution: number;
-  weight_artifact: number;
-  weight_subject: number;
-  sharpness_ref: number;
-  resolution_ref: number;
-  diversity_weight: number;
-  max_workers: number;
-}
+export type ScanConfig = Required<Wire.ScanConfig>;
 
-export interface FaceConfig {
-  enabled: boolean;
-  model: string;
-  min_det_score: number;
-  cluster_eps: number;
-  device: string;
-  /** Race, gender and age bracket. Implies face detection on the curator. */
-  fairface?: boolean;
-  /** MiVOLO ages. Implies face detection on the curator. */
-  mivolo?: boolean;
-  /** Frames with no face take the set's age when one identity holds the scan. Implies MiVOLO. */
-  set_age?: boolean;
-  /** Give MiVOLO each face's body too, and age a body with no face. Implies MiVOLO. */
-  mivolo_body?: boolean;
-}
+/**
+ * `fairface`, `mivolo`, `set_age` and `mivolo_body` each imply detection on the
+ * curator, as {@link facesBody} repeats for the form.
+ */
+export type FaceConfig = Filled<Wire.FaceConfig, "enabled" | "model" | "min_det_score" | "cluster_eps" | "device">;
 
 /** Places365 tags on whole images. */
-export interface SceneConfig {
-  enabled: boolean;
-  top_k: number;
-  device: string;
-}
+export type SceneConfig = Required<Wire.SceneConfig>;
 
-/** SingGuard. `enabled` null means on whenever a URL is configured. A finished scan records true or false. */
+/**
+ * SingGuard. `enabled` null means on whenever a URL is configured. A finished scan records true or false.
+ * Hand-written: the schema closes `policy` to the names this release ships, but a server's own list comes from
+ * `/detectors`, and `guardProblem` is what reports a name it doesn't offer.
+ */
 export interface GuardConfig {
   enabled?: boolean | null;
   /** The official verdict, and what the filters read by default. */
@@ -137,76 +115,34 @@ export interface GuardPolicyInfo {
 }
 
 /** Fashionpedia garments on whole images. Nothing under `min_conf` is recorded. */
-export interface GarmentConfig {
-  enabled: boolean;
-  min_conf: number;
-  device: string;
-}
+export type GarmentConfig = Required<Wire.GarmentConfig>;
 
 /** Opt-in drops after the identities phase. A match becomes a `prefilter:*` reject (curator 0.12). */
-export interface PrefilterConfig {
-  drop_nsfw: boolean;
-  drop_no_face: boolean;
-  drop_no_age: boolean;
-}
+export type PrefilterConfig = Required<Wire.PrefilterConfig>;
 
 /** A crop in pixels of the image as displayed, `right` and `bottom` exclusive. */
-export interface CropBox {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
+export type CropBox = Wire.CropBox;
 
 /** One watermark hit: `[x, y, w, h]` in pixels of the uncropped frame. */
-export interface WatermarkDetection {
-  label: string;
-  score: number;
-  bbox: [number, number, number, number];
-}
+export type WatermarkDetection = Wire.WatermarkDetection;
 
 /** Crops applied to the bytes in memory, never to the source (curator 0.14). */
-export interface CropConfig {
-  enabled: boolean;
-  /** Read `<image>.crop.json` beside each image. */
-  sidecars: boolean;
-  /** Inline boxes by rel_path. They beat a sidecar. This form has no editor for them. */
-  boxes: Record<string, CropBox>;
-  /** Send frames without a box by hand to the watermark detector. */
-  detect: boolean;
-  min_conf: number;
-  /** Most of a side one edge may lose. Above 0 and below 0.5. */
-  max_cut: number;
-  /** Pixels cut beyond a hit's edge. */
-  margin: number;
-  /** A hit no edge cut removes rejects the frame as `crop:overlay`. */
-  reject_overlay: boolean;
-}
+export type CropConfig = Required<Wire.CropConfig>;
 
 /** A MiVOLO (or FairFace) age on a face or a body-only person. Years count only from MiVOLO. */
-export interface AgeReading {
-  age_years?: number | null;
-  age_source?: string | null;
-}
+export type AgeReading = Pick<Wire.FaceAttributes, "age_years" | "age_source">;
 
 /**
  * Predicted attributes of a face, or an identity's pooled prediction. Each
  * `*_conf` is the chosen label's probability. A MiVOLO age is a regression, so
  * it sets `age_years`, `age` is its bracket, and `age_conf` is null.
  */
-export interface FaceAttributes extends AgeReading {
-  race?: FaceRace | null;
-  race_conf?: number | null;
-  gender?: FaceGender | null;
-  gender_conf?: number | null;
-  gender_source?: AttributeSource | null;
-  age?: FaceAge | null;
-  age_conf?: number | null;
-  /** MiVOLO read this face's body as well. */
-  age_body?: boolean | null;
-}
+export type FaceAttributes = Wire.FaceAttributes;
 
-/** An age for a frame with no face, read off the set. An inference, not a reading of the frame. */
+/**
+ * An age for a frame with no face, read off the set. An inference, not a reading of the frame.
+ * Hand-written: only `years` is relied on, so the rest stay optional though the schema requires them.
+ */
 export interface SetAge {
   years: number;
   cluster_id?: string;
@@ -214,26 +150,24 @@ export interface SetAge {
   share?: number;
 }
 
-/** One person box. `face_index` null means no face matched, so any age is from the body alone. */
+/**
+ * One person box. `face_index` null means no face matched, so any age is from the body alone.
+ * Hand-written: this app doesn't read the box or its score, so it doesn't require them as the schema does.
+ */
 export interface PersonDetection extends AgeReading {
   bbox?: [number, number, number, number];
   det_score?: number;
   face_index?: number | null;
   age_body?: boolean | null;
+  nsfw_labels?: Record<string, number>;
+  exposed_score?: number;
 }
 
-export interface SceneLabel {
-  label: string;
-  conf: number;
-}
+export type SceneLabel = Wire.SceneLabel;
 
-export interface SceneTags {
-  /** Top-k labels, most probable first. */
-  categories: SceneLabel[];
-  environment: SceneEnvironment;
-  environment_conf: number;
-}
+export type SceneTags = Filled<Wire.SceneTags, "categories">;
 
+/** Hand-written: labels reach the rail and the filters as plain strings, and `color` stays optional. */
 export interface GarmentDetection {
   label: string;
   conf: number;
@@ -243,20 +177,13 @@ export interface GarmentDetection {
   color?: string;
 }
 
-export interface FaceDetection {
-  bbox: [number, number, number, number]; // [x, y, w, h]
-  det_score: number;
-  cluster_id: string | null;
-  primary: boolean;
-  yaw: number | null;
-  pitch: number | null;
-  pose: FacePose | null;
-  attributes?: FaceAttributes | null;
-  /** Index into `ImageResult.people` when a person box was matched. */
-  person_index?: number | null;
-}
+export type FaceDetection = Filled<Wire.FaceDetection, "cluster_id" | "primary" | "yaw" | "pitch" | "pose">;
 
-/** NudeNet's reading of one image. Absent or null means the image was not scored. */
+/**
+ * NudeNet's reading of one image. Absent or null means the image was not scored.
+ * This and the two below are hand-written: blurring is decided from them, so they
+ * keep the absent and null cases the schema rules out and the checks still handle.
+ */
 export interface NsfwResult {
   exposed_score?: number | null;
   labels?: Record<string, number> | null;
@@ -282,6 +209,12 @@ export interface GuardResult {
   thinking?: string | null;
 }
 
+/**
+ * Hand-written. Every check's field is optional and the moderation readings take
+ * null, because an older curator leaves out what it doesn't know, and a frame
+ * without its check must read as unchecked. `content_rating` is required in the
+ * schema, and `people` can't be null there, so the generated type would lose that.
+ */
 export interface ImageResult {
   rel_path: string;
   abs_path: string;
@@ -359,15 +292,10 @@ export function faceFocalPoint(img: ImageResult): string {
   return "50% 25%";
 }
 
-export interface FaceCluster {
-  cluster_id: string;
-  size: number;
-  representative_rel_path: string;
-  representative_bbox: [number, number, number, number] | null;
-  /** Pooled over every member face. */
-  attributes?: FaceAttributes | null;
-}
+/** `attributes` is pooled over every member face. */
+export type FaceCluster = Filled<Wire.FaceCluster, "representative_bbox">;
 
+/** Hand-written: a scan from an older curator can lack any `*_config`, which the schema rules out as null. */
 export interface ScanSummary {
   scan_id: string;
   folder: string;
@@ -401,150 +329,79 @@ export interface ScanSummary {
 /** Transfer modes the curator accepts. Only `move` relocates (deletes) the source. */
 export type ExportMode = "copy" | "symlink" | "move";
 
-export interface ExportRequest extends SelectRequest, CapOptions {
-  scan_id?: string | null;
-  /** Naming a selection makes the curator ignore every filter on this request. */
-  selection?: string[] | null;
-  dest: string;
-  mode: "copy" | "symlink" | "move";
-  preserve_structure: boolean;
-  write_manifest: boolean;
-  caption_url?: string | null;
-  /** Write `<file>.xmp` beside each exported file (curator 0.9). */
-  write_xmp?: boolean;
-  /** Person names by face cluster id, for the XMP regions. Unnamed clusters stay unnamed. */
-  face_names?: Record<string, string> | null;
-  /** Bring `.txt`, `.xmp` and `.json` sidecars along (curator 0.13, `/health.export_sidecars`). */
-  carry_sidecars?: boolean;
-  /** Opaque JSON written to `<dest>/run_stats.json` (same gate). */
-  run_stats?: Record<string, unknown> | null;
+/**
+ * Filters typed wider than the schema. It closes the first three to each label
+ * set, but those values come from the results and from `/detectors`, so a name
+ * this build doesn't know is the curator's to refuse. It also wants `guard_policies`
+ * and `content_ratings` non-empty, which `listed` in curatorKeepSet ensures at
+ * runtime by sending null, so no type here could say so.
+ */
+interface OpenFilters {
+  garments?: string[] | null;
+  exclude_garments?: string[] | null;
+  guard_policies?: string[] | null;
+  content_ratings?: ContentRating[] | null;
 }
 
 /**
  * Filter body for `POST /scan/{id}/select`: the filter fields of an export and
  * none of its transfer fields. That route never trims by diversity.
  */
-export interface SelectRequest {
-  min_score: number;
-  keep_similar: boolean;
-  face_clusters?: string[] | null;
-  face_poses?: FacePose[] | null;
-  face_races?: FaceRace[] | null;
-  face_genders?: FaceGender[] | null;
-  face_ages?: FaceAge[] | null;
-  min_age_years?: number | null;
-  max_age_years?: number | null;
-  min_attribute_conf?: number;
-  scenes?: string[] | null;
-  scene_environments?: SceneEnvironment[] | null;
-  min_scene_conf?: number;
-  garments?: string[] | null;
-  exclude_garments?: string[] | null;
-  min_garment_conf?: number;
-  garments_uncropped?: boolean;
-  /** An image NudeNet never checked has no rating, so it drops out once this is set. */
-  content_ratings?: ContentRating[] | null;
-  /** Drop frames judged unsafe, under any rule. */
-  guard_unsafe?: boolean;
-  /** Drop frames where one of these fired. Always the full recorded name, never a letter. */
-  guard_rules?: string[] | null;
-  /** Which policies' verdicts the two above read. Null is the official one. */
-  guard_policies?: string[] | null;
-}
+export type SelectRequest = Filled<Omit<Wire.SelectRequest, keyof OpenFilters>, "min_score" | "keep_similar"> &
+  OpenFilters;
+
+/** Naming a `selection` makes the curator ignore every filter on the request. */
+export type ExportRequest = Filled<
+  Omit<Wire.ExportRequest, keyof OpenFilters>,
+  "min_score" | "keep_similar" | "mode" | "preserve_structure" | "write_manifest"
+> &
+  OpenFilters;
 
 /** Only an export can trim by diversity: `/select` never does, so a capped export goes without a `selection`. */
-export interface CapOptions {
-  max_keep?: number | null;
-  diversify_scenes?: boolean;
-  diversify_outfits?: boolean;
-}
+export type CapOptions = Pick<Wire.ExportRequest, "max_keep" | "diversify_scenes" | "diversify_outfits">;
 
-export interface SelectRow {
-  rel_path: string;
-  abs_path: string;
-  /** Empty when the image is kept, otherwise why it was left out. */
-  keep_reason: string;
-}
+/** `keep_reason` is empty when the image is kept, otherwise why it was left out. */
+export type SelectRow = Filled<Wire.SelectRow, "keep_reason">;
 
-export interface SelectResult {
-  scan_id: string;
-  total: number;
-  kept: number;
-  rows: SelectRow[];
-}
-
-export interface ExportResult {
-  /**
-   * Manifest contract version this curator writes (e.g. `"2.1"`). Added to this
-   * payload *with* 2.1 — a manifest-2.0 curator declares the version on each
-   * manifest row but not here — so its absence does NOT mean pre-2.0, and the
-   * seam falls back to the presence of `exported_paths` to tell 2.x from 1.x.
-   */
-  manifest_version?: string;
-  manifest_path: string | null;
-  copied: number;
-  skipped: number;
-  dest: string;
-  /** Union rather than `string`: the two-locator rule below branches on it. */
-  mode: ExportMode;
-  /**
-   * What the selection *chose*, before transfer — a file here can still be
-   * missing from `exported_paths` because its source vanished or the copy
-   * failed. Mirrors the curator's field; no consumer, and deliberately not one:
-   * use `exported_paths` for what actually landed.
-   */
-  selected_rel_paths?: string[];
-  captioned: boolean;
-  /**
-   * rel_path -> the path actually written under `dest` (posix, relative to it),
-   * for the files whose transfer succeeded. Manifest 2.0+. Its *presence* is
-   * what distinguishes a 2.x result from a pre-2.0 one, which is why the seam
-   * refuses rather than defaulting when it is missing.
-   */
-  exported_paths?: Record<string, string>;
-  /**
-   * The same mapping, absolute — so a consumer never joins `dest` itself (a
-   * flattened export de-collides basenames into `stem-<hash>.ext`, which no
-   * client can reproduce). Manifest 2.1; absent on a 2.0 curator.
-   */
-  exported_abs_paths?: Record<string, string>;
-  /** Sidecars written beside exported files (`write_xmp`). */
-  xmp_written?: number;
-  /** Sidecar files transferred with their images (`carry_sidecars`). One image can carry several. */
-  sidecars_carried?: number;
-  /** Sidecars that failed. Their images still landed; the curator's log names them. */
-  sidecars_failed?: number;
-  /** Exported images written cropped, counted in `copied` too. */
-  cropped?: number;
-  /** Null when the request carried none, nothing was exported, or the write failed. */
-  run_stats_path?: string | null;
-}
+export type SelectResult = Omit<Wire.SelectResult, "rows"> & { rows: SelectRow[] };
 
 /**
- * One JSONL handoff-manifest row — mirrors `argus_curator.models.ManifestRow`
- * (published as ManifestRow in the curator's schema/curator-wire.schema.json).
+ * `mode` is a union here though the wire says `str`: the two-locator rule branches on it.
+ *
+ * `manifest_version` was added to this payload *with* 2.1 (a manifest-2.0 curator
+ * declares the version on each manifest row but not here), so its absence does
+ * NOT mean pre-2.0, and the seam falls back to the presence of `exported_paths`
+ * to tell 2.x from 1.x. Both stay optional for that reason, although the curator
+ * sends them today.
+ *
+ * `exported_paths` maps rel_path to the path actually written under `dest`
+ * (posix, relative to it), for the files whose transfer succeeded.
+ * `exported_abs_paths` is the same mapping, absolute, so a consumer never joins
+ * `dest` itself: a flattened export de-collides basenames into `stem-<hash>.ext`,
+ * which no client can reproduce. It is absent on a 2.0 curator.
+ *
+ * `selected_rel_paths` is what the selection *chose*, before transfer. A file
+ * there can still be missing from `exported_paths`, so it has no consumer, and
+ * deliberately not one.
  */
-export interface ManifestRow {
-  manifest_version: string;
-  rel_path: string;
-  /**
-   * Where the image can be *read*. Under `mode: "move"` the source was deleted,
-   * so this is the destination (equals `exported_abs_path`); otherwise it is the
-   * still-present source. argus-lens opens rows strictly by this field.
-   */
-  abs_path: string;
-  /** Posix, relative to the export root. The normative relative locator. */
-  exported_path: string;
-  /** Absolute location of the written file, so the row stands alone (2.1). */
-  exported_abs_path: string;
-  target_profile: TargetProfile;
-  primary_face_cluster: string | null;
-  primary_face_pose: FacePose | null;
-  score: number;
-  similar_group: number;
-  /** The box baked into the exported file (2.2), or null for the source as it was. */
-  crop: CropBox | null;
-}
+export type ExportResult = Filled<Omit<Wire.ExportResult, "mode">, "manifest_path" | "captioned"> & {
+  mode: ExportMode;
+};
+
+/**
+ * One JSONL handoff-manifest row.
+ *
+ * `abs_path` is where the image can be *read*. Under `mode: "move"` the source
+ * was deleted, so it equals `exported_abs_path`; otherwise it is the
+ * still-present source. argus-lens opens rows strictly by this field.
+ * `exported_path` is the normative relative locator (posix, relative to the
+ * export root). `crop` is the box baked into the exported file, or null for the
+ * source as it was.
+ */
+export type ManifestRow = Filled<
+  Wire.ManifestRow,
+  "manifest_version" | "primary_face_cluster" | "primary_face_pose" | "crop"
+>;
 
 export interface Detectors {
   torch: boolean;

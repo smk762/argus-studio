@@ -1,0 +1,17 @@
+{
+  "curator": {
+    "repo": "smk762/argus-curator",
+    "tag": "v0.14.1",
+    "sha256": "619967efc95ac32937b1206ffc46a68fa14e72471a311af3c523f890fd6d48bd"
+  },
+  "forge": {
+    "repo": "smk762/argus-forge",
+    "tag": "v0.1.1",
+    "sha256": "a6893d8772227287a614ec97f169d6e10ad9693a8261a59ab9439039a8186d30"
+  },
+  "proof": {
+    "repo": "smk762/argus-proof",
+    "tag": "v0.2.2",
+    "sha256": "10251be19b5a73ecb6fe9abe5fdeee6a999790722a91e0f3fa1d3221774320ee"
+  }
+}

@@ -1,82 +1,46 @@
 /**
  * Thin client for the argus-proof API (:8104) — post-training LoRA evaluation.
- * Shapes mirror `argus_proof.models` (schema/proof-wire.schema.json in
- * smk762/argus-proof): a scored EvalReport per generation run, with per-image
- * metric scores, structured reject reasons, HITL ratings, and a pass/fail
- * verdict. Follows the forgeApi.ts / galleryApi.ts pattern.
+ * Shapes come from `@/lib/generated/proof`, built from the pinned
+ * schema/proof-wire.schema.json in smk762/argus-proof: a scored EvalReport per
+ * generation run, with per-image metric scores, structured reject reasons, HITL
+ * ratings, and a pass/fail verdict. That schema marks fields with defaults as
+ * optional, though proof always sends them, so {@link Filled} names the ones this
+ * app reads without a check. Follows the forgeApi.ts / galleryApi.ts pattern.
  */
 
 import { proofUrl } from "@/lib/curatorEnv";
+import type * as Wire from "@/lib/generated/proof";
+import type { Filled } from "@/lib/wire";
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import { readNdjson } from "@/lib/lensApi";
 
-// --- wire types (mirror argus_proof.models) --------------------------------
+// --- wire types -------------------------------------------------------------
 
 /** The automated scoring axes; each is [0,1] (higher = better) or null if the
  * scorer for it didn't run. */
-export interface MetricScores {
-  identity: number | null;
-  clip_score: number | null;
-  aesthetic: number | null;
-  preference: number | null;
-  safety: number | null;
-}
+export type MetricScores = Required<Wire.MetricScores>;
 
 /** Closed vocabulary of reject causes (argus_proof RejectReasonCode). */
-export type RejectReasonCode =
-  | "identity_mismatch"
-  | "prompt_mismatch"
-  | "low_quality"
-  | "anatomy"
-  | "artifact"
-  | "duplicate"
-  | "overfit"
-  | "unsafe"
-  | "other";
+export type RejectReasonCode = Wire.RejectReason["code"];
 
-export interface RejectReason {
-  code: RejectReasonCode;
-  /** Policy slug an `unsafe` reject is filed under (wire 1.3). A free string on
-   * the wire, so a slug newer than {@link POLICY_CATEGORIES} is still valid. */
-  category?: string | null;
-  note?: string | null;
-}
+/** `category` is the policy slug an `unsafe` reject is filed under (wire 1.3). A free string on
+ * the wire, so a slug newer than {@link POLICY_CATEGORIES} is still valid. */
+export type RejectReason = Wire.RejectReason;
 
-export interface ImageScores {
-  image_id: string;
-  seed: number;
-  metrics: MetricScores;
-  hitl_rating: number | null;
-  hitl_rater: string | null;
-  reject_reasons: RejectReason[];
-  /** null = undecided (routed to HITL by the gate); true/false = pass/fail. */
-  passed: boolean | null;
-  duplicate_group: number | null;
-}
+/** `passed`: null = undecided (routed to HITL by the gate); true/false = pass/fail. */
+export type ImageScores = Filled<
+  Omit<Wire.ImageScores, "metrics">,
+  "hitl_rating" | "hitl_rater" | "reject_reasons" | "passed" | "duplicate_group"
+> & { metrics: MetricScores };
 
-export interface AggregateScores {
-  n_images: number;
-  n_passed: number;
-  pass_rate: number;
+export type AggregateScores = Filled<Omit<Wire.AggregateScores, "means">, "n_groups" | "n_needs_hitl" | "diversity"> & {
   means: MetricScores;
-  n_groups: number | null;
-  n_needs_hitl: number;
-  diversity: number | null;
-}
+};
 
-export interface ScorerProvenance {
-  name: string;
-  metric: string;
-  version: string | null;
-  model: string | null;
-}
+export type ScorerProvenance = Required<Wire.ScorerProvenance>;
 
-export interface Verdict {
-  passed: boolean;
-  pending: boolean;
-  reasons: string[];
-}
+export type Verdict = Required<Wire.Verdict>;
 
 export interface EvalReport {
   proof_version?: string;

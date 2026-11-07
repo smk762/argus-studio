@@ -1,16 +1,20 @@
 /**
  * Thin client for the argus-forge API (:8103) — the training bridge that
  * turns a curator export (images + manifest.jsonl + .txt sidecars) into
- * ready-to-run trainer configs. Shapes mirror `argus_forge.models`
- * (schema/forge-wire.schema.json in smk762/argus-forge).
+ * ready-to-run trainer configs. Shapes come from `@/lib/generated/forge`, built
+ * from the pinned schema/forge-wire.schema.json in smk762/argus-forge. That
+ * schema marks fields with defaults as optional, though forge always sends them,
+ * so {@link Filled} names the ones this app reads without a check.
  */
 
-import type { TargetCategory, TargetProfile } from "@/components/curator/types";
+import type { TargetProfile } from "@/components/curator/types";
 import { forgeUrl } from "@/lib/curatorEnv";
+import type * as Wire from "@/lib/generated/forge";
+import type { Filled } from "@/lib/wire";
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 
-export type TrainerId = "kohya" | "onetrainer" | "diffusers";
+export type TrainerId = Wire.ForgeRequest["trainer"];
 
 export const TRAINER_LABELS: Record<TrainerId, string> = {
   kohya: "kohya sd-scripts",
@@ -18,54 +22,16 @@ export const TRAINER_LABELS: Record<TrainerId, string> = {
   diffusers: "diffusers",
 };
 
-export interface ForgeTrainingParams {
-  images: number;
-  repeats: number;
-  epochs: number;
-  total_steps: number;
-  optimizer_steps: number;
-  network_dim: number;
-  network_alpha: number;
-  unet_lr: number;
-  text_encoder_lr: number;
-  optimizer: string;
-  scheduler: string;
-  resolution: number;
-  batch_size: number;
-  precision: string;
-}
+export type ForgeTrainingParams = Wire.TrainingParams;
 
-export interface ForgeParamOverrides {
-  repeats?: number;
-  epochs?: number;
-  network_dim?: number;
-  network_alpha?: number;
-  unet_lr?: number;
-  text_encoder_lr?: number;
-  optimizer?: string;
-  scheduler?: string;
-  resolution?: number;
-  batch_size?: number;
-  precision?: string;
-}
+export type ForgeParamOverrides = Wire.ParamOverrides;
 
-export interface ForgeSizeHint {
-  tone: "empty" | "low" | "good" | "high";
-  text: string;
-}
+export type ForgeSizeHint = Wire.SizeHint;
 
-export interface ForgeDatasetInfo {
-  export_dir: string;
-  image_count: number;
-  caption_count: number;
-  manifest_present: boolean;
-  manifest_rows: number;
-  manifest_version: string | null;
-  missing_from_disk: number;
-  target_profile: TargetProfile;
-  size_hint: ForgeSizeHint;
-  suggested: ForgeTrainingParams;
-}
+export type ForgeDatasetInfo = Filled<
+  Omit<Wire.DatasetInfo, "target_profile">,
+  "manifest_rows" | "manifest_version" | "missing_from_disk"
+> & { target_profile: TargetProfile };
 
 /**
  * A trainer forge can emit for, as advertised by `GET /trainers` — the
@@ -73,13 +39,7 @@ export interface ForgeDatasetInfo {
  * `files` names what a config run writes; `entrypoint` is the runnable script
  * among them, or null when the trainer is driven by its own UI.
  */
-export interface TrainerInfo {
-  id: TrainerId;
-  label: string;
-  files: string[];
-  notes: string;
-  entrypoint: string | null;
-}
+export type TrainerInfo = Filled<Wire.TrainerInfo, "entrypoint">;
 
 export async function listTrainers(signal?: AbortSignal): Promise<TrainerInfo[]> {
   const resp = await fetch(`${forgeUrl()}/trainers`, { signal });
@@ -102,10 +62,7 @@ export async function listTrainers(signal?: AbortSignal): Promise<TrainerInfo[]>
   }));
 }
 
-export interface InspectRequest {
-  export_dir: string;
-  category?: TargetCategory | null;
-}
+export type InspectRequest = Wire.InspectRequest;
 
 /**
  * Inspect an export without generating anything (POST /inspect): image and
@@ -123,37 +80,14 @@ export async function inspectExport(req: InspectRequest, signal?: AbortSignal): 
   return resp.json();
 }
 
-export interface ForgeRequest {
-  export_dir: string;
-  trainer: TrainerId;
-  base_model?: string | null;
-  trigger?: string | null;
-  output_name?: string | null;
-  category?: TargetCategory | null;
-  overrides?: ForgeParamOverrides;
-  collect_captions?: boolean;
-  dry_run?: boolean;
-}
+export type ForgeRequest = Wire.ForgeRequest;
 
-export interface ForgeGeneratedFile {
-  name: string;
-  path: string | null;
-  content: string;
-}
+export type ForgeGeneratedFile = Filled<Wire.GeneratedFile, "path">;
 
-export interface ForgeResult {
-  trainer: TrainerId;
-  export_dir: string;
-  out_dir: string;
-  files: ForgeGeneratedFile[];
-  params: ForgeTrainingParams;
-  dataset: ForgeDatasetInfo;
-  base_model: string;
-  trigger: string;
-  output_name: string;
-  captions_collected: number;
-  warnings: string[];
-}
+export type ForgeResult = Filled<
+  Omit<Wire.ForgeResult, "files" | "dataset">,
+  "captions_collected" | "warnings"
+> & { files: ForgeGeneratedFile[]; dataset: ForgeDatasetInfo };
 
 export interface ForgeHealth {
   status: string;
