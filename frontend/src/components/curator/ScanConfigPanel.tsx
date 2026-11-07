@@ -26,6 +26,8 @@ import {
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { GuardPolicyPicker } from "./GuardPolicyPicker";
+import { devMode } from "@/lib/curatorEnv";
+import { offeredPolicies } from "@/lib/curatorGuard";
 
 const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; border: string }> = {
   "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
@@ -310,7 +312,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
       {detectors?.singguard && (detectors.singguard_policies?.length ?? 0) > 0 && (
         <>
           <GuardPolicyPicker
-            available={detectors.singguard_policies ?? []}
+            available={offeredPolicies(detectors.singguard_policies ?? [], value.guard, devMode())}
             choice={value.guard}
             catalog={policyCatalog}
             disabled={loading}

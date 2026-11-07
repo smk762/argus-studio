@@ -6,6 +6,7 @@ import {
   guardFilterMatches,
   guardProblem,
   matchesGuardView,
+  offeredPolicies,
   policiesRun,
   policyFlagCounts,
   policyShields,
@@ -184,5 +185,31 @@ describe("the policy catalog", () => {
     expect(policySourceLabel("builtin")).toBe("built in");
     expect(policySourceLabel("later")).toBe("later");
     expect(policySourceLabel(null)).toBe("unknown");
+  });
+});
+
+describe("offeredPolicies", () => {
+  const available = ["default", "adult", "adult-granular", "adult-cautious", "adult-cinematic"];
+
+  it("leaves out adult variants under evaluation, and keeps adult", () => {
+    expect(offeredPolicies(available, { policy: "default", variants: [] }, false)).toEqual(["default", "adult"]);
+  });
+
+  it("offers every policy in dev mode", () => {
+    expect(offeredPolicies(available, { policy: "default", variants: [] }, true)).toEqual(available);
+  });
+
+  it("keeps a hidden policy the form already holds, so it can't run unseen", () => {
+    expect(offeredPolicies(available, { policy: "adult-granular", variants: ["adult-cinematic"] }, false)).toEqual([
+      "default",
+      "adult",
+      "adult-granular",
+      "adult-cinematic",
+    ]);
+  });
+
+  it("does not make a held policy pass as available on this server", () => {
+    const choice = { policy: "adult-granular", variants: [] };
+    expect(guardProblem(choice, ["default", "adult"])).toContain("adult-granular");
   });
 });
