@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 
+import { devMode } from "@/lib/curatorEnv";
+import { offeredPolicies } from "@/lib/curatorGuard";
 import { enforceBlock, policyByName } from "@/lib/darkroom/compose";
 import type { Policies, PolicyInfo } from "@/lib/darkroomApi";
 
@@ -15,7 +17,8 @@ export function ModeBadge({ mode }: { mode: "sfw" | "nsfw" }) {
  * One enforcing policy (radio) and any number of advisory ones (checkboxes).
  * The SFW/NSFW badge and the wording come from `GET /policies`, never from the
  * name in the browser. A policy the server cannot enforce is offered as
- * advisory only, with the reason.
+ * advisory only, with the reason. Policies under evaluation are left out, as on
+ * `/curate`, unless the form already holds one.
  */
 export function PolicyPicker({
   policies,
@@ -33,13 +36,15 @@ export function PolicyPicker({
   const [wording, setWording] = useState<PolicyInfo | null>(null);
   if (!policies) return <p className="text-sm text-muted">Loading policies…</p>;
   const own = policyByName(policies, enforcing);
+  const offered = offeredPolicies(policies.policies.map((policy) => policy.name), { policy: enforcing, variants: advisory }, devMode());
+  const shown = policies.policies.filter((policy) => offered.includes(policy.name));
   return (
     <div className="space-y-3">
       <fieldset>
         <legend className="text-xs uppercase tracking-wide text-muted">Enforcing policy</legend>
         <p className="mb-1.5 text-xs text-muted">Its verdict decides pre-flight and its name sets the mode. Server default: <span className="font-mono">{policies.default}</span>.</p>
         <ul className="space-y-1">
-          {policies.policies.map((policy) => {
+          {shown.map((policy) => {
             const block = enforceBlock(policy);
             const checked = policy.name === enforcing;
             return (
@@ -78,7 +83,7 @@ export function PolicyPicker({
         <legend className="text-xs uppercase tracking-wide text-muted">Advisory policies</legend>
         <p className="mb-1.5 text-xs text-muted">Run for comparison. They never block or release an image, except that an illegal rule under any policy still deletes.</p>
         <ul className="space-y-1">
-          {policies.policies
+          {shown
             .filter((policy) => policy.name !== enforcing)
             .map((policy) => {
               const checked = advisory.includes(policy.name);

@@ -89,6 +89,24 @@ describe("standalone UI links", () => {
   });
 });
 
+describe("devMode", () => {
+  it("is off by default and for anything but a truthy word", () => {
+    expect(resolveRuntimeConfig({}).devMode).toBe(false);
+    expect(resolveRuntimeConfig({ DEVMODE: "0" }).devMode).toBe(false);
+    expect(resolveRuntimeConfig({ DEVMODE: "no" }).devMode).toBe(false);
+  });
+
+  it("reads DEVMODE and ARGUS_DEVMODE", () => {
+    expect(resolveRuntimeConfig({ DEVMODE: "1" }).devMode).toBe(true);
+    expect(resolveRuntimeConfig({ ARGUS_DEVMODE: "True" }).devMode).toBe(true);
+  });
+
+  it("lets ARGUS_DEVMODE turn off a shared DEVMODE, and ignores an empty one", () => {
+    expect(resolveRuntimeConfig({ ARGUS_DEVMODE: "0", DEVMODE: "1" }).devMode).toBe(false);
+    expect(resolveRuntimeConfig({ ARGUS_DEVMODE: " ", DEVMODE: "1" }).devMode).toBe(true);
+  });
+});
+
 describe("runtimeConfigScript", () => {
   it("escapes < so a value cannot close the inline script tag", () => {
     const script = runtimeConfigScript(resolveRuntimeConfig({ ARGUS_LENS_URL: "/x</script><script>alert(1)" }));

@@ -60,6 +60,8 @@ export interface RuntimeConfig {
   curatorSourcePath: string;
   /** Export target directory on the curator host. */
   curatorOutputPath: string;
+  /** Offer what's held back from normal use, such as SingGuard policies under evaluation. */
+  devMode: boolean;
 }
 
 export type CuratorUiMode = "demo" | "live";
@@ -175,6 +177,11 @@ function resolveUiMode(raw: string | undefined): CuratorUiMode {
   return mode === "live" || mode === "local" ? "live" : "demo";
 }
 
+/** `1`, `true`, `yes` or `on`, in any case. Anything else is off. */
+function resolveFlag(raw: string | undefined): boolean {
+  return ["1", "true", "yes", "on"].includes((raw ?? "").toLowerCase());
+}
+
 /**
  * Build a {@link RuntimeConfig} from an environment mapping. Pure, so the
  * precedence rules are testable without a running server.
@@ -200,6 +207,7 @@ export function resolveRuntimeConfig(
       firstNonEmpty(source, ["ARGUS_CURATOR_SOURCE_PATH", "NEXT_PUBLIC_CURATOR_SOURCE_PATH"]) ?? "",
     curatorOutputPath:
       firstNonEmpty(source, ["ARGUS_CURATOR_OUTPUT_PATH", "NEXT_PUBLIC_CURATOR_OUTPUT_PATH"]) ?? "",
+    devMode: resolveFlag(firstNonEmpty(source, ["ARGUS_DEVMODE", "DEVMODE"])),
   };
 }
 

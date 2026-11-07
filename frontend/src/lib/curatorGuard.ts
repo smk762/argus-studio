@@ -136,6 +136,22 @@ export interface PolicyChoice {
   variants: string[];
 }
 
+/**
+ * The policies to offer for a scan. Curator's `guard.py` asks UIs to leave out the
+ * adult variants besides `adult` until its evaluation picks one, though
+ * `/detectors` lists them. Dev mode offers them all.
+ *
+ * Anything already in the form stays, so a scan refilled by Again can't run a
+ * policy nobody can see. This narrows the offer only: `guardProblem` still checks
+ * against everything the server has.
+ */
+export function offeredPolicies(available: readonly string[], choice: PolicyChoice, devMode: boolean): string[] {
+  if (devMode) return [...available];
+  return available.filter(
+    (name) => !name.startsWith("adult-") || name === choice.policy || choice.variants.includes(name),
+  );
+}
+
 /** Why the form's policies can't run on this server, or null. Again can bring back a name from another one. */
 export function guardProblem(choice: PolicyChoice, available: readonly string[]): string | null {
   if (available.length === 0) return null;
