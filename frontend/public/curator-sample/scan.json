@@ -28,6 +28,21 @@
     "cluster_eps": 0.5,
     "device": "auto"
   },
+  "prefilter_config": {
+    "drop_nsfw": false,
+    "drop_no_face": false,
+    "drop_no_age": false
+  },
+  "crop_config": {
+    "enabled": false,
+    "sidecars": true,
+    "boxes": {},
+    "detect": false,
+    "min_conf": 0.4,
+    "max_cut": 0.15,
+    "margin": 4,
+    "reject_overlay": true
+  },
   "total": 14,
   "passed": 11,
   "rejected": 3,
@@ -106,7 +121,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "frontal",
-      "primary_face_yaw": 4.0
+      "primary_face_yaw": 4.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personA/studio/02.jpg",
@@ -151,7 +169,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 28.0
+      "primary_face_yaw": 28.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personA/studio/02_copy.jpg",
@@ -196,7 +217,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "profile",
-      "primary_face_yaw": 58.0
+      "primary_face_yaw": 58.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personA/outdoor/03.jpg",
@@ -241,7 +265,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": -36.0
+      "primary_face_yaw": -36.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personA/outdoor/04.jpg",
@@ -286,7 +313,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "frontal",
-      "primary_face_yaw": -7.0
+      "primary_face_yaw": -7.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personA/outdoor/05.jpg",
@@ -331,7 +361,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 41.0
+      "primary_face_yaw": 41.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personB/set1/01.jpg",
@@ -376,7 +409,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "profile",
-      "primary_face_yaw": -62.0
+      "primary_face_yaw": -62.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personB/set1/02.jpg",
@@ -421,7 +457,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "frontal",
-      "primary_face_yaw": 11.0
+      "primary_face_yaw": 11.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personB/set2/03.jpg",
@@ -466,7 +505,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 33.0
+      "primary_face_yaw": 33.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personB/set2/04.jpg",
@@ -511,7 +553,10 @@
         "face_penalty": 1.0
       },
       "primary_face_pose": "profile",
-      "primary_face_yaw": -52.0
+      "primary_face_yaw": -52.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "mixed/group_shot.jpg",
@@ -570,7 +615,10 @@
       },
       "phash": "1f2e3d4c5b6a7980",
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 19.0
+      "primary_face_yaw": 19.0,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personA/rejects/blurry.jpg",
@@ -594,7 +642,10 @@
       "phash": "0a0a0a0a0a0a0a0a",
       "score_breakdown": {},
       "primary_face_pose": null,
-      "primary_face_yaw": null
+      "primary_face_yaw": null,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "personA/rejects/lowres.jpg",
@@ -618,7 +669,10 @@
       "phash": "0b0b0b0b0b0b0b0b",
       "score_breakdown": {},
       "primary_face_pose": null,
-      "primary_face_yaw": null
+      "primary_face_yaw": null,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     },
     {
       "rel_path": "misc/wide_banner.jpg",
@@ -642,7 +696,10 @@
       "phash": "0c0c0c0c0c0c0c0c",
       "score_breakdown": {},
       "primary_face_pose": null,
-      "primary_face_yaw": null
+      "primary_face_yaw": null,
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null
     }
   ]
 }

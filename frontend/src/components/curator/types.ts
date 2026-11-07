@@ -20,8 +20,11 @@
  * so a row is self-contained: the manifest is often read outside the export root
  * it was written into (argus-lens receives it as an upload), and nothing else in
  * the row names that root to join `exported_path` onto. Major stays 2 — additive.
+ *
+ * 2.2 adds `crop` per row: the box baked into the exported file, or null when
+ * the file is the source as it was. Also additive.
  */
-export const MANIFEST_VERSION = "2.1";
+export const MANIFEST_VERSION = "2.2";
 
 export type TargetStyle = "photo" | "anime";
 export type TargetCategory = "identity" | "wardrobe" | "pose_composition" | "setting";
@@ -71,6 +74,48 @@ export interface FaceConfig {
   min_det_score: number;
   cluster_eps: number;
   device: string;
+  /** MiVOLO ages. Implies face detection on the curator. */
+  mivolo?: boolean;
+}
+
+/** Opt-in drops after the identities phase. A match becomes a `prefilter:*` reject (curator 0.12). */
+export interface PrefilterConfig {
+  drop_nsfw: boolean;
+  drop_no_face: boolean;
+  drop_no_age: boolean;
+}
+
+/** A crop in pixels of the image as displayed, `right` and `bottom` exclusive. */
+export interface CropBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** One watermark hit: `[x, y, w, h]` in pixels of the uncropped frame. */
+export interface WatermarkDetection {
+  label: string;
+  score: number;
+  bbox: [number, number, number, number];
+}
+
+/** Crops applied to the bytes in memory, never to the source (curator 0.14). */
+export interface CropConfig {
+  enabled: boolean;
+  /** Read `<image>.crop.json` beside each image. */
+  sidecars: boolean;
+  /** Inline boxes by rel_path. They beat a sidecar. This form has no editor for them. */
+  boxes: Record<string, CropBox>;
+  /** Send frames without a box by hand to the watermark detector. */
+  detect: boolean;
+  min_conf: number;
+  /** Most of a side one edge may lose. Above 0 and below 0.5. */
+  max_cut: number;
+  /** Pixels cut beyond a hit's edge. */
+  margin: number;
+  /** A hit no edge cut removes rejects the frame as `crop:overlay`. */
+  reject_overlay: boolean;
 }
 
 /** A MiVOLO (or FairFace) age on a face or a body-only person. Years count only from MiVOLO. */
@@ -129,6 +174,11 @@ export interface ImageResult {
   nudenet_failed?: boolean;
   /** Policy verdict, once the guard check has run. Absent while it is pending. */
   guard?: { safe?: boolean } | null;
+  /** The crop every check saw, in the source's displayed pixels. `width`, `height` and every box are of the cropped frame. */
+  crop?: CropBox | null;
+  crop_source?: "manual" | "detected" | null;
+  /** Hits on the uncropped frame. Empty means none found; null means not checked. */
+  watermarks?: WatermarkDetection[] | null;
   phash: string;
   score_breakdown: Record<string, number>;
 }
@@ -173,6 +223,8 @@ export interface ScanSummary {
   face_clusters: FaceCluster[];
   /** What the finished scan actually ran. `enabled: true` means NudeNet scored it. */
   nsfw_config?: { enabled?: boolean | null } | null;
+  prefilter_config?: PrefilterConfig | null;
+  crop_config?: CropConfig | null;
   results: ImageResult[];
   offset: number;
   limit: number | null;
@@ -195,6 +247,40 @@ export interface ExportRequest {
   face_poses?: FacePose[] | null;
   write_manifest: boolean;
   caption_url?: string | null;
+  /** Write `<file>.xmp` beside each exported file (curator 0.9). */
+  write_xmp?: boolean;
+  /** Person names by face cluster id, for the XMP regions. Unnamed clusters stay unnamed. */
+  face_names?: Record<string, string> | null;
+  /** Bring `.txt`, `.xmp` and `.json` sidecars along (curator 0.13, `/health.export_sidecars`). */
+  carry_sidecars?: boolean;
+  /** Opaque JSON written to `<dest>/run_stats.json` (same gate). */
+  run_stats?: Record<string, unknown> | null;
+}
+
+/**
+ * Filter body for `POST /scan/{id}/select`: the filter fields of an export and
+ * none of its transfer fields. That route never trims by diversity.
+ */
+export interface SelectRequest {
+  min_score: number;
+  keep_similar: boolean;
+  face_clusters?: string[] | null;
+  face_poses?: FacePose[] | null;
+  garments_uncropped?: boolean;
+}
+
+export interface SelectRow {
+  rel_path: string;
+  abs_path: string;
+  /** Empty when the image is kept, otherwise why it was left out. */
+  keep_reason: string;
+}
+
+export interface SelectResult {
+  scan_id: string;
+  total: number;
+  kept: number;
+  rows: SelectRow[];
 }
 
 export interface ExportResult {
@@ -232,6 +318,16 @@ export interface ExportResult {
    * client can reproduce). Manifest 2.1; absent on a 2.0 curator.
    */
   exported_abs_paths?: Record<string, string>;
+  /** Sidecars written beside exported files (`write_xmp`). */
+  xmp_written?: number;
+  /** Sidecar files transferred with their images (`carry_sidecars`). One image can carry several. */
+  sidecars_carried?: number;
+  /** Sidecars that failed. Their images still landed; the curator's log names them. */
+  sidecars_failed?: number;
+  /** Exported images written cropped, counted in `copied` too. */
+  cropped?: number;
+  /** Null when the request carried none, nothing was exported, or the write failed. */
+  run_stats_path?: string | null;
 }
 
 /**
@@ -256,6 +352,8 @@ export interface ManifestRow {
   primary_face_pose: FacePose | null;
   score: number;
   similar_group: number;
+  /** The box baked into the exported file (2.2), or null for the source as it was. */
+  crop: CropBox | null;
 }
 
 export interface Detectors {
@@ -264,6 +362,12 @@ export interface Detectors {
   clip: boolean;
   insightface: boolean;
   onnxruntime: boolean;
+  /** Absent on a curator older than the check. */
+  mivolo?: boolean;
+  /** A NudeNet URL is set. Reachability is not probed. */
+  nudenet?: boolean;
+  /** A watermark detector URL is set. Reachability is not probed, so a scan can still get a 503. */
+  watermark?: boolean;
 }
 
 export interface FolderEntry {
@@ -436,11 +540,13 @@ export function datasetSizeStatus(
   return { tone: "good", text: `${count} selected — in the ~${g.ideal} sweet spot for an SDXL ${CATEGORY_LABELS[category]} LoRA.` };
 }
 
-/** The editable slice of TargetProfile + ScanConfig + FaceConfig the panel manages. */
+/** The editable slice of the scan request the panel manages. */
 export interface CuratorConfig {
   profile: TargetProfile;
   config: ScanConfig;
   faces: FaceConfig;
+  prefilter: PrefilterConfig;
+  crops: CropConfig;
 }
 
 export function defaultScanConfig(): ScanConfig {
@@ -460,6 +566,23 @@ export function defaultScanConfig(): ScanConfig {
   };
 }
 
+export function defaultPrefilter(): PrefilterConfig {
+  return { drop_nsfw: false, drop_no_face: false, drop_no_age: false };
+}
+
+export function defaultCrops(): CropConfig {
+  return {
+    enabled: false,
+    sidecars: true,
+    boxes: {},
+    detect: false,
+    min_conf: 0.4,
+    max_cut: 0.15,
+    margin: 4,
+    reject_overlay: true,
+  };
+}
+
 export function defaultCuratorConfig(): CuratorConfig {
   return {
     profile: {
@@ -475,17 +598,30 @@ export function defaultCuratorConfig(): CuratorConfig {
       min_det_score: 0.5,
       cluster_eps: 0.5,
       device: "auto",
+      mivolo: false,
     },
+    prefilter: defaultPrefilter(),
+    crops: defaultCrops(),
   };
 }
 
-/** Build the POST /scan/folder request body from the editable config. */
+export function prefilterOn(prefilter: PrefilterConfig): boolean {
+  return prefilter.drop_nsfw || prefilter.drop_no_face || prefilter.drop_no_age;
+}
+
+/**
+ * Build the POST /scan/folder request body from the editable config. `prefilter`
+ * and `crops` go only when asked for: a curator too old to know them ignores
+ * the block, and the scan would quietly run without them.
+ */
 export function buildScanBody(folder: string, cfg: CuratorConfig): Record<string, unknown> {
   return {
     folder,
     target_profile: cfg.profile,
     config: { ...cfg.config, min_short_side: clampShortSide(cfg.config.min_short_side) },
     faces: cfg.faces,
+    ...(prefilterOn(cfg.prefilter) ? { prefilter: cfg.prefilter } : {}),
+    ...(cfg.crops.enabled ? { crops: cfg.crops } : {}),
   };
 }
 

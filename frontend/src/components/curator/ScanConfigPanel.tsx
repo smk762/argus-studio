@@ -9,8 +9,19 @@ import {
   MIN_SHORT_SIDE,
   clampShortSide,
   type CuratorConfig,
+  type Detectors,
   type TargetCategory,
 } from "./types";
+import {
+  allowsCrops,
+  allowsPrefilter,
+  allowsWatermarkDetect,
+  CROPS_DENIED,
+  PREFILTER_DENIED,
+  WATERMARK_DENIED,
+  type Health,
+} from "@/lib/curatorApi";
+import { capabilityReason, permits } from "@/lib/capabilities";
 
 const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; border: string }> = {
   "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
@@ -23,15 +34,31 @@ interface Props {
   value: CuratorConfig;
   onChange: (cfg: CuratorConfig) => void;
   loading: boolean;
+  /** `/detectors`. Null until known, which offers nothing a curator may not have. */
+  detectors: Detectors | null;
+  health: Health | null;
 }
 
-export function ScanConfigPanel({ value, onChange, loading }: Props) {
+export function ScanConfigPanel({ value, onChange, loading, detectors, health }: Props) {
   const setProfile = (patch: Partial<CuratorConfig["profile"]>) =>
     onChange({ ...value, profile: { ...value.profile, ...patch } });
   const setConfig = (patch: Partial<CuratorConfig["config"]>) =>
     onChange({ ...value, config: { ...value.config, ...patch } });
   const setFaces = (patch: Partial<CuratorConfig["faces"]>) =>
     onChange({ ...value, faces: { ...value.faces, ...patch } });
+  const setPrefilter = (patch: Partial<CuratorConfig["prefilter"]>) =>
+    onChange({ ...value, prefilter: { ...value.prefilter, ...patch } });
+  const setCrops = (patch: Partial<CuratorConfig["crops"]>) =>
+    onChange({ ...value, crops: { ...value.crops, ...patch } });
+
+  const prefilter = allowsPrefilter(health);
+  const prefilterReason = capabilityReason(prefilter, PREFILTER_DENIED);
+  const crops = allowsCrops(health);
+  const cropsReason = capabilityReason(crops, CROPS_DENIED);
+  const watermarks = allowsWatermarkDetect(health);
+  const watermarkReason =
+    capabilityReason(watermarks, WATERMARK_DENIED) ??
+    (detectors && !detectors.watermark ? "Set ARGUS_CURATOR_WATERMARK_URL on the curator to find watermarks." : null);
 
   return (
     <div className="space-y-6">
@@ -150,7 +177,11 @@ export function ScanConfigPanel({ value, onChange, loading }: Props) {
           <label className="block text-xs font-semibold uppercase tracking-wider text-muted">
             Face Clustering
           </label>
-          <Toggle value={value.faces.enabled} onChange={(v) => setFaces({ enabled: v })} disabled={loading} />
+          <Toggle
+            value={value.faces.enabled}
+            onChange={(v) => setFaces({ enabled: v, mivolo: v ? value.faces.mivolo : false })}
+            disabled={loading}
+          />
         </div>
         <p className="mb-3 text-[11px] leading-relaxed text-muted">
           InsightFace <span className="font-mono text-foreground/80">buffalo_l</span> detects + clusters faces into
@@ -183,10 +214,127 @@ export function ScanConfigPanel({ value, onChange, loading }: Props) {
                 ))}
               </div>
             </div>
+            {detectors?.mivolo && (
+              <Check
+                label="MiVOLO ages"
+                checked={value.faces.mivolo === true}
+                onChange={(v) => setFaces({ mivolo: v })}
+                disabled={loading}
+                hint="An age in years for each face. It is a model's estimate, and the under-18 rule reads it."
+              />
+            )}
+          </div>
+        )}
+      </div>
+
+      <hr className="border-border" />
+
+      {/* Prefilter: reject early, so scenes, garments and SingGuard skip the frame. */}
+      <div>
+        <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted">Prefilter</label>
+        <p className="mb-3 text-[11px] leading-relaxed text-muted">
+          A dropped frame skips the late checks and stays in the scan as a{" "}
+          <span className="font-mono text-foreground/80">prefilter:*</span> reject, so it is never exported.
+        </p>
+        <div className="space-y-2">
+          <Check
+            label="Drop exposed"
+            checked={value.prefilter.drop_nsfw}
+            onChange={(v) => setPrefilter({ drop_nsfw: v })}
+            disabled={loading || !permits(prefilter)}
+            hint={prefilterReason ?? "An exposed reading of 0.2 or more. A frame that could not be scored is kept. Needs NudeNet."}
+          />
+          <Check
+            label="Drop no face"
+            checked={value.prefilter.drop_no_face}
+            onChange={(v) => setPrefilter({ drop_no_face: v })}
+            disabled={loading || !permits(prefilter)}
+            hint={prefilterReason ?? "No face detected. A frame whose detection failed is kept. Needs Face Clustering."}
+          />
+          <Check
+            label="Drop no age"
+            checked={value.prefilter.drop_no_age}
+            onChange={(v) => setPrefilter({ drop_no_age: v })}
+            disabled={loading || !permits(prefilter)}
+            hint={prefilterReason ?? "No MiVOLO age on a face or body, and no set age. Needs MiVOLO ages."}
+          />
+        </div>
+      </div>
+
+      <hr className="border-border" />
+
+      {/* Crops: applied in memory, so every check sees the cropped frame. */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted">Crops</label>
+          <Toggle
+            value={value.crops.enabled}
+            onChange={(v) => setCrops({ enabled: v })}
+            disabled={loading || !permits(crops)}
+            title={cropsReason ?? undefined}
+          />
+        </div>
+        <p className="mb-3 text-[11px] leading-relaxed text-muted">
+          Every check sees the cropped frame, and the source is never changed. A scan that cropped any image exports by
+          copy only.
+        </p>
+        {value.crops.enabled && (
+          <div className="space-y-3">
+            <Check
+              label="Read .crop.json sidecars"
+              checked={value.crops.sidecars}
+              onChange={(v) => setCrops({ sidecars: v })}
+              disabled={loading}
+              hint="A box recorded beside an image, in its displayed pixels."
+            />
+            <Check
+              label="Detect watermarks"
+              checked={value.crops.detect}
+              onChange={(v) => setCrops({ detect: v })}
+              disabled={loading || !permits(watermarks) || watermarkReason !== null}
+              hint={watermarkReason ?? "Frames without a box go to the watermark detector, and its hits are cut away at the edges."}
+            />
+            {value.crops.detect && (
+              <>
+                <Slider label="Min confidence" value={value.crops.min_conf} min={0} max={1} step={0.05}
+                  format={(v) => v.toFixed(2)} onChange={(v) => setCrops({ min_conf: v })} disabled={loading} />
+                <Slider label="Most one edge may lose" value={value.crops.max_cut} min={0.05} max={0.45} step={0.01}
+                  format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => setCrops({ max_cut: v })} disabled={loading} />
+                <Slider label="Margin (px)" value={value.crops.margin} min={0} max={32} step={1}
+                  onChange={(v) => setCrops({ margin: v })} disabled={loading} />
+                <Check
+                  label="Reject overlays"
+                  checked={value.crops.reject_overlay}
+                  onChange={(v) => setCrops({ reject_overlay: v })}
+                  disabled={loading}
+                  hint="A hit no edge cut removes rejects the frame as crop:overlay. Off, it is kept uncropped with its hits recorded."
+                />
+              </>
+            )}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function Check({ label, checked, onChange, disabled, hint }: {
+  label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; hint: string;
+}) {
+  return (
+    <label className={`flex items-start gap-2 text-sm text-foreground ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`} title={hint}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 cursor-pointer accent-accent-teal disabled:cursor-not-allowed"
+      />
+      <span className="min-w-0">
+        {label}
+        <span className="block text-[11px] leading-snug text-muted">{hint}</span>
+      </span>
+    </label>
   );
 }
 
@@ -208,12 +356,13 @@ function TextField({ label, value, placeholder, onChange, disabled }: {
   );
 }
 
-function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({ value, onChange, disabled, title }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; title?: string }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!value)}
       disabled={disabled}
+      title={title}
       aria-pressed={value}
       className={`relative inline-flex h-7 w-12 cursor-pointer items-center rounded-full transition-colors disabled:opacity-50 ${
         value ? "bg-accent-teal" : "bg-border"

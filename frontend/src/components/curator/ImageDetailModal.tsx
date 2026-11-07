@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { canExport, exportBlockReason, thumbSafety } from "@/lib/curatorSafety";
 import { SafeThumb } from "./SafeThumb";
-import { breakdownTooltip, statusExplanation } from "./imageExplain";
+import { breakdownTooltip, cropRows, statusExplanation } from "./imageExplain";
 import { POSE_LABELS, type ImageResult } from "./types";
 
 interface Props {
@@ -43,6 +43,7 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], img, list, sel
   const exportable = canExport(img);
   const blocked = exportBlockReason(img);
   const safety = thumbSafety(img, nsfwRan, pending);
+  const crop = cropRows(img);
 
   return (
     <div
@@ -140,6 +141,7 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], img, list, sel
                   ["pHash", img.phash],
                 ]}
               />
+              {crop && <StatBlock title="Crop" rows={crop} />}
               {(img.group_size > 1 || img.is_duplicate) && (
                 <StatBlock
                   title="Near-duplicate cluster"
