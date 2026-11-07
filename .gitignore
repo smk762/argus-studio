@@ -22,3 +22,4 @@ Thumbs.db
 compose.override.yaml
 .env.bak-*
 quarry/
+recipes/

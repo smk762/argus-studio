@@ -266,6 +266,90 @@ describe("forge, atlas and quarry writes", () => {
     expect(calls).toEqual(["GET /health"]);
   });
 
+  describe("atlas GDAL and OSM writes", () => {
+    const atlas = (extra: object) => () =>
+      json({ status: "ok", service: "argus-atlas", version: "0.3.0a1", read_only: true, gdal: "GDAL 3.11.4", ...extra });
+    const controls = { dem: "d.tif", bbox: "1,2,3,4" };
+    const osm = { name: "garda", bbox: "1,2,3,4" };
+
+    it("a read-only host still builds controls and cuts tiles: read_only is about baking", async () => {
+      routes["GET /health"] = atlas({});
+      routes["POST /controls"] = sent;
+      routes["POST /tiles"] = sent;
+      const { createControls, cutTiles } = await import("@/lib/atlasApi");
+
+      await expect(createControls(controls)).rejects.toThrow("reached the server");
+      await expect(cutTiles("j")).rejects.toThrow("reached the server");
+      expect(calls).toEqual(["GET /health", "POST /controls", "POST /tiles"]);
+    });
+
+    it("refuses controls, tiles and OSM on a host without GDAL", async () => {
+      routes["GET /health"] = atlas({ gdal: null, osm_allowed: true });
+      routes["POST /controls"] = sent;
+      routes["POST /tiles"] = sent;
+      routes["POST /osm"] = sent;
+      const { createControls, cutTiles, fetchOsm } = await import("@/lib/atlasApi");
+      const { CapabilityRefused } = await import("@/lib/capabilities");
+
+      for (const write of [() => createControls(controls), () => cutTiles("j"), () => fetchOsm(osm)]) {
+        const err = await write().catch((e) => e);
+        expect(err).toBeInstanceOf(CapabilityRefused);
+        expect(err.message).toMatch(/GDAL is missing/);
+      }
+      expect(calls.filter((c) => c.startsWith("POST"))).toEqual([]);
+    });
+
+    it("sends to a server older than the gdal field", async () => {
+      routes["GET /health"] = () => json({ status: "ok", service: "argus-atlas", version: "0.0.9" });
+      routes["POST /controls"] = sent;
+      const { createControls } = await import("@/lib/atlasApi");
+
+      await expect(createControls(controls)).rejects.toThrow("reached the server");
+    });
+
+    it("refuses OSM unless the host opts in", async () => {
+      routes["GET /health"] = atlas({ osm_allowed: false });
+      routes["POST /osm"] = sent;
+      const { fetchOsm } = await import("@/lib/atlasApi");
+      const { CapabilityRefused } = await import("@/lib/capabilities");
+
+      const err = await fetchOsm(osm).catch((e) => e);
+      expect(err).toBeInstanceOf(CapabilityRefused);
+      expect(err.denied).toBe(true);
+      expect(err.message).toMatch(/ATLAS_ALLOW_OSM/);
+      expect(calls).toEqual(["GET /health"]);
+    });
+
+    it("refuses OSM on a server that never advertised osm_allowed", async () => {
+      routes["GET /health"] = atlas({});
+      routes["POST /osm"] = sent;
+      const { fetchOsm } = await import("@/lib/atlasApi");
+
+      await expect(fetchOsm(osm)).rejects.toThrow(/ATLAS_ALLOW_OSM/);
+      expect(calls).toEqual(["GET /health"]);
+    });
+
+    it("sends OSM once allowed, without needing bake to be on, on the page's health", async () => {
+      routes["GET /health"] = atlas({ osm_allowed: true });
+      routes["POST /osm"] = sent;
+      const { fetchOsm, getAtlasHealth } = await import("@/lib/atlasApi");
+
+      await getAtlasHealth();
+      await expect(fetchOsm(osm)).rejects.toThrow("reached the server");
+      expect(calls).toEqual(["GET /health", "POST /osm"]);
+    });
+
+    it("fails safe when /health is unreachable", async () => {
+      routes["POST /osm"] = sent;
+      routes["POST /controls"] = sent;
+      const { createControls, fetchOsm } = await import("@/lib/atlasApi");
+
+      await expect(fetchOsm(osm)).rejects.toThrow(/unreachable/);
+      await expect(createControls(controls)).rejects.toThrow(/unreachable/);
+      expect(calls.filter((c) => c.startsWith("POST"))).toEqual([]);
+    });
+  });
+
   it("quarry: a server that never advertised fetch_allowed is refused", async () => {
     routes["GET /health"] = () => json({ status: "ok", service: "argus-quarry", version: "0.2.3", quarry_home: "/q" });
     routes["POST /archives/pd12m/fetch"] = sent;
