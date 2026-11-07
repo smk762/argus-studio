@@ -206,6 +206,9 @@ services:
       # frames curator reads as under 18 with exposure. Uncomment to let /curate
       # delete any selected image.
       # - CURATOR_ALLOW_DELETE=1
+      # DEVMODE=1 allows the same delete. Set CURATOR_DEVMODE=0 to keep dev mode
+      # in the UI without it.
+      - CURATOR_DEVMODE=${CURATOR_DEVMODE-${ARGUS_DEVMODE-${DEVMODE:-}}}
       # Detector models, under the cache mount below. A file that isn't there
       # leaves that detector reported as unavailable. Build them with
       # `argus-curator fairface-convert`, `mivolo-convert`, `places365-convert`
@@ -355,6 +358,7 @@ services:
       ATLAS_MODELS_DIR: /data/models
       ATLAS_ALLOW_BAKE: ${ATLAS_ALLOW_BAKE:-}
       ATLAS_ALLOW_OSM: ${ATLAS_ALLOW_OSM:-}
+      ATLAS_OVERPASS_URL: ${ATLAS_OVERPASS_URL:-}
       # A ComfyUI reachable FROM THE CONTAINER (see extra_hosts below). Shared
       # with argus-proof, which bakes through the same engine.
       COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://host.docker.internal:8188}
