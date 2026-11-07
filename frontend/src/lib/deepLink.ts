@@ -32,3 +32,20 @@ export function useDeepLink(apply: (params: URLSearchParams) => void): void {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 }
+
+/** `search` with each key set, or removed when its value is null. Other params stay. */
+export function mergeQuery(search: string, set: Record<string, string | null>): string {
+  const params = new URLSearchParams(search);
+  for (const [key, value] of Object.entries(set)) {
+    if (value === null) params.delete(key);
+    else params.set(key, value);
+  }
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+/** Keep the address bar on what's open, so the page can be reloaded or shared. Adds no history entry. */
+export function replaceQuery(set: Record<string, string | null>): void {
+  const { pathname, search, hash } = window.location;
+  window.history.replaceState(null, "", `${pathname}${mergeQuery(search, set)}${hash}`);
+}

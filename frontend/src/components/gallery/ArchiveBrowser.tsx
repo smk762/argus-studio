@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   archiveThumbUrl,
+  externalUrl,
   fetchSlice,
   getArchiveFacets,
+  getArchiveItem,
   listArchives,
   planSlice,
   searchArchive,
@@ -15,6 +17,7 @@ import {
   type SliceFetchFrame,
   type SlicePlan,
 } from "@/lib/galleryApi";
+import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 
@@ -99,7 +102,26 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [detail, setDetail] = useState<ArchiveItem | null>(null);
+  // The open item. `seed` is its grid row, shown while GET .../items/{id} answers;
+  // an `?item=` link has none.
+  const [detail, setDetail] = useState<{ archive: string; id: string; seed: ArchiveItem | null } | null>(null);
+  const linkedArchive = useRef<string | null>(null);
+
+  useDeepLink((params) => {
+    const name = params.get("archive");
+    const item = params.get("item");
+    linkedArchive.current = name;
+    if (name && item) setDetail({ archive: name, id: item, seed: null });
+  });
+
+  const openItem = (item: ArchiveItem) => {
+    setDetail({ archive, id: item.id, seed: item });
+    replaceQuery({ view: "sources", archive, item: item.id });
+  };
+  const closeItem = () => {
+    setDetail(null);
+    replaceQuery({ archive: null, item: null });
+  };
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -107,9 +129,12 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
       try {
         const l = await listArchives(ctrl.signal);
         setListing(l);
-        // PD12M first when it's ready: per-image licence + institution make it the structured set.
+        // A linked archive wins. Then PD12M when it's ready: per-image licence + institution make it the structured set.
         const first =
-          l.archives.find((a) => a.indexed && a.name === "pd12m") ?? l.archives.find((a) => a.indexed) ?? l.archives[0];
+          l.archives.find((a) => a.name === linkedArchive.current) ??
+          l.archives.find((a) => a.indexed && a.name === "pd12m") ??
+          l.archives.find((a) => a.indexed) ??
+          l.archives[0];
         if (first) setArchive(first.name);
       } catch (err) {
         if (!ctrl.signal.aborted) setError(err instanceof Error ? err.message : "Failed to list archives");
@@ -365,7 +390,7 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
                       on ? "border-accent-amber" : "border-border hover:border-accent-amber/50"
                     }`}
                   >
-                    <button type="button" onClick={() => setDetail(it)} className="block w-full cursor-pointer text-left">
+                    <button type="button" onClick={() => openItem(it)} className="block w-full cursor-pointer text-left">
                       {/* eslint-disable-next-line @next/next/no-img-element -- archive-hosted thumbnails, not Next assets */}
                       <img
                         src={archiveThumbUrl(archive, it.id, 320)}
@@ -421,7 +446,7 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
         </>
       )}
 
-      {detail && <ItemDetail archive={archive} item={detail} onClose={() => setDetail(null)} />}
+      {detail && <ItemDetail key={`${detail.archive}/${detail.id}`} {...detail} onClose={closeItem} />}
     </div>
   );
 }
@@ -612,39 +637,87 @@ function SliceBar({
   );
 }
 
-function ItemDetail({ archive, item, onClose }: { archive: string; item: ArchiveItem; onClose: () => void }) {
+/**
+ * One archive item, from `GET /archives/{name}/items/{id}`. The grid row shows at
+ * once when there is one. A failed read keeps it on screen and says so.
+ */
+function ItemDetail({
+  archive,
+  id,
+  seed,
+  onClose,
+}: {
+  archive: string;
+  id: string;
+  seed: ArchiveItem | null;
+  onClose: () => void;
+}) {
+  const [item, setItem] = useState<ArchiveItem | null>(seed);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    getArchiveItem(archive, id, ctrl.signal)
+      .then(setItem)
+      .catch((err) => {
+        if (!ctrl.signal.aborted) setError(err instanceof Error ? err.message : "Failed to load item");
+      });
+    return () => ctrl.abort();
+  }, [archive, id]);
+
+  const sourceUrl = externalUrl(item?.source_url);
+  const imageUrl = externalUrl(item?.url);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div
         className="grid max-h-[85vh] w-full max-w-3xl grid-cols-1 overflow-y-auto rounded-xl border border-border bg-surface sm:grid-cols-[minmax(0,1fr)_280px]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- archive-hosted image, not a Next asset */}
-        <img src={archiveThumbUrl(archive, item.id, 1024)} alt={item.caption ?? item.id} className="max-h-[85vh] w-full bg-background object-contain" />
+        {item ? (
+          // eslint-disable-next-line @next/next/no-img-element -- archive-hosted image, not a Next asset
+          <img src={archiveThumbUrl(archive, item.id, 1024)} alt={item.caption ?? item.id} className="max-h-[85vh] w-full bg-background object-contain" />
+        ) : (
+          <div className="flex min-h-64 items-center justify-center bg-background p-6 text-center text-xs text-muted">
+            {error ? "Nothing to show." : "Loading…"}
+          </div>
+        )}
         <div className="space-y-3 p-4 text-xs">
-          <p className="leading-relaxed text-foreground/90">{item.caption ?? "No caption."}</p>
-          <dl className="space-y-1.5">
-            <Row label="Licence" value={item.licence} />
-            {item.collection && <Row label={archive === "megalith" ? "Flickr user" : "Institution"} value={item.collection} />}
-            <Row label="Size" value={item.width ? `${item.width}×${item.height}` : "unknown"} />
-            {item.mime && <Row label="Type" value={item.mime} />}
-            {(item.medium || item.tone || item.year) && (
-              <Row
-                label="From caption"
-                value={[
-                  item.medium && (MEDIUM_LABELS[item.medium] ?? item.medium),
-                  item.tone && (item.tone === "bw" ? "black & white" : "colour"),
-                  item.year && String(item.year),
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              />
-            )}
-            <Row label="ID" value={item.id} mono />
-          </dl>
-          <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="block truncate text-accent-amber hover:text-accent-amber/80">
-            View source ↗
-          </a>
+          {error && <p className="text-accent-red">{item ? `Showing the grid's copy. Couldn't reload this item: ${error}` : error}</p>}
+          {item && (
+            <>
+              <p className="leading-relaxed text-foreground/90">{item.caption ?? "No caption."}</p>
+              <dl className="space-y-1.5">
+                <Row label="Licence" value={item.licence} />
+                {item.collection && <Row label={archive === "megalith" ? "Flickr user" : "Institution"} value={item.collection} />}
+                <Row label="Size" value={item.width ? `${item.width}×${item.height}` : "unknown"} />
+                {item.mime && <Row label="Type" value={item.mime} />}
+                {(item.medium || item.tone || item.year) && (
+                  <Row
+                    label="From caption"
+                    value={[
+                      item.medium && (MEDIUM_LABELS[item.medium] ?? item.medium),
+                      item.tone && (item.tone === "bw" ? "black & white" : "colour"),
+                      item.year && String(item.year),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  />
+                )}
+                <Row label="ID" value={item.id} mono />
+              </dl>
+              {sourceUrl && (
+                <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-accent-amber hover:text-accent-amber/80">
+                  View source ↗
+                </a>
+              )}
+              {imageUrl && imageUrl !== sourceUrl && (
+                <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-accent-amber hover:text-accent-amber/80">
+                  Full-size image ↗
+                </a>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
