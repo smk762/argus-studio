@@ -20,6 +20,7 @@ import {
 import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
+import { Info } from "@/components/Tooltip";
 
 const PAGE_SIZE = 48;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -222,7 +223,7 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
               type="button"
               onClick={() => setArchive(a.name)}
               className={`cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                archive === a.name ? "bg-accent-amber text-black" : "text-muted hover:text-foreground"
+                archive === a.name ? "bg-accent-amber text-on-accent" : "text-muted hover:text-foreground"
               }`}
             >
               {a.title}
@@ -342,11 +343,9 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
               </select>
             )}
             {facets?.dated ? (
-              <span
-                className="flex items-center gap-1 text-xs text-muted"
-                title={`Only ${facets.dated.toLocaleString()} captions mention a year; a range matches only those.`}
-              >
+              <span className="flex items-center gap-1 text-xs text-muted">
                 year
+                <Info text={`Only ${facets.dated.toLocaleString()} captions mention a year; a range matches only those.`} />
                 <input
                   value={form.yearMin}
                   onChange={(e) => apply({ yearMin: e.target.value }, false)}
@@ -581,7 +580,7 @@ function SliceBar({
             type="button"
             onClick={land}
             disabled={!ready || running}
-            className="cursor-pointer rounded-lg bg-accent-amber px-4 py-2 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-lg bg-accent-amber px-4 py-2 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {running ? "Fetching…" : `Fetch ${n.toLocaleString()} into the pool`}
           </button>

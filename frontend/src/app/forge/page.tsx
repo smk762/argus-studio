@@ -626,7 +626,7 @@ export default function ForgePage() {
               type="button"
               onClick={() => void generate()}
               disabled={actionsBlocked || trainersEmpty}
-              className="cursor-pointer rounded-lg bg-accent-amber px-4 py-1.5 text-sm font-medium text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="cursor-pointer rounded-lg bg-accent-amber px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? "Working…" : willWrite ? "Generate + write" : "Preview config"}
             </button>

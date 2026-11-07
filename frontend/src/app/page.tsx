@@ -41,6 +41,7 @@ import {
 } from "@/lib/lensApi";
 import { finalChoice } from "@/lib/captionFinal";
 import { sizedForBackend, tokenBudget, tokenBudgetsOf } from "@/lib/captionTokens";
+import { asError } from "@/lib/apiError";
 import { lensUrl } from "@/lib/curatorEnv";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
@@ -227,12 +228,7 @@ export default function Home() {
         body: JSON.stringify(body),
       });
 
-      if (!resp.ok) {
-        const detail = await resp.json().catch(() => null);
-        throw new Error(
-          detail?.detail ?? `Server error: ${resp.status}`
-        );
-      }
+      if (!resp.ok) await asError(resp);
 
       const data: CaptionResult = await resp.json();
       showResult(data, targetBackend);

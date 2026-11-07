@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SuiteLinks } from "@/components/SuiteLinks";
 
 /**
  * The shared bottom-of-page chrome for every view. `poweredBy` is rendered
@@ -15,6 +16,7 @@ export function SiteFooter({
 }) {
   return (
     <footer className="mt-auto border-t border-border py-4">
+      <SuiteLinks />
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 text-xs text-muted sm:px-6">
         <span>Powered by {poweredBy}</span>
         <span>{right}</span>

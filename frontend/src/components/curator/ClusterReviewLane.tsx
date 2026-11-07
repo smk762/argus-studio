@@ -84,14 +84,14 @@ export function ClusterReviewLane({ scanId, results, nsfwRan, pending = [], sele
                       {m.score.toFixed(2)}
                     </span>
                     {m.is_representative && (
-                      <span className="pointer-events-none absolute left-1 top-1 z-10 rounded bg-accent-amber/80 px-1 py-0.5 font-mono text-[10px] text-black">
+                      <span className="pointer-events-none absolute left-1 top-1 z-10 rounded bg-accent-amber/80 px-1 py-0.5 font-mono text-[10px] text-on-accent">
                         rep*
                       </span>
                     )}
                     {exportable && (
                       <span
                         className={`pointer-events-none absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded border text-[11px] font-bold ${
-                          isSel ? "border-accent-green bg-accent-green text-black" : "border-white/50 bg-black/40 text-transparent"
+                          isSel ? "border-accent-green bg-accent-green text-on-accent" : "border-white/50 bg-black/40 text-transparent"
                         }`}
                       >
                         ✓

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { asError } from "@/lib/apiError";
+import { ApiError, asError, readError } from "@/lib/apiError";
+import { CapabilityRefused } from "@/lib/capabilities";
 import { LENS_CATEGORY } from "@/components/curator/types";
 import { isDeterminatePhase, readSseStream, scanPhaseLabel, StreamCancelled } from "@/lib/curatorApi";
 import { categoryOptions, readNdjson } from "@/lib/lensApi";
@@ -61,6 +62,23 @@ describe("asError", () => {
 
   it("falls back to the status when the body is not JSON", async () => {
     await expect(asError(new Response("<html>", { status: 502 }))).rejects.toThrow("Server error: 502");
+  });
+
+  it("throws an ApiError carrying the status, which error spans read as any Error", async () => {
+    const err: unknown = await asError(json(503, { detail: "detector down" })).catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toMatchObject({ message: "detector down", status: 503 });
+  });
+
+  it("reads the detail without throwing", async () => {
+    await expect(readError(json(409, { detail: "busy" }))).resolves.toBe("busy");
+  });
+
+  it("leaves CapabilityRefused a plain Error, not an ApiError", () => {
+    const refused = new CapabilityRefused("read-only", true);
+    expect(refused).toBeInstanceOf(Error);
+    expect(refused).not.toBeInstanceOf(ApiError);
   });
 });
 
@@ -159,6 +177,14 @@ describe("curator readSseStream", () => {
       "Scan",
     );
     await expect(run).rejects.toThrow("GPU busy: lease timed out (retry in 5s)");
+  });
+
+  it("resolves with a complete frame missing its closing blank line", async () => {
+    await expect(readSseStream(sse(['event: complete\ndata: {"scan_id":"s1"}']), () => {}, "Scan")).resolves.toEqual({ scan_id: "s1" });
+  });
+
+  it("says the stream ended when the complete frame was cut off", async () => {
+    await expect(readSseStream(sse(['event: complete\ndata: {"scan_i']), () => {}, "Scan")).rejects.toThrow("Scan stream ended without a result");
   });
 
   it("still fails when the stream ends without a result", async () => {

@@ -30,7 +30,7 @@ export function ImageTile({ record }: { record: GenerationRecord }) {
         draggable={false}
       />
       {hidden ? (
-        <figcaption className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/40 p-4 text-center">
+        <figcaption className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/70 p-4 text-center">
           <p className="text-sm text-foreground">Blurred: NudeNet scored exposure at or above the threshold.</p>
           <Button onClick={() => setRevealed(true)}>Reveal</Button>
         </figcaption>

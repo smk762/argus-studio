@@ -9,16 +9,19 @@ const TONE: Record<PolicyShield["state"], string> = {
 };
 
 /**
- * One policy's verdict. The mark inside says it without the colour. #124 unifies
- * this with the Shield marks from the standalone UIs.
+ * One policy's verdict. The mark inside says it without the colour.
+ *
+ * Deliberately not darkroom's Shield, whose flagged and illegal come from the
+ * record. A curator verdict is only safe or unsafe, so drawing it there would
+ * mean this page picking one of those for it.
  */
 export function GuardShield({ shield, className = "h-3.5 w-3.5" }: { shield: PolicyShield; className?: string }) {
   return (
     <svg viewBox="0 0 24 24" role="img" aria-label={shield.title} className={`${className} shrink-0 ${TONE[shield.state]}`} fill="currentColor">
       <title>{shield.title}</title>
       <path d={BODY} opacity={shield.state === "pending" ? 0.45 : 1} />
-      {shield.state === "safe" && <path d="m9 12 2 2 4-4" fill="none" stroke="#0b1020" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
-      {shield.state === "unsafe" && <path d="m9 9 6 6M15 9l-6 6" fill="none" stroke="#0b1020" strokeWidth="2" strokeLinecap="round" />}
+      {shield.state === "safe" && <path d="m9 12 2 2 4-4" fill="none" className="stroke-background" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+      {shield.state === "unsafe" && <path d="m9 9 6 6M15 9l-6 6" fill="none" className="stroke-background" strokeWidth="2" strokeLinecap="round" />}
     </svg>
   );
 }

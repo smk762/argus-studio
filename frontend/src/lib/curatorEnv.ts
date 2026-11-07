@@ -68,6 +68,21 @@ export function darkroomUrl(): string {
   return runtimeConfig().darkroomUrl;
 }
 
+/** Link to the standalone argus-lightbox UI, or empty when none is configured. */
+export function lightboxUrl(): string {
+  return runtimeConfig().lightboxUrl;
+}
+
+/** Link to the standalone argus-cull UI, or empty when none is configured. */
+export function cullUrl(): string {
+  return runtimeConfig().cullUrl;
+}
+
+/** Link to the standalone argus-safelight UI, or empty when none is configured. */
+export function safelightUrl(): string {
+  return runtimeConfig().safelightUrl;
+}
+
 /** Scan input directory as seen by argus-curator (container path under Docker). */
 export function localSourcePath(): string {
   return runtimeConfig().curatorSourcePath;

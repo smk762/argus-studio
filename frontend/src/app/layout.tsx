@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { runtimeConfig, runtimeConfigScript } from "@/lib/runtimeConfig";
+import { THEME_BOOT } from "@/lib/theme";
 
 /**
  * LOAD-BEARING, not an optimization hint. The API endpoints are read from the
@@ -43,9 +44,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
+        {/* First in <head>, and it blocks parsing: a saved theme lands before anything paints. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         {/*
           Sets the global `runtimeConfig()` reads, so the client sees the same
           values the server just rendered with.

@@ -48,6 +48,12 @@ export interface RuntimeConfig {
   atlasUrl: string;
   /** Browser-facing argus-darkroom API base (guarded generation). */
   darkroomUrl: string;
+  /** Link to the standalone argus-lightbox UI, or empty for no link. */
+  lightboxUrl: string;
+  /** Link to the standalone argus-cull UI, or empty for no link. */
+  cullUrl: string;
+  /** Link to the standalone argus-safelight UI, or empty for no link. */
+  safelightUrl: string;
   /** `demo` = bundled read-only sample, `live` = real backends. */
   curatorUiMode: CuratorUiMode;
   /** Scan input directory as seen by argus-curator (container path under Docker). */
@@ -149,6 +155,19 @@ function resolveBase(
   return normalizeBase(firstDefined(source, names) ?? fallback, names[0]);
 }
 
+/**
+ * A link to another app, not an API base: empty means no link rather than same
+ * origin, and it ends up in an `href`, so anything but http(s) or a path is
+ * dropped instead of only warned about.
+ */
+function resolveLink(source: Record<string, string | undefined>, name: string): string {
+  const value = firstNonEmpty(source, [name]);
+  if (value === undefined) return "";
+  if (value.startsWith("/") || isAbsoluteUrl(value)) return value.replace(/\/+$/, "");
+  console.warn(`[argus] ${name}="${value}" is not a valid absolute URL or "/"-prefixed path; omitting the link.`);
+  return "";
+}
+
 /** `local` is accepted as a legacy alias for `live`. */
 function resolveUiMode(raw: string | undefined): CuratorUiMode {
   const mode = (raw ?? "demo").toLowerCase();
@@ -178,6 +197,9 @@ export function resolveRuntimeConfig(
     proofUrl: resolveBase(source, ["ARGUS_PROOF_URL", "NEXT_PUBLIC_PROOF_URL"], "http://localhost:8104"),
     atlasUrl: resolveBase(source, ["ARGUS_ATLAS_URL", "NEXT_PUBLIC_ATLAS_URL"], "http://localhost:8105"),
     darkroomUrl: resolveBase(source, ["ARGUS_DARKROOM_URL"], "http://localhost:8106"),
+    lightboxUrl: resolveLink(source, "ARGUS_LIGHTBOX_URL"),
+    cullUrl: resolveLink(source, "ARGUS_CULL_URL"),
+    safelightUrl: resolveLink(source, "ARGUS_SAFELIGHT_URL"),
     curatorUiMode: resolveUiMode(
       firstNonEmpty(source, ["ARGUS_CURATOR_UI_MODE", "NEXT_PUBLIC_CURATOR_UI_MODE"]),
     ),
