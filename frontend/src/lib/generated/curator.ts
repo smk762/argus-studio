@@ -1,4 +1,3 @@
-/* eslint-disable */
 // Generated from smk762/argus-curator@v0.14.1 schema/curator-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 

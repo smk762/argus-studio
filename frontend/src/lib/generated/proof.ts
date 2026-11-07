@@ -1,4 +1,3 @@
-/* eslint-disable */
 // Generated from smk762/argus-proof@v0.2.2 schema/proof-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 

@@ -1,4 +1,3 @@
-/* eslint-disable */
 // Generated from smk762/argus-forge@v0.1.1 schema/forge-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 

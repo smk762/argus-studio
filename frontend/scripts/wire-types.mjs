@@ -60,7 +60,6 @@ function rootedSchema(service, schema) {
 
 async function generate(service, pin, text) {
   const banner = [
-    "/* eslint-disable */",
     `// Generated from ${pin.repo}@${pin.tag} schema/${service}-wire.schema.json.`,
     "// Do not edit: change schema/pins.json and run `npm run wire:pull`.",
     "",
