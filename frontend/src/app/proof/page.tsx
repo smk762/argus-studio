@@ -99,6 +99,7 @@ export default function ProofPage() {
   useEffect(() => {
     if (!selected) return;
     const ctrl = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a fetch that follows the selection; only its spinner is set at once.
     void loadReport(selected, ctrl.signal);
     return () => ctrl.abort();
   }, [selected, loadReport]);
