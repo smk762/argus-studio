@@ -53,7 +53,7 @@ import { capabilityReason, permits } from "@/lib/capabilities";
 import { matchesFilters } from "@/lib/curatorFacets";
 import { policiesRun } from "@/lib/curatorGuard";
 import { sortResults, type ResultSort } from "@/lib/curatorModeration";
-import { canExport, isMinorExposed, scanCheckedNsfw } from "@/lib/curatorSafety";
+import { canExport, isDeletableReject, isMinorExposed, scanCheckedNsfw } from "@/lib/curatorSafety";
 import { scanFormProblem } from "@/lib/curatorScanForm";
 import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
 import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
@@ -533,6 +533,7 @@ export default function CuratePage() {
     [summary, activeFilters, officialPolicy, sort],
   );
   const minorExposed = useMemo(() => summary?.results.filter(isMinorExposed) ?? [], [summary]);
+  const rejected = useMemo(() => summary?.results.filter(isDeletableReject) ?? [], [summary]);
 
   const selectedResults = useMemo(
     () => (summary ? summary.results.filter((r) => selected.has(r.rel_path)) : []),
@@ -799,11 +800,13 @@ export default function CuratePage() {
                         <DeleteActions
                           selectedCount={selectedResults.length}
                           flaggedCount={minorExposed.length}
+                          rejectedCount={rejected.length}
                           health={health}
                           busy={scanning || loading}
                           deleting={deleting}
                           onDeleteSelected={() => void deleteRows(selectedResults)}
                           onDeleteFlagged={() => void deleteRows(minorExposed)}
+                          onDeleteRejected={() => void deleteRows(rejected)}
                         />
                       )}
                     </div>
@@ -882,24 +885,29 @@ export default function CuratePage() {
 
 /**
  * Minor-exposed frames can never be selected, so they get their own action. It
- * is also the only delete a server without `delete_any` accepts.
+ * is also the only delete a server without `delete_any` accepts. Rejected frames
+ * can't be selected either, so they get one too, which does need `delete_any`.
  */
 function DeleteActions({
   selectedCount,
   flaggedCount,
+  rejectedCount,
   health,
   busy,
   deleting,
   onDeleteSelected,
   onDeleteFlagged,
+  onDeleteRejected,
 }: {
   selectedCount: number;
   flaggedCount: number;
+  rejectedCount: number;
   health: Health | null;
   busy: boolean;
   deleting: boolean;
   onDeleteSelected: () => void;
   onDeleteFlagged: () => void;
+  onDeleteRejected: () => void;
 }) {
   const waiting = busy ? "Wait for the scan to finish." : null;
   const anyImage = allowsDeleteAny(health);
@@ -928,6 +936,17 @@ function DeleteActions({
           className={style}
         >
           Delete under-18 exposed ({flaggedCount})
+        </button>
+      )}
+      {rejectedCount > 0 && (
+        <button
+          type="button"
+          onClick={onDeleteRejected}
+          disabled={deleting || selectedReason !== null}
+          title={selectedReason ?? "Delete every rejected frame from disk, including any the filters hide"}
+          className={style}
+        >
+          Delete rejected ({rejectedCount})
         </button>
       )}
     </>
