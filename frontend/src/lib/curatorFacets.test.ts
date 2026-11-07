@@ -73,6 +73,21 @@ describe("matchesFilters: garments", () => {
   });
 });
 
+describe("matchesFilters: moderation", () => {
+  it("drops an unrated frame once a rating is on", () => {
+    expect(matchesFilters(row({ content_rating: "safe" }), filters({ contentRatings: ["safe"] }))).toBe(true);
+    expect(matchesFilters(row({ content_rating: "explicit" }), filters({ contentRatings: ["safe"] }))).toBe(false);
+    expect(matchesFilters(row({ content_rating: null }), filters({ contentRatings: ["safe"] }))).toBe(false);
+  });
+
+  it("applies the verdict filters and the view", () => {
+    const flagged = row({ guard: { safe: false, rules: ["A. Risk"] } });
+    expect(matchesFilters(flagged, filters({ guardUnsafe: true }))).toBe(false);
+    expect(matchesFilters(flagged, filters({ guardView: "unsafe" }))).toBe(true);
+    expect(matchesFilters(flagged, filters({ guardView: "safe" }))).toBe(false);
+  });
+});
+
 describe("facetCounts", () => {
   it("counts a frame once per label, at the floors", () => {
     const counts = facetCounts(

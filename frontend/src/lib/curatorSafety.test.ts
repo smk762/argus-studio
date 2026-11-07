@@ -41,6 +41,29 @@ function image(overrides: Partial<ImageResult> = {}): ImageResult {
 const years = (age: number) => ({ age_years: age, age_source: "mivolo" as const });
 const exposed = (score: number) => ({ exposed_score: score, labels: { BUTTOCKS_EXPOSED: score } });
 
+describe("thumbSafety: SingGuard", () => {
+  const passing = (extra: Partial<ImageResult>) => ({ rel_path: "a", passed: true, nsfw: { exposed_score: 0, labels: {} }, ...extra }) as ImageResult;
+
+  it("veils a clear frame any policy judged unsafe, and it can be revealed", () => {
+    expect(thumbSafety(passing({ guard: { safe: false } }), true)).toMatchObject({ blurred: true, revealable: true, label: "Flagged" });
+    expect(thumbSafety(passing({ guard: { safe: true }, guard_variants: { x: { safe: false } } }), true).blurred).toBe(true);
+  });
+
+  it("does the same on a scan that never ran NudeNet", () => {
+    expect(thumbSafety(passing({ nsfw: null, guard: { safe: false } }), false).blurred).toBe(true);
+    expect(thumbSafety(passing({ nsfw: null }), false).blurred).toBe(false);
+  });
+
+  it("leaves a safe verdict clear", () => {
+    expect(thumbSafety(passing({ guard: { safe: true } }), true).blurred).toBe(false);
+  });
+
+  it("never turns a hold into something revealable", () => {
+    const held = passing({ passed: false, guard: { safe: false } });
+    expect(thumbSafety(held, true).revealable).toBe(false);
+  });
+});
+
 describe("thumbSafety", () => {
   it("holds a rejected frame blurred without reading its score", () => {
     const rejected = image({

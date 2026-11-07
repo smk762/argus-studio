@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { finalChoice, withFinal } from "@/lib/captionFinal";
 import { refineOf } from "@/lib/captionRefine";
+import { isT5Backend, tokenBudget, tokenUse } from "@/lib/captionTokens";
 import type { CaptionResult } from "@/types";
 
 interface VariantStyle {
@@ -83,7 +85,27 @@ function getVariantStyle(key: string): VariantStyle {
 }
 
 interface CaptionVariantsProps {
+  /** Lens's result, untouched. */
   result: CaptionResult;
+  /** The target backend this result was sized for, which is not always the dropdown's. */
+  backend: string;
+  budgets: Record<string, number>;
+  /** A variant chosen as final on this page; null keeps lens's pick. */
+  finalVariant: string | null;
+  onChooseFinal: (variant: string | null) => void;
+}
+
+function TokenCount({ text, backend, budgets }: { text: string; backend: string; budgets: Record<string, number> }) {
+  if (!text.trim()) return null;
+  const { used, budget, over } = tokenUse(text, backend, budgets);
+  return (
+    <span
+      title={over ? `Tokens past the budget may never reach ${backend}'s text encoder.` : undefined}
+      className={`font-mono text-[11px] tabular-nums ${over ? "font-semibold text-accent-amber" : "text-muted"}`}
+    >
+      about {used} / {budget} tokens{over && " · over budget"}
+    </span>
+  );
 }
 
 function RewrittenBadge({ model }: { model: string }) {
@@ -97,10 +119,12 @@ function RewrittenBadge({ model }: { model: string }) {
   );
 }
 
-export function CaptionVariants({ result }: CaptionVariantsProps) {
+export function CaptionVariants({ result, backend, budgets, finalVariant, onChooseFinal }: CaptionVariantsProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const derived = result.final_caption;
+  const final = withFinal(result, finalVariant);
+  const chosen = final !== result;
+  const derived = final.final_caption;
   const variants = result.caption_variants;
   const refine = refineOf(result.metadata);
   const rewritten = new Set(refine?.accepted ?? []);
@@ -121,13 +145,17 @@ export function CaptionVariants({ result }: CaptionVariantsProps) {
       <h3 className="text-xs font-semibold tracking-widest text-muted uppercase">
         Caption Variants
       </h3>
+      <p className="text-xs text-muted">
+        Budget for <span className="font-mono">{backend}</span>:{" "}
+        {`${tokenBudget(backend, budgets)} tokens. Counts are lens's word-based ${isT5Backend(backend) ? "T5" : "CLIP"} estimate, not a tokenizer's, so treat them as approximate.`}
+      </p>
 
       {/* Derived training caption — highlighted */}
       <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 border-l-4 border-l-accent-red">
         <div className="flex items-center justify-between mb-2">
           <span className="flex items-center gap-2 text-xs font-bold tracking-wider text-accent-red">
-            DERIVED TRAINING CAPTION
-            {rewritten.has(result.selected_category) && <RewrittenBadge model={refine?.model ?? ""} />}
+            {chosen ? `FINAL CAPTION: ${getVariantStyle(final.selected_category).label}` : "DERIVED TRAINING CAPTION"}
+            {rewritten.has(final.selected_category) && <RewrittenBadge model={refine?.model ?? ""} />}
           </span>
           <button
             onClick={() => handleCopy(derived, "__derived")}
@@ -139,6 +167,23 @@ export function CaptionVariants({ result }: CaptionVariantsProps) {
         <p className="text-sm text-foreground/90 font-mono leading-relaxed">
           {derived}
         </p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <TokenCount text={derived} backend={backend} budgets={budgets} />
+          {chosen && (
+            <button
+              onClick={() => onChooseFinal(null)}
+              className="text-xs text-accent-teal hover:text-accent-teal/80 transition-colors cursor-pointer"
+            >
+              Back to lens&apos;s pick ({getVariantStyle(result.selected_category).label})
+            </button>
+          )}
+        </div>
+        {chosen && (
+          <p className="mt-2 text-xs text-muted">
+            Your choice, on this page only. Copy and the JSON and CSV exports use it. Nothing was sent to lens, and
+            re-captioning or reloading clears it.
+          </p>
+        )}
       </div>
 
       {/* Category variants */}
@@ -154,16 +199,33 @@ export function CaptionVariants({ result }: CaptionVariantsProps) {
                 {style.label}
                 {rewritten.has(key) && <RewrittenBadge model={refine?.model ?? ""} />}
               </span>
-              <button
-                onClick={() => handleCopy(caption, key)}
-                className="text-xs text-accent-teal hover:text-accent-teal/80 transition-colors cursor-pointer"
-              >
-                {copiedKey === key ? "Copied!" : "Copy to clipboard"}
-              </button>
+              <span className="flex items-center gap-3">
+                {key === final.selected_category ? (
+                  <span className="text-xs text-muted">Final</span>
+                ) : (
+                  (finalChoice(result, key) || key === result.selected_category) && (
+                    <button
+                      onClick={() => onChooseFinal(key)}
+                      className="text-xs text-accent-teal hover:text-accent-teal/80 transition-colors cursor-pointer"
+                    >
+                      Use as final
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => handleCopy(caption, key)}
+                  className="text-xs text-accent-teal hover:text-accent-teal/80 transition-colors cursor-pointer"
+                >
+                  {copiedKey === key ? "Copied!" : "Copy to clipboard"}
+                </button>
+              </span>
             </div>
             <p className="text-sm text-foreground/80 leading-relaxed">
               {caption}
             </p>
+            <div className="mt-2">
+              <TokenCount text={caption} backend={backend} budgets={budgets} />
+            </div>
           </div>
         );
       })}

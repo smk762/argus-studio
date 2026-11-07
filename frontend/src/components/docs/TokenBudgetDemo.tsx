@@ -5,8 +5,8 @@ import { TARGET_BACKENDS } from "@/types";
 
 /**
  * Live, embeddable widget for the Target Backend doc page. It reads the SAME
- * `TARGET_BACKENDS` constant that drives the Caption tool's Target Backend
- * dropdown, so the budgets shown here are the ones the tool actually sends.
+ * `TARGET_BACKENDS` table the Caption tool falls back on (`tokenBudget` in
+ * `lib/captionTokens.ts`). The docs have no lens to ask, so this stays static.
  *
  * The point it makes visually: a caption is assembled to fit the selected
  * backend's budget, so the same caption is generous on Flux and lossy on SDXL.
@@ -29,15 +29,14 @@ export function TokenBudgetDemo() {
   const selected = TARGET_BACKENDS.find((b) => b.value === backend) ?? TARGET_BACKENDS[0];
   const budget = selected.tokens;
 
-  // Assemble the fragments highest-priority-first, stopping the moment the
-  // budget overflows — a caption is truncated at the tail, never packed
-  // greedily, so once one fragment is dropped every lower-priority one is too.
+  // Assemble the fragments highest-priority-first. Like lens's packing, a
+  // fragment that doesn't fit is skipped and the next one still gets its chance.
   // A plain loop rather than a mutating `map` callback: the running totals stay
   // local to the loop instead of being reassigned from inside a closure.
   const rows: ((typeof FRAGMENTS)[number] & { fits: boolean })[] = [];
   for (let spent = 0, i = 0; i < FRAGMENTS.length; i++) {
     const f = FRAGMENTS[i];
-    const fits = spent + f.tokens <= budget && (i === 0 || rows[i - 1].fits);
+    const fits = spent + f.tokens <= budget;
     if (fits) spent += f.tokens;
     rows.push({ ...f, fits });
   }

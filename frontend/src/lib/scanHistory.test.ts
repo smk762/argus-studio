@@ -81,6 +81,13 @@ describe("configFromSummary", () => {
     });
     expect(ran.prefilter.drop_nsfw).toBe(true);
     expect(old.scenes.enabled).toBe(false);
+    expect(old.guard).toEqual({ policy: "default", variants: [] });
+    expect(
+      configFromSummary({
+        ...summary([image("keep.jpg")]),
+        guard_config: { enabled: true, policy: "adult", variants: ["adult-cinematic"] },
+      }).guard,
+    ).toEqual({ policy: "adult", variants: ["adult-cinematic"] });
     expect(
       configFromSummary({
         ...summary([image("keep.jpg")]),

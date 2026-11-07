@@ -10,6 +10,7 @@ import {
   clampShortSide,
   type CuratorConfig,
   type Detectors,
+  type GuardPolicyInfo,
   type TargetCategory,
 } from "./types";
 import {
@@ -24,6 +25,7 @@ import {
   type Health,
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
+import { GuardPolicyPicker } from "./GuardPolicyPicker";
 
 const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; border: string }> = {
   "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
@@ -39,9 +41,11 @@ interface Props {
   /** `/detectors`. Null until known, which offers nothing a curator may not have. */
   detectors: Detectors | null;
   health: Health | null;
+  /** Policy wording from `GET /guard/policies`. Null when this curator has none. */
+  policyCatalog: readonly GuardPolicyInfo[] | null;
 }
 
-export function ScanConfigPanel({ value, onChange, loading, detectors, health }: Props) {
+export function ScanConfigPanel({ value, onChange, loading, detectors, health, policyCatalog }: Props) {
   const setProfile = (patch: Partial<CuratorConfig["profile"]>) =>
     onChange({ ...value, profile: { ...value.profile, ...patch } });
   const setConfig = (patch: Partial<CuratorConfig["config"]>) =>
@@ -299,6 +303,19 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health }:
                 format={(v) => v.toFixed(2)} onChange={(v) => setGarments({ min_conf: v })} disabled={loading} />
             )}
           </div>
+          <hr className="border-border" />
+        </>
+      )}
+
+      {detectors?.singguard && (detectors.singguard_policies?.length ?? 0) > 0 && (
+        <>
+          <GuardPolicyPicker
+            available={detectors.singguard_policies ?? []}
+            choice={value.guard}
+            catalog={policyCatalog}
+            disabled={loading}
+            onChange={(guard) => onChange({ ...value, guard })}
+          />
           <hr className="border-border" />
         </>
       )}

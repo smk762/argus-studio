@@ -15,6 +15,7 @@ import type {
   ExportRequest,
   ExportResult,
   FolderListing,
+  GuardPolicyInfo,
   ImageResult,
   ScanSummary,
   SelectRequest,
@@ -22,6 +23,7 @@ import type {
 } from "@/components/curator/types";
 import { buildScanBody, MANIFEST_VERSION, prefilterOn } from "@/components/curator/types";
 import { asError } from "@/lib/apiError";
+import { readPolicyCatalog } from "@/lib/curatorGuard";
 import { isMinorExposed } from "@/lib/curatorSafety";
 import { deleteBatches, type DeleteOutcome } from "@/lib/scanDelete";
 import type { ScanChunk } from "@/lib/scanChunks";
@@ -187,6 +189,8 @@ export interface Health {
   scan_delete?: boolean;
   /** POST /scan/{id}/delete takes any scanned image, not only a minor-exposed one (curator 0.12 and later). */
   delete_any?: boolean;
+  /** `GET /guard/policies` exists (curator 0.8 and later). */
+  guard_policy_text?: boolean;
   /** `FaceConfig.set_age` exists (curator 0.7 and later). */
   set_age?: boolean;
   /** `ScanRequest.prefilter` exists (curator 0.12 and later). */
@@ -249,6 +253,11 @@ export function allowsDeleteAny(health: Health | null): Capability {
  */
 export function allowsMinorExposedDelete(health: Health | null): Capability {
   return capabilityOf(health, (h) => (typeof h.delete_any === "boolean" ? true : undefined), false);
+}
+
+/** Whether this server serves its policy wording. Legacy `false`: an older curator has no such route. */
+export function allowsGuardPolicyText(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.guard_policy_text, false);
 }
 
 /** Whether frames with no face can take the set's age. Legacy `false`: an older curator ignores the field. */
@@ -339,6 +348,13 @@ export async function getDetectors(signal?: AbortSignal): Promise<Detectors> {
   const resp = await fetch(`${curatorUrl()}/detectors`, { signal });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+/** Every policy a scan can name, with its wording. Requests still pick one by name, never by text. */
+export async function getGuardPolicies(signal?: AbortSignal): Promise<GuardPolicyInfo[]> {
+  const resp = await fetch(`${curatorUrl()}/guard/policies`, { signal });
+  if (!resp.ok) return asError(resp);
+  return readPolicyCatalog(await resp.json());
 }
 
 export async function listFolders(path = "", signal?: AbortSignal): Promise<FolderListing> {

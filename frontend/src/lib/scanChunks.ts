@@ -97,6 +97,7 @@ function emptySummary(chunk: ScanChunk, requested?: CuratorConfig): ScanSummary 
     faces_config: cfg.faces,
     scenes_config: cfg.scenes,
     garments_config: cfg.garments,
+    guard_config: { enabled: null, ...cfg.guard },
     total: 0,
     passed: 0,
     rejected: 0,

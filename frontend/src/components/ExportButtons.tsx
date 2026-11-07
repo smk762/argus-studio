@@ -1,77 +1,23 @@
 "use client";
 
 import type { CaptionResult } from "@/types";
+import { resultToCSV, resultToJSON } from "@/lib/captionFinal";
 import { downloadText } from "@/lib/download";
 
 interface ExportButtonsProps {
   result: CaptionResult;
+  /** A variant chosen as final on this page, which the exports follow. */
+  finalVariant: string | null;
   imageUrl: string;
 }
 
-function escapeCSV(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
-
-function resultToCSV(result: CaptionResult, imageUrl: string): string {
-  const headers = [
-    "image_url",
-    "variant",
-    "caption",
-    "backend",
-    "selected_category",
-    "raw_tags",
-    "raw_prose",
-    "removed_phrases",
-    "compaction_notes",
-  ];
-
-  const rows: string[][] = [];
-
-  rows.push([
-    imageUrl,
-    "__final",
-    result.final_caption,
-    result.backend_name,
-    result.selected_category,
-    result.raw_tags,
-    result.raw_prose,
-    result.removed_phrases.join("; "),
-    result.compaction_notes.join("; "),
-  ]);
-
-  for (const [variant, caption] of Object.entries(result.caption_variants)) {
-    rows.push([
-      imageUrl,
-      variant,
-      caption,
-      result.backend_name,
-      result.selected_category,
-      "",
-      "",
-      "",
-      "",
-    ]);
-  }
-
-  const csvLines = [
-    headers.map(escapeCSV).join(","),
-    ...rows.map((row) => row.map(escapeCSV).join(",")),
-  ];
-
-  return csvLines.join("\n") + "\n";
-}
-
-export function ExportButtons({ result, imageUrl }: ExportButtonsProps) {
+export function ExportButtons({ result, finalVariant, imageUrl }: ExportButtonsProps) {
   const handleJSON = () => {
-    const data = JSON.stringify({ image_url: imageUrl, ...result }, null, 2);
-    downloadText("argus-lens-result.json", data, "application/json");
+    downloadText("argus-lens-result.json", resultToJSON(result, imageUrl, finalVariant), "application/json");
   };
 
   const handleCSV = () => {
-    downloadText("argus-lens-result.csv", resultToCSV(result, imageUrl), "text/csv");
+    downloadText("argus-lens-result.csv", resultToCSV(result, imageUrl, finalVariant), "text/csv");
   };
 
   return (

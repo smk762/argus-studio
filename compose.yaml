@@ -363,6 +363,10 @@ services:
       # ro: the same checkpoints/ + loras/ tree ComfyUI loads, so each bake
       # SHA256-pins its weights.
       - ${MODELS_DIR:-./models}:/data/models:ro
+      # Optional, ro: style recipes (<name>.json) for the CLI's `chunk` and
+      # `chunks --recipe <name>`, which look under /data/recipes. No API route
+      # reads them. Unset, this is an empty ./recipes, which changes nothing.
+      - ${ATLAS_RECIPES_DIR:-./recipes}:/data/recipes:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

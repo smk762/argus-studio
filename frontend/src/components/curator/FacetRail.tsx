@@ -3,9 +3,12 @@
 import { useMemo } from "react";
 import { attributeLine } from "@/lib/curatorAttributes";
 import { facetCounts, rankedLabels, slugLabel } from "@/lib/curatorFacets";
+import { matchesGuardView, policiesRun, policyFlagCounts, ruleCounts, shieldState, type GuardView } from "@/lib/curatorGuard";
+import { ratingCounts } from "@/lib/curatorModeration";
 import { scanCheckedNsfw, thumbSafety } from "@/lib/curatorSafety";
 import { ThumbImage } from "./ThumbImage";
 import {
+  CONTENT_RATINGS,
   FACE_AGES,
   FACE_GENDERS,
   FACE_POSES,
@@ -60,6 +63,17 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
   const hasScenes = recorded.scenes.size + recorded.environments.size > 0;
   const hasGarments = recorded.garments.size > 0;
   const garmentFloor = summary.garments_config?.min_conf ?? 0;
+  const ratings = useMemo(() => ratingCounts(summary.results), [summary.results]);
+  const nsfwRan = scanCheckedNsfw(summary);
+  const official = summary.guard_config?.policy ?? null;
+  const policies = useMemo(() => policiesRun(summary), [summary]);
+  const rules = useMemo(() => ruleCounts(summary.results, official), [summary.results, official]);
+  const flags = useMemo(() => policyFlagCounts(summary.results, official), [summary.results, official]);
+  const views = useMemo(() => {
+    const states = summary.results.map((row) => shieldState(row, official));
+    const count = (view: GuardView) => states.filter((state) => matchesGuardView(state, view)).length;
+    return { all: states.length, unsafe: count("unsafe"), split: count("split"), safe: count("safe") };
+  }, [summary.results, official]);
   const flip = <T,>(values: readonly T[], value: T): T[] =>
     values.includes(value) ? values.filter((v) => v !== value) : [...values, value];
 
@@ -261,6 +275,96 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
             min={garmentFloor}
             onChange={(v) => set({ minGarmentConf: v })}
           />
+        </FacetGroup>
+      )}
+
+      {(nsfwRan || ratings.safe + ratings.suggestive + ratings.explicit > 0) && (
+        <FacetGroup
+          title="Content rating"
+          note={`From NudeNet. ${ratings.unchecked} not checked, which is not the same as safe.`}
+          active={filters.contentRatings.length > 0}
+          onClear={() => set({ contentRatings: [] })}
+        >
+          <Chips
+            options={CONTENT_RATINGS}
+            selected={filters.contentRatings}
+            count={(v) => ratings[v]}
+            onToggle={(v) => set({ contentRatings: flip(filters.contentRatings, v) })}
+          />
+        </FacetGroup>
+      )}
+
+      {policies.length > 0 && (
+        <FacetGroup
+          title="SingGuard"
+          active={filters.guardUnsafe || filters.guardRules.length + filters.guardPolicies.length > 0 || filters.guardView !== "all"}
+          onClear={() => set({ guardUnsafe: false, guardRules: [], guardPolicies: [], guardView: "all" })}
+        >
+          <label className="block text-[10px] text-muted">
+            Show
+            <select
+              aria-label="Show by verdict"
+              value={filters.guardView}
+              onChange={(e) => set({ guardView: e.target.value as GuardView })}
+              className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+            >
+              <option value="all">All ({views.all})</option>
+              <option value="unsafe">Unsafe ({views.unsafe})</option>
+              <option value="split">Policies disagree ({views.split})</option>
+              <option value="safe">Safe ({views.safe})</option>
+            </select>
+          </label>
+          <Check
+            label="Drop every unsafe verdict"
+            checked={filters.guardUnsafe}
+            onChange={(v) => set({ guardUnsafe: v, guardRules: v ? [] : filters.guardRules })}
+          />
+          {rules.size > 0 && (
+            <>
+              <span className="block text-[10px] text-muted">Drop these rules</span>
+              <div className="scrollbar-thin max-h-32 space-y-1 overflow-y-auto">
+                {rankedLabels(rules, filters.guardRules).map((rule) => (
+                  <label key={rule} className="flex cursor-pointer items-start gap-2 text-[11px] text-foreground" title={rule}>
+                    <input
+                      type="checkbox"
+                      checked={filters.guardRules.includes(rule)}
+                      onChange={() => set({ guardUnsafe: false, guardRules: flip(filters.guardRules, rule) })}
+                      className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-accent-teal"
+                    />
+                    <span className="min-w-0">
+                      {rule} <span className="font-mono text-[10px] text-muted">{rules.get(rule) ?? 0}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+          {policies.length > 1 && (
+            <>
+              <span className="block text-[10px] text-muted" title="Empty reads the official policy. A frame drops when any listed policy fails it.">
+                Read verdicts from
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {policies.map((policy, i) => {
+                  const on = filters.guardPolicies.includes(policy);
+                  return (
+                    <button
+                      key={policy}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => set({ guardPolicies: flip(filters.guardPolicies, policy) })}
+                      title={i === 0 ? "The official policy" : "A variant"}
+                      className={`cursor-pointer rounded-md border px-1.5 py-0.5 font-mono text-[10px] ${
+                        on ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal" : "border-border bg-background text-foreground/85"
+                      }`}
+                    >
+                      {policy} {flags.get(policy) ?? 0}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </FacetGroup>
       )}
 

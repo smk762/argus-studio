@@ -40,6 +40,11 @@ export interface ThumbSafety {
 
 const CLEAR: ThumbSafety = { blurred: false, revealable: false, label: "", reason: "" };
 
+/** SingGuard judged the frame unsafe under any policy that ran. */
+function guardFlagged(img: ImageResult): boolean {
+  return img.guard?.safe === false || Object.values(img.guard_variants ?? {}).some((verdict) => verdict?.safe === false);
+}
+
 function mivoloYears(attrs: AgeReading | null | undefined): number | null {
   if (attrs?.age_years == null) return null;
   if (attrs.age_source != null && attrs.age_source !== "mivolo") return null;
@@ -84,6 +89,10 @@ function veiled(label: string, reason: string): ThumbSafety {
   return { blurred: true, revealable: true, label, reason };
 }
 
+function clearUnlessFlagged(img: ImageResult): ThumbSafety {
+  return guardFlagged(img) ? veiled("Flagged", "SingGuard judged this unsafe, so it stays blurred until you reveal it.") : CLEAR;
+}
+
 /**
  * How to show one thumbnail from a finished scan.
  *
@@ -117,7 +126,7 @@ export function thumbSafety(img: ImageResult, nsfwRan: boolean, pending: readonl
     return veiled("NudeNet failed", "NudeNet's check failed, so this stays blurred until you reveal it.");
   }
   if (img.nsfw == null) {
-    if (!nsfwRan) return CLEAR;
+    if (!nsfwRan) return clearUnlessFlagged(img);
     if (mivoloAges(img).some((age) => age < MINOR_AGE_YEARS)) {
       return held("Stays blurred", "An under-18 face has no nudity score, so this stays blurred.");
     }
@@ -129,7 +138,7 @@ export function thumbSafety(img: ImageResult, nsfwRan: boolean, pending: readonl
       `Exposure ${exposedReading(img).toFixed(2)} is at or above ${BLUR_EXPOSED_SCORE.toFixed(2)}.`,
     );
   }
-  return CLEAR;
+  return clearUnlessFlagged(img);
 }
 
 /** A finished scan ran NudeNet, so a row with no score was skipped rather than cleared. */

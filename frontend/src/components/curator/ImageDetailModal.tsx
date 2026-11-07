@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { attributeLine, bodyAgeLines, checkWarnings, garmentRows, sceneRows } from "@/lib/curatorAttributes";
 import { canExport, exportBlockReason, thumbSafety } from "@/lib/curatorSafety";
+import { ModerationPanel } from "./ModerationPanel";
 import { SafeThumb } from "./SafeThumb";
 import { breakdownTooltip, cropRows, statusExplanation } from "./imageExplain";
 import { POSE_LABELS, type ImageResult } from "./types";
@@ -11,6 +12,9 @@ interface Props {
   scanId: string;
   nsfwRan: boolean;
   pending?: readonly string[];
+  /** Policies the scan ran, official first. */
+  policies?: readonly string[];
+  officialPolicy?: string | null;
   img: ImageResult | null;
   /** The filtered gallery the modal navigates within (prev/next). */
   list: ImageResult[];
@@ -20,7 +24,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function ImageDetailModal({ scanId, nsfwRan, pending = [], img, list, selected, onToggle, onNavigate, onClose }: Props) {
+export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [], officialPolicy = null, img, list, selected, onToggle, onNavigate, onClose }: Props) {
   const idx = img ? list.findIndex((r) => r.rel_path === img.rel_path) : -1;
   const prev = idx > 0 ? list[idx - 1] : null;
   const next = idx >= 0 && idx < list.length - 1 ? list[idx + 1] : null;
@@ -143,6 +147,13 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], img, list, sel
                   ["Artifact score", img.artifact_score.toFixed(4)],
                   ["pHash", img.phash],
                 ]}
+              />
+              <ModerationPanel
+                img={img}
+                policies={policies}
+                officialPolicy={officialPolicy}
+                nsfwRan={nsfwRan}
+                held={safety.blurred && !safety.revealable}
               />
               {crop && <StatBlock title="Crop" rows={crop} />}
               {(img.group_size > 1 || img.is_duplicate) && (

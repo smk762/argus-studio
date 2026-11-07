@@ -8,11 +8,14 @@ import {
   imageState,
   METRIC_LABELS,
   normalizeEdits,
+  policyLabel,
   presentMetrics,
   proofImageAtUrl,
   proofImageUrl,
-  rejectLabel,
+  reasonLabel,
   submitHitl,
+  toggleUnsafeCategory,
+  unsafeBreakdown,
   type EvalReport,
   type HitlEdit,
   type ImageScores,
@@ -22,7 +25,7 @@ import {
 import { permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { StarRating } from "@/components/proof/StarRating";
-import { RejectReasonPicker } from "@/components/proof/RejectReasonPicker";
+import { RejectReasonPicker, UnsafeCategoryPicker } from "@/components/proof/RejectReasonPicker";
 
 /** Deterministic shuffle keyed by the run id, so blind-mode order is randomised
  * once per run rather than re-shuffling on every keystroke. */
@@ -113,6 +116,35 @@ function SampleImage({
       onError={() => setFailed(true)}
       className="aspect-square w-full rounded-lg border border-border bg-surface-hover/40 object-cover"
     />
+  );
+}
+
+/** The run's `unsafe` rejects by policy category. Renders nothing without any.
+ * Counts only, so it gives nothing away about a sample in blind mode. */
+function UnsafeBreakdownPanel({ images }: { images: ImageScores[] }) {
+  const { images: total, slices } = unsafeBreakdown(images);
+  if (total === 0) return null;
+  const overlapping = slices.reduce((n, s) => n + s.images, 0) > total;
+  return (
+    <div className="mt-4 border-t border-border pt-3 text-[11px] text-muted">
+      <div className="mb-1.5 font-medium text-foreground/70">
+        Unsafe rejects: {total} image{total === 1 ? "" : "s"}
+      </div>
+      <ul className="flex flex-wrap gap-1.5">
+        {slices.map((s) => (
+          <li
+            key={s.category ?? "uncategorised"}
+            className={`rounded-md border px-2 py-0.5 ${
+              s.category === null ? "border-border text-muted" : "border-accent-red/40 text-accent-red"
+            }`}
+          >
+            {s.category === null ? "Uncategorised" : policyLabel(s.category)}{" "}
+            <span className="font-mono">{s.images}</span>
+          </li>
+        ))}
+      </ul>
+      {overlapping && <p className="mt-1.5">An image can sit under more than one category.</p>}
+    </div>
   );
 }
 
@@ -225,6 +257,15 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
         ? base.reject_reasons.filter((r) => r.code !== code)
         : [...base.reject_reasons, { code }];
       setEdit(img.image_id, { reject_reasons }, base);
+      if (blind) setRevealed((r) => new Set(r).add(img.image_id));
+    },
+    [blind, editFor, setEdit],
+  );
+
+  const toggleCategory = useCallback(
+    (img: ImageScores, category: string) => {
+      const base = editFor(img);
+      setEdit(img.image_id, { reject_reasons: toggleUnsafeCategory(base.reject_reasons, category) }, base);
       if (blind) setRevealed((r) => new Set(r).add(img.image_id));
     },
     [blind, editFor, setEdit],
@@ -359,6 +400,8 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
             <p className="mt-2">{meanCount(agg.means)} of {METRIC_LABELS.length} metric axes scored.</p>
           </div>
         </div>
+
+        <UnsafeBreakdownPanel images={view.images} />
       </section>
 
       {/* Review controls */}
@@ -473,10 +516,14 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
                   selected={edit.reject_reasons.map((r) => r.code)}
                   onToggle={(code) => toggleReason(img, code)}
                 />
+                {edit.reject_reasons.some((r) => r.code === "unsafe") && (
+                  <UnsafeCategoryPicker
+                    reasons={edit.reject_reasons}
+                    onToggle={(category) => toggleCategory(img, category)}
+                  />
+                )}
                 {edit.reject_reasons.length > 0 && (
-                  <p className="text-[10px] text-accent-red/80">
-                    {edit.reject_reasons.map((r) => rejectLabel(r.code)).join(", ")}
-                  </p>
+                  <p className="text-[10px] text-accent-red/80">{edit.reject_reasons.map(reasonLabel).join(", ")}</p>
                 )}
               </div>
             </div>

@@ -87,6 +87,20 @@ describe("scanFormProblem", () => {
   });
 });
 
+describe("guard choices", () => {
+  it("flags a policy this curator does not offer", () => {
+    const cfg = form({ guard: { policy: "gone", variants: [] } });
+    expect(scanFormProblem(cfg, detectors({ singguard_policies: ["default"] }))).toMatch(/gone/);
+  });
+
+  it("sends the block only away from the default", () => {
+    expect(buildScanBody("f", form({}))).not.toHaveProperty("guard");
+    const guard = { policy: "adult", variants: ["adult-cinematic"] };
+    expect(buildScanBody("f", form({ guard }))).toMatchObject({ guard });
+    expect(buildScanBody("f", form({ guard: { policy: "default", variants: ["adult"] } }))).toHaveProperty("guard");
+  });
+});
+
 describe("buildScanBody", () => {
   it("leaves the blocks out unless asked for", () => {
     const body = buildScanBody("f", form({}));

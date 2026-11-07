@@ -231,13 +231,16 @@ argus-proof serve --cors --port 8104
 
 Bake one georeferenced fantasy-map overlay from real terrain with [argus-atlas](https://github.com/smk762/argus-atlas) ([PyPI](https://pypi.org/project/argus-atlas/); `ARGUS_ATLAS_URL`, default `http://localhost:8105`). It is the stage after proof: a cartography LoRA that passed evaluation goes in as a file, and atlas does the geodata work with GDAL.
 
-- **New canvas** picks a DEM and an optional OSM extract from what the server lists under `ATLAS_DEM_DIR` (`GET /inputs`), takes an AOI in degrees, and builds the hillshade, slope, layer masks and composite (`POST /controls`). No GPU, so this works on a read-only host too.
-- The **job view** shows each control on the canvas grid with the painted map over it and an opacity slider. The coastline should not move as you fade: the model only painted pixels inside a frame GDAL had already georeferenced.
+- **Host doctor** (`GET /doctor`) reports GDAL, the tiler, the PMTiles packer, the bake backend and the server's directories. It is collapsed, and probes only when opened.
+- **New canvas** picks a DEM (GeoTIFF or `.vrt` mosaic) and an optional OSM extract from what the server lists under `ATLAS_DEM_DIR` (`GET /inputs`), takes an AOI in degrees and an optional gdalwarp `resampling` method, and builds the hillshade, slope, layer masks and composite (`POST /controls`). No GPU, so this works on a read-only host too. A job pins the hash of a `.vrt` file, not of the tiles it lists.
+- **Fetch OSM** (`POST /osm`) asks the server to fetch layers for the AOI from Overpass into `ATLAS_DEM_DIR/osm/<name>/`, then selects the new extract. It is off unless the server sets `ATLAS_ALLOW_OSM=1`; the form then stays visible with the reason.
+- The **job view** shows each control on the canvas grid with the painted map over it and an opacity slider. The coastline should not move as you fade: the model only painted pixels inside a frame GDAL had already georeferenced. Jobs labelled with `argus-atlas labels --job` get a toggle that draws the place names over the canvas (`GET /jobs/{id}/labels`); names never enter the raster, and no route builds them. Stage timings sit below the bake form.
+- **Chunks** baked with `argus-atlas chunk` show their `z/x/y` tile and recipe in the job list. Baking a chunk from this page drops its recipe, and a chunk whose crop failed can't be tiled until it is baked again.
 - **Bake** streams `POST /bake/stream` with a style preset (`GET /presets`), a checkpoint and an optional LoRA. It is off unless the server sets `ATLAS_ALLOW_BAKE=1`; the form then stays visible with the reason. A bake that fails the alignment gate keeps its PNG and writes no GeoTIFF.
-- **Cut PMTiles** (`POST /tiles`) packs the aligned GeoTIFF up to its native zoom; the archive downloads from the page. Drape it on a basemap with atlas's `examples/viewer.html`.
+- **Cut PMTiles** (`POST /tiles`) packs the aligned GeoTIFF up to its native zoom; the archive downloads from the page. Drape it on a basemap with atlas's `examples/viewer.html`. When atlas answers 409, the page shows its reason.
 - **Provenance** lists the DEM hash and every GDAL command, so a bake can be replayed.
 
-In compose, put DEMs (GeoTIFF or `.vrt`) in `DEM_DIR` and point `MODELS_DIR` / `COMFYUI_BASE_URL` at the ComfyUI the bake uses. Standalone (GDAL must be installed):
+In compose, put DEMs (GeoTIFF or `.vrt`) in `DEM_DIR` and point `MODELS_DIR` / `COMFYUI_BASE_URL` at the ComfyUI the bake uses. To run `chunk --recipe <name>` from the image, put recipes in `ATLAS_RECIPES_DIR`, which mounts read-only at `/data/recipes`. Standalone (GDAL must be installed):
 
 ```bash
 pip install "argus-atlas[server,cli,tiles]"
@@ -305,6 +308,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_CURATOR_NUDENET_URL` | `http://nudenet:8080` | Curator's nudity check, served by the bundled `nudenet` service (amd64 only). Set it empty to switch it off |
 | `ARGUS_CURATOR_ERAX_URL` / `ARGUS_CURATOR_SINGGUARD_URL` | _(empty)_ | Optional curator detectors. Neither server is bundled |
 | `ATLAS_ALLOW_BAKE` / `ATLAS_ALLOW_OSM` | _(unset)_ | Let argus-atlas bake on the GPU / fetch OSM from Overpass; both off by default |
+| `ATLAS_RECIPES_DIR` | `./recipes` | Host dir of style recipes, mounted read-only at `/data/recipes` on argus-atlas for its CLI; no API route reads them |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
 | `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` | `latest` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys |
 | `LENS_EXTRAS` | `server,local` | pip extras for a **source build** only (`-f compose.build.yaml`); ignored on the default pull path (`server,openai,replicate` for a cloud-only image) |
