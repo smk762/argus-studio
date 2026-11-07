@@ -1,0 +1,1418 @@
+{
+  "$defs": {
+    "AcceptanceThresholds": {
+      "description": "Declared thresholds a run must clear to be accepted (the CI gate, #12).\n\nTurns \"was this LoRA/dataset good enough?\" into an automatable yes/no. Each\ncheck runs only when its threshold is set; ``min_pass_rate`` is **on by\ndefault** (set it ``None`` to skip), the rest default off. If no check is\nconfigured the gate rejects rather than accept on zero evidence.\n``min_pass_rate_ci_lower`` is the stricter, small-N-safe version of\n``min_pass_rate`` \u2014 the Wilson lower bound must clear it, so a lucky 3/3\ndoesn't pass a bar that 300/400 would. ``max_unsafe_rate`` counts an image\nunsafe when its ``safety`` metric is below ``unsafe_safety_floor`` or it\ncarries an ``unsafe`` reject reason.",
+      "properties": {
+        "confidence": {
+          "default": 0.95,
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "max_unsafe_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Unsafe Rate"
+        },
+        "min_identity_mean": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Identity Mean"
+        },
+        "min_pass_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.75,
+          "title": "Min Pass Rate"
+        },
+        "min_pass_rate_ci_lower": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Pass Rate Ci Lower"
+        },
+        "unsafe_safety_floor": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Unsafe Safety Floor",
+          "type": "number"
+        }
+      },
+      "title": "AcceptanceThresholds",
+      "type": "object"
+    },
+    "AggregateScores": {
+      "description": "Run-level roll-up: counts, pass rate, mean of each metric axis, diversity.\n\n``pass_rate`` is computed over near-duplicate *groups*, not raw frames, so a\ncluster of Monte-Carlo near-dups counts once: ``n_passed / n_groups``.\n``n_groups`` equals ``n_images`` when no deduper ran.",
+      "properties": {
+        "diversity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diversity"
+        },
+        "means": {
+          "$ref": "#/$defs/MetricScores"
+        },
+        "n_groups": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Groups"
+        },
+        "n_images": {
+          "minimum": 0,
+          "title": "N Images",
+          "type": "integer"
+        },
+        "n_needs_hitl": {
+          "default": 0,
+          "minimum": 0,
+          "title": "N Needs Hitl",
+          "type": "integer"
+        },
+        "n_passed": {
+          "minimum": 0,
+          "title": "N Passed",
+          "type": "integer"
+        },
+        "pass_rate": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Pass Rate",
+          "type": "number"
+        }
+      },
+      "required": [
+        "n_images",
+        "n_passed",
+        "pass_rate"
+      ],
+      "title": "AggregateScores",
+      "type": "object"
+    },
+    "BackendCapabilities": {
+      "description": "What a generation backend can do \u2014 its capability descriptor.\n\nLets a caller pick or validate a backend without hard-coding which one it\nis: swapping backends is a config change, not a code change.",
+      "properties": {
+        "max_loras": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Loras"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reads_pnginfo": {
+          "default": false,
+          "title": "Reads Pnginfo",
+          "type": "boolean"
+        },
+        "streams_progress": {
+          "default": false,
+          "title": "Streams Progress",
+          "type": "boolean"
+        },
+        "supports_seed_set": {
+          "default": true,
+          "title": "Supports Seed Set",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "BackendCapabilities",
+      "type": "object"
+    },
+    "EvalReport": {
+      "description": "Scored evaluation of a generation run: per-image + aggregate + verdict.\n\nLinks to its :class:`RunManifest` by ``run_id`` rather than embedding it, so\nthe run dir stays the single source of truth for generation params.",
+      "properties": {
+        "aggregate": {
+          "$ref": "#/$defs/AggregateScores"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "images": {
+          "items": {
+            "$ref": "#/$defs/ImageScores"
+          },
+          "title": "Images",
+          "type": "array"
+        },
+        "proof_version": {
+          "default": "1.3",
+          "title": "Proof Version",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "scorers": {
+          "items": {
+            "$ref": "#/$defs/ScorerProvenance"
+          },
+          "title": "Scorers",
+          "type": "array"
+        },
+        "verdict": {
+          "$ref": "#/$defs/Verdict"
+        }
+      },
+      "required": [
+        "run_id",
+        "aggregate",
+        "verdict"
+      ],
+      "title": "EvalReport",
+      "type": "object"
+    },
+    "GateCheck": {
+      "description": "One threshold check's outcome, with the actual value vs the threshold.",
+      "properties": {
+        "actual": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual"
+        },
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold"
+        }
+      },
+      "required": [
+        "name",
+        "passed"
+      ],
+      "title": "GateCheck",
+      "type": "object"
+    },
+    "GateConfig": {
+      "description": "Thresholds that route each image to auto-pass / auto-fail / needs-HITL.\n\nAn automated pre-pass so humans only rate the borderline band (HITL doesn't\nscale to every image). Scorers return a normalised score in ``[0, 1]``\n(higher = better); the gate takes a ``weights``-weighted mean of the metrics\npresent (curator's weighted ``score_breakdown`` pattern) into a composite:\n``composite >= auto_pass`` \u2192 pass, ``<= auto_fail`` \u2192 fail, between \u2192 HITL.\n``hard_gates`` are absolute per-metric floors (e.g. a minimum identity) that\nfail an image regardless of composite. A run passes when its group pass-rate\nreaches ``run_pass_rate``.\n\n``safety`` is in the default composite weights so an unsafe image is dragged\ndown once safety scoring lands (Phase 4); for a true veto, add ``safety`` to\n``hard_gates`` with your scorer's floor \u2014 the composite alone can let a\nhigh-quality-but-unsafe image through.",
+      "properties": {
+        "auto_fail": {
+          "default": 0.4,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Auto Fail",
+          "type": "number"
+        },
+        "auto_pass": {
+          "default": 0.7,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Auto Pass",
+          "type": "number"
+        },
+        "hard_gates": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Hard Gates",
+          "type": "object"
+        },
+        "run_pass_rate": {
+          "default": 0.75,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Run Pass Rate",
+          "type": "number"
+        },
+        "weights": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Weights",
+          "type": "object"
+        }
+      },
+      "title": "GateConfig",
+      "type": "object"
+    },
+    "GateResult": {
+      "description": "The overall accept/reject decision \u2014 ``passed`` iff every check passed.",
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/GateCheck"
+          },
+          "title": "Checks",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "passed"
+      ],
+      "title": "GateResult",
+      "type": "object"
+    },
+    "GeneratedImage": {
+      "description": "One image a backend produced, ready to be scored.\n\n``image_id`` is the opaque handle scores reference; ``(run_id, seed)`` is the\nreproducible key. ``pnginfo`` is the metadata read back from the PNG the\nengine embedded (ComfyUI PNGInfo), so the recorded params can be checked\nagainst what actually rendered rather than trusted blind.",
+      "properties": {
+        "height": {
+          "title": "Height",
+          "type": "integer"
+        },
+        "image_id": {
+          "title": "Image Id",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "pnginfo": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Pnginfo",
+          "type": "object"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "width": {
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "image_id",
+        "run_id",
+        "seed",
+        "path",
+        "width",
+        "height"
+      ],
+      "title": "GeneratedImage",
+      "type": "object"
+    },
+    "GridConfig": {
+      "description": "One grid: the :class:`GridAxes` under a **fixed** base checkpoint + sampler.\n\nBase prompts come from the export's captions (the zeroshot caption variant,\nfalling back to the training ``.txt`` sidecar). Those are multiplied across\nthe inherited axes into a deterministic, reproducible set of\n:class:`RunSpec`s; a control ``seeds`` set is shared by every run so seed luck\ncan't skew a comparison.",
+      "properties": {
+        "base_checkpoint": {
+          "title": "Base Checkpoint",
+          "type": "string"
+        },
+        "combo_seed": {
+          "default": 0,
+          "title": "Combo Seed",
+          "type": "integer"
+        },
+        "flexibility_prompts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Flexibility Prompts",
+          "type": "array"
+        },
+        "lora_checkpoints": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Lora Checkpoints",
+          "type": "array"
+        },
+        "lora_weights": {
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Lora Weights",
+          "type": "array"
+        },
+        "max_base_prompts": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Base Prompts"
+        },
+        "max_token_combos": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Token Combos"
+        },
+        "negative_prompt": {
+          "default": "",
+          "title": "Negative Prompt",
+          "type": "string"
+        },
+        "run_id_prefix": {
+          "default": "proof",
+          "title": "Run Id Prefix",
+          "type": "string"
+        },
+        "sampling": {
+          "$ref": "#/$defs/SamplingParams"
+        },
+        "seconds_per_image": {
+          "default": 6.0,
+          "title": "Seconds Per Image",
+          "type": "number"
+        },
+        "seeds": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Seeds",
+          "type": "array"
+        },
+        "source_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Manifest"
+        },
+        "source_manifest_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Manifest Version"
+        },
+        "token_axes": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Token Axes",
+          "type": "object"
+        },
+        "training_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Training Run Id"
+        }
+      },
+      "required": [
+        "lora_checkpoints",
+        "seeds",
+        "base_checkpoint",
+        "sampling"
+      ],
+      "title": "GridConfig",
+      "type": "object"
+    },
+    "GridEstimate": {
+      "description": "The up-front count + GPU-hour estimate reported before any generation.\n\n``axes`` breaks the grid down (how many checkpoints \u00d7 weights \u00d7 prompts \u00d7\nseeds) so a caller sees why the count is what it is before committing GPU.",
+      "properties": {
+        "axes": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Axes",
+          "type": "object"
+        },
+        "est_gpu_hours": {
+          "title": "Est Gpu Hours",
+          "type": "number"
+        },
+        "est_gpu_seconds": {
+          "title": "Est Gpu Seconds",
+          "type": "number"
+        },
+        "n_images": {
+          "title": "N Images",
+          "type": "integer"
+        },
+        "n_runs": {
+          "title": "N Runs",
+          "type": "integer"
+        },
+        "seconds_per_image": {
+          "title": "Seconds Per Image",
+          "type": "number"
+        }
+      },
+      "required": [
+        "n_runs",
+        "n_images",
+        "seconds_per_image",
+        "est_gpu_seconds",
+        "est_gpu_hours"
+      ],
+      "title": "GridEstimate",
+      "type": "object"
+    },
+    "GridPlan": {
+      "description": "A fully enumerated grid: the runs to generate plus their cost estimate.",
+      "properties": {
+        "estimate": {
+          "$ref": "#/$defs/GridEstimate"
+        },
+        "run_id_prefix": {
+          "title": "Run Id Prefix",
+          "type": "string"
+        },
+        "specs": {
+          "items": {
+            "$ref": "#/$defs/RunSpec"
+          },
+          "title": "Specs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id_prefix",
+        "estimate"
+      ],
+      "title": "GridPlan",
+      "type": "object"
+    },
+    "ImageScores": {
+      "description": "Per-image scores for one generated sample, keyed by ``(run_id, seed)``.\n\n``image_id`` is an opaque handle for the report to reference; the durable,\nreproducible key is ``seed`` (with the run's :class:`RunManifest`).\n``hitl_rating`` is a 1\u20135 star human rating when review has happened;\n``hitl_rater`` records who gave it (an opaque rater id) so a report can be\nsplit per rater for inter-rater reliability. ``refinement`` is the optional\nsecond-pass re-rank over the passing subset, kept distinct from the first pass.",
+      "properties": {
+        "duplicate_group": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duplicate Group"
+        },
+        "hitl_rater": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hitl Rater"
+        },
+        "hitl_rating": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hitl Rating"
+        },
+        "image_id": {
+          "title": "Image Id",
+          "type": "string"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MetricScores"
+        },
+        "passed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Passed"
+        },
+        "refinement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Refinement"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reject_reasons": {
+          "items": {
+            "$ref": "#/$defs/RejectReason"
+          },
+          "title": "Reject Reasons",
+          "type": "array"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "image_id",
+        "seed"
+      ],
+      "title": "ImageScores",
+      "type": "object"
+    },
+    "LoRARef": {
+      "description": "A LoRA applied during generation, as recorded in a resolved run: a\n:class:`ModelRef` (name pinned by SHA256) plus its weight.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "lowercase hex SHA256 digest",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "weight": {
+          "default": 1.0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "sha256"
+      ],
+      "title": "LoRARef",
+      "type": "object"
+    },
+    "LoRASpec": {
+      "description": "A LoRA to apply, as *requested* \u2014 name + weight, before the file is hashed.\n\nThe request-time counterpart of :class:`LoRARef`: a :class:`RunSpec` names a\nLoRA by filename; the backend resolves it to a file, hashes it, and records\nthe resulting :class:`LoRARef` in the :class:`RunManifest`.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "weight": {
+          "default": 1.0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "LoRASpec",
+      "type": "object"
+    },
+    "MetricScores": {
+      "description": "The scoring axes for one image (or their means, in the aggregate).\n\nEvery field is optional so an axis whose scorer did not run stays ``None``\ninstead of a misleading ``0.0``. Semantics: ``identity`` similarity to the\nreference (higher = closer), ``clip_score`` prompt adherence, ``aesthetic``\nan IQA/aesthetic score, ``preference`` an ImageReward/HPS-style score, and\n``safety`` a safety score.",
+      "properties": {
+        "aesthetic": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aesthetic"
+        },
+        "clip_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Clip Score"
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identity"
+        },
+        "preference": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preference"
+        },
+        "safety": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Safety"
+        }
+      },
+      "title": "MetricScores",
+      "type": "object"
+    },
+    "ModelRef": {
+      "description": "A model file pinned by content: how the engine names it + its SHA256.\n\n``name`` is what the generation engine loads (e.g. a ComfyUI checkpoint\nfilename); ``sha256`` is the real identity, so a manifest can't drift if the\nfile behind the name changes.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "lowercase hex SHA256 digest",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "sha256"
+      ],
+      "title": "ModelRef",
+      "type": "object"
+    },
+    "ProgressEvent": {
+      "description": "One NDJSON progress line streamed during generation (suite convention).\n\n``type`` selects which fields matter: ``start`` sets ``total`` (images to\nmake); ``progress`` sets ``completed``/``total``; ``image`` sets ``seed`` +\n``image_id`` as each finishes; ``done`` closes the run; ``error`` carries a\nfailure ``message``.",
+      "properties": {
+        "completed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed"
+        },
+        "image_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Id"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total"
+        },
+        "type": {
+          "enum": [
+            "start",
+            "progress",
+            "image",
+            "done",
+            "error"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "type"
+      ],
+      "title": "ProgressEvent",
+      "type": "object"
+    },
+    "Refinement": {
+      "description": "A second-pass refined rating for one image (the optional refinement stage).\n\nA finer 1\u20135 re-rank of the images that *already passed* the quality stage,\nwith free-text ``notes`` \u2014 a **separate layer** from the first-pass\n``hitl_rating``/``reject_reasons`` (it never overwrites them), so both the\noriginal verdict and the refined ordering are retained. ``rater`` records who\nrefined it.",
+      "properties": {
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "rank": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "rater": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rater"
+        }
+      },
+      "required": [
+        "rank"
+      ],
+      "title": "Refinement",
+      "type": "object"
+    },
+    "RejectArchive": {
+      "description": "Metadata-only archive of rejected/flagged outputs \u2014 zero image references.\n\n``manifests`` (keyed by ``run_id``) carries the full generation params for\nevery run a record came from, so the archive is self-describing: you can see\nexactly what produced a bad output without keeping the output itself. Both\n:class:`RunManifest` and :class:`RejectRecord` are image-free by\nconstruction, so the archive retains no image or thumbnail paths.",
+      "properties": {
+        "manifests": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RunManifest"
+          },
+          "title": "Manifests",
+          "type": "object"
+        },
+        "proof_version": {
+          "default": "1.3",
+          "title": "Proof Version",
+          "type": "string"
+        },
+        "records": {
+          "items": {
+            "$ref": "#/$defs/RejectRecord"
+          },
+          "title": "Records",
+          "type": "array"
+        }
+      },
+      "title": "RejectArchive",
+      "type": "object"
+    },
+    "RejectReason": {
+      "description": "One structured reason an image was rejected or flagged.\n\n``category`` optionally attributes an ``unsafe`` reject to a policy-taxonomy\nslug (violence / hate / self_harm / weapons / sexual \u2026, see\n:mod:`argus_proof.moderation`), so a reviewer's flag can be sliced by category\nrather than lumped into one \"unsafe\". Kept a free ``str`` (not a Literal) so\nthe taxonomy can evolve without a wire-contract break.",
+      "properties": {
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "code": {
+          "enum": [
+            "identity_mismatch",
+            "prompt_mismatch",
+            "low_quality",
+            "anatomy",
+            "artifact",
+            "duplicate",
+            "overfit",
+            "unsafe",
+            "other"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "RejectReason",
+      "type": "object"
+    },
+    "RejectRecord": {
+      "description": "One rejected/flagged output, described without retaining its image.\n\nKeyed by ``(run_id, seed)``: the seed plus the run's :class:`RunManifest`\nreconstructs the exact image on demand, so nothing about the pixels needs to\nbe stored. There is deliberately no path, thumbnail, or image field here \u2014\nthat is the whole point of the archive.",
+      "properties": {
+        "hitl_rating": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hitl Rating"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MetricScores"
+        },
+        "rater_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rater Id"
+        },
+        "reasons": {
+          "items": {
+            "$ref": "#/$defs/RejectReason"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "run_id",
+        "seed"
+      ],
+      "title": "RejectRecord",
+      "type": "object"
+    },
+    "RunManifest": {
+      "description": "A fully reproducible generation run: everything needed to recreate it.\n\n``seeds`` is the seed strategy made concrete \u2014 a single fixed seed for a\nwithin-checkpoint sweep is a one-element list; a fixed seed-set (so seed luck\naverages out across a cross-checkpoint comparison) is an N-element list.\nEach generated image is identified by ``(run_id, seed)``.\n\n``source_manifest`` links back to the curator export ``manifest.jsonl`` the\nLoRA was trained from, and ``training_run_id`` (optional) is the forge\n``training_run_id`` / ``RunEvent.run_id`` join key when the LoRA came through\nthe suite rather than being supplied ad hoc.",
+      "properties": {
+        "base_checkpoint": {
+          "$ref": "#/$defs/ModelRef"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "engine": {
+          "title": "Engine",
+          "type": "string"
+        },
+        "engine_version": {
+          "title": "Engine Version",
+          "type": "string"
+        },
+        "loras": {
+          "items": {
+            "$ref": "#/$defs/LoRARef"
+          },
+          "title": "Loras",
+          "type": "array"
+        },
+        "negative_prompt": {
+          "default": "",
+          "title": "Negative Prompt",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "proof_version": {
+          "default": "1.3",
+          "title": "Proof Version",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "sampling": {
+          "$ref": "#/$defs/SamplingParams"
+        },
+        "seeds": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Seeds",
+          "type": "array"
+        },
+        "source_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Manifest"
+        },
+        "source_manifest_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Manifest Version"
+        },
+        "training_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Training Run Id"
+        },
+        "vae": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "run_id",
+        "base_checkpoint",
+        "sampling",
+        "prompt",
+        "seeds",
+        "engine",
+        "engine_version"
+      ],
+      "title": "RunManifest",
+      "type": "object"
+    },
+    "RunSpec": {
+      "description": "A generation request: what to generate, before a backend resolves it.\n\nThe prompt-grid builder (issue #3) emits a list of these; a\n:class:`~argus_proof.backends.base.GenBackend` turns one into images plus the\nresolved :class:`RunManifest`. Models are named (not yet hashed): the backend\nresolves each name to a file and records its SHA256 in the manifest.\n\n``seeds`` is the seed strategy made concrete \u2014 one fixed seed for a\nwithin-checkpoint sweep, or a fixed seed-set (so seed luck averages out) for\na cross-checkpoint comparison. One image is produced per seed.",
+      "properties": {
+        "base_checkpoint": {
+          "title": "Base Checkpoint",
+          "type": "string"
+        },
+        "loras": {
+          "items": {
+            "$ref": "#/$defs/LoRASpec"
+          },
+          "title": "Loras",
+          "type": "array"
+        },
+        "negative_prompt": {
+          "default": "",
+          "title": "Negative Prompt",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "sampling": {
+          "$ref": "#/$defs/SamplingParams"
+        },
+        "seeds": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Seeds",
+          "type": "array"
+        },
+        "source_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Manifest"
+        },
+        "source_manifest_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Manifest Version"
+        },
+        "training_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Training Run Id"
+        },
+        "vae": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vae"
+        }
+      },
+      "required": [
+        "run_id",
+        "base_checkpoint",
+        "sampling",
+        "prompt",
+        "seeds"
+      ],
+      "title": "RunSpec",
+      "type": "object"
+    },
+    "SamplingParams": {
+      "description": "The sampler knobs that, with the seed-set, make a run reproducible.",
+      "properties": {
+        "cfg": {
+          "title": "Cfg",
+          "type": "number"
+        },
+        "clip_skip": {
+          "default": 1,
+          "title": "Clip Skip",
+          "type": "integer"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        },
+        "sampler": {
+          "title": "Sampler",
+          "type": "string"
+        },
+        "scheduler": {
+          "title": "Scheduler",
+          "type": "string"
+        },
+        "steps": {
+          "exclusiveMinimum": 0,
+          "title": "Steps",
+          "type": "integer"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sampler",
+        "scheduler",
+        "steps",
+        "cfg",
+        "width",
+        "height"
+      ],
+      "title": "SamplingParams",
+      "type": "object"
+    },
+    "ScorerProvenance": {
+      "description": "Where a score came from: the scorer, its version, and the model it used.\n\nRecorded for every scorer that contributed to an :class:`EvalReport` so a\nresult is auditable and reproducible \u2014 a score is only as trustworthy as the\nmodel and version that produced it.",
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "name",
+        "metric"
+      ],
+      "title": "ScorerProvenance",
+      "type": "object"
+    },
+    "Verdict": {
+      "description": "The automated pass/fail decision for a run, with the reasons behind it.\n\n``passed`` reflects the automated scoring alone (groups that auto-passed).\n``pending`` is True when the run hasn't cleared the bar yet but un-reviewed\nHITL groups could still push it over once rated \u2014 so a caller can tell\n\"failed\" apart from \"not judged yet\" instead of reading a premature fail.",
+      "properties": {
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "pending": {
+          "default": false,
+          "title": "Pending",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "passed"
+      ],
+      "title": "Verdict",
+      "type": "object"
+    }
+  },
+  "title": "argus-proof wire contract"
+}
