@@ -54,6 +54,8 @@ export interface RuntimeConfig {
   cullUrl: string;
   /** Link to the standalone argus-safelight UI, or empty for no link. */
   safelightUrl: string;
+  /** Link to argus-sightline (the argus-survey workspace), or empty for no link. */
+  sightlineUrl: string;
   /** `demo` = bundled read-only sample, `live` = real backends. */
   curatorUiMode: CuratorUiMode;
   /** Scan input directory as seen by argus-curator (container path under Docker). */
@@ -200,6 +202,7 @@ export function resolveRuntimeConfig(
     lightboxUrl: resolveLink(source, "ARGUS_LIGHTBOX_URL"),
     cullUrl: resolveLink(source, "ARGUS_CULL_URL"),
     safelightUrl: resolveLink(source, "ARGUS_SAFELIGHT_URL"),
+    sightlineUrl: resolveLink(source, "ARGUS_SIGHTLINE_URL"),
     curatorUiMode: resolveUiMode(
       firstNonEmpty(source, ["ARGUS_CURATOR_UI_MODE", "NEXT_PUBLIC_CURATOR_UI_MODE"]),
     ),

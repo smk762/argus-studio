@@ -14,4 +14,9 @@ describe("suiteLinks", () => {
       ["Safelight", "/safelight"],
     ]);
   });
+
+  it("links argus-sightline when configured", () => {
+    const links = suiteLinks({ lightbox: "", cull: "", safelight: "", sightline: "http://localhost:3107" });
+    expect(links).toEqual([{ label: "Sightline", service: "argus-survey", href: "http://localhost:3107" }]);
+  });
 });

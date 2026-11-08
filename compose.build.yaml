@@ -17,6 +17,7 @@
 #   ../argus-curator  ../argus-lens  ../argus-quarry  ../argus-forge  ../argus-proof
 #   ../argus-atlas
 #   ../argus-darkroom
+#   ../argus-survey  ../argus-sightline   (the `survey` profile)
 #
 # Layers cleanly with compose.gpu.yaml (add -f compose.gpu.yaml as well).
 # (frontend is always built from ./frontend in the base file — not repeated here.)
@@ -72,3 +73,13 @@ services:
   argus-quarry-server:
     build:
       context: ../argus-quarry
+
+  argus-survey:
+    build:
+      context: ../argus-survey
+      args:
+        EXTRAS: server,cli
+
+  argus-sightline:
+    build:
+      context: ../argus-sightline
