@@ -92,3 +92,8 @@ export function localSourcePath(): string {
 export function localOutputPath(): string {
   return runtimeConfig().curatorOutputPath;
 }
+
+/** Link to argus-sightline (point clouds to survey deliverables), or empty when none is configured. */
+export function sightlineUrl(): string {
+  return runtimeConfig().sightlineUrl;
+}

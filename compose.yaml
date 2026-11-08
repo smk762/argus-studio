@@ -78,6 +78,8 @@ services:
       - ARGUS_LIGHTBOX_URL=${ARGUS_LIGHTBOX_URL-}
       - ARGUS_CULL_URL=${ARGUS_CULL_URL-}
       - ARGUS_SAFELIGHT_URL=${ARGUS_SAFELIGHT_URL-}
+      # Footer link to argus-sightline. The `survey` profile runs it on :3107; set this to show the link.
+      - ARGUS_SIGHTLINE_URL=${ARGUS_SIGHTLINE_URL-}
       - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE-${NEXT_PUBLIC_CURATOR_UI_MODE-demo}}
       - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH-${NEXT_PUBLIC_CURATOR_SOURCE_PATH-/data/images}}
       - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH-/data/out}}
@@ -380,6 +382,41 @@ services:
       - ${ATLAS_RECIPES_DIR:-./recipes}:/data/recipes:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  argus-survey:
+    profiles: ["survey"]
+    # Point clouds -> survey deliverables (QA, ground, DTM/DSM, contours, volumes,
+    # change, ASPRS accuracy). Not part of `full`: a separate audience (land
+    # surveyors), driven by its own UI below rather than a studio page.
+    # Not on GHCR yet: run this profile with compose.build.yaml (builds ../argus-survey).
+    image: ghcr.io/smk762/argus-survey:${SURVEY_TAG:-latest}
+    user: "${UID:-1000}:${GID:-1000}"
+    command: [argus-survey, serve, --host, 0.0.0.0, --port, "8107", --cors]
+    ports:
+      - "${SURVEY_PORT:-8107}:8107"
+    environment:
+      HOME: /tmp
+      SURVEY_ALLOW_PROCESS: ${SURVEY_ALLOW_PROCESS:-}
+      # The browser origin of argus-sightline.
+      SURVEY_CORS_ORIGINS: ${SURVEY_CORS_ORIGINS:-http://localhost:3107}
+    volumes:
+      # Inputs read-only (argus-survey never modifies them); jobs under the shared output volume.
+      # Create both first (`mkdir -p survey-in out/survey`): docker would make missing ones root-owned.
+      - ${SURVEY_IN_DIR:-./survey-in}:/data/in:ro
+      - ${OUTPUT_DIR:-./out}/survey:/data/jobs
+    restart: unless-stopped
+
+  argus-sightline:
+    profiles: ["survey"]
+    image: ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-latest}
+    ports:
+      - "${SIGHTLINE_PORT:-3107}:3000"
+    environment:
+      # As the browser reaches the API, not a compose DNS name.
+      ARGUS_SURVEY_URL: ${ARGUS_SURVEY_URL-http://localhost:8107}
+      ARGUS_STUDIO_URL: ${ARGUS_STUDIO_URL-http://localhost:3000}
+    depends_on: [argus-survey]
     restart: unless-stopped
 
   argus-darkroom:
