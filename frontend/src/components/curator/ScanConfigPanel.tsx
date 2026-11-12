@@ -461,7 +461,7 @@ function Toggle({ value, onChange, disabled, title }: { value: boolean; onChange
         value ? "bg-accent-teal" : "bg-border"
       }`}
     >
-      <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${value ? "translate-x-6" : "translate-x-1"}`} />
+      <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform motion-reduce:transition-none ${value ? "translate-x-6" : "translate-x-1"}`} />
     </button>
   );
 }

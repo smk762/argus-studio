@@ -808,7 +808,7 @@ function PhaseBar({
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
         <div
-          className={`h-full rounded-full transition-all duration-300 ease-out ${t.bar} ${
+          className={`h-full rounded-full transition-all duration-300 ease-out motion-reduce:transition-none ${t.bar} ${
             pending ? "animate-pulse" : ""
           }`}
           style={{ width: pending ? "10%" : `${pct}%` }}

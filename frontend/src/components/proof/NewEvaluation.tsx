@@ -288,7 +288,7 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
               <div className="flex min-w-48 flex-1 items-center gap-2">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-hover">
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ease-out ${
+                    className={`h-full rounded-full transition-all duration-300 ease-out motion-reduce:transition-none ${
                       phase === "scoring" ? "animate-pulse bg-accent-green" : "bg-accent-purple"
                     }`}
                     style={{ width: phase === "scoring" ? "100%" : `${pct}%` }}
