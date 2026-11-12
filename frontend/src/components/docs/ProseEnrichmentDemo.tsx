@@ -40,7 +40,7 @@ export function ProseEnrichmentDemo() {
             }`}
           >
             <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform motion-reduce:transition-none ${
                 enabled ? "translate-x-4" : "translate-x-0.5"
               }`}
             />

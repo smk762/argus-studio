@@ -1058,7 +1058,7 @@ function ScanProgressView({
           <>
             <div className="h-2 w-full overflow-hidden rounded-full bg-surface-hover">
               <div
-                className="h-full rounded-full bg-accent-teal transition-all duration-300 ease-out"
+                className="h-full rounded-full bg-accent-teal transition-all duration-300 ease-out motion-reduce:transition-none"
                 style={{ width: `${pct}%` }}
               />
             </div>

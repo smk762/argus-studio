@@ -300,7 +300,7 @@ export default function GalleryPage() {
                       src={quarryThumbUrl(p.id)}
                       alt={p.title ?? p.subject}
                       loading="lazy"
-                      className="aspect-square w-full object-cover transition-transform group-hover:scale-[1.02]"
+                      className="aspect-square w-full object-cover transition-transform motion-safe:group-hover:scale-[1.02]"
                     />
                     <div className="space-y-0.5 p-2">
                       <span className="block truncate text-xs font-medium text-foreground/90">{p.title ?? p.filename}</span>

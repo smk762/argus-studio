@@ -185,7 +185,7 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
       {pull && (
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
           <div
-            className="h-full rounded-full bg-accent-teal transition-all duration-300 ease-out"
+            className="h-full rounded-full bg-accent-teal transition-all duration-300 ease-out motion-reduce:transition-none"
             style={{ width: `${pull.total > 0 ? Math.round((pull.done / pull.total) * 100) : 0}%` }}
           />
         </div>
