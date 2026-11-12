@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { attributeLine, bodyAgeLines, checkWarnings, garmentRows, sceneRows } from "@/lib/curatorAttributes";
 import { canExport, exportBlockReason, thumbSafety } from "@/lib/curatorSafety";
+import { closeModal, Modal } from "../Modal";
 import { ModerationPanel } from "./ModerationPanel";
 import { SafeThumb } from "./SafeThumb";
 import { breakdownTooltip, cropRows, statusExplanation } from "./imageExplain";
@@ -34,14 +35,15 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
 
   useEffect(() => {
     if (!img) return;
+    // Escape is the native dialog's. Arrow keys in a field stay with the field.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft") goPrev();
+      if (e.target instanceof Element && e.target.closest("input, textarea, select, [contenteditable]")) return;
+      if (e.key === "ArrowLeft") goPrev();
       else if (e.key === "ArrowRight") goNext();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [img, onClose, goPrev, goNext]);
+  }, [img, goPrev, goNext]);
 
   if (!img) return null;
 
@@ -53,192 +55,181 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
   const warnings = checkWarnings(img);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="curator-detail-title"
-      onClick={onClose}
-    >
-      <div
-        className="scrollbar-thin max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-surface/95 px-5 py-4 backdrop-blur">
-          <div className="min-w-0">
-            <h2 id="curator-detail-title" className="truncate text-sm font-semibold text-foreground">
-              {img.rel_path}
-            </h2>
-            <p className="mt-0.5 text-xs text-muted">{safety.reason || statusExplanation(img)}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {idx >= 0 && (
-              <div className="mr-1 flex items-center gap-1">
-                <NavButton label="Previous image (←)" disabled={!prev} onClick={goPrev}>
-                  ‹
-                </NavButton>
-                <span className="min-w-[3.5rem] text-center font-mono text-xs text-muted tabular-nums">
-                  {idx + 1} / {list.length}
-                </span>
-                <NavButton label="Next image (→)" disabled={!next} onClick={goNext}>
-                  ›
-                </NavButton>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => onToggle(img.rel_path)}
-              disabled={!exportable}
-              title={blocked ?? undefined}
-              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                exportable ? "cursor-pointer" : ""
-              } ${
-                selected
-                  ? "border-accent-green/50 bg-accent-green/20 text-accent-green"
-                  : "border-border text-muted hover:bg-surface-hover hover:text-foreground"
-              }`}
-            >
-              {selected ? "Selected" : "Select"}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="cursor-pointer rounded-lg border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              Close
-            </button>
-          </div>
+    <Modal labelledBy="curator-detail-title" className="scrollbar-thin max-w-5xl" onClose={onClose}>
+      <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-surface/95 px-5 py-4 backdrop-blur">
+        <div className="min-w-0">
+          <h2 id="curator-detail-title" className="truncate text-sm font-semibold text-foreground">
+            {img.rel_path}
+          </h2>
+          <p className="mt-0.5 text-xs text-muted">{safety.reason || statusExplanation(img)}</p>
         </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {idx >= 0 && (
+            <div className="mr-1 flex items-center gap-1">
+              <NavButton label="Previous image (←)" disabled={!prev} onClick={goPrev}>
+                ‹
+              </NavButton>
+              <span className="min-w-[3.5rem] text-center font-mono text-xs text-muted tabular-nums">
+                {idx + 1} / {list.length}
+              </span>
+              <NavButton label="Next image (→)" disabled={!next} onClick={goNext}>
+                ›
+              </NavButton>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => onToggle(img.rel_path)}
+            disabled={!exportable}
+            title={blocked ?? undefined}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              exportable ? "cursor-pointer" : ""
+            } ${
+              selected
+                ? "border-accent-green/50 bg-accent-green/20 text-accent-green"
+                : "border-border text-muted hover:bg-surface-hover hover:text-foreground"
+            }`}
+          >
+            {selected ? "Selected" : "Select"}
+          </button>
+          <button
+            type="button"
+            onClick={closeModal}
+            className="cursor-pointer rounded-lg border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+          >
+            Close
+          </button>
+        </div>
+      </div>
 
-        <div className="p-5">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {/* Image takes two of the three columns. */}
-            <div className="lg:col-span-2">
-              <div className="flex h-[70vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
-                <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} rounded="rounded-xl" fit="contain" />
+      <div className="p-5">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {/* Image takes two of the three columns. */}
+          <div className="lg:col-span-2">
+            <div className="flex h-[70vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
+              <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} rounded="rounded-xl" fit="contain" />
+            </div>
+          </div>
+
+          {/* Everything else stacks in the last column. */}
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-background/50 p-4">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+                  Composite score
+                </span>
+                <span className="font-mono text-2xl tabular-nums text-accent-teal/90">{img.score.toFixed(3)}</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-hover">
+                <div className="h-full rounded-full bg-accent-teal" style={{ width: `${Math.round(img.score * 100)}%` }} />
               </div>
             </div>
 
-            {/* Everything else stacks in the last column. */}
-            <div className="space-y-4">
+            <StatBlock
+              title="Resolution"
+              rows={[
+                ["Dimensions", `${img.width}×${img.height}`],
+                ["Short side", String(Math.min(img.width, img.height))],
+              ]}
+            />
+            <StatBlock
+              title="Quality signals"
+              rows={[
+                ["Sharpness (Laplacian var.)", img.sharpness.toFixed(1)],
+                ["Artifact score", img.artifact_score.toFixed(4)],
+                ["pHash", img.phash],
+              ]}
+            />
+            <ModerationPanel
+              img={img}
+              policies={policies}
+              officialPolicy={officialPolicy}
+              nsfwRan={nsfwRan}
+              held={safety.blurred && !safety.revealable}
+            />
+            {crop && <StatBlock title="Crop" rows={crop} />}
+            {(img.group_size > 1 || img.is_duplicate) && (
+              <StatBlock
+                title="Near-duplicate cluster"
+                rows={[
+                  ["Group", `g${img.similar_group}`],
+                  ["Members", String(img.group_size)],
+                  ["Representative", img.is_representative ? "yes" : "no"],
+                  ...(img.duplicate_of ? ([["Duplicate of", img.duplicate_of]] as [string, string][]) : []),
+                ]}
+              />
+            )}
+            {img.faces.length > 0 && (
+              <StatBlock
+                title="Faces"
+                rows={[
+                  ["Count", String(img.face_count)],
+                  ["Primary identity", img.primary_face_cluster ?? "—"],
+                  [
+                    "Primary orientation",
+                    img.primary_face_pose
+                      ? `${POSE_LABELS[img.primary_face_pose]}${
+                          img.primary_face_yaw != null ? ` (yaw ${img.primary_face_yaw.toFixed(0)}°)` : ""
+                        }`
+                      : "—",
+                  ],
+                ]}
+              />
+            )}
+
+            {img.faces.length > 0 && (
               <div className="rounded-xl border border-border bg-background/50 p-4">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                    Composite score
-                  </span>
-                  <span className="font-mono text-2xl tabular-nums text-accent-teal/90">{img.score.toFixed(3)}</span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-hover">
-                  <div className="h-full rounded-full bg-accent-teal" style={{ width: `${Math.round(img.score * 100)}%` }} />
-                </div>
-              </div>
-
-              <StatBlock
-                title="Resolution"
-                rows={[
-                  ["Dimensions", `${img.width}×${img.height}`],
-                  ["Short side", String(Math.min(img.width, img.height))],
-                ]}
-              />
-              <StatBlock
-                title="Quality signals"
-                rows={[
-                  ["Sharpness (Laplacian var.)", img.sharpness.toFixed(1)],
-                  ["Artifact score", img.artifact_score.toFixed(4)],
-                  ["pHash", img.phash],
-                ]}
-              />
-              <ModerationPanel
-                img={img}
-                policies={policies}
-                officialPolicy={officialPolicy}
-                nsfwRan={nsfwRan}
-                held={safety.blurred && !safety.revealable}
-              />
-              {crop && <StatBlock title="Crop" rows={crop} />}
-              {(img.group_size > 1 || img.is_duplicate) && (
-                <StatBlock
-                  title="Near-duplicate cluster"
-                  rows={[
-                    ["Group", `g${img.similar_group}`],
-                    ["Members", String(img.group_size)],
-                    ["Representative", img.is_representative ? "yes" : "no"],
-                    ...(img.duplicate_of ? ([["Duplicate of", img.duplicate_of]] as [string, string][]) : []),
-                  ]}
-                />
-              )}
-              {img.faces.length > 0 && (
-                <StatBlock
-                  title="Faces"
-                  rows={[
-                    ["Count", String(img.face_count)],
-                    ["Primary identity", img.primary_face_cluster ?? "—"],
-                    [
-                      "Primary orientation",
-                      img.primary_face_pose
-                        ? `${POSE_LABELS[img.primary_face_pose]}${
-                            img.primary_face_yaw != null ? ` (yaw ${img.primary_face_yaw.toFixed(0)}°)` : ""
-                          }`
-                        : "—",
-                    ],
-                  ]}
-                />
-              )}
-
-              {img.faces.length > 0 && (
-                <div className="rounded-xl border border-border bg-background/50 p-4">
-                  <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">Detected faces</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {img.faces.map((f, i) => (
-                      <div
-                        key={i}
-                        className={`rounded-lg border px-2.5 py-1.5 text-xs ${
-                          f.primary ? "border-accent-teal/50 bg-accent-teal/10" : "border-border bg-background"
-                        }`}
-                      >
-                        <span className="font-mono text-foreground">{f.cluster_id ?? "unclustered"}</span>
-                        <span className="ml-2 text-muted">det {f.det_score.toFixed(2)}</span>
-                        {f.pose && <span className="ml-2 text-accent-purple">{POSE_LABELS[f.pose]}</span>}
-                        {f.primary && <span className="ml-2 text-accent-teal">primary</span>}
-                        {attributeLine(f.attributes) && (
-                          <span className="mt-0.5 block text-muted">{attributeLine(f.attributes)}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {(bodies.length > 0 || img.set_age) && (
-                <StatBlock
-                  title="Ages without a face"
-                  rows={[
-                    ...bodies.map((line, i): [string, string] => [`Person ${i + 1}`, line]),
-                    ...(img.set_age ? ([["Set age", `≈${Math.round(img.set_age.years)}y, from the set`]] as [string, string][]) : []),
-                  ]}
-                />
-              )}
-              {warnings.length > 0 && (
-                <div className="rounded-xl border border-accent-orange/30 bg-accent-orange/5 p-4 text-xs leading-relaxed text-accent-orange">
-                  {warnings.map((line) => (
-                    <p key={line}>{line}</p>
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">Detected faces</h3>
+                <div className="flex flex-wrap gap-2">
+                  {img.faces.map((f, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs ${
+                        f.primary ? "border-accent-teal/50 bg-accent-teal/10" : "border-border bg-background"
+                      }`}
+                    >
+                      <span className="font-mono text-foreground">{f.cluster_id ?? "unclustered"}</span>
+                      <span className="ml-2 text-muted">det {f.det_score.toFixed(2)}</span>
+                      {f.pose && <span className="ml-2 text-accent-purple">{POSE_LABELS[f.pose]}</span>}
+                      {f.primary && <span className="ml-2 text-accent-teal">primary</span>}
+                      {attributeLine(f.attributes) && (
+                        <span className="mt-0.5 block text-muted">{attributeLine(f.attributes)}</span>
+                      )}
+                    </div>
                   ))}
                 </div>
-              )}
-              <StatBlock title="Scene" rows={sceneRows(img.scene)} />
-              <StatBlock title="Garments" rows={garmentRows(img.garments)} />
-
-              <ScoreBreakdown img={img} />
-
-              <div className="rounded-xl border border-accent-teal/30 bg-accent-teal/5 p-4">
-                <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent-teal">Host path</h3>
-                <code className="break-all font-mono text-xs text-foreground/90">{img.abs_path}</code>
               </div>
+            )}
+
+            {(bodies.length > 0 || img.set_age) && (
+              <StatBlock
+                title="Ages without a face"
+                rows={[
+                  ...bodies.map((line, i): [string, string] => [`Person ${i + 1}`, line]),
+                  ...(img.set_age ? ([["Set age", `≈${Math.round(img.set_age.years)}y, from the set`]] as [string, string][]) : []),
+                ]}
+              />
+            )}
+            {warnings.length > 0 && (
+              <div className="rounded-xl border border-accent-orange/30 bg-accent-orange/5 p-4 text-xs leading-relaxed text-accent-orange">
+                {warnings.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            )}
+            <StatBlock title="Scene" rows={sceneRows(img.scene)} />
+            <StatBlock title="Garments" rows={garmentRows(img.garments)} />
+
+            <ScoreBreakdown img={img} />
+
+            <div className="rounded-xl border border-accent-teal/30 bg-accent-teal/5 p-4">
+              <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent-teal">Host path</h3>
+              <code className="break-all font-mono text-xs text-foreground/90">{img.abs_path}</code>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

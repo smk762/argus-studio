@@ -10,6 +10,9 @@ const HALF_WIDTH = 136;
  * argus-cull. It renders into the page body at a fixed position, so a scrolling
  * panel does not clip it, and it keeps inside the viewport's sides. Above the
  * target unless that would leave the top of the screen. Escape dismisses it.
+ * Inside an open modal `<dialog>` it renders into the dialog instead: the body
+ * sits under the top layer and is inert there. Escape then closes the tooltip
+ * first and the dialog on a second press.
  *
  * The hover lands on the wrapper, so it also works around a disabled button,
  * which is where a native `title` tends to go unseen. `text` is visual only for
@@ -18,14 +21,15 @@ const HALF_WIDTH = 136;
 export function Tooltip({ text, children, className = "" }: { text: string; children: ReactNode; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const id = useId();
-  const [pos, setPos] = useState<{ x: number; y: number; below: boolean } | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number; below: boolean; host: Element } | null>(null);
 
   function show() {
     const rect = ref.current?.getBoundingClientRect();
     if (!rect) return;
     const below = rect.top < 120;
     const x = Math.min(Math.max(rect.left + rect.width / 2, HALF_WIDTH), window.innerWidth - HALF_WIDTH);
-    setPos({ x, y: below ? rect.bottom + 6 : rect.top - 6, below });
+    const host = ref.current?.closest("dialog[open]") ?? document.body;
+    setPos({ x, y: below ? rect.bottom + 6 : rect.top - 6, below, host });
   }
 
   return (
@@ -37,7 +41,11 @@ export function Tooltip({ text, children, className = "" }: { text: string; chil
       onFocus={show}
       onBlur={() => setPos(null)}
       onKeyDown={(event) => {
-        if (event.key === "Escape") setPos(null);
+        if (event.key !== "Escape" || !pos) return;
+        // Cancelling the keydown stops a surrounding modal <dialog> treating
+        // the same press as its close request.
+        event.preventDefault();
+        setPos(null);
       }}
     >
       {children}
@@ -51,7 +59,7 @@ export function Tooltip({ text, children, className = "" }: { text: string; chil
             >
               {text}
             </span>,
-            document.body,
+            pos.host,
           )
         : null}
     </span>

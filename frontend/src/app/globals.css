@@ -106,6 +106,21 @@ body {
 }
 
 /*
+ * Native modal dialogs (components/Modal.tsx, darkroom's PolicyDialog). The
+ * browser makes the page inert but still scrolls it under the backdrop;
+ * overscroll containment on both stops that without locking overflow on
+ * <html> or <body>.
+ */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/*
  * Reduced motion, case by case rather than one global animation-duration: 0
  * (Modern Web Guidance `motion`, `spinner`). Spinners and progress pulses are
  * busy signals, so they slow down instead of stopping; Tailwind's
