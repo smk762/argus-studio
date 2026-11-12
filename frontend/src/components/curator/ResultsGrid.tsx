@@ -3,6 +3,7 @@
 import { cardAge, checkWarnings } from "@/lib/curatorAttributes";
 import { policyShields } from "@/lib/curatorGuard";
 import { canExport, exportBlockReason } from "@/lib/curatorSafety";
+import { tileLoading } from "@/lib/imageLoading";
 import { imagePending, pendingCaption } from "@/lib/scanChunks";
 import { GuardShield } from "./GuardShield";
 import { SafeThumb } from "./SafeThumb";
@@ -30,9 +31,10 @@ export function ResultsGrid({ scanId, results, nsfwRan, pending = [], policies =
   }
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      {results.map((img) => (
+      {results.map((img, position) => (
         <Card
           key={img.rel_path}
+          eager={tileLoading(position) === undefined}
           scanId={scanId}
           img={img}
           nsfwRan={nsfwRan}
@@ -68,7 +70,9 @@ function Card({
   selected,
   onToggle,
   onOpen,
+  eager,
 }: {
+  eager: boolean;
   scanId: string;
   img: ImageResult;
   nsfwRan: boolean;
@@ -126,7 +130,7 @@ function Card({
       </button>
 
       <div className="relative aspect-square" title={`${img.rel_path}\n\n${statusExplanation(img)}`}>
-        <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} onActivate={onOpen} />
+        <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} onActivate={onOpen} eager={eager} />
         <div className="pointer-events-none absolute right-1 top-1 z-10">
           <ScoreBadge score={img.score} />
         </div>

@@ -20,13 +20,15 @@ interface Props {
    * picture should not be a button, as in the detail view.
    */
   onActivate?: () => void;
+  /** Passed to ThumbImage: skip lazy loading (a grid's first row, the detail view). */
+  eager?: boolean;
 }
 
 /**
  * A thumbnail with the blur veil. The reveal control is a sibling of the
  * picture button, so it is not nested inside it.
  */
-export function SafeThumb({ scanId, img, nsfwRan, pending = [], fit = "cover", rounded = "", onActivate }: Props) {
+export function SafeThumb({ scanId, img, nsfwRan, pending = [], fit = "cover", rounded = "", onActivate, eager = false }: Props) {
   const safety = thumbSafety(img, nsfwRan, pending);
   // The path that was revealed, not a boolean: navigating to another frame
   // stops matching and the veil comes back without resetting state in an effect.
@@ -42,6 +44,7 @@ export function SafeThumb({ scanId, img, nsfwRan, pending = [], fit = "cover", r
         objectPosition={faceFocalPoint(img)}
         fit={fit}
         rounded={rounded}
+        eager={eager}
       />
     </div>
   );

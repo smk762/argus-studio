@@ -26,6 +26,7 @@ import { permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { StarRating } from "@/components/proof/StarRating";
 import { RejectReasonPicker, UnsafeCategoryPicker } from "@/components/proof/RejectReasonPicker";
+import { tileLoading } from "@/lib/imageLoading";
 
 /** Deterministic shuffle keyed by the run id, so blind-mode order is randomised
  * once per run rather than re-shuffling on every keystroke. */
@@ -91,7 +92,10 @@ function SampleImage({
   index,
   hidden,
   live,
+  position,
 }: {
+  /** Place on the board; the first row (three cards) skips lazy loading. */
+  position: number;
   runId: string;
   img: ImageScores;
   /** Position in the stored report — used for the seed-free blind-mode URL. */
@@ -112,7 +116,7 @@ function SampleImage({
     <img
       src={hidden ? proofImageAtUrl(runId, index) : proofImageUrl(runId, img.image_id)}
       alt={hidden ? "blind sample" : `${img.image_id} (seed ${img.seed})`}
-      loading="lazy"
+      loading={tileLoading(position, 3)}
       onError={() => setFailed(true)}
       className="aspect-square w-full rounded-lg border border-border bg-surface-hover/40 object-cover"
     />
@@ -490,6 +494,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
                 index={reportIndexById.get(img.image_id) ?? 0}
                 hidden={hidden}
                 live={live}
+                position={pos}
               />
 
               <div className="flex items-center justify-between gap-2">

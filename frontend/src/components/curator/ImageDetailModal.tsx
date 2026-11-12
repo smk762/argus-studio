@@ -107,7 +107,7 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
           {/* Image takes two of the three columns. */}
           <div className="lg:col-span-2">
             <div className="flex h-[70vh] items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
-              <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} rounded="rounded-xl" fit="contain" />
+              <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} rounded="rounded-xl" fit="contain" eager />
             </div>
           </div>
 

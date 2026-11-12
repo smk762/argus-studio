@@ -20,6 +20,8 @@ interface Props {
   rounded?: string;
   /** How the image fills its box. "cover" (default) crops; "contain" shows all of it. */
   fit?: "cover" | "contain";
+  /** Load without waiting to scroll near it: a grid's first row, or the detail view. */
+  eager?: boolean;
   /**
    * CSS object-position for the "cover" fit — the focal point kept in frame when
    * the tile crops (e.g. "50% 25%" to favour the head). Ignored for "contain".
@@ -41,6 +43,7 @@ export function ThumbImage({
   rounded = "",
   fit = "cover",
   objectPosition,
+  eager = false,
 }: Props) {
   const [failed, setFailed] = useState(false);
   const showImg = isLive() && !failed;
@@ -55,7 +58,7 @@ export function ThumbImage({
       <img
         src={thumbUrl(scanId, relPath)}
         alt={relPath}
-        loading="lazy"
+        loading={eager ? undefined : "lazy"}
         onError={() => setFailed(true)}
         style={fit === "cover" && objectPosition ? { objectPosition } : undefined}
         className={`h-full w-full ${fitClass} ${rounded} ${className}`}

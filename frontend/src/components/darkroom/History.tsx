@@ -231,7 +231,7 @@ function Thumb({ record }: { record: GenerationRecord }) {
     return (
       <span className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-surface-hover">
         {/* eslint-disable-next-line @next/next/no-img-element -- loaded by record id from darkroom */}
-        <img src={image(record.id)} alt="" className={`h-full w-full object-cover ${blur ? "blur-md" : ""}`} draggable={false} />
+        <img src={image(record.id)} alt="" loading="lazy" className={`h-full w-full object-cover ${blur ? "blur-md" : ""}`} draggable={false} />
       </span>
     );
   }
