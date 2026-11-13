@@ -39,12 +39,15 @@ ARGUS_CURATOR_UI_MODE=live \
 docker compose --profile forge   up  # frontend + curator + argus-forge (training configs)
 docker compose --profile proof   up  # frontend + argus-proof (post-training LoRA evaluation)
 docker compose --profile atlas   up  # frontend + argus-atlas (fantasy-map bakes from real terrain)
+docker compose --profile darkroom up # frontend + argus-darkroom (needs DARKROOM_SINGGUARD_URL; not in full)
 docker compose --profile full    up  # whole suite (pull + run GHCR images)
 docker compose --profile full    pull  # refresh the images to the current *_TAG
 ```
 
 Pin a specific released version with the `*_TAG` vars in `.env`
-(`CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG`, default `latest`).
+(`CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG`).
+Most default to `latest`. `LENS_TAG` (`0.10.0`), `ATLAS_TAG` (`0.3.0a1`) and
+`DARKROOM_TAG` (`0.1.1`) default to a pinned release instead; see `.env.example`.
 
 **Build from local source instead** — clone the sibling repos and layer the build
 override, which re-adds each backend's `build:` context:
@@ -63,14 +66,14 @@ docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
 | Profile | Services started | Use it for |
 |---|---|---|
 | _(none)_ | frontend | Public captioning + read-only `/curate` demo |
-| `curator` | frontend + argus-curator | Scanning / exporting datasets |
-| `lens` | frontend + argus-lens | Captioning against a running engine |
+| `curator` | frontend + argus-curator + nudenet | Scanning / exporting datasets |
+| `lens` | frontend + argus-lens + ollama (+ the one-shot `ollama-pull`) | Captioning against a running engine. The bundled Ollama serves lens's caption refinement |
 | `gallery` | argus-quarry (acquisition job) + argus-quarry-server | Acquiring PD/CC0 images with provenance into `DATASET_DIR`, browsable at `/gallery` |
 | `forge` | frontend + argus-curator + argus-forge | Turning `/curate` exports into ready-to-run LoRA training configs (kohya / OneTrainer / diffusers) at `/forge`. Set `ARGUS_CURATOR_UI_MODE=live` for the export flow that hands off to it; `/forge` also takes an export dir typed by hand |
 | `proof` | frontend + argus-proof | Post-training LoRA evaluation ([epic](https://github.com/smk762/argus-studio/issues/6)): review scored eval runs at `/proof` — pass/fail verdict, per-metric scores, and a keyboard-first HITL review (5-star + structured reject reasons, blind mode) against argus-proof on :8104 |
 | `atlas` | frontend + argus-atlas | Baking a georeferenced fantasy-map overlay from a DEM at `/atlas`: GDAL controls, a ComfyUI restyle (off unless `ATLAS_ALLOW_BAKE=1`), the alignment gate, and a PMTiles archive, against argus-atlas on :8105 |
 | `darkroom` | frontend + argus-darkroom | Guarded generation at `/darkroom`. Needs `DARKROOM_SINGGUARD_URL` and ComfyUI; not part of `full`, because no SingGuard is bundled and darkroom refuses to start without one |
-| `full` | frontend + curator + lens + quarry server + forge + proof + atlas | End-to-end acquire → curate → caption → forge → evaluate → bake (set `ARGUS_CURATOR_UI_MODE=live`) |
+| `full` | frontend + curator + nudenet + lens + ollama + quarry server + forge + proof + atlas | End-to-end acquire → curate → caption → forge → evaluate → bake (set `ARGUS_CURATOR_UI_MODE=live`) |
 
 **argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
 public-domain / CC0 images from open archives with full provenance and licence
@@ -137,7 +140,9 @@ images land in **Upload**, a `.jsonl` lands in **Curate manifest**):
 - **Immich** — batch-caption an album on your [Immich](https://immich.app) photo server (`POST /immich/caption/stream`), optionally writing each caption back to the asset's description in Immich. Requires `IMMICH_URL` / `IMMICH_API_KEY` on the argus-lens server.
 - **Curate manifest** — upload a `manifest.jsonl` produced by `/curate` (`POST /caption/manifest`); each row's `target_profile` is applied per image. Images must be reachable at their `abs_path` (the shared `/data/images` mount).
 
-**What a result contains** (argus-lens ≥ 0.6): one caption per category (`identity`, `wardrobe`, `pose_composition`, `setting`, `lighting`, `action`), each leading with its own category, plus `training` (tag-style, for SDXL/CLIP), **`training_prose`** (sentence-style, for Flux/SD3/T5) and `zeroshot`. Every variant passes a coherence post-check, so dangling fragments, "The image shows…" openers and hedging are repaired before display. `metadata.subjects` carries a headcount (`count`, `multiple`, `agree`), so multi-person images can go to face identification in argus-curator. `metadata.buckets` carries the per-category tags behind each caption. When lens runs with `ARGUS_REFINE_MODEL`, `metadata.refine` records which variants an LLM rewrote and why any rewrite was rejected.
+**What a result contains** (argus-lens ≥ 0.6): one caption per category (`identity`, `wardrobe`, `pose_composition`, `setting`, `lighting`, `action`), each leading with its own category, plus `training` (tag-style, for SDXL/CLIP), **`training_prose`** (sentence-style, for Flux/SD3/T5) and `zeroshot`. Every variant passes a coherence post-check, so dangling fragments, "The image shows…" openers and hedging are repaired before display. `metadata.subjects` carries a headcount (`count`, `multiple`, `agree`), so multi-person images can go to face identification in argus-curator. `metadata.buckets` carries the per-category tags behind each caption. `metadata.refine` records which variants an LLM rewrote and why any rewrite was rejected.
+
+**LLM refinement is on by default** (lens ≥ 0.10). Lens rewrites its training captions with a chat model and keeps a rewrite only if it passes the post-check. In the suite compose, the `lens` and `full` profiles start a bundled `ollama` service and pull `qwen3:8b` into it, so this works with no setup. It needs about 6 GB of VRAM while loaded. Set `ARGUS_REFINE=off` to switch it off, or point `ARGUS_REFINE_BASE_URL` / `ARGUS_REFINE_MODEL` at another OpenAI-compatible LLM. If the endpoint is unreachable, lens writes its deterministic captions.
 
 The caption page shows `training_prose` directly under `training`, and the headcount above the variants: a multi-person image, or one where the tags and prose disagree on the count, is flagged for face ID in `/curate`. Against an older lens server neither appears.
 
@@ -150,8 +155,10 @@ The curator UI calls `ARGUS_CURATOR_URL` (default `http://localhost:8101`). Run 
 In live mode the page also offers:
 
 - **Add images to dataset** — drag-and-drop images into a folder under the shared dataset (`POST /upload` on the curator), or pull an Immich album into it via argus-lens (`POST /immich/pull`); the target folder is pre-filled for scanning.
-- **Recent scans** — reopen a persisted scan (`GET /scan/{scan_id}`) without rescanning; history is kept in the browser.
-- **Detector badges** — what the curator backend can actually do (`GET /detectors`: torch / cuda / clip / faces / onnx), so greyed-out options explain themselves.
+- **Cached scans** — the scans the curator keeps (`GET /scans`). Open one without rescanning, or press **Again** to refill the form from it. **Delete** removes a cached scan when the curator advertises `scan_delete`. **Stop** (a running scan) and **Purge** (every cached scan) appear when it advertises `scan_control`. Against a curator without `/scans`, the page falls back to a history kept in the browser.
+- **Detector badges** — what the curator reports from `GET /detectors`, from torch, cuda and CLIP through faces, FairFace, MiVOLO, NudeNet, EraX, SingGuard, watermark crops, scenes and garments. Greyed-out options explain themselves.
+- **Export modes** — copy, symlink or move. **Move** relocates the source images, so the curator rejects it unless it was started with `--allow-move` (`CURATOR_ALLOW_MOVE=1`), and the option is disabled to match.
+- **Deleting source images** — **Delete selected** and **Delete rejected** remove files from disk after a confirm. They need `CURATOR_ALLOW_DELETE=1` (or `DEVMODE=1`) on the curator. Without it, only **Delete under-18 exposed** works, for frames the curator reads as under 18 with exposure. Compose leaves both flags commented out.
 - **Forge training config** — after export (and captioning), [argus-forge](https://github.com/smk762/argus-forge) turns the export into a ready-to-run LoRA config for kohya sd-scripts, OneTrainer, or diffusers (`POST /config` on `ARGUS_FORGE_URL`, default `http://localhost:8103`), seeded from the same selection-insight heuristics the panel displays. Demo mode offers a client-side kohya TOML download instead. Two caveats when forge runs in Docker: the generated configs reference **container paths** (`/data/out/…`), so substitute your `OUTPUT_DIR` (and prefer `copy`-mode exports over `symlink`) when running `train.sh` on the host; and if you run forge outside compose, start it with `argus-forge serve --cors` so the browser can reach it.
 
 ### Gallery (`/gallery`)
@@ -250,6 +257,18 @@ pip install "argus-atlas[server,cli,tiles]"
 argus-atlas serve --cors          # :8105; add ATLAS_ALLOW_BAKE=1 to bake
 ```
 
+### Darkroom (`/darkroom`)
+
+Guarded image generation with [argus-darkroom](https://github.com/smk762/argus-darkroom) (`ARGUS_DARKROOM_URL`, default `http://localhost:8106`), the stage after proof: a LoRA that passed evaluation can be tried here, and a passed report on `/proof` links to it.
+
+- **Compose** a prompt with a checkpoint, LoRAs, an enforcing SingGuard policy and advisory ones. **Check** (`POST /preflight`) shows the pre-flight verdict before anything is generated.
+- **Generate** streams `POST /generate/stream` over SSE, then shows what every guard said about the output and which rule fired.
+- **History** lists every attempt's record, with filters. A record that was refused, failed or deleted, or whose image was omitted, never shows an image. **Download archive** (`GET /archive`) saves the records.
+- When `/health.read_only` is true, Check, Generate and Remove image are disabled, and the client refuses to send them.
+- With no darkroom answering, demo mode shows a bundled read-only sample.
+
+The `darkroom` profile runs it on loopback only (`DARKROOM_PUBLISH`). It is not part of `full`: darkroom won't start without `DARKROOM_SINGGUARD_URL`, and no SingGuard is bundled. It also needs ComfyUI and `DARKROOM_MODELS_DIR`.
+
 ### Static demo (no backends, any static host)
 
 `docker compose up` with no profile still needs a Node server. For a fully
@@ -289,7 +308,8 @@ browser (:3000)  →  Next.js frontend
                          ├─ /photos, /stats, …     →  argus-quarry-server (:8102) →  provenance (read-only)
                          ├─ /config                →  argus-forge (:8103)         →  training configs
                          ├─ /reports, /report/*    →  argus-proof (:8104)         →  LoRA evaluation + HITL review
-                         └─ /controls, /bake/*, …  →  argus-atlas (:8105)         →  DEM → fantasy-map PMTiles
+                         ├─ /controls, /bake/*, …  →  argus-atlas (:8105)         →  DEM → fantasy-map PMTiles
+                         └─ /preflight, /generate/* →  argus-darkroom (:8106)     →  guarded generation
 
 curate → caption → forge handoff ("full" profile):
    /curate export ── manifest ──▶  argus-lens /caption/manifest/stream
@@ -302,7 +322,7 @@ Immich (optional):  argus-lens ⇄ IMMICH_URL  (album captioning, write-back, pu
 
 Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `argus-lens` and `argus-curator` HTTP servers and renders results. No backend code lives in this repo — the suite `compose.yaml` runs the backends from published GHCR images by default (or builds them from their sibling repositories when you layer `compose.build.yaml`).
 
-- **Frontend** — Next.js 15 (App Router) + Tailwind CSS v4, light and dark themes
+- **Frontend** — Next.js 16 (App Router) + Tailwind CSS v4, light and dark themes
 - **Captioning server** — `argus-lens[server]` (see [argus-lens](https://github.com/smk762/argus-lens))
 - **Curation server** — `argus-curator[server]` (optional `gpu` extra; see [argus-curator](https://github.com/smk762/argus-curator))
 
@@ -324,7 +344,10 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
 | `ARGUS_DARKROOM_URL` | `http://localhost:8106` | URL the **browser** uses to reach argus-darkroom (the `/darkroom` generation view) |
 | `ARGUS_ATLAS_URL` | `http://localhost:8105` | URL the **browser** uses to reach argus-atlas (the `/atlas` map-bake view) |
-| `ARGUS_LIGHTBOX_URL`, `ARGUS_CULL_URL`, `ARGUS_SAFELIGHT_URL` | _(empty)_ | Footer links to the standalone demo UIs. A UI left empty gets no link |
+| `ARGUS_LIGHTBOX_URL`, `ARGUS_CULL_URL`, `ARGUS_SAFELIGHT_URL`, `ARGUS_SIGHTLINE_URL` | _(empty)_ | Footer links to the standalone demo UIs, and to argus-sightline (the `survey` profile, `:3107`). A UI left empty gets no link |
+| `ARGUS_CSP` | `enforce` | The nonce-based Content-Security-Policy on every page: `enforce`, `report-only` (logs violations to the console) or `off`. X-Frame-Options, nosniff and Referrer-Policy are sent in every mode |
+| `DEVMODE` (or `ARGUS_DEVMODE`, which wins) | _(unset)_ | Offers SingGuard's `adult-*` policies on `/curate` and `/darkroom`, and lets curator and darkroom delete anything (darkroom's Delete record / Delete everything). Every delete still asks first. `CURATOR_DEVMODE=0` / `DARKROOM_DEVMODE=0` keep the policies without that service's deletes |
+| `CURATOR_ALLOW_MOVE` / `CURATOR_ALLOW_DELETE` | _(commented out)_ | Let the curator `move` source images on export / delete any selected image. Uncomment them in `compose.yaml` |
 | `ARGUS_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
 | `ARGUS_CURATOR_SOURCE_PATH` | *(empty)* | Default source path shown in the folder picker (path inside the curator container). `compose.yaml` sets `/data/images` |
 | `ARGUS_CURATOR_OUTPUT_PATH` | *(empty)* | Default export destination (path inside the curator container). `compose.yaml` sets `/data/out` |
@@ -336,7 +359,8 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `WD14_CACHE_DIR` | `~/.cache/wd14_tagger` | Host WD14 model cache mounted into lens (RW, so a new `WD14_MODEL_REPO` can download) |
 | `ARGUS_OPENAI_COMPAT_BASE_URL` / `ARGUS_OPENAI_COMPAT_MODEL` / `ARGUS_OPENAI_COMPAT_API_KEY` | _(unset)_ | Vision-model endpoint, model and optional key for lens's `openai-compat` prose stage, e.g. `http://<ollama-host>:11434/v1` + `qwen3-vl:8b` |
 | `ARGUS_OPENAI_COMPAT_PROMPT` | `detailed` | Prompt preset (`detailed`, `straightforward`, `descriptive`, `booru`, `count`) or literal text |
-| `ARGUS_REFINE_MODEL` / `ARGUS_REFINE_BASE_URL` / `ARGUS_REFINE_API_KEY` | _(unset = off)_ | Chat model that rewrites lens's training captions; every rewrite is validated and falls back to the deterministic caption |
+| `ARGUS_REFINE` | _(unset = on)_ | `off` stops lens rewriting its captions with an LLM |
+| `ARGUS_REFINE_MODEL` / `ARGUS_REFINE_BASE_URL` / `ARGUS_REFINE_API_KEY` | `qwen3:8b` / `http://ollama:11434/v1` (the bundled Ollama) / _(unset)_ | Chat model that rewrites lens's training captions; every rewrite is validated and falls back to the deterministic caption. The `ollama-pull` job pulls `ARGUS_REFINE_MODEL` |
 | `ARGUS_REFINE_VARIANTS` | `training,training_prose` | Variants lens refines; add `identity,wardrobe,setting,action` for cleaner category captions |
 | `ARGUS_IDLE_UNLOAD_S` / `ARGUS_GPU_COORDINATOR` | _(unset)_ / `none` (`lease` with `compose.gpu.yaml`) | Lens frees its VRAM after this many idle seconds when it shares a GPU with ComfyUI; `lease` serialises lens and curator jobs only |
 | `IMMICH_URL` / `IMMICH_API_KEY` | _(unset)_ | Enable the Immich integration on argus-lens (album captioning + pull-to-dataset) |
@@ -349,7 +373,8 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `DARKROOM_PUBLISH` | `127.0.0.1:8106` | Host address and port for argus-darkroom. Loopback by default: darkroom is not for public hosting |
 | `ATLAS_RECIPES_DIR` | `./recipes` | Host dir of style recipes, mounted read-only at `/data/recipes` on argus-atlas for its CLI; no API route reads them |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
-| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG` | `latest` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys |
+| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG` | `latest`, except `LENS_TAG=0.10.0`, `ATLAS_TAG=0.3.0a1`, `DARKROOM_TAG=0.1.1` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys. Atlas only moves `latest` on final releases |
+| `LENS_CORS_ORIGINS` | _(unset)_ | Comma-separated browser origins lens accepts. Lens 0.10 allows any origin, but its next release narrows to `http://localhost:3000` and refuses cross-site writes from unlisted origins, so set this before bumping `LENS_TAG` for a LAN or public studio. Keep localhost in the list |
 | `LENS_EXTRAS` | `server,local` | pip extras for a **source build** only (`-f compose.build.yaml`); ignored on the default pull path (`server,openai,replicate` for a cloud-only image) |
 | `PROOF_EXTRAS` | `server,cli` | pip extras for a **source build** only (`-f compose.build.yaml`); `server,cli,score` adds the identity/quality/safety scorer stack |
 | `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |
@@ -367,10 +392,16 @@ ARGUS_LENS_URL=/api/lens
 ```
 
 An **empty string** means the origin root (`/scan/folder` instead of
-`http://host:8101/scan/folder`). That works for at most one backend: all six
-services expose `/health`, curator and lens both expose `/folders`, and curator
+`http://host:8101/scan/folder`). That works for at most one backend: every
+service exposes `/health`, curator and lens both expose `/folders`, and curator
 and quarry both expose `/thumb`, so a shared root is ambiguous. Use prefixes when
 more than one service sits behind the proxy.
+
+A proxy must pass the page's `Content-Security-Policy` header through untouched.
+Each page carries a per-request nonce, and the inline script that hands the
+browser its config needs it. If a proxy replaces or rewrites the policy, that
+script is blocked, and the page falls back to localhost demo defaults with a
+console error. Set `ARGUS_CSP` instead of overriding the header.
 
 The pre-existing `NEXT_PUBLIC_*` names are still honoured as a fallback for older
 `.env` files. The one rename that is not a straight prefix swap:
