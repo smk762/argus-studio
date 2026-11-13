@@ -44,7 +44,7 @@ import { sizedForBackend, tokenBudget, tokenBudgetsOf } from "@/lib/captionToken
 import { asError } from "@/lib/apiError";
 import { lensUrl } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
-import { RECORDED_CAPTION, RECORDED_CAPTION_SUBJECT } from "@/lib/lensSample";
+import { RECORDED_CAPTION, RECORDED_CAPTION_IMAGE } from "@/lib/lensSample";
 import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
@@ -839,9 +839,28 @@ export default function Home() {
             {/* Left: image */}
             <div className="space-y-4">
               {STATIC_DEMO ? (
-                <div className="flex aspect-[4/3] w-full items-center justify-center rounded-lg border border-dashed border-border bg-surface px-6 text-center text-xs leading-relaxed text-muted">
-                  {RECORDED_CAPTION_SUBJECT}
-                </div>
+                <figure className="space-y-2">
+                  <div className="rounded-lg overflow-hidden border border-border bg-surface">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- static export, images unoptimized */}
+                    <img
+                      src={RECORDED_CAPTION_IMAGE.src}
+                      width={RECORDED_CAPTION_IMAGE.width}
+                      height={RECORDED_CAPTION_IMAGE.height}
+                      alt={RECORDED_CAPTION_IMAGE.alt}
+                      className="w-full h-auto max-h-[600px] object-contain"
+                    />
+                  </div>
+                  <figcaption className="px-1 text-xs leading-relaxed text-muted">
+                    <a
+                      href={RECORDED_CAPTION_IMAGE.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-foreground"
+                    >
+                      {RECORDED_CAPTION_IMAGE.attribution}
+                    </a>
+                  </figcaption>
+                </figure>
               ) : (
                 <>
                   <ImagePreview url={analyzedUrl} />

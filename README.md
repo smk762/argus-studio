@@ -12,6 +12,8 @@ Designed as a living onboarding document -- every parameter includes an inline e
 
 ![Raw model outputs and auto-removed tags](docs/images/spa-output-raw.png)
 
+<sub>Screenshots are from the static demo, captioning a public-domain plate: [Richard Knötel, Norway 1863 (Uniformenkunde), via Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Norwegen_1863_J%C3%A4ger_Kavallerist_Musketier_Garde-Scharfsch%C3%BCtz_Artillerist._Uniformenkunde_military_uniform_plate_print_by_Richard_Kn%C3%B6tel_(1857-1914)_publ_in_1890s%3F_Norwegian_army_cavalry_guards_artillery_PD-old.jpg).</sub>
+
 ## Quick Start
 
 ### Whole suite in one stack (recommended)
