@@ -27,7 +27,7 @@ argus-cortex's SUITE.md** (a PR to argus-cortex in the same release).
 
 @../argus-core/SUITE.md
 
-Not checked out? Read https://github.com/smk762/argus-cortex/blob/main/SUITE.md
+Not checked out? Read https://github.com/smk762/argus-cortex/blob/dev/SUITE.md
 
 ## Layout
 
@@ -92,4 +92,4 @@ Backends default to **published GHCR images** — no sibling checkouts needed. T
 
 ## CI / release
 
-`ci.yml` gates every PR and push to `main`: `npm ci`, lint, typecheck, `npm test` in `frontend/`. `release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
+`ci.yml` gates every PR and push to `main`: `npm ci`, lint, typecheck, `npm test` in `frontend/`. `suite.yml` (argus-ci's `suite-check`) fails if the argus-suite block above or this repo's SUITE.md row goes missing. `release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag, and update this repo's row in argus-cortex's SUITE.md if the release changed a capability, port or UI pairing. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
