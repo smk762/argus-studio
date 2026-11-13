@@ -14,6 +14,8 @@ import { RecordView } from "@/components/darkroom/RecordView";
 import { Button, Card } from "@/components/darkroom/ui";
 import { archiveUrl, DARKROOM_READ_ONLY_REASON } from "@/lib/darkroomApi";
 import { ExternalLink } from "@/components/ExternalLink";
+import { RecordedDemoNote } from "@/components/DemoChrome";
+import { STATIC_DEMO } from "@/lib/staticDemo";
 
 export default function DarkroomPage() {
   return (
@@ -50,7 +52,14 @@ function DarkroomStage() {
         <aside className="space-y-4">
           <HealthCard />
           {sample ? (
-            <CapabilityNotice reason="No darkroom is answering, so this is a bundled read-only sample: canned verdicts on flat drawings. Start the darkroom profile to generate." />
+            STATIC_DEMO ? (
+              <RecordedDemoNote label="Sample" summary="a bundled, read-only darkroom history.">
+                Canned verdicts on flat drawings, to show the record view. Generating needs a running argus-darkroom
+                (the darkroom compose profile).
+              </RecordedDemoNote>
+            ) : (
+              <CapabilityNotice reason="No darkroom is answering, so this is a bundled read-only sample: canned verdicts on flat drawings. Start the darkroom profile to generate." />
+            )
           ) : health?.read_only ? (
             <CapabilityNotice reason={DARKROOM_READ_ONLY_REASON} />
           ) : null}

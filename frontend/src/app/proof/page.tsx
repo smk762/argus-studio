@@ -14,6 +14,7 @@ import { type Capability } from "@/lib/capabilities";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { isLive } from "@/lib/curatorEnv";
 import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedBadge } from "@/components/DemoChrome";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ProofBoard } from "@/components/proof/ProofBoard";
@@ -130,11 +131,7 @@ export default function ProofPage() {
         subtitle="Post-training LoRA evaluation & review"
         badge={
           version === "demo" ? (
-            <div className="shrink-0 text-right">
-              <span className="rounded-md border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-amber">
-                Demo
-              </span>
-            </div>
+            <RecordedBadge label="Demo" title="No argus-proof answering: a bundled sample." />
           ) : (
             <ApiVersionBadge label="argus-proof" version={version} prefix="v" />
           )
@@ -155,13 +152,17 @@ export default function ProofPage() {
         ) : (
           <div className="space-y-6">
             {STATIC_DEMO && (
-              <div className="rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-4 py-2.5 text-xs leading-relaxed text-accent-amber">
-                <span className="font-medium">Synthetic sample</span> — hand-made scores to show the review UI, not a
-                real evaluation. Ratings stay in your browser.{" "}
-                <button type="button" onClick={() => setPreviewSample(false)} className="underline hover:text-foreground">
+              <p role="note" className="text-xs leading-relaxed text-muted">
+                <span className="font-medium text-foreground/80">Synthetic sample</span> — hand-made scores to show the
+                review UI, not a real evaluation. Ratings stay in your browser.{" "}
+                <button
+                  type="button"
+                  onClick={() => setPreviewSample(false)}
+                  className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+                >
                   Back
                 </button>
-              </div>
+              </p>
             )}
             {live && (
               <NewEvaluation onComplete={onRunComplete} canRun={writable} deniedReason={evalDeniedReason} />
