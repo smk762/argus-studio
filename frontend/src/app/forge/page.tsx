@@ -21,6 +21,8 @@ import {
 } from "@/lib/forgeApi";
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { isLive, localOutputPath } from "@/lib/curatorEnv";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { basename, normalizeRoot } from "@/lib/path";
@@ -359,6 +361,11 @@ export default function ForgePage() {
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+        {STATIC_DEMO && (
+          <RecordedDemoNote label="In-browser demo">
+            the kohya config below is generated live in your browser by the same sizing heuristics argus-forge uses.
+          </RecordedDemoNote>
+        )}
         {unreachable && (
           <CapabilityNotice
             reason={

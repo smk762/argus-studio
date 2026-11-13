@@ -43,6 +43,9 @@ import { finalChoice } from "@/lib/captionFinal";
 import { sizedForBackend, tokenBudget, tokenBudgetsOf } from "@/lib/captionTokens";
 import { asError } from "@/lib/apiError";
 import { lensUrl } from "@/lib/curatorEnv";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { RECORDED_CAPTION, RECORDED_CAPTION_SUBJECT } from "@/lib/lensSample";
+import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
 
@@ -91,7 +94,8 @@ export default function Home() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CaptionResult | null>(null);
+  // The static demo opens on the one recorded caption instead of an empty form.
+  const [result, setResult] = useState<CaptionResult | null>(STATIC_DEMO ? RECORDED_CAPTION : null);
   // What `result` was sized for. The dropdown can move on after the run, and
   // the result doesn't say.
   const [resultBackend, setResultBackend] = useState("sdxl");
@@ -141,6 +145,7 @@ export default function Home() {
   });
 
   useEffect(() => {
+    if (STATIC_DEMO) return; // no lens to ask; the header shows a Recorded pill
     let cancelled = false;
     (async () => {
       try {
@@ -173,6 +178,7 @@ export default function Home() {
 
   // Fetch the hybrid tag↔prose presets; fall back to the hardcoded set on failure.
   useEffect(() => {
+    if (STATIC_DEMO) return; // keep the hardcoded fallback presets
     let cancelled = false;
     getLensProfiles()
       .then((profiles) => {
@@ -476,14 +482,23 @@ export default function Home() {
         logo={{ letter: "A" }}
         title="Argus Lens"
         subtitle="Structured image captioning for training & generation"
-        badge={<ApiVersionBadge label="argus-lens" version={lensVersion} />}
+        badge={STATIC_DEMO ? <RecordedBadge /> : <ApiVersionBadge label="argus-lens" version={lensVersion} />}
       />
 
       {/* Main content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
         {/* Input form */}
         <div className="mb-8">
+          {STATIC_DEMO && (
+            <div className="mb-6">
+              <RecordedDemoNote>
+                one real argus-lens caption run, replayed below. The parameters show what each knob does; changing
+                them needs a running argus-lens.
+              </RecordedDemoNote>
+            </div>
+          )}
           {/* Input mode switcher */}
+          {!STATIC_DEMO && (
           <div className="mb-4 inline-flex rounded-lg border border-border bg-surface p-1">
             {(["url", "upload", "folder", "immich", "manifest"] as const).map((m) => (
               <button
@@ -505,9 +520,10 @@ export default function Home() {
               </button>
             ))}
           </div>
+          )}
 
           {/* URL mode */}
-          {mode === "url" && (
+          {!STATIC_DEMO && mode === "url" && (
             <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 mb-6">
               <input
                 type="url"
@@ -816,10 +832,18 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
             {/* Left: image */}
             <div className="space-y-4">
-              <ImagePreview url={analyzedUrl} />
-              <div className="text-xs text-muted truncate px-1">
-                {analyzedUrl}
-              </div>
+              {STATIC_DEMO ? (
+                <div className="flex aspect-[4/3] w-full items-center justify-center rounded-lg border border-dashed border-border bg-surface px-6 text-center text-xs leading-relaxed text-muted">
+                  {RECORDED_CAPTION_SUBJECT}
+                </div>
+              ) : (
+                <>
+                  <ImagePreview url={analyzedUrl} />
+                  <div className="text-xs text-muted truncate px-1">
+                    {analyzedUrl}
+                  </div>
+                </>
+              )}
               <div className="px-1 flex items-center gap-2">
                 <span className="text-xs text-muted">Backend:</span>
                 <span className="text-xs text-accent-purple font-medium">

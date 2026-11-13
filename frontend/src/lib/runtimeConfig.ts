@@ -229,9 +229,15 @@ const STATIC_DEMO_CONFIG: RuntimeConfig = {
   forgeUrl: "",
   proofUrl: "",
   atlasUrl: "",
+  darkroomUrl: "",
+  lightboxUrl: "",
+  cullUrl: "",
+  safelightUrl: "",
+  sightlineUrl: "",
   curatorUiMode: "demo",
   curatorSourcePath: "/data/images",
   curatorOutputPath: "/data/out",
+  devMode: false,
 };
 
 /** Memoized server-side resolve: a container's `process.env` cannot change under it. */

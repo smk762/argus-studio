@@ -59,6 +59,8 @@ import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
 import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
 import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 
 type View = "grid" | "clusters";
@@ -582,6 +584,14 @@ export default function CuratePage() {
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+        {STATIC_DEMO && (
+          <div className="mb-6">
+            <RecordedDemoNote label="Sample scan">
+              a bundled, illustrative 14-image curator scan (thumbnails are placeholders). Filtering, selection and the
+              export manifest all run in your browser; scanning real folders needs a running argus-curator.
+            </RecordedDemoNote>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
           <aside className="space-y-4">
             {isLive() ? (

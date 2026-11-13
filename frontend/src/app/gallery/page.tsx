@@ -24,6 +24,7 @@ import {
 import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
 import { replaceQuery, useDeepLink } from "@/lib/deepLink";
+import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
 
 const PAGE_SIZE = 60;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -89,6 +90,7 @@ export default function GalleryPage() {
 
   // Reachability + stats (re-read after a slice lands in the pool).
   useEffect(() => {
+    if (STATIC_DEMO) return; // nothing to reach; the page explains instead
     const ctrl = new AbortController();
     (async () => {
       // allSettled: only a failed /health means "not running". An empty or
@@ -118,7 +120,7 @@ export default function GalleryPage() {
 
   // Subject list follows the category filter.
   useEffect(() => {
-    if (!serveable) return;
+    if (STATIC_DEMO || !serveable) return;
     const ctrl = new AbortController();
     listQuarrySubjects(filters.category || undefined, ctrl.signal)
       .then(setSubjects)
@@ -152,7 +154,7 @@ export default function GalleryPage() {
 
   // Reload the grid whenever filters change.
   useEffect(() => {
-    if (!serveable) return;
+    if (STATIC_DEMO || !serveable) return;
     void loadPage(0, false);
   }, [loadPage, serveable, poolVersion]);
 
@@ -166,11 +168,42 @@ export default function GalleryPage() {
         logo={{ letter: "Q" }}
         title="Argus Quarry"
         subtitle="Provenance-first PD/CC0 acquisition pool"
-        badge={<ApiVersionBadge label="argus-quarry" version={version} prefix="v" />}
+        badge={
+          STATIC_DEMO ? (
+            <div className="shrink-0 text-right">
+              <span className="rounded-md border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-amber">
+                Not in demo
+              </span>
+            </div>
+          ) : (
+            <ApiVersionBadge label="argus-quarry" version={version} prefix="v" />
+          )
+        }
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
-        {unreachable ? (
+        {STATIC_DEMO ? (
+          <div className="mx-auto max-w-2xl space-y-5 py-16 text-center">
+            <h2 className="text-lg font-medium text-foreground/80">The gallery browses a live acquisition pool.</h2>
+            <p className="text-sm leading-relaxed text-muted">
+              argus-quarry fetches public-domain and CC0 photographs from open archives, records the source, licence
+              and attribution of every file, and publishes them as curator-ready{" "}
+              <span className="font-mono text-foreground/80">&lt;category&gt;/&lt;subject&gt;/</span> folders. This
+              page is a read-only view of that provenance database, so there is nothing to show without one: this
+              static demo does not bundle a pool of third-party photographs.
+            </p>
+            <p className="text-sm leading-relaxed text-muted">
+              Run it yourself with <span className="font-mono text-foreground/80">docker compose --profile gallery up</span>,
+              or continue to the next stage, which ships with a sample scan.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
+              <StageHandoff href="/curate" label="Explore the curator sample" />
+              <a href={REPO_URL} className="text-accent-teal hover:underline">
+                Run it yourself
+              </a>
+            </div>
+          </div>
+        ) : unreachable ? (
           <div className="mx-auto max-w-xl space-y-4 py-24 text-center">
             <h2 className="text-lg font-medium text-foreground/70">The quarry provenance server is not running.</h2>
             <p className="text-sm leading-relaxed text-muted">

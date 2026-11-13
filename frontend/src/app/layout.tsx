@@ -48,7 +48,7 @@ const DEMO_DESCRIPTION =
 export const metadata: Metadata = STATIC_DEMO
   ? {
       metadataBase: new URL(DEMO_SITE_URL),
-      title: { default: "Argus Studio — demo", template: "%s · Argus Studio demo" },
+      title: "Argus Studio — demo",
       description: DEMO_DESCRIPTION,
       alternates: { canonical: "/" },
       openGraph: {

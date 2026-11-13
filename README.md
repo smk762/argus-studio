@@ -248,6 +248,30 @@ pip install "argus-atlas[server,cli,tiles]"
 argus-atlas serve --cors          # :8105; add ATLAS_ALLOW_BAKE=1 to bake
 ```
 
+### Static demo (no backends, any static host)
+
+`docker compose up` with no profile still needs a Node server. For a fully
+static, backend-free public demo (e.g. Cloudflare Pages), build a Next static
+export instead:
+
+```bash
+cd frontend
+npm ci
+npm run build:static        # = NEXT_PUBLIC_DEMO_STATIC=1 next build -> frontend/out/
+npx serve out               # or any static file server, to preview
+```
+
+Every page renders from bundled recorded output and says so: `/` replays one
+real argus-lens caption run, `/curate` uses the bundled sample scan, `/forge`
+builds kohya configs in the browser, `/atlas` browses a recorded argus-atlas run
+(`public/demo/atlas/`), `/proof` shows a "coming soon" state (no real evaluation
+recorded yet) with an opt-in, clearly labelled synthetic preview, and `/gallery`
+explains what it needs. A thin banner links back to the repo.
+
+Cloudflare Pages: root directory `frontend`, build command `npm run build:static`,
+output directory `out`. The flag selects a different *build*; it is never set
+for the published image, which keeps resolving its config per request (#56).
+
 ## Architecture
 
 ```

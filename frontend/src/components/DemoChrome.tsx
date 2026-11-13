@@ -31,10 +31,17 @@ export function DemoBanner() {
  * backend renders one of these above the recorded output, so a visitor never
  * mistakes a fixture for a live result.
  */
-export function RecordedDemoNote({ children }: { children?: ReactNode }) {
+export function RecordedDemoNote({
+  label = "Recorded demo",
+  children,
+}: {
+  /** Leading label: what kind of non-live data the page shows. */
+  label?: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-4 py-2.5 text-xs leading-relaxed text-accent-amber">
-      <span className="font-medium">Recorded demo</span>
+      <span className="font-medium">{label}</span>
       {children ? <> — {children}</> : null} Run it yourself:{" "}
       <a href={REPO_URL} className="underline hover:text-foreground">
         {REPO_URL.replace(/^https:\/\//, "")}
