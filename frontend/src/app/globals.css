@@ -106,7 +106,7 @@ body {
 }
 
 /*
- * Native modal dialogs (components/Modal.tsx, darkroom's PolicyDialog). The
+ * Native modal dialogs (components/Modal.tsx). The
  * browser makes the page inert but still scrolls it under the backdrop;
  * overscroll containment on both stops that without locking overflow on
  * <html> or <body>.

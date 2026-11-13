@@ -116,8 +116,8 @@ export function PolicyPicker({
 export function PolicyDialog({ policy, onClose }: { policy: PolicyInfo; onClose: () => void }) {
   const titleId = useId();
   return (
-    <Modal labelledBy={titleId} className="max-w-[720px]" onClose={onClose}>
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-3">
+    <Modal labelledBy={titleId} className="scrollbar-thin max-w-[720px]" onClose={onClose}>
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border/60 bg-surface/95 px-5 py-3 backdrop-blur">
         <h2 id={titleId} className="text-subheading font-semibold">
           <span className="font-mono">{policy.name}</span> <ModeBadge mode={policy.mode} />
         </h2>
@@ -125,7 +125,7 @@ export function PolicyDialog({ policy, onClose }: { policy: PolicyInfo; onClose:
           Close
         </Button>
       </div>
-      <div className="max-h-[70vh] space-y-4 overflow-auto px-5 py-4 text-sm">
+      <div className="space-y-4 px-5 py-4 text-sm">
         <p className="text-foreground/70">{policy.summary}</p>
         <div>
           <h3 className="text-xs uppercase tracking-wide text-muted">Illegal rules (delete)</h3>
