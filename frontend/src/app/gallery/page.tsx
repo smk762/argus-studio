@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
+import { Modal } from "@/components/Modal";
 import { SiteHeader } from "@/components/SiteHeader";
 import { StageHandoff } from "@/components/StageHandoff";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -450,15 +451,16 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
     return () => ctrl.abort();
   }, [id]);
 
+  const titleId = useId();
   const sourceUrl = externalUrl(photo?.source_url);
   const originalUrl = externalUrl(photo?.remote_url);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div
-        className="grid max-h-[85vh] w-full max-w-3xl grid-cols-1 overflow-y-auto rounded-xl border border-border bg-surface sm:grid-cols-[minmax(0,1fr)_280px]"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal labelledBy={titleId} className="max-w-3xl" onClose={onClose}>
+      <h2 id={titleId} className="sr-only">
+        {photo?.title ?? photo?.filename ?? `Photo ${id}`}
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_280px]">
         {photo?.filename && !imageFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -532,7 +534,7 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

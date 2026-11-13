@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   archiveThumbUrl,
   externalUrl,
@@ -20,6 +20,7 @@ import {
 import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
+import { Modal } from "@/components/Modal";
 import { Info } from "@/components/Tooltip";
 
 const PAGE_SIZE = 48;
@@ -664,15 +665,16 @@ function ItemDetail({
     return () => ctrl.abort();
   }, [archive, id]);
 
+  const titleId = useId();
   const sourceUrl = externalUrl(item?.source_url);
   const imageUrl = externalUrl(item?.url);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div
-        className="grid max-h-[85vh] w-full max-w-3xl grid-cols-1 overflow-y-auto rounded-xl border border-border bg-surface sm:grid-cols-[minmax(0,1fr)_280px]"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal labelledBy={titleId} className="max-w-3xl" onClose={onClose}>
+      <h2 id={titleId} className="sr-only">
+        {`Archive item ${id}`}
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_280px]">
         {item ? (
           // eslint-disable-next-line @next/next/no-img-element -- archive-hosted image, not a Next asset
           <img src={archiveThumbUrl(archive, item.id, 1024)} alt={item.caption ?? item.id} className="max-h-[85vh] w-full bg-background object-contain" />
@@ -719,7 +721,7 @@ function ItemDetail({
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
