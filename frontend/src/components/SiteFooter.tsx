@@ -18,7 +18,8 @@ export function SiteFooter({
     <footer className="mt-auto border-t border-border py-4">
       <SuiteLinks />
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 text-xs text-muted sm:px-6">
-        <span>Powered by {poweredBy}</span>
+        {/* Underlined: the repo link sits in running text, so colour alone can't mark it. */}
+        <span className="[&_a]:underline [&_a]:underline-offset-2">Powered by {poweredBy}</span>
         <span>{right}</span>
       </div>
     </footer>

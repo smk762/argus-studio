@@ -21,6 +21,8 @@ import {
 } from "@/lib/forgeApi";
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { isLive, localOutputPath } from "@/lib/curatorEnv";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { basename, normalizeRoot } from "@/lib/path";
@@ -33,6 +35,7 @@ import {
   type TargetCategory,
 } from "@/components/curator/types";
 import { demoKohyaFiles, forgeSlug } from "@/components/curator/forgeDemo";
+import { ExternalLink } from "@/components/ExternalLink";
 
 /** Trainers to offer before `/trainers` answers (and the whole list in demo mode). */
 const FALLBACK_TRAINERS: TrainerInfo[] = (Object.keys(TRAINER_LABELS) as TrainerId[]).map((id) => ({
@@ -361,6 +364,11 @@ export default function ForgePage() {
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+        {STATIC_DEMO && (
+          <RecordedDemoNote label="In-browser demo">
+            the kohya config below is generated live in your browser by the same sizing heuristics argus-forge uses.
+          </RecordedDemoNote>
+        )}
         {unreachable && (
           <CapabilityNotice
             reason={
@@ -708,14 +716,12 @@ export default function ForgePage() {
       <SiteFooter
         poweredBy={
           <>
-            <a
+            <ExternalLink
               href="https://github.com/smk762/argus-forge"
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-accent-amber transition-colors hover:text-accent-amber/80"
             >
               argus-forge
-            </a>{" "}
+            </ExternalLink>{" "}
             · training bridge
           </>
         }

@@ -12,6 +12,8 @@ Designed as a living onboarding document -- every parameter includes an inline e
 
 ![Raw model outputs and auto-removed tags](docs/images/spa-output-raw.png)
 
+<sub>Screenshots are from the static demo, captioning a public-domain plate: [Richard Knötel, Norway 1863 (Uniformenkunde), via Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Norwegen_1863_J%C3%A4ger_Kavallerist_Musketier_Garde-Scharfsch%C3%BCtz_Artillerist._Uniformenkunde_military_uniform_plate_print_by_Richard_Kn%C3%B6tel_(1857-1914)_publ_in_1890s%3F_Norwegian_army_cavalry_guards_artillery_PD-old.jpg).</sub>
+
 ## Quick Start
 
 ### Whole suite in one stack (recommended)
@@ -247,6 +249,33 @@ In compose, put DEMs (GeoTIFF or `.vrt`) in `DEM_DIR` and point `MODELS_DIR` / `
 pip install "argus-atlas[server,cli,tiles]"
 argus-atlas serve --cors          # :8105; add ATLAS_ALLOW_BAKE=1 to bake
 ```
+
+### Static demo (no backends, any static host)
+
+`docker compose up` with no profile still needs a Node server. For a fully
+static, backend-free public demo (e.g. Cloudflare Pages), build a Next static
+export instead:
+
+```bash
+cd frontend
+npm ci
+npm run build:static        # = NEXT_PUBLIC_DEMO_STATIC=1 next build -> frontend/out/
+npx serve out               # or any static file server, to preview
+```
+
+Every page renders from bundled recorded output and says so: `/` replays one
+real argus-lens caption run, `/curate` uses the bundled sample scan, `/forge`
+builds kohya configs in the browser, `/atlas` browses two recorded argus-atlas
+jobs from the Cook Strait bake behind https://realms.dragonhound.dev
+(`public/demo/atlas/`, written by `scripts/bundle_atlas_demo.py` through
+argus-atlas's own job store), `/darkroom` shows its bundled sample, `/proof`
+shows a "coming soon" state (no real evaluation recorded yet) with an opt-in,
+clearly labelled synthetic preview, and `/gallery` explains what it needs. A
+thin banner links back to the repo.
+
+Cloudflare Pages: root directory `frontend`, build command `npm run build:static`,
+output directory `out`. The flag selects a different *build*; it is never set
+for the published image, which keeps resolving its config per request (#56).
 
 ## Architecture
 

@@ -13,6 +13,24 @@ import { atlasUrl } from "@/lib/curatorEnv";
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import { readNdjson } from "@/lib/lensApi";
+import { STATIC_DEMO, demoAsset } from "@/lib/staticDemo";
+
+/*
+ * Static demo (lib/staticDemo.ts): the read side — job list, job sidecars,
+ * previews, the PMTiles archive — is served from recorded argus-atlas jobs
+ * bundled under public/demo/atlas/ by scripts/bundle_atlas_demo.py (what the
+ * real GET /jobs and GET /jobs/{id} returned for them). The write side
+ * (controls, OSM, bake, tiles) is never offered by the page.
+ */
+
+/** The full Cook Strait map the bundled jobs are two chunks of. */
+export const REALMS_URL = "https://realms.dragonhound.dev";
+
+/**
+ * Jobs whose PMTiles archive is bundled in the static demo. The others are
+ * linked to {@link REALMS_URL} instead, to keep the export small.
+ */
+export const DEMO_BUNDLED_ARCHIVES: ReadonlySet<string> = new Set(["antique-10-1007-640"]);
 
 // --- wire types (mirror argus_atlas.models) --------------------------------
 
@@ -310,14 +328,19 @@ export async function getInputs(signal?: AbortSignal): Promise<AtlasInputs> {
 }
 
 export async function listJobs(signal?: AbortSignal): Promise<JobDigest[]> {
-  const resp = await fetch(`${atlasUrl()}/jobs`, { signal });
+  const resp = await fetch(STATIC_DEMO ? demoAsset("atlas/jobs.json") : `${atlasUrl()}/jobs`, { signal });
   if (!resp.ok) return asError(resp);
   const body = (await resp.json()) as { jobs: JobDigest[] };
   return body.jobs;
 }
 
 export async function getJob(jobId: string, signal?: AbortSignal): Promise<AtlasJob> {
-  const resp = await fetch(`${atlasUrl()}/jobs/${encodeURIComponent(jobId)}`, { signal });
+  const resp = await fetch(
+    STATIC_DEMO
+      ? demoAsset(`atlas/${encodeURIComponent(jobId)}/job.json`)
+      : `${atlasUrl()}/jobs/${encodeURIComponent(jobId)}`,
+    { signal },
+  );
   if (!resp.ok) return asError(resp);
   return resp.json();
 }
@@ -342,12 +365,14 @@ export async function getLabels(jobId: string, signal?: AbortSignal): Promise<La
  * re-bake replaces the image under the same URL.
  */
 export function previewUrl(jobId: string, kind: string, version?: string): string {
+  if (STATIC_DEMO) return demoAsset(`atlas/${encodeURIComponent(jobId)}/${encodeURIComponent(kind)}.webp`);
   const base = `${atlasUrl()}/jobs/${encodeURIComponent(jobId)}/preview/${encodeURIComponent(kind)}`;
   return version ? `${base}?v=${encodeURIComponent(version)}` : base;
 }
 
 /** The PMTiles archive (only after POST /tiles). */
 export function archiveUrl(jobId: string): string {
+  if (STATIC_DEMO) return demoAsset(`atlas/${encodeURIComponent(jobId)}/fantasy.pmtiles`);
   return `${atlasUrl()}/jobs/${encodeURIComponent(jobId)}/archive`;
 }
 

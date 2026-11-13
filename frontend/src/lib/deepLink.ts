@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { STATIC_DEMO } from "@/lib/staticDemo";
 
 /**
  * Apply upstream-stage deep-link params (`?folder=`, `?export=`, `?category=`,
@@ -22,7 +23,7 @@ import { useEffect, useRef } from "react";
  *
  * `apply` should read only from the params it is handed and call stable setters.
  */
-export function useDeepLink(apply: (params: URLSearchParams) => void): void {
+function useDeepLinkFromRouter(apply: (params: URLSearchParams) => void): void {
   const search = useSearchParams();
   const applied = useRef(false);
   useEffect(() => {
@@ -49,3 +50,22 @@ export function replaceQuery(set: Record<string, string | null>): void {
   const { pathname, search, hash } = window.location;
   window.history.replaceState(null, "", `${pathname}${mergeQuery(search, set)}${hash}`);
 }
+
+/**
+ * Static-export variant: `useSearchParams` would force every landing page into
+ * a client-only Suspense bailout at prerender time, and a static host has no
+ * server to read the query anyway. The mount effect reads `window.location`
+ * directly, which is exactly as one-shot as the router version.
+ */
+function useDeepLinkFromWindow(apply: (params: URLSearchParams) => void): void {
+  const applied = useRef(false);
+  useEffect(() => {
+    if (applied.current) return;
+    applied.current = true;
+    apply(new URLSearchParams(window.location.search));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
+/** Chosen once at module scope from a build-time constant, so the hook order never changes. */
+export const useDeepLink = STATIC_DEMO ? useDeepLinkFromWindow : useDeepLinkFromRouter;

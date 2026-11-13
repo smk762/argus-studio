@@ -478,6 +478,7 @@ function Slider({ label, value, min, max, step, format, onChange, disabled }: {
       </div>
       <input
         type="range" min={min} max={max} step={step} value={value} disabled={disabled}
+        aria-label={label}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="w-full cursor-pointer accent-accent-teal disabled:opacity-50"
       />

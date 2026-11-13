@@ -43,6 +43,10 @@ import { finalChoice } from "@/lib/captionFinal";
 import { sizedForBackend, tokenBudget, tokenBudgetsOf } from "@/lib/captionTokens";
 import { asError } from "@/lib/apiError";
 import { lensUrl } from "@/lib/curatorEnv";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { RECORDED_CAPTION, RECORDED_CAPTION_IMAGE } from "@/lib/lensSample";
+import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { ExternalLink } from "@/components/ExternalLink";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
 
@@ -91,7 +95,8 @@ export default function Home() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CaptionResult | null>(null);
+  // The static demo opens on the one recorded caption instead of an empty form.
+  const [result, setResult] = useState<CaptionResult | null>(STATIC_DEMO ? RECORDED_CAPTION : null);
   // What `result` was sized for. The dropdown can move on after the run, and
   // the result doesn't say.
   const [resultBackend, setResultBackend] = useState("sdxl");
@@ -141,6 +146,7 @@ export default function Home() {
   });
 
   useEffect(() => {
+    if (STATIC_DEMO) return; // no lens to ask; the header shows a Recorded pill
     let cancelled = false;
     (async () => {
       try {
@@ -173,6 +179,7 @@ export default function Home() {
 
   // Fetch the hybrid tag↔prose presets; fall back to the hardcoded set on failure.
   useEffect(() => {
+    if (STATIC_DEMO) return; // keep the hardcoded fallback presets
     let cancelled = false;
     getLensProfiles()
       .then((profiles) => {
@@ -476,14 +483,23 @@ export default function Home() {
         logo={{ letter: "A" }}
         title="Argus Lens"
         subtitle="Structured image captioning for training & generation"
-        badge={<ApiVersionBadge label="argus-lens" version={lensVersion} />}
+        badge={STATIC_DEMO ? <RecordedBadge /> : <ApiVersionBadge label="argus-lens" version={lensVersion} />}
       />
 
       {/* Main content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
         {/* Input form */}
         <div className="mb-8">
+          {STATIC_DEMO && (
+            <div className="mb-6">
+              <RecordedDemoNote>
+                one real argus-lens caption run, replayed below. The parameters show what each knob does; changing
+                them needs a running argus-lens.
+              </RecordedDemoNote>
+            </div>
+          )}
           {/* Input mode switcher */}
+          {!STATIC_DEMO && (
           <div className="mb-4 inline-flex rounded-lg border border-border bg-surface p-1">
             {(["url", "upload", "folder", "immich", "manifest"] as const).map((m) => (
               <button
@@ -508,9 +524,10 @@ export default function Home() {
               </button>
             ))}
           </div>
+          )}
 
           {/* URL mode */}
-          {mode === "url" && (
+          {!STATIC_DEMO && mode === "url" && (
             <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 mb-6">
               <input
                 type="url"
@@ -579,7 +596,7 @@ export default function Home() {
           {mode === "immich" && (
             <div className="mb-6 space-y-3">
               <p className="text-xs text-muted">
-                Caption an <a className="text-accent-purple hover:text-accent-purple/80" href="https://immich.app" target="_blank" rel="noopener noreferrer">Immich</a>{" "}
+                Caption an <ExternalLink className="text-accent-purple hover:text-accent-purple/80" href="https://immich.app">Immich</ExternalLink>{" "}
                 album straight from your photo server — nothing is copied into the dataset. With write-back enabled,
                 each caption is pushed to the asset&apos;s description in Immich.
               </p>
@@ -598,6 +615,7 @@ export default function Home() {
               ) : (
                 <div className="flex flex-col sm:flex-row gap-3">
                   <select
+                    aria-label="Album"
                     value={albumId}
                     onChange={(e) => setAlbumId(e.target.value)}
                     className="flex-1 px-4 py-3 rounded-lg bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple/50 cursor-pointer"
@@ -731,6 +749,7 @@ export default function Home() {
             {/* Target Backend */}
             <ParamInfo conceptId="target_backend">
               <select
+                aria-label="Target backend"
                 value={targetBackend}
                 onChange={(e) => setTargetBackend(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple/50 cursor-pointer"
@@ -746,6 +765,7 @@ export default function Home() {
             {/* Target Category */}
             <ParamInfo conceptId="target_category">
               <select
+                aria-label="Target category"
                 value={targetCategory}
                 onChange={(e) => setTargetCategory(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple/50 cursor-pointer"
@@ -764,6 +784,9 @@ export default function Home() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={proseEnrichment}
+                  aria-label="Prose enrichment"
                   onClick={() => setProseEnrichment(!proseEnrichment)}
                   className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors cursor-pointer ${
                     proseEnrichment ? "bg-accent-purple" : "bg-border"
@@ -819,10 +842,35 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
             {/* Left: image */}
             <div className="space-y-4">
-              <ImagePreview url={analyzedUrl} />
-              <div className="text-xs text-muted truncate px-1">
-                {analyzedUrl}
-              </div>
+              {STATIC_DEMO ? (
+                <figure className="space-y-2">
+                  <div className="rounded-lg overflow-hidden border border-border bg-surface">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- static export, images unoptimized */}
+                    <img
+                      src={RECORDED_CAPTION_IMAGE.src}
+                      width={RECORDED_CAPTION_IMAGE.width}
+                      height={RECORDED_CAPTION_IMAGE.height}
+                      alt={RECORDED_CAPTION_IMAGE.alt}
+                      className="w-full h-auto max-h-[600px] object-contain"
+                    />
+                  </div>
+                  <figcaption className="px-1 text-xs leading-relaxed text-muted">
+                    <ExternalLink
+                      href={RECORDED_CAPTION_IMAGE.sourceUrl}
+                      className="underline hover:text-foreground"
+                    >
+                      {RECORDED_CAPTION_IMAGE.attribution}
+                    </ExternalLink>
+                  </figcaption>
+                </figure>
+              ) : (
+                <>
+                  <ImagePreview url={analyzedUrl} />
+                  <div className="text-xs text-muted truncate px-1">
+                    {analyzedUrl}
+                  </div>
+                </>
+              )}
               <div className="px-1 flex items-center gap-2">
                 <span className="text-xs text-muted">Backend:</span>
                 <span className="text-xs text-accent-purple font-medium">
@@ -941,14 +989,12 @@ export default function Home() {
       {/* Footer */}
       <SiteFooter
         poweredBy={
-          <a
+          <ExternalLink
             href="https://github.com/smk762/argus-lens"
-            target="_blank"
-            rel="noopener noreferrer"
             className="text-accent-purple hover:text-accent-purple/80 transition-colors"
           >
             argus-lens
-          </a>
+          </ExternalLink>
         }
         right="MIT License"
       />

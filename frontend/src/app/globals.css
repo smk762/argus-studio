@@ -30,7 +30,7 @@
   --accent-pink: #ec4899;
   --accent-yellow: #fcd34d;
   --on-accent: #000000;
-  --muted: #6b7280;
+  --muted: #848c9c; /* 4.5:1+ on background, surface and surface-hover */
   --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.45);
 }
 
