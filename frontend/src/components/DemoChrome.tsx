@@ -64,7 +64,7 @@ export function RecordedDemoNote({
   if (!children) {
     return (
       <p role="note" className="text-xs leading-relaxed text-muted">
-        {line}. {runIt}
+        {line} {runIt}
       </p>
     );
   }

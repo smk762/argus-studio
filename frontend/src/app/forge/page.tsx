@@ -364,7 +364,10 @@ export default function ForgePage() {
           <RecordedDemoNote
             label="In-browser demo"
             summary="the kohya config below is generated in your browser by the same sizing heuristics argus-forge uses."
-          />
+          >
+            Demo mode builds kohya configs only. A running argus-forge inspects a real export and emits all three
+            trainers.
+          </RecordedDemoNote>
         )}
         {unreachable && (
           <CapabilityNotice
@@ -382,7 +385,8 @@ export default function ForgePage() {
             no forge to inspect it with, so the estimate below does not describe
             that export — then explains demo mode. The trigger word still carries;
             the client-side builder uses it. */}
-        {!live && (
+        {/* The static demo says this in its RecordedDemoNote, unless an export path was dropped. */}
+        {!live && (!STATIC_DEMO || deepLinked) && (
           <CapabilityNotice
             reason={
               <>
