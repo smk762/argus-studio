@@ -31,6 +31,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Changed
 
+- **Thumbnail grids load their first row eagerly** ([#159](https://github.com/smk762/argus-studio/issues/159)). `/curate`, the `/gallery` pool and archive browser, and the `/proof` board no longer lazy-load the tiles on screen at load, which are the likeliest Largest Contentful Paint; tiles after the first row stay lazy, through `lib/imageLoading.ts`. The `/curate` detail view loads its image eagerly, and `/darkroom` history thumbnails are now lazy, so a long history no longer fetches every image up front.
 - Curator and darkroom read SSE through one module, `lib/sse.ts` ([#124](https://github.com/smk762/argus-studio/issues/124)). Darkroom now releases its connection when a stream fails, and both accept a last frame with no closing blank line. A last frame cut off mid-JSON now reads as "ended without a result" rather than a parse error. NDJSON streams keep their own reader.
 - `asError` throws an `ApiError` carrying the HTTP status, and `readError` returns FastAPI's `detail` as text ([#124](https://github.com/smk762/argus-studio/issues/124)). The caption page's URL path uses it, so a 422 no longer renders as `[object Object]`.
 - Chips over `/curate` thumbnails sit on a surface backing, and the blur veils on `/curate` and `/darkroom` are heavier, so their text reads in either theme ([#124](https://github.com/smk762/argus-studio/issues/124)).

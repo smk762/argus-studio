@@ -6,6 +6,11 @@
  */
 export const FIRST_ROW = 6;
 
+/** Whether the tile at `position` sits in a grid's first row of `firstRow` tiles. */
+export function inFirstRow(position: number, firstRow: number = FIRST_ROW): boolean {
+  return position < firstRow;
+}
+
 /**
  * The `loading` attribute for the tile at `position` in a grid: unset (the
  * browser's eager default) for the first row, `"lazy"` after it. Never
@@ -13,5 +18,5 @@ export const FIRST_ROW = 6;
  * is singled out as the LCP image.
  */
 export function tileLoading(position: number, firstRow: number = FIRST_ROW): "lazy" | undefined {
-  return position < firstRow ? undefined : "lazy";
+  return inFirstRow(position, firstRow) ? undefined : "lazy";
 }

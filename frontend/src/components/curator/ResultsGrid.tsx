@@ -3,7 +3,7 @@
 import { cardAge, checkWarnings } from "@/lib/curatorAttributes";
 import { policyShields } from "@/lib/curatorGuard";
 import { canExport, exportBlockReason } from "@/lib/curatorSafety";
-import { tileLoading } from "@/lib/imageLoading";
+import { inFirstRow } from "@/lib/imageLoading";
 import { imagePending, pendingCaption } from "@/lib/scanChunks";
 import { GuardShield } from "./GuardShield";
 import { SafeThumb } from "./SafeThumb";
@@ -34,7 +34,7 @@ export function ResultsGrid({ scanId, results, nsfwRan, pending = [], policies =
       {results.map((img, position) => (
         <Card
           key={img.rel_path}
-          eager={tileLoading(position) === undefined}
+          eager={inFirstRow(position)}
           scanId={scanId}
           img={img}
           nsfwRan={nsfwRan}
