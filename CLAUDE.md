@@ -19,6 +19,16 @@ The Argus suite's **web UI + compose orchestration hub**. A Next.js frontend on 
 
 Formerly `argus-vision-demo`; the old GitHub URL redirects to `smk762/argus-studio`. Keep new references pointing at the current name.
 
+## Argus suite
+<!-- argus-suite: keep this block; argus-ci checks for it -->
+This repo is part of the Argus suite. The suite map below lists every sibling and what it owns; check it before
+building something a sibling may already do. **On every release, update this repo's row and capabilities in
+argus-cortex's SUITE.md** (a PR to argus-cortex in the same release).
+
+@../argus-core/SUITE.md
+
+Not checked out? Read https://github.com/smk762/argus-cortex/blob/dev/SUITE.md
+
 ## Layout
 
 Everything is under `frontend/` (Next.js 16 App Router, React 19, Tailwind v4, light and dark themes). Repo root holds only compose + env.
@@ -88,4 +98,4 @@ Backends default to **published GHCR images** — no sibling checkouts needed. T
 
 ## CI / release
 
-`ci.yml` gates every PR and push to `main`: `npm ci`, `wire:check`, lint, typecheck, `npm test` in `frontend/`. `release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
+`ci.yml` gates every PR and push to `main`: `npm ci`, `wire:check`, lint, typecheck, `npm test` in `frontend/`. `suite.yml` (argus-ci's `suite-check`) fails if the argus-suite block above or this repo's SUITE.md row goes missing. `release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag, and update this repo's row in argus-cortex's SUITE.md if the release changed a capability, port or UI pairing. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
