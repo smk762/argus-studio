@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { connection } from "next/server";
 import "./globals.css";
 import { runtimeConfig, runtimeConfigScript } from "@/lib/runtimeConfig";
@@ -108,6 +109,10 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {STATIC_DEMO && <DemoBanner />}
         {children}
+        {/* Static demo only: a devtools console greeting (public/dragonhound-console.js,
+            guarded by window.__dragonhound so it logs once per full page load).
+            The live build never loads it. No CSP is set on the static host. */}
+        {STATIC_DEMO && <Script src="/dragonhound-console.js" strategy="afterInteractive" />}
       </body>
     </html>
   );
