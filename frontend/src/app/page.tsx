@@ -46,6 +46,7 @@ import { lensUrl } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { RECORDED_CAPTION, RECORDED_CAPTION_IMAGE } from "@/lib/lensSample";
 import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { ExternalLink } from "@/components/ExternalLink";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
 
@@ -592,7 +593,7 @@ export default function Home() {
           {mode === "immich" && (
             <div className="mb-6 space-y-3">
               <p className="text-xs text-muted">
-                Caption an <a className="text-accent-purple hover:text-accent-purple/80" href="https://immich.app" target="_blank" rel="noopener noreferrer">Immich</a>{" "}
+                Caption an <ExternalLink className="text-accent-purple hover:text-accent-purple/80" href="https://immich.app">Immich</ExternalLink>{" "}
                 album straight from your photo server — nothing is copied into the dataset. With write-back enabled,
                 each caption is pushed to the asset&apos;s description in Immich.
               </p>
@@ -851,14 +852,12 @@ export default function Home() {
                     />
                   </div>
                   <figcaption className="px-1 text-xs leading-relaxed text-muted">
-                    <a
+                    <ExternalLink
                       href={RECORDED_CAPTION_IMAGE.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="underline hover:text-foreground"
                     >
                       {RECORDED_CAPTION_IMAGE.attribution}
-                    </a>
+                    </ExternalLink>
                   </figcaption>
                 </figure>
               ) : (
@@ -987,14 +986,12 @@ export default function Home() {
       {/* Footer */}
       <SiteFooter
         poweredBy={
-          <a
+          <ExternalLink
             href="https://github.com/smk762/argus-lens"
-            target="_blank"
-            rel="noopener noreferrer"
             className="text-accent-purple hover:text-accent-purple/80 transition-colors"
           >
             argus-lens
-          </a>
+          </ExternalLink>
         }
         right="MIT License"
       />

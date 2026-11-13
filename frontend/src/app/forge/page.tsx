@@ -35,6 +35,7 @@ import {
   type TargetCategory,
 } from "@/components/curator/types";
 import { demoKohyaFiles, forgeSlug } from "@/components/curator/forgeDemo";
+import { ExternalLink } from "@/components/ExternalLink";
 
 /** Trainers to offer before `/trainers` answers (and the whole list in demo mode). */
 const FALLBACK_TRAINERS: TrainerInfo[] = (Object.keys(TRAINER_LABELS) as TrainerId[]).map((id) => ({
@@ -713,14 +714,12 @@ export default function ForgePage() {
       <SiteFooter
         poweredBy={
           <>
-            <a
+            <ExternalLink
               href="https://github.com/smk762/argus-forge"
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-accent-amber transition-colors hover:text-accent-amber/80"
             >
               argus-forge
-            </a>{" "}
+            </ExternalLink>{" "}
             · training bridge
           </>
         }

@@ -2,6 +2,7 @@ import type { MDXComponents } from "mdx/types";
 import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
 import { nodeText, slugify } from "@/lib/slug";
+import { ExternalLink } from "@/components/ExternalLink";
 
 /**
  * Maps the markdown primitives emitted by MDX onto the Studio design tokens
@@ -54,7 +55,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         return <Link href={href} className={className} {...props} />;
       }
       return (
-        <a href={href} target="_blank" rel="noopener noreferrer" className={className} {...props} />
+        <ExternalLink href={href} className={className} {...props} />
       );
     },
     code: (props: ComponentPropsWithoutRef<"code">) => (

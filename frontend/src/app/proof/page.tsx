@@ -19,6 +19,7 @@ import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ProofBoard } from "@/components/proof/ProofBoard";
 import { NewEvaluation } from "@/components/proof/NewEvaluation";
 import { StageHandoff } from "@/components/StageHandoff";
+import { ExternalLink } from "@/components/ExternalLink";
 
 function verdictDot(s: ReportSummary): string {
   if (s.passed) return "bg-accent-green";
@@ -244,9 +245,9 @@ function ProofComingSoon({ onPreview }: { onPreview: () => void }) {
         >
           Preview the review UI with synthetic data
         </button>
-        <a href={REPO_URL} className="rounded-lg px-4 py-2 text-accent-teal hover:underline">
+        <ExternalLink href={REPO_URL} className="rounded-lg px-4 py-2 text-accent-teal hover:underline">
           Run it yourself
-        </a>
+        </ExternalLink>
       </div>
     </div>
   );

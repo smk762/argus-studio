@@ -62,6 +62,7 @@ import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
+import { ExternalLink } from "@/components/ExternalLink";
 
 type View = "grid" | "clusters";
 
@@ -862,14 +863,12 @@ export default function CuratePage() {
       <SiteFooter
         poweredBy={
           <>
-            <a
+            <ExternalLink
               href="https://github.com/smk762/argus-curator"
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-accent-teal transition-colors hover:text-accent-teal/80"
             >
               argus-curator
-            </a>{" "}
+            </ExternalLink>{" "}
             · mode: {curatorUiMode()}
           </>
         }

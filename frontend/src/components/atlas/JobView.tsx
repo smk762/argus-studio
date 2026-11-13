@@ -20,6 +20,7 @@ import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { BakePanel } from "@/components/atlas/BakePanel";
 import { JobBadges } from "@/components/atlas/JobBadges";
 import { STATIC_DEMO } from "@/lib/staticDemo";
+import { ExternalLink } from "@/components/ExternalLink";
 
 export const STATUS_DOT: Record<JobStatus, string> = {
   controls: "bg-muted",
@@ -308,12 +309,12 @@ export function JobView({
               </span>
               {STATIC_DEMO && !DEMO_BUNDLED_ARCHIVES.has(s.job_id) ? (
                 // Not bundled in the static demo (size); the whole map is browsable on realms.
-                <a
+                <ExternalLink
                   href={REALMS_URL}
                   className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
                 >
                   View the full map on realms.dragonhound.dev
-                </a>
+                </ExternalLink>
               ) : (
                 <a
                   href={archiveUrl(s.job_id)}

@@ -25,6 +25,7 @@ import { NewCanvas } from "@/components/atlas/NewCanvas";
 import { JobView, STATUS_DOT } from "@/components/atlas/JobView";
 import { JobBadges } from "@/components/atlas/JobBadges";
 import { DoctorPanel } from "@/components/atlas/DoctorPanel";
+import { ExternalLink } from "@/components/ExternalLink";
 
 export default function AtlasPage() {
   // version: null = loading, "" = unreachable, else the server version.
@@ -151,9 +152,9 @@ export default function AtlasPage() {
             {STATIC_DEMO ? (
               <RecordedDemoNote>
                 two real argus-atlas jobs from the Cook Strait bake behind{" "}
-                <a href={REALMS_URL} className="underline hover:text-foreground">
+                <ExternalLink href={REALMS_URL} className="underline hover:text-foreground">
                   realms.dragonhound.dev
-                </a>
+                </ExternalLink>
                 : one z10 chunk over the Marlborough Sounds, New Zealand, with its GDAL controls, painted in the antique
                 and tolkien styles. Sidecars are as the server returned them; previews are re-encoded to WebP; the
                 antique PMTiles archive is bundled, and the full 30-chunk map is on realms. Building controls and baking
@@ -182,9 +183,9 @@ export default function AtlasPage() {
                     {STATIC_DEMO ? (
                       <>
                         No recorded jobs in this build. The full map is on{" "}
-                        <a href={REALMS_URL} className="text-accent-teal hover:underline">
+                        <ExternalLink href={REALMS_URL} className="text-accent-teal hover:underline">
                           realms.dragonhound.dev
-                        </a>
+                        </ExternalLink>
                         .
                       </>
                     ) : (

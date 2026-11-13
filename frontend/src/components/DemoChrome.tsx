@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { HOME_URL, REPO_URL } from "@/lib/staticDemo";
+import { ExternalLink } from "@/components/ExternalLink";
 
 /**
  * The thin strip above every page of the static demo export. Rendered by the
@@ -13,13 +14,13 @@ export function DemoBanner() {
           <span className="font-medium text-foreground/80">Static demo</span> — recorded outputs, no live backends.
         </span>
         <span className="flex items-center gap-3">
-          <a href={REPO_URL} className="text-accent-teal hover:underline">
+          <ExternalLink href={REPO_URL} className="text-accent-teal hover:underline">
             Run it yourself on GitHub
-          </a>
+          </ExternalLink>
           <span aria-hidden>·</span>
-          <a href={HOME_URL} className="hover:text-foreground hover:underline">
+          <ExternalLink href={HOME_URL} className="hover:text-foreground hover:underline">
             dragonhound.dev
-          </a>
+          </ExternalLink>
         </span>
       </div>
     </div>
@@ -43,9 +44,9 @@ export function RecordedDemoNote({
     <div className="rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-4 py-2.5 text-xs leading-relaxed text-accent-amber">
       <span className="font-medium">{label}</span>
       {children ? <> — {children}</> : null} Run it yourself:{" "}
-      <a href={REPO_URL} className="underline hover:text-foreground">
+      <ExternalLink href={REPO_URL} className="underline hover:text-foreground">
         {REPO_URL.replace(/^https:\/\//, "")}
-      </a>
+      </ExternalLink>
     </div>
   );
 }

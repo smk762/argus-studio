@@ -13,6 +13,7 @@ import { History } from "@/components/darkroom/History";
 import { RecordView } from "@/components/darkroom/RecordView";
 import { Button, Card } from "@/components/darkroom/ui";
 import { archiveUrl, DARKROOM_READ_ONLY_REASON } from "@/lib/darkroomApi";
+import { ExternalLink } from "@/components/ExternalLink";
 
 export default function DarkroomPage() {
   return (
@@ -91,14 +92,12 @@ function DarkroomStage() {
 
       <SiteFooter
         poweredBy={
-          <a
+          <ExternalLink
             href="https://github.com/smk762/argus-darkroom"
-            target="_blank"
-            rel="noopener noreferrer"
             className="text-accent-purple transition-colors hover:text-accent-purple/80"
           >
             argus-darkroom
-          </a>
+          </ExternalLink>
         }
         right="MIT License"
       />

@@ -26,6 +26,7 @@ import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
 import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
+import { ExternalLink } from "@/components/ExternalLink";
 
 const PAGE_SIZE = 60;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -199,9 +200,9 @@ export default function GalleryPage() {
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
               <StageHandoff href="/curate" label="Explore the curator sample" />
-              <a href={REPO_URL} className="text-accent-teal hover:underline">
+              <ExternalLink href={REPO_URL} className="text-accent-teal hover:underline">
                 Run it yourself
-              </a>
+              </ExternalLink>
             </div>
           </div>
         ) : unreachable ? (
@@ -378,14 +379,12 @@ export default function GalleryPage() {
       <SiteFooter
         poweredBy={
           <>
-            <a
+            <ExternalLink
               href="https://github.com/smk762/argus-quarry"
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-accent-amber transition-colors hover:text-accent-amber/80"
             >
               argus-quarry
-            </a>{" "}
+            </ExternalLink>{" "}
             · provenance + public-domain archives
           </>
         }
@@ -504,24 +503,20 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
               </dl>
               <div className="space-y-2 pt-1">
                 {sourceUrl && (
-                  <a
+                  <ExternalLink
                     href={sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="block truncate text-xs text-accent-amber hover:text-accent-amber/80"
                   >
                     View source page ↗
-                  </a>
+                  </ExternalLink>
                 )}
                 {originalUrl && (
-                  <a
+                  <ExternalLink
                     href={originalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="block truncate text-xs text-accent-amber hover:text-accent-amber/80"
                   >
                     Original file ↗
-                  </a>
+                  </ExternalLink>
                 )}
                 {photo.status === "complete" && (
                   <StageHandoff
