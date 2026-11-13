@@ -27,6 +27,7 @@ import { joinPath } from "@/lib/path";
 import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
 import { ExternalLink } from "@/components/ExternalLink";
+import { tileLoading } from "@/lib/imageLoading";
 
 const PAGE_SIZE = 60;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -330,7 +331,7 @@ export default function GalleryPage() {
             {/* Grid */}
             {photos.length > 0 && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {photos.map((p) => (
+                {photos.map((p, position) => (
                   <button
                     key={p.id}
                     type="button"
@@ -341,7 +342,7 @@ export default function GalleryPage() {
                     <img
                       src={quarryThumbUrl(p.id)}
                       alt={p.title ?? p.subject}
-                      loading="lazy"
+                      loading={tileLoading(position)}
                       className="aspect-square w-full object-cover transition-transform motion-safe:group-hover:scale-[1.02]"
                     />
                     <div className="space-y-0.5 p-2">

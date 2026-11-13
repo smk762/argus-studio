@@ -252,7 +252,8 @@ let warnedMissingGlobal = false;
  * the layout injected.
  *
  * If that global is missing the client is in a broken state — the most likely
- * cause is a `script-src` CSP that blocked the layout's un-nonced inline script.
+ * cause is a `script-src` CSP that blocked the layout's inline script: one whose
+ * nonce it doesn't carry, e.g. a policy set or rewritten by a reverse proxy.
  * Returning dev defaults there would silently repaint a live deployment as the
  * bundled demo pointed at the *visitor's* localhost, so this complains loudly
  * first. It still returns the defaults so the page renders something rather
@@ -270,7 +271,7 @@ export function runtimeConfig(): RuntimeConfig {
     warnedMissingGlobal = true;
     console.error(
       `[argus] window.${RUNTIME_CONFIG_GLOBAL} is missing — the root layout's config script did not run ` +
-        `(a Content-Security-Policy blocking inline scripts is the usual cause). ` +
+        `(a Content-Security-Policy whose nonce it doesn't carry is the usual cause; see ARGUS_CSP). ` +
         `Falling back to localhost dev defaults and demo mode; API calls will target this browser's own machine.`,
     );
   }

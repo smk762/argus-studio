@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
+import { headers } from "next/headers";
 import { connection } from "next/server";
 import "./globals.css";
 import { runtimeConfig, runtimeConfigScript } from "@/lib/runtimeConfig";
@@ -80,6 +81,10 @@ export default async function RootLayout({
   // Opt into per-request rendering (see the note at the top of this file).
   if (!STATIC_DEMO) await connection();
   const config = runtimeConfig();
+  // Server build: set by src/proxy.ts for this request; absent when ARGUS_CSP=off.
+  // The static export has no request (headers() would fail the prerender) and no
+  // proxy; scripts/csp.mjs hashes its inline scripts into a <meta> CSP instead.
+  const nonce = STATIC_DEMO ? undefined : ((await headers()).get("x-nonce") ?? undefined);
   return (
     <html
       lang="en"
@@ -88,7 +93,7 @@ export default async function RootLayout({
     >
       <head>
         {/* First in <head>, and it blocks parsing: a saved theme lands before anything paints. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         {/*
           Sets the global `runtimeConfig()` reads, so the client sees the same
           values the server just rendered with.
@@ -100,11 +105,11 @@ export default async function RootLayout({
           `const BASE = curatorUrl()`) — that would race the async chunks and
           bind localhost on some loads and the real value on others.
 
-          The tag also carries no CSP nonce, since Next only nonces its own
-          scripts and `<Script>` components. Under a `script-src` policy this is
-          blocked and `runtimeConfig()` logs an error rather than failing quietly.
+          Both inline scripts carry the request's CSP nonce from src/proxy.ts;
+          Next nonces only its own scripts. If a policy ever blocks this one,
+          `runtimeConfig()` logs an error rather than failing quietly.
         */}
-        {!STATIC_DEMO && <script dangerouslySetInnerHTML={{ __html: runtimeConfigScript(config) }} />}
+        {!STATIC_DEMO && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: runtimeConfigScript(config) }} />}
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {STATIC_DEMO && <DemoBanner />}
