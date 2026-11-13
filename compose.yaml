@@ -84,6 +84,8 @@ services:
       - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH-${NEXT_PUBLIC_CURATOR_SOURCE_PATH-/data/images}}
       - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH-/data/out}}
       - ARGUS_DEVMODE=${ARGUS_DEVMODE-${DEVMODE:-}}
+      # Content-Security-Policy: enforce (default), report-only, or off. See .env.example.
+      - ARGUS_CSP=${ARGUS_CSP-}
     restart: unless-stopped
 
   argus-lens:
