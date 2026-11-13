@@ -336,7 +336,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
   const agg = view.aggregate;
 
   return (
-    <div ref={boardRef} tabIndex={0} onKeyDown={onKeyDown} className="space-y-6 outline-none">
+    <div ref={boardRef} tabIndex={0} onKeyDown={onKeyDown} className="space-y-6 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-purple">
       {/* Summary header */}
       <section className="rounded-xl border border-border bg-surface/50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">

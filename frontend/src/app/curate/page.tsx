@@ -777,7 +777,7 @@ export default function CuratePage() {
                           aria-label="Sort results"
                           value={sort}
                           onChange={(e) => setSort(e.target.value as ResultSort)}
-                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground"
                         >
                           <option value="scan">Scan order</option>
                           <option value="score">Best score</option>

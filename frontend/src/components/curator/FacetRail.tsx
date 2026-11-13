@@ -306,7 +306,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
               aria-label="Show by verdict"
               value={filters.guardView}
               onChange={(e) => set({ guardView: e.target.value as GuardView })}
-              className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+              className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground"
             >
               <option value="all">All ({views.all})</option>
               <option value="unsafe">Unsafe ({views.unsafe})</option>
