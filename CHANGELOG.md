@@ -31,6 +31,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Changed
 
+- **`eslint-config-next` matches Next at 16.4.5**, which turns on the React Compiler lint rules. `/forge` drops two `useCallback`s and auto-inspects through `useEffectEvent`, `/curate` declares its filtered list before the code that uses it and starts the sample banner set, `ProofBoard` resets during render rather than in an effect, and an Immich error now clears when the retry succeeds rather than when it starts. Effects that only fetch keep a commented suppression.
 - Curator and darkroom read SSE through one module, `lib/sse.ts` ([#124](https://github.com/smk762/argus-studio/issues/124)). Darkroom now releases its connection when a stream fails, and both accept a last frame with no closing blank line. A last frame cut off mid-JSON now reads as "ended without a result" rather than a parse error. NDJSON streams keep their own reader.
 - `asError` throws an `ApiError` carrying the HTTP status, and `readError` returns FastAPI's `detail` as text ([#124](https://github.com/smk762/argus-studio/issues/124)). The caption page's URL path uses it, so a 422 no longer renders as `[object Object]`.
 - Chips over `/curate` thumbnails sit on a surface backing, and the blur veils on `/curate` and `/darkroom` are heavier, so their text reads in either theme ([#124](https://github.com/smk762/argus-studio/issues/124)).

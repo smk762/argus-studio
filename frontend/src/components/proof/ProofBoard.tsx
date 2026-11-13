@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   applyEdits,
   compositeScore,
@@ -182,13 +182,17 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
-  // A new run resets the review session.
-  useEffect(() => {
+  // A new run resets the review session. Done while rendering, so the old run's
+  // edits are never painted against the new one.
+  const [reviewing, setReviewing] = useState(initialReport);
+  if (reviewing !== initialReport) {
+    setReviewing(initialReport);
     setReport(initialReport);
     setEdits(new Map());
     setRevealed(new Set());
     setFocus(0);
-  }, [initialReport]);
+    setSaveError(null);
+  }
 
   // The report as the reviewer's unsaved edits make it look right now. With no
   // edits it IS the report, so the header shows the server's authoritative

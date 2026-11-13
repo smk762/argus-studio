@@ -31,7 +31,7 @@ Not checked out? Read https://github.com/smk762/argus-cortex/blob/dev/SUITE.md
 
 ## Layout
 
-Everything is under `frontend/` (Next.js 16 App Router, React 19, Tailwind v4, dark theme). Repo root holds only compose + env.
+Everything is under `frontend/` (Next.js 16 App Router, React 19, Tailwind v4, light and dark themes). Repo root holds only compose + env.
 
 - `frontend/src/app/` — routes: `page.tsx` (caption), `curate/`, `forge/`, `gallery/`, `proof/`, `atlas/`, `darkroom/`, and `docs/` (MDX; `page.mdx` + per-parameter concept pages). `layout.tsx` injects the runtime-config `<script>` before hydration.
 - `frontend/src/lib/` — thin fetch clients, one per backend: `lensApi.ts`, `curatorApi.ts`, `forgeApi.ts`, `galleryApi.ts`, `proofApi.ts`, `atlasApi.ts`, `darkroomApi.ts`. Plus `runtimeConfig.ts` (the env-resolution core) and `curatorEnv.ts` (named accessors).
@@ -51,6 +51,8 @@ npm run build          # next build (output: "standalone")
 npm run lint           # eslint
 npm run typecheck      # tsc --noEmit
 npm test               # vitest run (unit tests: src/**/*.test.ts)
+npm run wire:check     # fail if src/lib/generated drifts from schema/pins.json
+npm run wire:pull      # fetch each pin's tag, update its sha256, regenerate the types
 
 # Whole stack via Docker, from repo root — backends run from published GHCR
 # images by default; pick which with profiles:
@@ -87,9 +89,12 @@ Backends default to **published GHCR images** — no sibling checkouts needed. T
 - **Every backend write is gated in its client, not its component** (argus-studio#75). Each `lib/*Api.ts` keeps a `healthMemo` of its service's last `/health` (refreshed by its `get*Health`, fetched on demand otherwise) and runs `requireCapability(...)` before the request, throwing `CapabilityRefused` (an `Error`, so existing error spans render it). Add the same guard to any new write fetcher; components still read the `allows*` helpers to disable controls up front, but the client is what guarantees a refused write never reaches the wire.
 - **Curator's `adult-*` SingGuard policies stay out of normal UI** until its evaluation picks one, though `/detectors` lists them: offer policies through `offeredPolicies()`, on `/curate` and `/darkroom`. `DEVMODE=1` (`devMode()`) shows them all, and compose also passes it to `CURATOR_DEVMODE` and `ARGUS_DARKROOM_DEVMODE`, so nothing restricts deleting. That is its whole reach: it never loosens viewing, move, bakes, fetches or NSFW, and a delete always takes a user's confirm.
 - **Darkroom's browser decides nothing** (`lib/darkroom/`, `components/darkroom/`). Outcome, cell states, blur and the fired rule all come from the record. Never render an image for a deleted, omitted, refused or failed record: `hasImage()` is the gate. Rule names come from the data, because `adult-cinematic`'s letters differ from the other adult policies. `POST /preflight` counts as a write, so `read_only` disables Check as well as Generate.
+- **Wire types are generated.** `src/lib/generated/` comes from the curator, forge and proof schemas pinned in `frontend/schema/pins.json`: never hand-edit it. `lib/wire.ts` holds `Filled<T, K>` and the compile-time checks. Types that tolerate older servers or decide blurring, such as `ImageResult` and `NsfwResult`, stay hand-written on purpose.
+- **Colours come from tokens, for both themes.** `data-theme` is set by the boot script first in `<head>`. Use `text-on-accent` on an accent background, not `text-black`. Darkroom's and curator's shield marks stay separate: curator verdicts are only safe or unsafe.
+- **The React Compiler lint rules are on.** A `set-state-in-effect` suppression is fine for an effect that only fetches, with the reason beside it. Declare a memoized value before any closure that uses it, or the compiler gives up on the component.
 - **Tests cover `src/lib`'s pure logic, not components** (vitest, node environment, `@/` aliased in `vitest.config.ts`). Put a `*.test.ts` next to the module; the wire seams (`normalizeExportResult`, `manifestMajor`), capability readers and `resolveRuntimeConfig` are the contracts worth pinning. There is no DOM test setup.
 - **Container vs host paths:** forge/curator configs reference container paths (`/data/out`, `/data/images`); when running a forged `train.sh` on the host, substitute your `OUTPUT_DIR`/`DATASET_DIR`. Shared volumes are the only cross-service coupling — don't assume `localhost` inside compose (services use DNS names like `http://argus-lens:8100`).
 
 ## CI / release
 
-`ci.yml` gates every PR and push to `main`: `npm ci`, lint, typecheck, `npm test` in `frontend/`. `suite.yml` (argus-ci's `suite-check`) fails if the argus-suite block above or this repo's SUITE.md row goes missing. `release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag, and update this repo's row in argus-cortex's SUITE.md if the release changed a capability, port or UI pairing. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
+`ci.yml` gates every PR and push to `main`: `npm ci`, `wire:check`, lint, typecheck, `npm test` in `frontend/`. `suite.yml` (argus-ci's `suite-check`) fails if the argus-suite block above or this repo's SUITE.md row goes missing. `release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag, and update this repo's row in argus-cortex's SUITE.md if the release changed a capability, port or UI pairing. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
