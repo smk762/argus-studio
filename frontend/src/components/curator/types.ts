@@ -6,10 +6,12 @@
  * though the curator always sends them, so {@link Filled} names the ones this
  * app reads without a check. The types still written out here are wider than
  * the schema on purpose, and `@/lib/wire` fails typecheck if they stop fitting
- * it. The shared TargetProfile is the contract argus-lens inherits.
+ * it. The shared TargetProfile is the contract argus-lens inherits; it comes
+ * from argus-cortex's taxonomy schema, which owns it for the whole suite.
  */
 
 import { guardBody } from "@/lib/curatorGuard";
+import type * as Cortex from "@/lib/generated/cortex";
 import type * as Wire from "@/lib/generated/curator";
 import type { Filled } from "@/lib/wire";
 
@@ -33,9 +35,14 @@ import type { Filled } from "@/lib/wire";
  */
 export const MANIFEST_VERSION = "2.2";
 
-// Hand-written until argus-cortex exports the taxonomy (smk762/argus-cortex#29).
-export type TargetStyle = "photo" | "anime";
-export type TargetCategory = "identity" | "wardrobe" | "pose_composition" | "setting";
+/**
+ * The suite's shared training-target profile, from argus-cortex's
+ * taxonomy-schema.json. A service's own wire schema can lag cortex (curator's
+ * pin predates `concept`); `@/lib/wire` checks each one still fits this.
+ */
+export type TargetProfile = Required<Cortex.TargetProfile>;
+export type TargetStyle = TargetProfile["target_style"];
+export type TargetCategory = TargetProfile["target_category"];
 export type FacePose = "frontal" | "three_quarter" | "profile";
 
 export const FACE_POSES: FacePose[] = ["frontal", "three_quarter", "profile"];
@@ -68,8 +75,6 @@ export type SceneEnvironment = (typeof SCENE_ENVIRONMENTS)[number];
 export const CONTENT_RATINGS = ["safe", "suggestive", "explicit"] as const;
 export type ContentRating = (typeof CONTENT_RATINGS)[number];
 export type AttributeSource = "fairface" | "mivolo";
-
-export type TargetProfile = Required<Wire.TargetProfile>;
 
 /** Curator's floor (argus-curator#114). A lower value fails ScanConfig validation. */
 export const MIN_SHORT_SIDE = 512;
@@ -399,9 +404,9 @@ export type ExportResult = Filled<Omit<Wire.ExportResult, "mode">, "manifest_pat
  * source as it was.
  */
 export type ManifestRow = Filled<
-  Wire.ManifestRow,
+  Omit<Wire.ManifestRow, "target_profile">,
   "manifest_version" | "primary_face_cluster" | "primary_face_pose" | "crop"
->;
+> & { target_profile: TargetProfile };
 
 export interface Detectors {
   torch: boolean;
@@ -450,14 +455,17 @@ export const TARGET_CATEGORIES: TargetCategory[] = [
   "wardrobe",
   "pose_composition",
   "setting",
+  "concept",
 ];
 
 /**
  * Curator category -> argus-lens caption category (argus-studio#67 hand-off).
  *
- * Lens's categories are a superset of the curator's four, under the same names
- * (lens adds `lighting` and `action`), so this is the identity map. It stays a
- * map so a future divergence has one place to land. Lens does not validate the
+ * Lens's categories share the curator's names (lens adds `lighting` and
+ * `action`), so this is the identity map except for `concept`, which lens has
+ * no category for. A style LoRA is captioned with what is in the frame, so the
+ * trigger word absorbs the look; lens's `setting` caption leads with the whole
+ * scene, which is the closest fit. Lens does not validate the
  * category: an unknown value yields an EMPTY caption (argus-studio#102), which
  * is why the old `pose_composition -> pose_gaze` mapping broke the hand-off.
  */
@@ -466,6 +474,7 @@ export const LENS_CATEGORY: Record<TargetCategory, string> = {
   wardrobe: "wardrobe",
   pose_composition: "pose_composition",
   setting: "setting",
+  concept: "setting",
 };
 
 export const CATEGORY_LABELS: Record<TargetCategory, string> = {
@@ -473,6 +482,7 @@ export const CATEGORY_LABELS: Record<TargetCategory, string> = {
   wardrobe: "Wardrobe",
   pose_composition: "Pose / Composition",
   setting: "Setting",
+  concept: "Concept / Style",
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<TargetCategory, string> = {
@@ -480,6 +490,7 @@ export const CATEGORY_DESCRIPTIONS: Record<TargetCategory, string> = {
   wardrobe: "Clothing / outfit LoRA — prefers full-body framing, looser face penalty.",
   pose_composition: "Pose LoRA — biases toward framing variety, stronger diversity pressure.",
   setting: "Scene LoRA — rewards wide framing and high resolution, minimal face penalty.",
+  concept: "Style / visual-concept LoRA — ignores faces, rewards clean, high-resolution, varied frames.",
 };
 
 export const CATEGORY_COLORS: Record<TargetCategory, string> = {
@@ -487,6 +498,7 @@ export const CATEGORY_COLORS: Record<TargetCategory, string> = {
   wardrobe: "accent-green",
   pose_composition: "accent-teal",
   setting: "accent-orange",
+  concept: "accent-pink",
 };
 
 /** Framing guidance shown under the category picker — what to feed the trainer. */
@@ -499,6 +511,8 @@ export const CATEGORY_COMPOSITION_TIPS: Record<TargetCategory, string> = {
     "Prioritise variety of pose and framing over a single subject. Mix wide and tight crops; the body/gesture matters more than a pristine face.",
   setting:
     "Reward wide, high-resolution scenes. Faces are incidental — keep establishing shots and environments; drop tight portraits.",
+  concept:
+    "The look is the concept, not who is in frame: favour clean, sharp, high-resolution frames across many different subjects and scenes, so the LoRA learns the style rather than any one person or place. Faces are ignored.",
 };
 
 /**
@@ -517,6 +531,7 @@ export const DATASET_SIZE_GUIDE: Record<TargetCategory, DatasetSizeGuide> = {
   wardrobe: { ideal: "20–40", low: 15, hi: 60 },
   pose_composition: { ideal: "20–40", low: 15, hi: 60 },
   setting: { ideal: "25–50", low: 15, hi: 80 },
+  concept: { ideal: "30–60", low: 20, hi: 100 },
 };
 
 /**
@@ -553,6 +568,7 @@ const TRAINING_BIAS: Record<TargetCategory, CategoryTrainingBias> = {
   wardrobe: { targetSteps: 1600, dim: 16, alpha: 8 },
   pose_composition: { targetSteps: 1800, dim: 32, alpha: 16 },
   setting: { targetSteps: 2000, dim: 32, alpha: 16 },
+  concept: { targetSteps: 2000, dim: 32, alpha: 16 },
 };
 
 export function suggestTrainingParams(count: number, category: TargetCategory): TrainingParams {

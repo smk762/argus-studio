@@ -24,8 +24,11 @@ import type {
   ScanSummary,
   SceneEnvironment,
   SetAge,
+  TargetProfile,
 } from "@/components/curator/types";
+import type * as Cortex from "@/lib/generated/cortex";
 import type * as Curator from "@/lib/generated/curator";
+import type * as Forge from "@/lib/generated/forge";
 import type * as Proof from "@/lib/generated/proof";
 import type { EvalReport } from "@/lib/proofApi";
 
@@ -62,6 +65,13 @@ export type WireChecks = [
   Expect<Fits<Curator.GarmentDetection, GarmentDetection>>,
   // Built from nothing but aliases, so an Omit would only restate them.
   Expect<Fits<Proof.EvalReport, EvalReport>>,
+
+  // The suite's TargetProfile is cortex's. A service pinned before cortex grew a
+  // category (curator v0.14.1 lacks `concept`) must still fit inside it; once
+  // every pin carries the full taxonomy these can tighten to Same.
+  Expect<Same<TargetProfile, Required<Cortex.TargetProfile>>>,
+  Expect<Fits<Curator.TargetProfile, TargetProfile>>,
+  Expect<Same<Forge.TargetProfile, Cortex.TargetProfile>>,
 
   // Unions that drive runtime constants, so they stay declared next to those.
   Expect<Same<FacePose, NonNullable<Curator.FaceDetection["pose"]>>>,

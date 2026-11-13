@@ -1,4 +1,4 @@
-// Generated from smk762/argus-forge@v0.1.1 schema/forge-wire.schema.json.
+// Generated from smk762/argus-forge@v0.2.0 schema/forge-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface ForgeWire {
@@ -63,12 +63,16 @@ export interface TrainingParams {
   unet_lr: number;
 }
 /**
- * What the dataset was curated *for* — inherited verbatim from argus-curator.
+ * What a dataset was curated for — shared verbatim across the suite.
+ *
+ * Inherited unchanged from stage to stage (curator → lens → forge → proof) so
+ * a decision made once at curation time is honoured everywhere downstream; no
+ * stage remaps the taxonomy.
  */
 export interface TargetProfile {
   checkpoint?: string | null;
   target_backend?: string | null;
-  target_category?: "identity" | "wardrobe" | "pose_composition" | "setting";
+  target_category?: "identity" | "wardrobe" | "pose_composition" | "setting" | "concept";
   target_style?: "photo" | "anime";
 }
 /**
@@ -76,7 +80,7 @@ export interface TargetProfile {
  */
 export interface ForgeRequest {
   base_model?: string | null;
-  category?: ("identity" | "wardrobe" | "pose_composition" | "setting") | null;
+  category?: ("identity" | "wardrobe" | "pose_composition" | "setting" | "concept") | null;
   collect_captions?: boolean;
   dry_run?: boolean;
   export_dir: string;
@@ -133,7 +137,7 @@ export interface GeneratedFile {
  * POST /inspect — look at an export dir without writing anything.
  */
 export interface InspectRequest {
-  category?: ("identity" | "wardrobe" | "pose_composition" | "setting") | null;
+  category?: ("identity" | "wardrobe" | "pose_composition" | "setting" | "concept") | null;
   export_dir: string;
 }
 /**

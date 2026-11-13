@@ -34,6 +34,7 @@ const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; b
   "accent-teal": { ring: "ring-accent-teal", text: "text-accent-teal", bg: "bg-accent-teal/20", border: "border-accent-teal/40" },
   "accent-green": { ring: "ring-accent-green", text: "text-accent-green", bg: "bg-accent-green/20", border: "border-accent-green/40" },
   "accent-orange": { ring: "ring-accent-orange", text: "text-accent-orange", bg: "bg-accent-orange/20", border: "border-accent-orange/40" },
+  "accent-pink": { ring: "ring-accent-pink", text: "text-accent-pink", bg: "bg-accent-pink/20", border: "border-accent-pink/40" },
 };
 
 interface Props {
