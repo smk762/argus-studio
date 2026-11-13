@@ -611,6 +611,7 @@ export default function Home() {
               ) : (
                 <div className="flex flex-col sm:flex-row gap-3">
                   <select
+                    aria-label="Album"
                     value={albumId}
                     onChange={(e) => setAlbumId(e.target.value)}
                     className="flex-1 px-4 py-3 rounded-lg bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple/50 cursor-pointer"
@@ -744,6 +745,7 @@ export default function Home() {
             {/* Target Backend */}
             <ParamInfo conceptId="target_backend">
               <select
+                aria-label="Target backend"
                 value={targetBackend}
                 onChange={(e) => setTargetBackend(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple/50 cursor-pointer"
