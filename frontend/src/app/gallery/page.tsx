@@ -26,6 +26,7 @@ import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
 import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedBadge } from "@/components/DemoChrome";
 import { ExternalLink } from "@/components/ExternalLink";
 import { tileLoading } from "@/lib/imageLoading";
 
@@ -180,11 +181,7 @@ export default function GalleryPage() {
         subtitle="Provenance-first PD/CC0 acquisition pool"
         badge={
           STATIC_DEMO ? (
-            <div className="shrink-0 text-right">
-              <span className="rounded-md border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-amber">
-                Not in demo
-              </span>
-            </div>
+            <RecordedBadge label="Not in demo" title="The gallery needs a live argus-quarry pool; none is bundled." />
           ) : (
             <ApiVersionBadge label="argus-quarry" version={version} prefix="v" />
           )

@@ -586,9 +586,9 @@ export default function CuratePage() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {STATIC_DEMO && (
           <div className="mb-6">
-            <RecordedDemoNote label="Sample scan">
-              a bundled, illustrative 14-image curator scan (thumbnails are placeholders). Filtering, selection and the
-              export manifest all run in your browser; scanning real folders needs a running argus-curator.
+            <RecordedDemoNote label="Sample scan" summary="a bundled, illustrative 14-image curator scan.">
+              Thumbnails are placeholders. Filtering, selection and the export manifest all run in your browser;
+              scanning real folders needs a running argus-curator.
             </RecordedDemoNote>
           </div>
         )}

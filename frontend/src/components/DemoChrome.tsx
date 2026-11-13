@@ -28,36 +28,92 @@ export function DemoBanner() {
 }
 
 /**
- * The per-page "this is recorded" note. Every page that would otherwise call a
- * backend renders one of these above the recorded output, so a visitor never
- * mistakes a fixture for a live result.
+ * The per-page "this is recorded" note: one quiet line under the page title.
+ * {@link DemoBanner} already says the whole site is a demo, so this only names
+ * what kind of non-live data the page shows. The long provenance text goes in
+ * `children`, folded into a native `<details>` disclosure (no script, so the
+ * static export's hash CSP is unaffected). Muted text keeps 4.5:1 contrast in
+ * both themes.
  */
 export function RecordedDemoNote({
   label = "Recorded demo",
+  summary,
   children,
 }: {
   /** Leading label: what kind of non-live data the page shows. */
   label?: string;
+  /** The rest of the one-line note. */
+  summary?: ReactNode;
+  /** Long provenance text, shown on demand. */
   children?: ReactNode;
 }) {
-  return (
-    <div className="rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-4 py-2.5 text-xs leading-relaxed text-accent-amber">
-      <span className="font-medium">{label}</span>
-      {children ? <> — {children}</> : null} Run it yourself:{" "}
-      <ExternalLink href={REPO_URL} className="underline hover:text-foreground">
+  const line = (
+    <>
+      <span className="font-medium text-foreground/80">{label}</span>
+      {summary ? <> — {summary}</> : null}
+    </>
+  );
+  const runIt = (
+    <>
+      Run it yourself:{" "}
+      <ExternalLink href={REPO_URL} className="underline underline-offset-2 hover:text-foreground">
         {REPO_URL.replace(/^https:\/\//, "")}
       </ExternalLink>
+    </>
+  );
+  if (!children) {
+    return (
+      <p role="note" className="text-xs leading-relaxed text-muted">
+        {line}. {runIt}
+      </p>
+    );
+  }
+  return (
+    <details className="group text-xs leading-relaxed text-muted">
+      <summary className="cursor-pointer list-none select-none hover:text-foreground/80 [&::-webkit-details-marker]:hidden">
+        {line}{" "}
+        <span className="whitespace-nowrap underline underline-offset-2">
+          <span className="group-open:hidden">Details</span>
+          <span className="hidden group-open:inline">Hide details</span>
+        </span>
+      </summary>
+      <div className="mt-2 max-w-3xl space-y-1.5 border-l border-border pl-3">
+        <div>{children}</div>
+        <div>{runIt}</div>
+      </div>
+    </details>
+  );
+}
+
+/**
+ * The header pill a demo page shows in place of a live API version. Muted, not
+ * amber: it marks the state without competing with the page.
+ */
+export function RecordedBadge({ label = "Recorded", title }: { label?: string; title?: string }) {
+  return (
+    <div className="shrink-0 text-right">
+      <span
+        title={title ?? "Recorded output from a real run; no live backend in this build."}
+        className="rounded-md border border-border px-2 py-1 text-[10px] uppercase tracking-wider text-muted"
+      >
+        {label}
+      </span>
     </div>
   );
 }
 
-/** The header pill a static-demo page shows in place of a live API version. */
-export function RecordedBadge() {
+/**
+ * Data credits the licences require (Copernicus DEM, OpenStreetMap ODbL), as a
+ * single footer line. Shared by every page that shows atlas output.
+ */
+export function AtlasDataCredits() {
   return (
-    <div className="shrink-0 text-right">
-      <span className="rounded-md border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-amber">
-        Recorded
-      </span>
-    </div>
+    <>
+      Terrain: Copernicus GLO-30 DEM (© DLR e.V., © Airbus DS, provided under COPERNICUS by the EU and ESA) · Map data ©{" "}
+      <ExternalLink href="https://www.openstreetmap.org/copyright" className="underline underline-offset-2 hover:text-foreground">
+        OpenStreetMap contributors
+      </ExternalLink>{" "}
+      (ODbL)
+    </>
   );
 }

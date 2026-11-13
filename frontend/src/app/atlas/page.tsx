@@ -18,7 +18,8 @@ import {
   REALMS_URL,
 } from "@/lib/atlasApi";
 import { STATIC_DEMO } from "@/lib/staticDemo";
-import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { AtlasDataCredits, RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { NewCanvas } from "@/components/atlas/NewCanvas";
@@ -150,17 +151,8 @@ export default function AtlasPage() {
               </p>
             )}
             {STATIC_DEMO ? (
-              <RecordedDemoNote>
-                two real argus-atlas jobs from the Cook Strait bake behind{" "}
-                <ExternalLink href={REALMS_URL} className="underline hover:text-foreground">
-                  realms.dragonhound.dev
-                </ExternalLink>
-                : one z10 chunk over the Marlborough Sounds, New Zealand, with its GDAL controls, painted in the antique
-                and tolkien styles. Sidecars are as the server returned them; previews are re-encoded to WebP; the
-                antique PMTiles archive is bundled, and the full 30-chunk map is on realms. Building controls and baking
-                need a running argus-atlas (and a GPU for the bake). Terrain: Copernicus GLO-30 DEM (© DLR e.V., ©
-                Airbus DS, provided under COPERNICUS by the EU and ESA); vector layers © OpenStreetMap contributors
-                (ODbL).
+              <RecordedDemoNote summary={<>{ATLAS_DEMO_SUMMARY}</>}>
+                <AtlasDemoProvenance />
               </RecordedDemoNote>
             ) : (
               <>
@@ -235,6 +227,37 @@ export default function AtlasPage() {
           </div>
         )}
       </main>
+
+      <SiteFooter
+        poweredBy={
+          <ExternalLink
+            href="https://github.com/smk762/argus-atlas"
+            className="text-accent-blue transition-colors hover:text-accent-blue/80"
+          >
+            argus-atlas
+          </ExternalLink>
+        }
+        right={<AtlasDataCredits />}
+      />
     </div>
+  );
+}
+
+/** One line under the title; the rest folds into "Details". */
+const ATLAS_DEMO_SUMMARY = "real argus-atlas jobs, replayed from their recorded output.";
+
+/** Where the recorded atlas jobs came from. Data credits live in the footer. */
+function AtlasDemoProvenance() {
+  return (
+    <>
+      Two real argus-atlas jobs from the Cook Strait bake behind{" "}
+      <ExternalLink href={REALMS_URL} className="underline hover:text-foreground">
+        realms.dragonhound.dev
+      </ExternalLink>
+      : one z10 chunk over the Marlborough Sounds, New Zealand, with its GDAL controls, painted in the antique and
+      tolkien styles. Sidecars are as the server returned them; previews are re-encoded to WebP; the antique PMTiles
+      archive is bundled, and the full 30-chunk map is on realms. Building controls and baking need a running
+      argus-atlas (and a GPU for the bake).
+    </>
   );
 }

@@ -492,9 +492,8 @@ export default function Home() {
         <div className="mb-8">
           {STATIC_DEMO && (
             <div className="mb-6">
-              <RecordedDemoNote>
-                one real argus-lens caption run, replayed below. The parameters show what each knob does; changing
-                them needs a running argus-lens.
+              <RecordedDemoNote summary="one real argus-lens caption run, replayed below.">
+                The parameters show what each knob does; changing them needs a running argus-lens.
               </RecordedDemoNote>
             </div>
           )}

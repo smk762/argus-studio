@@ -22,7 +22,7 @@ import {
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { isLive, localOutputPath } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
-import { RecordedDemoNote } from "@/components/DemoChrome";
+import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { basename, normalizeRoot } from "@/lib/path";
@@ -354,20 +354,17 @@ export default function ForgePage() {
           live ? (
             <ApiVersionBadge label="argus-forge" version={version} prefix="v" />
           ) : (
-            <div className="shrink-0 text-right">
-              <span className="rounded-md border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-amber">
-                Demo
-              </span>
-            </div>
+            <RecordedBadge label="Demo" title="No argus-forge answering: configs are generated in your browser." />
           )
         }
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
         {STATIC_DEMO && (
-          <RecordedDemoNote label="In-browser demo">
-            the kohya config below is generated live in your browser by the same sizing heuristics argus-forge uses.
-          </RecordedDemoNote>
+          <RecordedDemoNote
+            label="In-browser demo"
+            summary="the kohya config below is generated in your browser by the same sizing heuristics argus-forge uses."
+          />
         )}
         {unreachable && (
           <CapabilityNotice
