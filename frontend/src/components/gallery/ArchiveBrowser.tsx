@@ -21,6 +21,7 @@ import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { Info } from "@/components/Tooltip";
+import { tileLoading } from "@/lib/imageLoading";
 
 const PAGE_SIZE = 48;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -380,7 +381,7 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
           {/* Grid */}
           {items.length > 0 && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-              {items.map((it) => {
+              {items.map((it, position) => {
                 const on = selected.has(it.id);
                 return (
                   <div
@@ -394,7 +395,7 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
                       <img
                         src={archiveThumbUrl(archive, it.id, 320)}
                         alt={it.caption ?? it.id}
-                        loading="lazy"
+                        loading={tileLoading(position)}
                         className="aspect-square w-full bg-background object-cover"
                       />
                       <div className="space-y-0.5 p-2">
