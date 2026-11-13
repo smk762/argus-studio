@@ -191,6 +191,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
     setEdits(new Map());
     setRevealed(new Set());
     setFocus(0);
+    setSaveError(null);
   }
 
   // The report as the reviewer's unsaved edits make it look right now. With no

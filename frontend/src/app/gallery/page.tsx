@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { StageHandoff } from "@/components/StageHandoff";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -126,8 +126,12 @@ export default function GalleryPage() {
     return () => ctrl.abort();
   }, [filters.category, serveable, poolVersion]);
 
+  // Only the newest request may land: a slower answer for the old filters must
+  // not replace the grid, or clear the spinner, under the new ones.
+  const pageRequest = useRef(0);
   const loadPage = useCallback(
     async (offset: number, append: boolean) => {
+      const request = ++pageRequest.current;
       setLoading(true);
       setError(null);
       try {
@@ -139,12 +143,14 @@ export default function GalleryPage() {
           limit: PAGE_SIZE,
           offset,
         });
+        if (request !== pageRequest.current) return;
         setTotal(page.total);
         setPhotos((cur) => (append ? [...cur, ...page.photos] : page.photos));
       } catch (err) {
+        if (request !== pageRequest.current) return;
         setError(err instanceof Error ? err.message : "Failed to load photos");
       } finally {
-        setLoading(false);
+        if (request === pageRequest.current) setLoading(false);
       }
     },
     [filters],

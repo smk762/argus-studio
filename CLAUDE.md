@@ -41,7 +41,7 @@ npm run lint           # eslint
 npm run typecheck      # tsc --noEmit
 npm test               # vitest run (unit tests: src/**/*.test.ts)
 npm run wire:check     # fail if src/lib/generated drifts from schema/pins.json
-npm run wire:pull      # refresh the pinned schemas, then npm run wire:types
+npm run wire:pull      # fetch each pin's tag, update its sha256, regenerate the types
 
 # Whole stack via Docker, from repo root — backends run from published GHCR
 # images by default; pick which with profiles:

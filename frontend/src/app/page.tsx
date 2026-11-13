@@ -490,6 +490,9 @@ export default function Home() {
                 key={m}
                 type="button"
                 onClick={() => {
+                  // Re-entering the Immich tab retries a failed album load, so show
+                  // "Loading albums…" for it rather than the last attempt's error.
+                  if (m === "immich" && mode !== "immich") setImmichError(null);
                   setMode(m);
                   setError(null);
                   // The /forge hand-off belongs to the folder batch that set it;
