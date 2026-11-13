@@ -1,6 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { COMPANION_HEADERS, contentSecurityPolicy, CSP_ENV, cspHeaderName, cspMode, newNonce } from "@/lib/csp";
+import {
+  COMPANION_HEADERS,
+  contentSecurityPolicy,
+  CSP_ENV,
+  cspHeaderName,
+  cspMode,
+  cspModeRecognised,
+  newNonce,
+} from "@/lib/csp";
+
+/** So an unrecognised `ARGUS_CSP` is reported once, not on every request. */
+let warnedUnknownMode = false;
 
 /**
  * Per-request Content-Security-Policy (see lib/csp.ts). A fresh nonce goes on
@@ -13,10 +24,16 @@ export function proxy(request: NextRequest) {
   // Computed key, as in runtimeConfig.ts: a literal process.env.ARGUS_CSP
   // could be fixed at build time, and one image must serve any deployment.
   const env = process.env as Record<string, string | undefined>;
-  const mode = cspMode(env[CSP_ENV]);
-  const header = cspHeaderName(mode);
+  const raw = env[CSP_ENV];
+  if (!warnedUnknownMode && !cspModeRecognised(raw)) {
+    warnedUnknownMode = true;
+    console.warn(`[argus] ${CSP_ENV}=${JSON.stringify(raw)} is not enforce, report-only or off; enforcing.`);
+  }
+  const header = cspHeaderName(cspMode(raw));
 
   const requestHeaders = new Headers(request.headers);
+  // Only this proxy may hand the layout a nonce: never pass a client's through.
+  requestHeaders.delete("x-nonce");
   let policy: string | null = null;
   if (header) {
     const nonce = newNonce();

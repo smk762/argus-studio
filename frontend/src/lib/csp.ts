@@ -24,6 +24,12 @@ export function cspMode(raw: string | undefined): CspMode {
   return "enforce";
 }
 
+/** Whether `cspMode` read `raw` as written, rather than defaulting a typo (`report_only`) to enforce. */
+export function cspModeRecognised(raw: string | undefined): boolean {
+  const value = raw?.trim().toLowerCase();
+  return !value || ["enforce", "report-only", "off", "0", "false"].includes(value);
+}
+
 /** A 128-bit nonce, base64, from the platform CSPRNG. */
 export function newNonce(): string {
   const bytes = new Uint8Array(16);

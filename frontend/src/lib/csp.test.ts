@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { contentSecurityPolicy, cspHeaderName, cspMode, newNonce } from "./csp";
+import { contentSecurityPolicy, cspHeaderName, cspMode, cspModeRecognised, newNonce } from "./csp";
 
 describe("cspMode", () => {
   it("enforces unless told otherwise", () => {
@@ -13,6 +13,18 @@ describe("cspMode", () => {
   it("reads report-only and the off spellings", () => {
     expect(cspMode(" Report-Only ")).toBe("report-only");
     for (const raw of ["off", "OFF", "0", "false"]) expect(cspMode(raw)).toBe("off");
+  });
+});
+
+describe("cspModeRecognised", () => {
+  it("accepts every spelling cspMode reads, and unset", () => {
+    for (const raw of [undefined, "", " Enforce ", "report-only", "OFF", "0", "false"]) {
+      expect(cspModeRecognised(raw)).toBe(true);
+    }
+  });
+
+  it("flags a typo that cspMode would silently enforce", () => {
+    for (const raw of ["report_only", "reportonly", "disabled"]) expect(cspModeRecognised(raw)).toBe(false);
   });
 });
 
