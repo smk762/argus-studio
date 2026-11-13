@@ -759,6 +759,7 @@ export default function Home() {
             {/* Target Category */}
             <ParamInfo conceptId="target_category">
               <select
+                aria-label="Target category"
                 value={targetCategory}
                 onChange={(e) => setTargetCategory(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent-purple/50 cursor-pointer"
@@ -777,6 +778,9 @@ export default function Home() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={proseEnrichment}
+                  aria-label="Prose enrichment"
                   onClick={() => setProseEnrichment(!proseEnrichment)}
                   className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors cursor-pointer ${
                     proseEnrichment ? "bg-accent-purple" : "bg-border"

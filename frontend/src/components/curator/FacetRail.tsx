@@ -380,6 +380,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
           max={1}
           step={0.05}
           value={filters.minScore}
+          aria-label="Min score"
           onChange={(e) => set({ minScore: parseFloat(e.target.value) })}
           className="w-full cursor-pointer accent-accent-teal"
         />
