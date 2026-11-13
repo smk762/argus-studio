@@ -432,10 +432,10 @@ export default function Home() {
   useEffect(() => {
     if (mode !== "immich" || immichAlbums !== null) return;
     let cancelled = false;
-    setImmichError(null);
     listImmichAlbums()
       .then((albums) => {
         if (cancelled) return;
+        setImmichError(null);
         setImmichAlbums(albums);
         if (albums.length > 0) setAlbumId((cur) => cur || albums[0].id);
       })
@@ -490,6 +490,9 @@ export default function Home() {
                 key={m}
                 type="button"
                 onClick={() => {
+                  // Re-entering the Immich tab retries a failed album load, so show
+                  // "Loading albums…" for it rather than the last attempt's error.
+                  if (m === "immich" && mode !== "immich") setImmichError(null);
                   setMode(m);
                   setError(null);
                   // The /forge hand-off belongs to the folder batch that set it;
@@ -767,7 +770,7 @@ export default function Home() {
                   }`}
                 >
                   <span
-                    className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform motion-reduce:transition-none ${
                       proseEnrichment ? "translate-x-7" : "translate-x-1"
                     }`}
                   />
@@ -959,7 +962,7 @@ function ProgressLine({ done, total }: { done: number; total: number }) {
     <div className="flex min-w-40 flex-1 items-center gap-2">
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-hover">
         <div
-          className="h-full rounded-full bg-accent-purple transition-all duration-300 ease-out"
+          className="h-full rounded-full bg-accent-purple transition-all duration-300 ease-out motion-reduce:transition-none"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -1029,7 +1032,7 @@ function Toggle({
         }`}
       >
         <span
-          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform motion-reduce:transition-none ${
             checked ? "translate-x-[18px]" : "translate-x-1"
           }`}
         />

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import { runtimeConfig, runtimeConfigScript } from "@/lib/runtimeConfig";
 import { THEME_BOOT } from "@/lib/theme";
@@ -35,12 +36,14 @@ export const metadata: Metadata = {
   description: "Structured captioning and dataset curation for LoRA training",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const config = runtimeConfig();
+  // Set by src/proxy.ts for this request; absent when ARGUS_CSP=off.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       lang="en"
@@ -49,7 +52,7 @@ export default function RootLayout({
     >
       <head>
         {/* First in <head>, and it blocks parsing: a saved theme lands before anything paints. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         {/*
           Sets the global `runtimeConfig()` reads, so the client sees the same
           values the server just rendered with.
@@ -61,11 +64,11 @@ export default function RootLayout({
           `const BASE = curatorUrl()`) — that would race the async chunks and
           bind localhost on some loads and the real value on others.
 
-          The tag also carries no CSP nonce, since Next only nonces its own
-          scripts and `<Script>` components. Under a `script-src` policy this is
-          blocked and `runtimeConfig()` logs an error rather than failing quietly.
+          Both inline scripts carry the request's CSP nonce from src/proxy.ts;
+          Next nonces only its own scripts. If a policy ever blocks this one,
+          `runtimeConfig()` logs an error rather than failing quietly.
         */}
-        <script dangerouslySetInnerHTML={{ __html: runtimeConfigScript(config) }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: runtimeConfigScript(config) }} />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}

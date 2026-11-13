@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { StageHandoff } from "@/components/StageHandoff";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -127,8 +127,12 @@ export default function GalleryPage() {
     return () => ctrl.abort();
   }, [filters.category, serveable, poolVersion]);
 
+  // Only the newest request may land: a slower answer for the old filters must
+  // not replace the grid, or clear the spinner, under the new ones.
+  const pageRequest = useRef(0);
   const loadPage = useCallback(
     async (offset: number, append: boolean) => {
+      const request = ++pageRequest.current;
       setLoading(true);
       setError(null);
       try {
@@ -140,12 +144,14 @@ export default function GalleryPage() {
           limit: PAGE_SIZE,
           offset,
         });
+        if (request !== pageRequest.current) return;
         setTotal(page.total);
         setPhotos((cur) => (append ? [...cur, ...page.photos] : page.photos));
       } catch (err) {
+        if (request !== pageRequest.current) return;
         setError(err instanceof Error ? err.message : "Failed to load photos");
       } finally {
-        setLoading(false);
+        if (request === pageRequest.current) setLoading(false);
       }
     },
     [filters],
@@ -154,6 +160,7 @@ export default function GalleryPage() {
   // Reload the grid whenever filters change.
   useEffect(() => {
     if (!serveable) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a fetch that follows the filters; only its spinner is set at once.
     void loadPage(0, false);
   }, [loadPage, serveable, poolVersion]);
 
@@ -301,7 +308,7 @@ export default function GalleryPage() {
                       src={quarryThumbUrl(p.id)}
                       alt={p.title ?? p.subject}
                       loading={tileLoading(position)}
-                      className="aspect-square w-full object-cover transition-transform group-hover:scale-[1.02]"
+                      className="aspect-square w-full object-cover transition-transform motion-safe:group-hover:scale-[1.02]"
                     />
                     <div className="space-y-0.5 p-2">
                       <span className="block truncate text-xs font-medium text-foreground/90">{p.title ?? p.filename}</span>

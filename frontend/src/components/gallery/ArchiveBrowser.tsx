@@ -621,7 +621,7 @@ function SliceBar({
         <div className="flex items-center gap-3">
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-hover">
             <div
-              className="h-full rounded-full bg-accent-amber transition-all duration-300"
+              className="h-full rounded-full bg-accent-amber transition-all duration-300 motion-reduce:transition-none"
               style={{ width: `${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }}
             />
           </div>

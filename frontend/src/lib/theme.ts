@@ -13,8 +13,9 @@ export const THEME_ORDER: readonly Theme[] = ["system", "light", "dark"];
  * Inlined at the top of <head>, so a saved choice is on <html> before the first
  * paint and before hydration. It can only ever add `data-theme`, which is why
  * <html> carries `suppressHydrationWarning`. Like the runtime-config script it
- * has no CSP nonce; if a `script-src` policy blocks it the page follows the
- * system preference and the toggle still works until the next load.
+ * carries the request's CSP nonce (src/proxy.ts); if a policy ever blocks it
+ * the page follows the system preference and the toggle still works until the
+ * next load.
  */
 export const THEME_BOOT = `try{var t=localStorage.getItem(${JSON.stringify(THEME_KEY)});if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
 

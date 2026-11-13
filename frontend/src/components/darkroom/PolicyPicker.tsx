@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useState } from "react";
 
 import { devMode } from "@/lib/curatorEnv";
 import { offeredPolicies } from "@/lib/curatorGuard";
 import { enforceBlock, policyByName } from "@/lib/darkroom/compose";
 import type { Policies, PolicyInfo } from "@/lib/darkroomApi";
+
+import { closeModal, Modal } from "../Modal";
 
 import { Badge, Button, Notice } from "./ui";
 
@@ -112,28 +114,18 @@ export function PolicyPicker({
 
 /** The policy's text and its illegal rules, as `GET /policies` serves them. */
 export function PolicyDialog({ policy, onClose }: { policy: PolicyInfo; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   return (
-    <dialog
-      ref={(node) => {
-        ref.current = node;
-        if (node && !node.open) node.showModal();
-      }}
-      onClose={onClose}
-      onClick={(event) => {
-        if (event.target === ref.current) onClose();
-      }}
-      className="m-auto w-[min(720px,92vw)] rounded-lg border border-border bg-surface p-0 text-foreground shadow-soft backdrop:bg-background/70"
-    >
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-3">
-        <h2 className="text-subheading font-semibold">
+    <Modal labelledBy={titleId} className="scrollbar-thin max-w-[720px]" onClose={onClose}>
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border/60 bg-surface/95 px-5 py-3 backdrop-blur">
+        <h2 id={titleId} className="text-subheading font-semibold">
           <span className="font-mono">{policy.name}</span> <ModeBadge mode={policy.mode} />
         </h2>
-        <Button small onClick={onClose}>
+        <Button small onClick={closeModal}>
           Close
         </Button>
       </div>
-      <div className="max-h-[70vh] space-y-4 overflow-auto px-5 py-4 text-sm">
+      <div className="space-y-4 px-5 py-4 text-sm">
         <p className="text-foreground/70">{policy.summary}</p>
         <div>
           <h3 className="text-xs uppercase tracking-wide text-muted">Illegal rules (delete)</h3>
@@ -155,6 +147,6 @@ export function PolicyDialog({ policy, onClose }: { policy: PolicyInfo; onClose:
           {policy.text ? <pre className="mt-1 whitespace-pre-wrap rounded-md bg-background p-3 font-mono text-xs leading-relaxed text-foreground/70">{policy.text}</pre> : <p className="mt-1 text-foreground/70">Nothing is sent: SingGuard judges by its own built-in rules.</p>}
         </div>
       </div>
-    </dialog>
+    </Modal>
   );
 }

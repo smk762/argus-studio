@@ -106,7 +106,7 @@ body {
 }
 
 /*
- * Native modal dialogs (components/Modal.tsx, darkroom's PolicyDialog). The
+ * Native modal dialogs (components/Modal.tsx). The
  * browser makes the page inert but still scrolls it under the backdrop;
  * overscroll containment on both stops that without locking overflow on
  * <html> or <body>.
@@ -118,6 +118,22 @@ dialog:modal {
 dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;
+}
+
+/*
+ * Reduced motion, case by case rather than one global animation-duration: 0
+ * (Modern Web Guidance `motion`, `spinner`). Spinners and progress pulses are
+ * busy signals, so they slow down instead of stopping; Tailwind's
+ * animate-spin and animate-pulse read these theme variables, so every use
+ * follows. Sliding switch knobs, progress-bar tweens and the gallery's hover
+ * zoom opt out where they are used (motion-reduce:, motion-safe:). Colour and
+ * opacity transitions are not motion and stay.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --animate-spin: spin 6s linear infinite;
+    --animate-pulse: pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 }
 
 /* See ThemeToggle: the icon follows `data-theme`, so it is right from the first paint. */
