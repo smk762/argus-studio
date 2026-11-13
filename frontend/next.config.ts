@@ -6,8 +6,17 @@ import type { NextConfig } from "next";
 // Load repo-root `.env` (this file lives in `frontend/`).
 loadEnvConfig(path.join(__dirname, ".."));
 
+// `NEXT_PUBLIC_DEMO_STATIC=1` builds the backend-free public demo as a plain
+// static export (out/) for a static host such as Cloudflare Pages — see
+// src/lib/staticDemo.ts. Unset, the build is the normal per-request server
+// (`standalone`) that the published image and compose run.
+const staticDemo = process.env.NEXT_PUBLIC_DEMO_STATIC === "1";
+
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: staticDemo ? "export" : "standalone",
+  // Static hosts serve `/curate/index.html` for `/curate/` and redirect the
+  // bare path, so emit directories rather than `curate.html` files.
+  ...(staticDemo ? { trailingSlash: true, images: { unoptimized: true } } : {}),
   // Let `.mdx` files be treated as routes/pages alongside TS/TSX.
   pageExtensions: ["ts", "tsx", "mdx"],
 };

@@ -32,6 +32,8 @@
  * unset, so it cannot silently shadow a legacy `NEXT_PUBLIC_*` name.
  */
 
+import { STATIC_DEMO } from "@/lib/staticDemo";
+
 /** Resolved endpoints + mode the browser needs to talk to the suite. */
 export interface RuntimeConfig {
   /** Browser-facing argus-lens API base (captioning). */
@@ -214,6 +216,24 @@ export function resolveRuntimeConfig(
   };
 }
 
+/**
+ * The fixed config of the static demo export (see lib/staticDemo.ts). There is
+ * no server to resolve an environment per request and no backend to point at:
+ * every page reads bundled recorded output instead, so the URLs are empty and
+ * the mode is always `demo`.
+ */
+const STATIC_DEMO_CONFIG: RuntimeConfig = {
+  lensUrl: "",
+  curatorUrl: "",
+  quarryUrl: "",
+  forgeUrl: "",
+  proofUrl: "",
+  atlasUrl: "",
+  curatorUiMode: "demo",
+  curatorSourcePath: "/data/images",
+  curatorOutputPath: "/data/out",
+};
+
 /** Memoized server-side resolve: a container's `process.env` cannot change under it. */
 let serverConfig: RuntimeConfig | undefined;
 /** So a missing injected global is reported once, not once per component render. */
@@ -233,6 +253,7 @@ let warnedMissingGlobal = false;
  * than blanking out on an exception during hydration.
  */
 export function runtimeConfig(): RuntimeConfig {
+  if (STATIC_DEMO) return STATIC_DEMO_CONFIG;
   if (typeof window === "undefined") {
     serverConfig ??= resolveRuntimeConfig(process.env as Record<string, string | undefined>);
     return serverConfig;
