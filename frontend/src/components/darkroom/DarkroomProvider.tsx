@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { curatorUiMode } from "@/lib/curatorEnv";
+import { STATIC_DEMO } from "@/lib/staticDemo";
 import {
   getDarkroomHealth,
   getModels,
@@ -56,6 +57,8 @@ export function DarkroomProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
+        // The static demo has no darkroom to ask; go straight to the bundled sample.
+        if (STATIC_DEMO) throw new Error("no darkroom in the static demo");
         const [nextHealth, nextPolicies, nextModels] = await Promise.all([getDarkroomHealth(), getPolicies(), getModels()]);
         if (cancelled) return;
         setHealth(nextHealth);

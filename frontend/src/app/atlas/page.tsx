@@ -15,7 +15,10 @@ import {
   type AtlasJob,
   type AtlasPreset,
   type JobDigest,
+  REALMS_URL,
 } from "@/lib/atlasApi";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { NewCanvas } from "@/components/atlas/NewCanvas";
@@ -41,6 +44,15 @@ export default function AtlasPage() {
   useEffect(() => {
     const ctrl = new AbortController();
     (async () => {
+      if (STATIC_DEMO) {
+        // Recorded jobs: no server to probe, just the bundled list.
+        const list = await listJobs(ctrl.signal).catch(() => []);
+        if (ctrl.signal.aborted) return;
+        setVersion("recorded");
+        setJobs(list);
+        if (list.length > 0) setSelected(list[0].job_id);
+        return;
+      }
       const [h, list, p, inp] = await Promise.allSettled([
         getAtlasHealth(ctrl.signal),
         listJobs(ctrl.signal),
@@ -115,7 +127,7 @@ export default function AtlasPage() {
         logo={{ letter: "A" }}
         title="Argus Atlas"
         subtitle="Georeferenced fantasy maps from real terrain"
-        badge={<ApiVersionBadge label="argus-atlas" version={version} prefix="v" />}
+        badge={STATIC_DEMO ? <RecordedBadge /> : <ApiVersionBadge label="argus-atlas" version={version} prefix="v" />}
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
@@ -136,19 +148,50 @@ export default function AtlasPage() {
                 GDAL is missing on the atlas host, so it cannot build controls or tiles. Use the Docker image, which ships GDAL 3.11.
               </p>
             )}
-            <DoctorPanel />
-            <NewCanvas
-              inputs={inputs}
-              canGdal={canGdal}
-              canOsm={canOsm}
-              onCreated={(id) => void refresh(id)}
-              onInputsChanged={reloadInputs}
-            />
+            {STATIC_DEMO ? (
+              <RecordedDemoNote>
+                two real argus-atlas jobs from the Cook Strait bake behind{" "}
+                <a href={REALMS_URL} className="underline hover:text-foreground">
+                  realms.dragonhound.dev
+                </a>
+                : one z10 chunk over the Marlborough Sounds, New Zealand, with its GDAL controls, painted in the antique
+                and tolkien styles. Sidecars are as the server returned them; previews are re-encoded to WebP; the
+                antique PMTiles archive is bundled, and the full 30-chunk map is on realms. Building controls and baking
+                need a running argus-atlas (and a GPU for the bake). Terrain: Copernicus GLO-30 DEM (© DLR e.V., ©
+                Airbus DS, provided under COPERNICUS by the EU and ESA); vector layers © OpenStreetMap contributors
+                (ODbL).
+              </RecordedDemoNote>
+            ) : (
+              <>
+                <DoctorPanel />
+                <NewCanvas
+                  inputs={inputs}
+                  canGdal={canGdal}
+                  canOsm={canOsm}
+                  onCreated={(id) => void refresh(id)}
+                  onInputsChanged={reloadInputs}
+                />
+              </>
+            )}
             <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
               {/* Scrolls on its own beside the job view: a working host holds dozens of canvases. */}
               <aside className="space-y-1 lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
                 <div className="mb-2 text-[10px] uppercase tracking-wide text-muted">Canvases</div>
-                {jobs.length === 0 && version !== null && <p className="text-sm text-muted">No jobs yet.</p>}
+                {jobs.length === 0 && version !== null && (
+                  <p className="text-sm text-muted">
+                    {STATIC_DEMO ? (
+                      <>
+                        No recorded jobs in this build. The full map is on{" "}
+                        <a href={REALMS_URL} className="text-accent-teal hover:underline">
+                          realms.dragonhound.dev
+                        </a>
+                        .
+                      </>
+                    ) : (
+                      "No jobs yet."
+                    )}
+                  </p>
+                )}
                 {jobs.map((j) => (
                   <button
                     key={j.job_id}

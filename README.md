@@ -263,10 +263,13 @@ npx serve out               # or any static file server, to preview
 
 Every page renders from bundled recorded output and says so: `/` replays one
 real argus-lens caption run, `/curate` uses the bundled sample scan, `/forge`
-builds kohya configs in the browser, `/atlas` browses a recorded argus-atlas run
-(`public/demo/atlas/`), `/proof` shows a "coming soon" state (no real evaluation
-recorded yet) with an opt-in, clearly labelled synthetic preview, and `/gallery`
-explains what it needs. A thin banner links back to the repo.
+builds kohya configs in the browser, `/atlas` browses two recorded argus-atlas
+jobs from the Cook Strait bake behind https://realms.dragonhound.dev
+(`public/demo/atlas/`, written by `scripts/bundle_atlas_demo.py` through
+argus-atlas's own job store), `/darkroom` shows its bundled sample, `/proof`
+shows a "coming soon" state (no real evaluation recorded yet) with an opt-in,
+clearly labelled synthetic preview, and `/gallery` explains what it needs. A
+thin banner links back to the repo.
 
 Cloudflare Pages: root directory `frontend`, build command `npm run build:static`,
 output directory `out`. The flag selects a different *build*; it is never set
