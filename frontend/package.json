@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:static": "NEXT_PUBLIC_DEMO_STATIC=1 next build",
+    "build:static": "NEXT_PUBLIC_DEMO_STATIC=1 next build && node scripts/csp.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
