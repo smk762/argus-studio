@@ -101,7 +101,7 @@ Backends default to **published GHCR images** — no sibling checkouts needed. T
 
 ## Branches
 
-`dev` is the default branch and the base for every PR. The one exception is a PR stacked on another open PR into `dev`: it targets that PR's branch, then is retargeted to `dev` once its parent merges. Never open a PR against `main` or push to it directly. `main` only moves by fast-forwarding to `dev` (`git push origin origin/dev:main`), so it stays an ancestor of `dev`. A branch cut from `main` must be rebased or merged onto `origin/dev`, never the other way round.
+`dev` is the default branch and the base for every PR. The one exception is a PR stacked on another open PR into `dev`: it targets that PR's branch, then is retargeted to `dev` once its parent merges. Never open a PR against `main` or push to it directly. `main` only moves by fast-forwarding to `dev` (`git push origin origin/dev:main`), so it stays an ancestor of `dev`. If `main` is ever protected so that a release needs a PR from `dev`, the merge commit it leaves on `main` (one commit ahead of `dev`, identical tree) is allowed too: leave it and don't merge `main` back into `dev`. Anything else on `main` that `dev` lacks is a mistake. A branch cut from `main` must be rebased or merged onto `origin/dev`, never the other way round.
 
 ## CI / release
 
