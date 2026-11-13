@@ -1,4 +1,10 @@
 {
+  "cortex": {
+    "repo": "smk762/argus-cortex",
+    "tag": "v0.4.7",
+    "path": "taxonomy-schema.json",
+    "sha256": "41360429bb7542230bb4e64ad3f94043b521a2eebcdb4b2e723e5fdaab861966"
+  },
   "curator": {
     "repo": "smk762/argus-curator",
     "tag": "v0.14.1",
@@ -6,8 +12,8 @@
   },
   "forge": {
     "repo": "smk762/argus-forge",
-    "tag": "v0.1.1",
-    "sha256": "a6893d8772227287a614ec97f169d6e10ad9693a8261a59ab9439039a8186d30"
+    "tag": "v0.2.0",
+    "sha256": "6ad334e451f0e873809e58b3ee1a08027310ba4beb474fa469989ef276e3bc05"
   },
   "proof": {
     "repo": "smk762/argus-proof",
