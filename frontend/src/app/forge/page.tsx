@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
@@ -262,7 +262,7 @@ export default function ForgePage() {
     [],
   );
 
-  const inspect = useCallback(() => {
+  const inspect = () => {
     const key = inspectKey;
     return run(
       (signal) => inspectExport({ export_dir: dirTrimmed, category }, signal),
@@ -272,7 +272,7 @@ export default function ForgePage() {
         setResult(null);
       },
     );
-  }, [run, inspectKey, dirTrimmed, category]);
+  };
 
   // Inspect straight away when arriving from a finished export. The hand-off
   // link is labelled "Configure training in Forge", so landing the user on a
@@ -280,14 +280,16 @@ export default function ForgePage() {
   // and hides whether forge can even see the path the curator reported. Fires
   // once, and not for a directory the page would refuse anyway.
   const autoInspected = useRef(false);
+  const autoInspect = useEffectEvent(() => void inspect());
   useEffect(() => {
     if (!live || !deepLinked || autoInspected.current) return;
     if (!dirTrimmed || atRoot) return;
     autoInspected.current = true;
-    void inspect();
-  }, [live, deepLinked, dirTrimmed, atRoot, inspect]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one request on arrival; only its busy flag is set at once.
+    autoInspect();
+  }, [live, deepLinked, dirTrimmed, atRoot]);
 
-  const generate = useCallback(() => {
+  const generate = () => {
     const key = configKey;
     const dKey = inspectKey;
     return run(
@@ -309,7 +311,7 @@ export default function ForgePage() {
         if (forged.dataset) setDataset({ key: dKey, info: forged.dataset });
       },
     );
-  }, [run, configKey, inspectKey, dirTrimmed, trainer, category, trigger, baseModel, willWrite]);
+  };
 
   // Demo mode has no backend, so the same heuristics run client-side — the kohya
   // pair only, which is what forgeDemo covers. Built only when it can be shown.

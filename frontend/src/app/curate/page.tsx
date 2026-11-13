@@ -114,7 +114,7 @@ export default function CuratePage() {
   const [notice, setNotice] = useState<string | null>(null);
   // "purge" is in flight, "purged" has landed.
   const stopKind = useRef<"stop" | "purge" | "purged" | null>(null);
-  const [version, setVersion] = useState<string | null>(null);
+  const [version, setVersion] = useState<string | null>(() => (isLive() ? null : "sample"));
   // Full /health, fetched once here and passed to ExportPanel (which needs
   // allow_move / export_root) so the page makes a single health request.
   const [health, setHealth] = useState<Health | null>(null);
@@ -169,6 +169,7 @@ export default function CuratePage() {
   useEffect(() => {
     if (!isLive()) return;
     const ctrl = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetches from the curator; state is set once it answers.
     void refreshScans(ctrl.signal);
     getDetectors(ctrl.signal)
       .then(setDetectors)
@@ -209,10 +210,7 @@ export default function CuratePage() {
 
   // Version banner (live) — reachability check.
   useEffect(() => {
-    if (!isLive()) {
-      setVersion("sample");
-      return;
-    }
+    if (!isLive()) return;
     const ctrl = new AbortController();
     getHealth(ctrl.signal)
       .then((h) => {
@@ -487,6 +485,18 @@ export default function CuratePage() {
       });
   };
 
+  const activeFilters = useMemo(
+    () => (summary ? knownClusterFilters(filters, summary) : filters),
+    [summary, filters],
+  );
+  const officialPolicy = summary?.guard_config?.policy ?? null;
+  const policies = useMemo(() => (summary ? policiesRun(summary) : []), [summary]);
+  const results = summary?.results;
+  const filtered = useMemo(
+    () => sortResults(results?.filter((r) => matchesFilters(r, activeFilters, officialPolicy)) ?? [], sort),
+    [results, activeFilters, officialPolicy, sort],
+  );
+
   /** A delete can fail partway, so the rows are refetched whatever it reports. */
   const deleteRows = async (rows: ImageResult[]) => {
     if (!summary || rows.length === 0 || deleting) return;
@@ -524,17 +534,6 @@ export default function CuratePage() {
     });
   }, [summary]);
 
-  const activeFilters = useMemo(
-    () => (summary ? knownClusterFilters(filters, summary) : filters),
-    [summary, filters],
-  );
-  const officialPolicy = summary?.guard_config?.policy ?? null;
-  const policies = useMemo(() => (summary ? policiesRun(summary) : []), [summary]);
-  const filtered = useMemo(
-    () =>
-      sortResults(summary?.results.filter((r) => matchesFilters(r, activeFilters, officialPolicy)) ?? [], sort),
-    [summary, activeFilters, officialPolicy, sort],
-  );
   const minorExposed = useMemo(() => summary?.results.filter(isMinorExposed) ?? [], [summary]);
   const rejected = useMemo(() => summary?.results.filter(isDeletableReject) ?? [], [summary]);
 
