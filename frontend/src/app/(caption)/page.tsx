@@ -28,21 +28,24 @@ import {
   type HybridBalanceValue,
 } from "@/components/HybridBalance";
 import {
+  backendsLabel,
   captionFilesStream,
   captionFolder,
   captionManifestStream,
+  captionUrl,
   categoryOptions,
+  getLensBackends,
   getLensHealth,
   getLensProfiles,
   immichCaptionStream,
   listImmichAlbums,
   listLensFolders,
   type ImmichAlbum,
+  type LensBackend,
 } from "@/lib/lensApi";
+import { LensBackends } from "@/components/LensBackends";
 import { finalChoice } from "@/lib/captionFinal";
 import { sizedForBackend, tokenBudget, tokenBudgetsOf } from "@/lib/captionTokens";
-import { asError } from "@/lib/apiError";
-import { lensUrl } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { RECORDED_CAPTION, RECORDED_CAPTION_IMAGE } from "@/lib/lensSample";
 import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
@@ -115,6 +118,8 @@ export default function Home() {
     { kind: "url"; url: string } | { kind: "upload"; file: File } | null
   >(null);
   const [lensVersion, setLensVersion] = useState<string | null>(null);
+  // Every backend lens has registered (#69); empty until /backends answers.
+  const [backends, setBackends] = useState<LensBackend[]>([]);
   // The live blob URL for an uploaded preview (revoked before it's replaced).
   const objectUrlRef = useRef<string | null>(null);
   // True once the user picks a preset/slider, so a late /profiles response
@@ -154,21 +159,16 @@ export default function Home() {
         // Version from /health (newer lens), backend readiness from /backends;
         // tolerate either being missing so older servers still show status.
         // getLensHealth also primes the memo lens's write fetchers gate on (#105).
-        const [healthResp, backendsResp] = await Promise.allSettled([
-          getLensHealth(),
-          fetch(`${lensUrl()}/backends`),
-        ]);
+        const [healthResp, backendsResp] = await Promise.allSettled([getLensHealth(), getLensBackends()]);
         let version = "";
         if (healthResp.status === "fulfilled" && healthResp.value.version) version = `v${healthResp.value.version}`;
-        let backendsLabel = "";
-        if (backendsResp.status === "fulfilled" && backendsResp.value.ok) {
-          const data: { backends?: Record<string, { available?: boolean }> } = await backendsResp.value.json();
-          const backends = Object.values(data.backends ?? {});
-          const available = backends.filter((b) => b?.available).length;
-          backendsLabel = backends.length > 0 ? `${available}/${backends.length} backends` : "connected";
+        let label = "";
+        if (backendsResp.status === "fulfilled") {
+          label = backendsLabel(backendsResp.value) || "connected";
+          if (!cancelled) setBackends(backendsResp.value);
         }
         // Empty string = unreachable (renders the red banner).
-        if (!cancelled) setLensVersion([version, backendsLabel].filter(Boolean).join(" · "));
+        if (!cancelled) setLensVersion([version, label].filter(Boolean).join(" · "));
       } catch {
         if (!cancelled) setLensVersion("");
       }
@@ -230,15 +230,7 @@ export default function Home() {
         ...hybridRequestFields(hybrid),
       };
 
-      const resp = await fetch(`${lensUrl()}/caption/url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!resp.ok) await asError(resp);
-
-      const data: CaptionResult = await resp.json();
+      const data = await captionUrl(body);
       showResult(data, targetBackend);
       setAnalyzedUrl(url);
       setLastSingle({ kind: "url", url });
@@ -813,6 +805,8 @@ export default function Home() {
               <HybridBalance presets={hybridPresets} value={hybrid} onChange={onHybridChange} />
             </div>
           )}
+
+          <LensBackends backends={backends} />
         </div>
 
         {/* Error */}

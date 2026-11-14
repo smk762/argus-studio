@@ -1,7 +1,7 @@
 /** Thin client for the argus-lens API (:8100) batch/folder endpoints. */
 
 import type { FolderListing } from "@/components/curator/types";
-import type { BatchCaptionResult, CaptionFolderRequest, CaptionResult } from "@/types";
+import type { BatchCaptionResult, CaptionFolderRequest, CaptionRequest, CaptionResult } from "@/types";
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 
@@ -85,6 +85,59 @@ const NO_SOURCE_ROOT =
 /** Fetch the lens captioning profiles, including hybrid tag↔prose presets (GET /profiles). */
 export async function getLensProfiles(signal?: AbortSignal): Promise<LensProfiles> {
   const resp = await fetch(`${lensUrl()}/profiles`, { signal });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/**
+ * One registered captioning backend (GET /backends). Lens instantiates each to
+ * ask, so a backend that failed to load comes back with only `name`,
+ * `available: false` and the error as `reason`.
+ */
+export interface LensBackend {
+  name: string;
+  /** "local", "cloud" or "composite" (hybrid). */
+  kind?: string;
+  style?: string;
+  requires_gpu?: boolean;
+  available: boolean;
+  /** Why it isn't available: a missing model, package or API key. Null when it is. */
+  reason?: string | null;
+}
+
+/** Every backend lens has registered, available or not (GET /backends). */
+export async function getLensBackends(signal?: AbortSignal): Promise<LensBackend[]> {
+  const resp = await fetch(`${lensUrl()}/backends`, { signal });
+  if (!resp.ok) return asError(resp);
+  const body = (await resp.json()) as { backends?: Record<string, Partial<LensBackend>> };
+  return backendList(body.backends);
+}
+
+/**
+ * `/backends`' map as a list: available first, then by name, with a missing
+ * name taken from the key and anything not plainly `available: true` counted
+ * as unavailable. Unavailable backends stay in the list with their reason.
+ */
+export function backendList(raw: Record<string, Partial<LensBackend> | null> | undefined): LensBackend[] {
+  return Object.entries(raw ?? {})
+    .map(([key, b]) => ({ ...b, name: b?.name || key, available: b?.available === true }))
+    .sort((a, b) => Number(b.available) - Number(a.available) || a.name.localeCompare(b.name));
+}
+
+/** The header pill's "2/3 backends", or "" for an empty list. */
+export function backendsLabel(backends: readonly LensBackend[]): string {
+  if (backends.length === 0) return "";
+  return `${backends.filter((b) => b.available).length}/${backends.length} backends`;
+}
+
+/** Caption one image by URL (POST /caption/url). A read: it writes nothing on the lens host. */
+export async function captionUrl(req: CaptionRequest, signal?: AbortSignal): Promise<CaptionResult> {
+  const resp = await fetch(`${lensUrl()}/caption/url`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    signal,
+  });
   if (!resp.ok) return asError(resp);
   return resp.json();
 }

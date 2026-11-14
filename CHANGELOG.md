@@ -6,6 +6,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Added
 
+- **The caption page lists lens's backends** (#69). A "Backends on this lens server" disclosure shows every registered backend, its kind and whether it needs a GPU. Unavailable ones are listed with lens's reason (a missing key or package), not left out. Lens picks its backend at start-up, so this is informational. A per-request picker needs lens to accept a backend on its caption endpoints.
 - **Proof refinement on `/proof`** (#68). A collapsible Refinement panel under the review board lists the images that passed, best first, and lets a reviewer rank each 1–5 with a note, or retract a ranking. It saves through `POST /report/{id}/refine`, gated like the HITL save, and applies locally in the demo. The verdict and pass rate don't change, and the run list shows how many images are refined. A review that fails a refined image drops its refinement, as argus-proof does.
 - **A docs opsec gate.** `npm test` fails if a `/docs` page names a private or link-local address, a home or host-mount path, an email address, or a term on the private denylist (the `DOCS_OPSEC_DENYLIST` secret).
 - **The static demo deploys from CI** (`.github/workflows/deploy-demo.yml`). Every `dev` commit that passes CI is built with `build:static` and published to the Cloudflare Pages project `argus-studio` as production (`--branch main`), then smoke-checked. It needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets. Without them it builds and skips the upload.
