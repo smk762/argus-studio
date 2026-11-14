@@ -6,6 +6,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Changed
 
+- **The `/curate` demo sample is a real argus-curator 0.15.0 scan of synthetic images.** The hand-written 14-image fixture with coloured placeholder tiles is replaced by a recording (`scripts/record_curator_demo.py`) of the curator scanning 14 SDXL images of two fictional people, a group shot and three deliberate rejects (blur, low resolution, 5:1 banner). The scan JSON and the curator's own WebP thumbnails are bundled under `public/curator-sample/`, and demo-mode thumbnails load them with explicit sizes. `public/curator-sample/PROVENANCE.md` lists the checkpoint, prompts, seeds and licences.
 - **argus-sightline is on GHCR.** The `survey` profile now pulls `ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.1}` (was `0.1.0`, which was never published), so it no longer needs `compose.build.yaml`.
 - **The release builds arm64 on a native arm runner instead of under QEMU.** Each architecture builds on its own runner (`ubuntu-24.04`, `ubuntu-24.04-arm`) and pushes by digest, and a final job tags the two as one multi-platform image. The v0.4.0 release died in the emulated arm64 `npm ci` (`qemu: uncaught target signal 4`) and hung to the job timeout. The build jobs now time out after 20 minutes.
 
