@@ -4,6 +4,7 @@ import { darkroomUrl } from "@/lib/curatorEnv";
 
 import { BACKENDS } from "@/lib/darkroom/health";
 import { STATIC_DEMO } from "@/lib/staticDemo";
+import { DemoBadge } from "@/components/DemoChrome";
 
 import { useDarkroom } from "./DarkroomProvider";
 import { Button, Card, SectionTitle, Spinner } from "./ui";
@@ -22,9 +23,7 @@ function DemoHealthCard() {
     <Card>
       <div className="flex items-center justify-between gap-2">
         <SectionTitle>Darkroom</SectionTitle>
-        <span className="rounded-md border border-border px-2 py-1 text-[10px] uppercase tracking-wider text-muted">
-          Not in demo
-        </span>
+        <DemoBadge state="off" title="Generation needs the self-hosted darkroom and its backends; see the README" />
       </div>
       <p className="mt-2 text-sm leading-relaxed text-foreground/70">
         Backends are not part of this demo. A running darkroom checks every prompt with SingGuard, renders with
@@ -48,7 +47,7 @@ function LiveHealthCard() {
       </div>
       <p className="mt-1 break-all font-mono text-xs text-muted">{darkroomUrl()}</p>
       {error ? (
-        <p role="alert" className="mt-2 text-sm text-accent-red">
+        <p role="alert" className="mt-2 text-sm text-accent-red-ink">
           Not reachable: {error}
         </p>
       ) : health ? (
@@ -72,8 +71,8 @@ function LiveHealthCard() {
           <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
             <li>{health.nsfw_allowed ? "NSFW policies may enforce (--allow-nsfw)" : "NSFW policies are advisory only"}</li>
             <li>{health.sfw_available ? "SFW generation available" : "SFW generation refused: no NudeNet"}</li>
-            {health.read_only ? <li className="text-accent-amber">read-only</li> : null}
-            {health.devmode ? <li className="text-accent-amber">devmode</li> : null}
+            {health.read_only ? <li className="text-accent-amber-ink">read-only</li> : null}
+            {health.devmode ? <li className="text-accent-amber-ink">devmode</li> : null}
           </ul>
         </>
       ) : null}

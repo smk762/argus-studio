@@ -18,7 +18,7 @@ import {
   REALMS_URL,
 } from "@/lib/atlasApi";
 import { STATIC_DEMO } from "@/lib/staticDemo";
-import { AtlasDataCredits, RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { AtlasDataCredits, DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
@@ -129,10 +129,10 @@ export default function AtlasPage() {
         logo={{ letter: "A" }}
         title="Argus Atlas"
         subtitle="Georeferenced fantasy maps from real terrain"
-        badge={STATIC_DEMO ? <RecordedBadge /> : <ApiVersionBadge label="argus-atlas" version={version} prefix="v" />}
+        badge={STATIC_DEMO ? <DemoBadge state="recorded" /> : <ApiVersionBadge label="argus-atlas" version={version} prefix="v" />}
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {unreachable ? (
           <div className="mx-auto max-w-xl space-y-4 py-24 text-center">
             <h2 className="text-lg font-medium text-foreground/70">The argus-atlas server is not running.</h2>
@@ -146,7 +146,7 @@ export default function AtlasPage() {
         ) : (
           <div className="space-y-6">
             {health && health.gdal === null && (
-              <p className="rounded-lg border border-accent-red/30 bg-accent-red/5 px-3 py-2 text-xs text-accent-red">
+              <p className="rounded-lg border border-accent-red/30 bg-accent-red/5 px-3 py-2 text-xs text-accent-red-ink">
                 GDAL is missing on the atlas host, so it cannot build controls or tiles. Use the Docker image, which ships GDAL 3.11.
               </p>
             )}
@@ -177,7 +177,7 @@ export default function AtlasPage() {
                     {STATIC_DEMO ? (
                       <>
                         No recorded jobs in this build. The full map is on{" "}
-                        <ExternalLink href={REALMS_URL} className="text-accent-teal hover:underline">
+                        <ExternalLink href={REALMS_URL} className="text-accent-teal-ink hover:underline">
                           realms.dragonhound.dev
                         </ExternalLink>
                         .
@@ -210,7 +210,7 @@ export default function AtlasPage() {
               </aside>
 
               <div>
-                {error && <p className="py-12 text-center text-sm text-accent-red">{error}</p>}
+                {error && <p className="py-12 text-center text-sm text-accent-red-ink">{error}</p>}
                 {!error && job && (
                   <JobView
                     key={job.job_id}
@@ -234,7 +234,7 @@ export default function AtlasPage() {
         poweredBy={
           <ExternalLink
             href="https://github.com/smk762/argus-atlas"
-            className="text-accent-blue transition-colors hover:text-accent-blue/80"
+            className="text-accent-blue-ink transition-colors hover:text-accent-blue-ink"
           >
             argus-atlas
           </ExternalLink>
@@ -246,7 +246,7 @@ export default function AtlasPage() {
 }
 
 /** One line under the title; the rest folds into "Details". */
-const ATLAS_DEMO_SUMMARY = "real argus-atlas jobs, replayed from their recorded output.";
+const ATLAS_DEMO_SUMMARY = "Real argus-atlas jobs, replayed from their recorded output.";
 
 /** Where the recorded atlas jobs came from. Data credits live in the footer. */
 function AtlasDemoProvenance() {

@@ -77,21 +77,22 @@ export function Nav({ active }: { active: string }) {
               key={n.href}
               href={n.href}
               aria-current={current ? "page" : undefined}
-              // The digit is decoration for a sighted reader scanning the row; a
-              // screen reader gets the position spelled out instead of a bare "1".
-              aria-label={n.stage != null ? `${n.label} — pipeline stage ${n.stage} of ${STAGE_COUNT}` : undefined}
-              className={`shrink-0 snap-start whitespace-nowrap rounded-lg px-3 py-1.5 text-sm ${
+              className={`relative shrink-0 snap-start whitespace-nowrap rounded-lg px-3 py-1.5 text-sm ${
                 current
                   ? "border border-border bg-surface-hover text-foreground"
                   : "text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
               }`}
             >
               {n.stage != null && (
-                <span aria-hidden className="mr-1.5 font-mono text-[10px] text-muted/70">
+                <span aria-hidden className="mr-1.5 font-mono text-[10px] text-muted">
                   {n.stage}
                 </span>
               )}
               {n.label}
+              {/* The digit is decoration for a sighted reader scanning the row; a screen
+                  reader gets the position spelled out after the name (not an aria-label,
+                  which would hide the visible text from voice control). */}
+              {n.stage != null && <span className="sr-only">, pipeline stage {n.stage} of {STAGE_COUNT}</span>}
             </Link>
           );
         })}

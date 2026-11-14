@@ -58,7 +58,7 @@ export function TokenBudgetDemo() {
             aria-pressed={backend === b.value}
             className={
               backend === b.value
-                ? "cursor-pointer rounded-lg bg-accent-purple px-3 py-1.5 text-sm font-medium text-white"
+                ? "cursor-pointer rounded-lg bg-accent-purple px-3 py-1.5 text-sm font-medium text-on-accent"
                 : "cursor-pointer rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-surface-hover"
             }
           >
@@ -68,13 +68,13 @@ export function TokenBudgetDemo() {
       </div>
 
       <p className="mb-3 text-sm text-foreground/80">
-        <span className="font-mono text-accent-teal/90">{selected.value}</span> gives you{" "}
+        <span className="font-mono text-accent-teal-ink">{selected.value}</span> gives you{" "}
         <span className="font-semibold text-foreground">{budget} tokens</span>. This example caption
         wants {TOTAL} —{" "}
         {dropped === 0 ? (
-          <span className="text-accent-green">everything fits.</span>
+          <span className="text-accent-green-ink">everything fits.</span>
         ) : (
-          <span className="text-accent-amber">
+          <span className="text-accent-amber-ink">
             the {dropped} lowest-priority {dropped === 1 ? "fragment is" : "fragments are"} dropped.
           </span>
         )}

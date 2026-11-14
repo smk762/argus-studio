@@ -64,7 +64,7 @@ function PurgeAll({ onPurged }: { onPurged: () => void }) {
       <Button small onClick={() => setConfirming(false)} disabled={purging}>
         Keep
       </Button>
-      {error ? <span className="text-accent-red">{error}</span> : null}
+      {error ? <span className="text-accent-red-ink">{error}</span> : null}
     </span>
   );
 }
@@ -86,9 +86,9 @@ export function History() {
   return (
     <section className="space-y-4" aria-labelledby="history-title">
       <header className="flex flex-wrap items-center gap-3">
-        <h1 id="history-title" className="text-2xl font-semibold text-foreground">
+        <h2 id="history-title" className="text-2xl font-semibold text-foreground">
           History
-        </h1>
+        </h2>
         <span className="text-sm text-foreground/70" aria-live="polite">
           {records && fetched ? (narrowed && fetched.length > 0 ? `${records.length} of ${fetched.length} record${fetched.length === 1 ? "" : "s"}` : `${records.length} record${records.length === 1 ? "" : "s"}`) : ""}
         </span>
@@ -110,7 +110,7 @@ export function History() {
         <label className="flex items-center gap-1.5 text-sm text-foreground">
           <input type="checkbox" checked={filter.changed} onChange={(event) => setFilter({ changed: event.target.checked })} className="accent-accent-purple" />
           <span>Prompt changed the verdict</span>
-          <span aria-hidden="true" className="rounded-sm border border-accent-amber/60 px-1 text-xs font-bold text-accent-amber">
+          <span aria-hidden="true" className="rounded-sm border border-accent-amber/60 px-1 text-xs font-bold text-accent-amber-ink">
             ≠
           </span>
           <Info text="Only records where a policy's isolated and with-prompt scans disagree." />
@@ -213,7 +213,7 @@ function HistoryRow({ record }: { record: GenerationRecord }) {
           </p>
         </div>
         {changed ? (
-          <span title="The prompt changed the verdict: the isolated and with-prompt scans disagree" className="rounded-sm border border-accent-amber/60 px-1 text-xs font-bold text-accent-amber">
+          <span title="The prompt changed the verdict: the isolated and with-prompt scans disagree" className="rounded-sm border border-accent-amber/60 px-1 text-xs font-bold text-accent-amber-ink">
             ≠
           </span>
         ) : null}
@@ -237,7 +237,7 @@ function Thumb({ record }: { record: GenerationRecord }) {
   }
   const mark = record.outcome === "deleted" ? "✕" : record.outcome === "omitted" ? "–" : record.outcome === "refused" ? "⊘" : record.outcome === "failed" ? "!" : "·";
   return (
-    <span aria-hidden="true" className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-md border text-subheading ${record.outcome === "deleted" || record.outcome === "refused" ? "border-accent-red/40 text-accent-red" : "border-dashed border-border text-muted"}`}>
+    <span aria-hidden="true" className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-md border text-subheading ${record.outcome === "deleted" || record.outcome === "refused" ? "border-accent-red/40 text-accent-red-ink" : "border-dashed border-border text-muted"}`}>
       {mark}
     </span>
   );

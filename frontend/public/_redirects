@@ -1,0 +1,4 @@
+# Cloudflare Pages redirects for the static demo (copied into out/ by next build).
+# The Caption tab is the root page; /caption is the obvious guess for it (S8).
+/caption   /   301
+/caption/  /   301

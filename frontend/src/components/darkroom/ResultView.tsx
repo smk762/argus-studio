@@ -19,12 +19,12 @@ export function ResultView({ record, actions }: { record: GenerationRecord; acti
   return (
     <article className="space-y-4" aria-labelledby="result-title">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 id="result-title" className="text-2xl font-semibold text-foreground">
+        <h2 id="result-title" className="text-2xl font-semibold text-foreground">
           {OUTCOME_LABEL[record.outcome]}
-        </h1>
+        </h2>
         <Badge className={OUTCOME_TONE[record.outcome]}>{record.outcome}</Badge>
         <Badge className={record.request.mode === "nsfw" ? "border-warm-primary/60 text-warm-primary" : "border-border text-foreground/70"}>{record.request.mode}</Badge>
-        {record.critical ? <Badge className="border-accent-red/60 text-accent-red">critical</Badge> : null}
+        {record.critical ? <Badge className="border-accent-red/60 text-accent-red-ink">critical</Badge> : null}
         {record.removed_at ? <Badge className="border-border text-foreground/70" title={`Removed by the user ${formatWhen(record.removed_at)}`}>image removed</Badge> : null}
         <span className="text-sm text-foreground/70" title={formatWhen(record.created_at)}>
           {ago(record.created_at)}

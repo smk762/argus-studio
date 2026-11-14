@@ -16,8 +16,10 @@ export const STATIC_DEMO = process.env.NEXT_PUBLIC_DEMO_STATIC === "1";
 export const DEMO_SITE_URL = "https://studio.dragonhound.dev";
 /** Where "run it yourself" points. */
 export const REPO_URL = "https://github.com/smk762/argus-studio";
-/** The owner's site, linked from the demo banner. */
-export const HOME_URL = "https://dragonhound.dev";
+/** The family's landing page and sibling demos, linked from the footer (same tab: see ExternalLink). */
+export const HOME_URL = "https://dragonhound.dev/";
+export const LIGHTBOX_URL = "https://lightbox.dragonhound.dev/";
+export const REALMS_URL = "https://realms.dragonhound.dev/";
 
 /**
  * Path to a file bundled under `public/demo/`. Relative to the site root, so it

@@ -30,9 +30,9 @@ export function ApiVersionBadge({
     <div className={className}>
       {children}
       {version === null ? (
-        <span className="text-[10px] uppercase tracking-wider text-muted/60">…</span>
+        <span className="text-[10px] uppercase tracking-wider text-muted">…</span>
       ) : version === "" ? (
-        <span className="text-[10px] uppercase tracking-wider text-accent-red/80">API unreachable</span>
+        <span className="text-[10px] uppercase tracking-wider text-accent-red-ink">API unreachable</span>
       ) : (
         <div className="flex flex-col items-end gap-0.5" title={`${label} ${prefix}${version}`}>
           <span className="text-[10px] uppercase tracking-wider text-muted">{label}</span>

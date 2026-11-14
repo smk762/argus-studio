@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
   // Static hosts serve `/curate/index.html` for `/curate/` and redirect the
   // bare path, so emit directories rather than `curate.html` files.
   ...(staticDemo ? { trailingSlash: true, images: { unoptimized: true } } : {}),
+  // The Caption tab is the root page; send the obvious guess there. The static
+  // export can't redirect, so public/_redirects does the same on the static host.
+  ...(staticDemo ? {} : { redirects: async () => [{ source: "/caption", destination: "/", permanent: true }] }),
   // Let `.mdx` files be treated as routes/pages alongside TS/TSX.
   pageExtensions: ["ts", "tsx", "mdx"],
 };

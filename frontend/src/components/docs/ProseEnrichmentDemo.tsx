@@ -53,7 +53,7 @@ export function ProseEnrichmentDemo() {
           <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
             Prose output (Florence-2)
           </dt>
-          <dd className="mt-1 text-foreground/60 italic">{PROSE}</dd>
+          <dd className="mt-1 text-muted italic">{PROSE}</dd>
         </div>
         <div>
           <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
@@ -65,7 +65,7 @@ export function ProseEnrichmentDemo() {
                 key={t}
                 className={`rounded px-2 py-0.5 font-mono text-xs ${
                   NOVEL.includes(t)
-                    ? "border border-accent-teal/40 bg-accent-teal/10 text-accent-teal"
+                    ? "border border-accent-teal/40 bg-accent-teal/10 text-accent-teal-ink"
                     : "border border-border bg-background text-foreground/90"
                 }`}
               >
@@ -81,7 +81,7 @@ export function ProseEnrichmentDemo() {
           <dd className="mt-1 text-foreground/80">
             {enabled ? (
               <>
-                Only the <span className="text-accent-teal">novel</span> phrases are added —{" "}
+                Only the <span className="text-accent-teal-ink">novel</span> phrases are added —{" "}
                 <span className="font-mono text-xs">{REDUNDANT.join(", ")}</span> are dropped because
                 the tags already carry them. Being last, they are the first tokens a tight budget
                 spends.

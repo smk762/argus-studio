@@ -30,11 +30,11 @@ import { devMode } from "@/lib/curatorEnv";
 import { offeredPolicies } from "@/lib/curatorGuard";
 
 const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; border: string }> = {
-  "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
-  "accent-teal": { ring: "ring-accent-teal", text: "text-accent-teal", bg: "bg-accent-teal/20", border: "border-accent-teal/40" },
-  "accent-green": { ring: "ring-accent-green", text: "text-accent-green", bg: "bg-accent-green/20", border: "border-accent-green/40" },
-  "accent-orange": { ring: "ring-accent-orange", text: "text-accent-orange", bg: "bg-accent-orange/20", border: "border-accent-orange/40" },
-  "accent-pink": { ring: "ring-accent-pink", text: "text-accent-pink", bg: "bg-accent-pink/20", border: "border-accent-pink/40" },
+  "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple-ink", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
+  "accent-teal": { ring: "ring-accent-teal", text: "text-accent-teal-ink", bg: "bg-accent-teal/20", border: "border-accent-teal/40" },
+  "accent-green": { ring: "ring-accent-green", text: "text-accent-green-ink", bg: "bg-accent-green/20", border: "border-accent-green/40" },
+  "accent-orange": { ring: "ring-accent-orange", text: "text-accent-orange-ink", bg: "bg-accent-orange/20", border: "border-accent-orange/40" },
+  "accent-pink": { ring: "ring-accent-pink", text: "text-accent-pink-ink", bg: "bg-accent-pink/20", border: "border-accent-pink/40" },
 };
 
 interface Props {
@@ -121,7 +121,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
               disabled={loading}
               className={`flex-1 cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
                 value.profile.target_style === s
-                  ? "bg-accent-purple text-white"
+                  ? "bg-accent-purple text-on-accent"
                   : "border border-border bg-surface text-foreground hover:bg-surface-hover"
               }`}
             >
@@ -222,7 +222,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
                     disabled={loading}
                     className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
                       value.faces.device === d
-                        ? "bg-accent-teal/20 border border-accent-teal/40 text-accent-teal"
+                        ? "bg-accent-teal/20 border border-accent-teal/40 text-accent-teal-ink"
                         : "border border-border bg-surface text-muted hover:text-foreground"
                     }`}
                   >
@@ -475,7 +475,7 @@ function Slider({ label, value, min, max, step, format, onChange, disabled }: {
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-sm text-foreground">{label}</span>
-        <span className="font-mono text-sm text-accent-teal">{format ? format(value) : value}</span>
+        <span className="font-mono text-sm text-accent-teal-ink">{format ? format(value) : value}</span>
       </div>
       <input
         type="range" min={min} max={max} step={step} value={value} disabled={disabled}

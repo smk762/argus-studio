@@ -22,7 +22,7 @@ export function PreflightPanel({ preflight, stale = false }: { preflight: Prefli
         <SectionTitle>
           <span id="preflight-title">Pre-flight</span>
         </SectionTitle>
-        <Badge className={preflight.outcome === "refused" ? "border-accent-red/50 text-accent-red" : preflight.outcome === "warning" ? "border-accent-amber/50 text-accent-amber" : "border-accent-green/50 text-accent-green"}>{preflight.outcome === "ok" ? "clear" : preflight.outcome}</Badge>
+        <Badge className={preflight.outcome === "refused" ? "border-accent-red/50 text-accent-red-ink" : preflight.outcome === "warning" ? "border-accent-amber/50 text-accent-amber-ink" : "border-accent-green/50 text-accent-green-ink"}>{preflight.outcome === "ok" ? "clear" : preflight.outcome}</Badge>
         <Badge className={preflight.mode === "nsfw" ? "border-warm-primary/60 text-warm-primary" : "border-border text-foreground/70"}>{preflight.mode}</Badge>
         {stale ? <span className="text-xs text-muted">The form has changed since this check.</span> : null}
       </div>

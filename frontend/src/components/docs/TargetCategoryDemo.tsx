@@ -39,7 +39,7 @@ export function TargetCategoryDemo() {
             aria-pressed={category === cat}
             className={
               category === cat
-                ? "cursor-pointer rounded-lg bg-accent-purple px-3 py-1.5 text-sm font-medium text-white"
+                ? "cursor-pointer rounded-lg bg-accent-purple px-3 py-1.5 text-sm font-medium text-on-accent"
                 : "cursor-pointer rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-surface-hover"
             }
           >

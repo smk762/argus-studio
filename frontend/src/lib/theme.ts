@@ -1,74 +1,33 @@
 /**
- * The light/dark choice, ported from argus-safelight. It is `data-theme` on
- * <html>: "light" or "dark", or absent for the system preference, which
- * globals.css follows with a media query and so needs no script at all.
+ * Light/dark is the Dragonhound shared script, public/dh-theme.js (a copy of
+ * vendor/dh/dh-theme.js; see dhShared.test.ts). It runs blocking in <head>, sets
+ * `data-theme` on <html> before the first paint from a `dh-theme` cookie (Domain
+ * .dragonhound.dev on the live hosts, so the choice follows you between the
+ * family's sites), and handles clicks on any `[data-dh-theme-toggle]` button.
+ *
+ * Two states, system default: no `data-theme` means "follow prefers-color-scheme".
+ * React only mirrors the effective scheme for the toggle's `aria-pressed`; it
+ * never writes the theme itself.
  */
 
-export type Theme = "system" | "light" | "dark";
-
-export const THEME_KEY = "argus-studio-theme";
-export const THEME_ORDER: readonly Theme[] = ["system", "light", "dark"];
-
-/**
- * Inlined at the top of <head>, so a saved choice is on <html> before the first
- * paint and before hydration. It can only ever add `data-theme`, which is why
- * <html> carries `suppressHydrationWarning`. Like the runtime-config script it
- * carries the request's CSP nonce (src/proxy.ts); if a policy ever blocks it
- * the page follows the system preference and the toggle still works until the
- * next load.
- */
-export const THEME_BOOT = `try{var t=localStorage.getItem(${JSON.stringify(THEME_KEY)});if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
-
-const listeners = new Set<() => void>();
-
-function parseTheme(saved: string | null): Theme {
-  return saved === "light" || saved === "dark" ? saved : "system";
+/** The scheme on screen now: the explicit `data-theme`, else the system's. */
+export function effectiveScheme(): "light" | "dark" {
+  const set = document.documentElement.dataset.theme;
+  if (set === "light" || set === "dark") return set;
+  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function readTheme(): Theme {
-  try {
-    return parseTheme(localStorage.getItem(THEME_KEY));
-  } catch {
-    return "system";
-  }
-}
+/** Server snapshot: unknown, rendered as not pressed until hydration reads the real one. */
+export const serverScheme = (): "light" | "dark" => "light";
 
-/** What the server renders. It can't see the choice, so the toggle's own markup must not depend on it. */
-export const serverTheme = (): Theme => "system";
-
-function setRoot(theme: Theme): void {
-  const root = document.documentElement;
-  if (theme === "system") delete root.dataset.theme;
-  else root.dataset.theme = theme;
-}
-
-/** Applies the choice and remembers it. */
-export function applyTheme(theme: Theme): void {
-  setRoot(theme);
-  try {
-    if (theme === "system") localStorage.removeItem(THEME_KEY);
-    else localStorage.setItem(THEME_KEY, theme);
-  } catch {
-    // Private mode: the choice lasts for this page only.
-  }
-  for (const listener of listeners) listener();
-}
-
-/** Calls `listener` on a change here or in another tab, which also repaints this one. */
-export function subscribeTheme(listener: () => void): () => void {
-  listeners.add(listener);
-  const onStorage = (event: StorageEvent) => {
-    if (event.key !== THEME_KEY && event.key !== null) return;
-    setRoot(readTheme());
-    listener();
-  };
-  window.addEventListener("storage", onStorage);
+/** Calls `listener` when `data-theme` changes on <html> or the system scheme flips. */
+export function subscribeScheme(listener: () => void): () => void {
+  const observer = new MutationObserver(listener);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  const media = matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", listener);
   return () => {
-    listeners.delete(listener);
-    window.removeEventListener("storage", onStorage);
+    observer.disconnect();
+    media.removeEventListener("change", listener);
   };
-}
-
-export function nextTheme(theme: Theme): Theme {
-  return THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
 }

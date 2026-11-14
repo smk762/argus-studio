@@ -44,9 +44,9 @@ import {
 
 const HINT_TONE: Record<string, string> = {
   empty: "border-border bg-background/60 text-muted",
-  low: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange",
-  good: "border-accent-green/30 bg-accent-green/5 text-accent-green",
-  high: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange",
+  low: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange-ink",
+  good: "border-accent-green/30 bg-accent-green/5 text-accent-green-ink",
+  high: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange-ink",
 };
 
 interface Props {
@@ -400,7 +400,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
     <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between">
         <label className="text-xs font-semibold uppercase tracking-wider text-muted">Export</label>
-        <span className="rounded-md border border-accent-green/40 bg-accent-green/10 px-2 py-0.5 text-xs font-medium text-accent-green">
+        <span className="rounded-md border border-accent-green/40 bg-accent-green/10 px-2 py-0.5 text-xs font-medium text-accent-green-ink">
           {count} selected
         </span>
       </div>
@@ -458,7 +458,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
                   title={copyOnly && m !== "copy" ? CROPPED_COPY_ONLY : m === "move" ? (moveReason ?? undefined) : undefined}
                   className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     mode === m
-                      ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal"
+                      ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal-ink"
                       : "border border-border bg-background text-muted hover:text-foreground"
                   }`}
                 >
@@ -528,7 +528,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
                   />
                 </label>
               ))}
-              {namesProblem && <p className="text-[11px] text-accent-red">{namesProblem}</p>}
+              {namesProblem && <p className="text-[11px] text-accent-red-ink">{namesProblem}</p>}
             </div>
           )}
           <ExportCheck
@@ -577,7 +577,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
             </label>
           )}
           {exportHints.length > 0 && (
-            <ul className="space-y-1 text-[11px] leading-relaxed text-accent-orange/90">
+            <ul className="space-y-1 text-[11px] leading-relaxed text-accent-orange-ink">
               {exportHints.map((h, i) => (
                 <li key={i}>! {h}</li>
               ))}
@@ -587,7 +587,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
             type="button"
             disabled={disabled || !dest.trim() || !permits(canExport) || manifestDenied || namesProblem !== null}
             onClick={() => void runLiveExport()}
-            className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green-ink transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {/* The manifest is written on every run (write_manifest: true), so
                 it is stated unconditionally — the old ternary implied ticking
@@ -629,7 +629,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
             type="button"
             disabled={disabled}
             onClick={downloadManifest}
-            className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full cursor-pointer rounded-lg bg-accent-green/20 px-4 py-2.5 text-sm font-semibold text-accent-green-ink transition-colors hover:bg-accent-green/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Download manifest.jsonl
           </button>
@@ -639,7 +639,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
             </span>
             <p className="text-[11px] leading-relaxed text-muted">
               The suggested params above, rendered as kohya sd-scripts TOML client-side.{" "}
-              <Link href="/forge" className="text-accent-amber underline underline-offset-2">
+              <Link href="/forge" className="text-accent-amber-ink underline underline-offset-2">
                 Forge
               </Link>{" "}
               does the same against a real export — and on a live host calls{" "}
@@ -653,7 +653,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
                   type="button"
                   disabled={disabled}
                   onClick={() => downloadDemoKohya(f)}
-                  className="flex-1 cursor-pointer rounded-lg border border-accent-orange/40 bg-accent-orange/10 px-2 py-1.5 font-mono text-xs font-medium text-accent-orange transition-colors hover:bg-accent-orange/20 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex-1 cursor-pointer rounded-lg border border-accent-orange/40 bg-accent-orange/10 px-2 py-1.5 font-mono text-xs font-medium text-accent-orange-ink transition-colors hover:bg-accent-orange/20 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {f}
                 </button>
@@ -664,7 +664,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
       )}
 
       {error && (
-        <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-2.5 text-xs text-accent-red">{error}</div>
+        <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-2.5 text-xs text-accent-red-ink">{error}</div>
       )}
       {result && (
         <div
@@ -674,7 +674,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
               : "border-accent-green/30 bg-accent-green/5"
           }`}
         >
-          <div className={manifestProblem ? "text-accent-orange" : "text-accent-green"}>
+          <div className={manifestProblem ? "text-accent-orange-ink" : "text-accent-green-ink"}>
             {result.mode === "move" ? "Moved" : result.mode === "symlink" ? "Symlinked" : "Copied"} {result.copied} images
             {result.skipped > 0 ? ` (${result.skipped} skipped)` : ""}.
           </div>
@@ -683,12 +683,12 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
               {note}
             </div>
           ))}
-          {notes.warning && <div className="text-accent-orange/90">{notes.warning}</div>}
-          {leftOut && <div className="text-accent-orange/90">{leftOut}</div>}
+          {notes.warning && <div className="text-accent-orange-ink">{notes.warning}</div>}
+          {leftOut && <div className="text-accent-orange-ink">{leftOut}</div>}
           {/* The transfer succeeded but nothing downstream can read it — say so
               here rather than letting a green box imply the handoff worked. */}
           {manifestProblem && (
-            <div className="text-accent-orange/90">
+            <div className="text-accent-orange-ink">
               The files were transferred, but this app could not use the manifest: {manifestProblem}.
               {toCaption ? " Captioning was skipped." : ""}
             </div>
@@ -700,7 +700,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
             <div className="break-all font-mono text-[11px] text-foreground/80">{result.run_stats_path}</div>
           )}
           {captionSummary && (
-            <div className="text-accent-purple">
+            <div className="text-accent-purple-ink">
               Captioned {captionSummary.captioned}/{captionSummary.total} with argus-lens
               {captionSummary.failed > 0 ? ` (${captionSummary.failed} failed)` : ""} — .txt sidecars written{" "}
               {result?.mode === "move" ? "into the export folder" : "next to each source image"}.
@@ -740,7 +740,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
               affordance — the same reason capabilityReason exists for the
               controls above. */}
           {handoffAtRoot && (
-            <div className="text-accent-orange/90">
+            <div className="text-accent-orange-ink">
               Exported to the shared export root, so there is no single dataset folder to train on —
               argus-forge refuses the root itself. Re-export into a subfolder like{" "}
               <span className="font-mono">{exportRoot}/my-subject</span> to configure training.
@@ -774,8 +774,8 @@ function ExportCheck({ label, checked, onChange, disabled, title }: {
 }
 
 const BAR_TONE: Record<PhaseTone, { bar: string; text: string }> = {
-  teal: { bar: "bg-accent-teal", text: "text-accent-teal" },
-  purple: { bar: "bg-accent-purple", text: "text-accent-purple" },
+  teal: { bar: "bg-accent-teal", text: "text-accent-teal-ink" },
+  purple: { bar: "bg-accent-purple", text: "text-accent-purple-ink" },
 };
 
 type PhaseTone = "teal" | "purple";

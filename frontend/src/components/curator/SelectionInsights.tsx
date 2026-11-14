@@ -166,10 +166,10 @@ export function SelectionInsights({ summary, selectedResults }: Props) {
 
         {insights.gaps.length > 0 && (
           <div className="space-y-1 rounded-lg border border-accent-orange/30 bg-accent-orange/5 p-2.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-orange">Coverage gaps</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-orange-ink">Coverage gaps</span>
             <ul className="space-y-0.5">
               {insights.gaps.map((g) => (
-                <li key={g} className="text-[11px] leading-snug text-accent-orange/90">
+                <li key={g} className="text-[11px] leading-snug text-accent-orange-ink">
                   • {g}
                 </li>
               ))}
@@ -242,7 +242,7 @@ function TrainingParamsCard({ params }: { params: ReturnType<typeof suggestTrain
   return (
     <div className="space-y-3 rounded-xl border border-accent-purple/30 bg-accent-purple/5 p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-accent-purple">Suggested training</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-accent-purple-ink">Suggested training</h3>
         <span className="text-[11px] text-muted">SDXL LoRA · {params.images} img</span>
       </div>
       <dl className="grid grid-cols-1 gap-1.5">

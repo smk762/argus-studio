@@ -1,108 +1,127 @@
 @import "tailwindcss";
 
 /*
- * The theme is `data-theme` on <html>, "light" or "dark", set by the boot script
- * in layout.tsx. Without it the system preference decides. `@theme` is `inline`,
- * so every utility resolves its variable at use time and follows the switch.
- *
- * The accents are darker in the light set, because they are text as well as
- * fills: the dark set's teal or amber can't be read on white. `--on-accent` is
- * for text on a solid accent, black on the bright set and white on the dark one.
- *
- * Keep the two light blocks identical; CSS can't share one between a selector
- * and a media query.
+ * Dragonhound shared layer (vendor/dh, synced from dragonhound-site/shared by
+ * vendor/dh/sync-shared.mjs; never edit those files here). The tokens come first so
+ * everything below reads them; the strip and badge styles are the family's own.
  */
-:root,
-[data-theme="dark"] {
-  color-scheme: dark;
-  --background: #0a0a1a;
-  --foreground: #e4e4ef;
-  --surface: #12122a;
-  --surface-hover: #1a1a3a;
-  --border: #2a2a4a;
-  --accent-purple: #8b5cf6;
-  --accent-teal: #2dd4bf;
-  --accent-red: #ef4444;
-  --accent-green: #22c55e;
-  --accent-amber: #f59e0b;
-  --accent-orange: #f97316;
-  --accent-blue: #3b82f6;
-  --accent-pink: #ec4899;
-  --accent-yellow: #fcd34d;
-  --on-accent: #000000;
-  --muted: #848c9c; /* 4.5:1+ on background, surface and surface-hover */
-  --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.45);
-}
+@import "../../vendor/dh/dh-tokens.css";
+@import "../../vendor/dh/dh-strip.css";
+@import "../../vendor/dh/dh-badge.css";
 
-[data-theme="light"] {
-  color-scheme: light;
-  --background: #f4f5fa;
-  --foreground: #111827;
-  --surface: #ffffff;
-  --surface-hover: #e8ebf4;
-  --border: #cfd5e6;
-  --accent-purple: #6d28d9;
-  --accent-teal: #0f766e;
-  --accent-red: #b91c1c;
-  --accent-green: #15803d;
-  --accent-amber: #b45309;
-  --accent-orange: #c2410c;
-  --accent-blue: #1d4ed8;
-  --accent-pink: #be185d;
-  --accent-yellow: #a16207;
-  --on-accent: #ffffff;
-  --muted: #566074;
-  --shadow-soft: 0 4px 24px rgba(17, 24, 39, 0.12);
+/*
+ * The theme is `data-theme` on <html>, "light" or "dark", set by public/dh-theme.js
+ * (the shared script, loaded blocking in <head>). Without it the system preference
+ * decides. Neutrals, type, radius, focus and status colours all come from the
+ * --dh-* tokens, so a token re-sync restyles Studio with no edit here.
+ *
+ * Studio overrides only the product accent, --dh-accent (purple), in both schemes
+ * at :root; --dh-on-accent stays the family's (white in light, near-black in dark).
+ *
+ * The other stage accents are Studio-local. Each has a fill (icons, borders,
+ * solid buttons; at least 4.5:1 on the surfaces) and an `-ink` for text, which
+ * keeps 4.5:1 on its own /5 to /30 tint in both schemes: text on a tint uses the
+ * ink, never the fill (dh-shared README). Green, red and amber are the family
+ * status colours. Selectors mirror dh-tokens.css so the cascade lines up.
+ */
+:root {
+  --dh-accent: #6d28d9;
+  --accent-teal: #0f766e;   --accent-teal-ink: #134e4a;
+  --accent-amber-ink: #78350f;
+  --accent-orange: #c2410c; --accent-orange-ink: #7c2d12;
+  --accent-blue: #1d4ed8;   --accent-blue-ink: #1e3a8a;
+  --accent-pink: #be185d;   --accent-pink-ink: #831843;
+  --accent-yellow: #a16207; --accent-yellow-ink: #713f12;
+  --accent-purple-ink: #5b21b6;
 }
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) {
-    color-scheme: light;
-    --background: #f4f5fa;
-    --foreground: #111827;
-    --surface: #ffffff;
-    --surface-hover: #e8ebf4;
-    --border: #cfd5e6;
-    --accent-purple: #6d28d9;
-    --accent-teal: #0f766e;
-    --accent-red: #b91c1c;
-    --accent-green: #15803d;
-    --accent-amber: #b45309;
-    --accent-orange: #c2410c;
-    --accent-blue: #1d4ed8;
-    --accent-pink: #be185d;
-    --accent-yellow: #a16207;
-    --on-accent: #ffffff;
-    --muted: #566074;
-    --shadow-soft: 0 4px 24px rgba(17, 24, 39, 0.12);
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --dh-accent: #a78bfa;
+    --accent-teal: #2dd4bf;   --accent-teal-ink: #5eead4;
+    --accent-amber-ink: #f0c36a;
+    --accent-orange: #fb923c; --accent-orange-ink: #fdba74;
+    --accent-blue: #60a5fa;   --accent-blue-ink: #93c5fd;
+    --accent-pink: #f472b6;   --accent-pink-ink: #f9a8d4;
+    --accent-yellow: #fcd34d; --accent-yellow-ink: #fde68a;
+    --accent-purple-ink: #c4b5fd;
   }
+}
+:root[data-theme="dark"] {
+  --dh-accent: #a78bfa;
+  --accent-teal: #2dd4bf;   --accent-teal-ink: #5eead4;
+  --accent-amber-ink: #f0c36a;
+  --accent-orange: #fb923c; --accent-orange-ink: #fdba74;
+  --accent-blue: #60a5fa;   --accent-blue-ink: #93c5fd;
+  --accent-pink: #f472b6;   --accent-pink-ink: #f9a8d4;
+  --accent-yellow: #fcd34d; --accent-yellow-ink: #fde68a;
+  --accent-purple-ink: #c4b5fd;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-surface-hover: var(--surface-hover);
-  --color-border: var(--border);
-  --color-accent-purple: var(--accent-purple);
+  --color-background: var(--dh-bg);
+  --color-foreground: var(--dh-text);
+  --color-surface: var(--dh-surface);
+  --color-surface-hover: var(--dh-surface-2);
+  --color-border: var(--dh-border);
+  --color-muted: var(--dh-muted);
+  --color-on-accent: var(--dh-on-accent);
+  --color-focus: var(--dh-focus);
+  --color-accent-purple: var(--dh-accent);
+  --color-accent-purple-ink: var(--accent-purple-ink);
+  --color-accent-green: var(--dh-success);
+  --color-accent-green-ink: var(--dh-success-ink);
+  --color-accent-red: var(--dh-danger);
+  --color-accent-red-ink: var(--dh-danger-ink);
+  --color-accent-amber: var(--dh-warn);
+  --color-accent-amber-ink: var(--accent-amber-ink);
   --color-accent-teal: var(--accent-teal);
-  --color-accent-red: var(--accent-red);
-  --color-accent-green: var(--accent-green);
-  --color-accent-amber: var(--accent-amber);
+  --color-accent-teal-ink: var(--accent-teal-ink);
   --color-accent-orange: var(--accent-orange);
+  --color-accent-orange-ink: var(--accent-orange-ink);
   --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-ink: var(--accent-blue-ink);
   --color-accent-pink: var(--accent-pink);
+  --color-accent-pink-ink: var(--accent-pink-ink);
   --color-accent-yellow: var(--accent-yellow);
-  --color-on-accent: var(--on-accent);
-  --color-muted: var(--muted);
-  --shadow-soft: var(--shadow-soft);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-accent-yellow-ink: var(--accent-yellow-ink);
+  --shadow-soft: var(--dh-shadow-hover);
+  --font-sans: var(--dh-font);
+  --font-mono: var(--dh-mono);
+  --radius-sm: var(--dh-radius-sm);
+  --radius-md: var(--dh-radius-md);
+  --radius-lg: var(--dh-radius-md);
+  --radius-xl: var(--dh-radius-lg);
+  --radius-2xl: var(--dh-radius-xl);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--dh-bg);
+  color: var(--dh-text);
+  font-family: var(--dh-font);
+}
+
+/* The family focus ring wherever a component doesn't draw its own. */
+:focus-visible {
+  outline: var(--dh-focus-ring);
+  outline-offset: var(--dh-focus-offset);
+}
+
+/* Skip link: off-screen until focused, then a pill over the strip. */
+.skip-link {
+  position: absolute;
+  left: var(--dh-space-2);
+  top: var(--dh-space-2);
+  z-index: 100;
+  transform: translateY(-200%);
+  padding: var(--dh-space-2) var(--dh-space-3);
+  border-radius: var(--dh-radius-md);
+  background: var(--dh-surface);
+  color: var(--dh-text);
+  box-shadow: var(--dh-shadow-hover);
+  font: var(--dh-weight-semibold) var(--dh-text-sm) / 1.2 var(--dh-font);
+}
+.skip-link:focus-visible {
+  transform: none;
 }
 
 /*
@@ -136,20 +155,18 @@ dialog::backdrop {
   }
 }
 
-/* See ThemeToggle: the icon follows `data-theme`, so it is right from the first paint. */
-[data-theme-icon] {
-  display: none;
-}
-
-:root:not([data-theme]) [data-theme-icon="system"],
-[data-theme="light"] [data-theme-icon="light"],
-[data-theme="dark"] [data-theme-icon="dark"] {
-  display: block;
+/* The theme toggle shows the moon in light and the sun in dark, from the first paint (CSS, not React). */
+.theme-icon-sun { display: none; }
+:root[data-theme="dark"] .theme-icon-sun { display: block; }
+:root[data-theme="dark"] .theme-icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-icon-sun { display: block; }
+  :root:not([data-theme="light"]) .theme-icon-moon { display: none; }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-color: var(--dh-border) transparent;
   }
 }

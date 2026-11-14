@@ -26,7 +26,7 @@ export function RawOutputs({ result }: RawOutputsProps) {
       >
         <span
           className="inline-block w-3 h-3 rounded-sm"
-          style={{ backgroundColor: expanded ? "var(--accent-amber)" : "var(--muted)" }}
+          style={{ backgroundColor: expanded ? "var(--dh-warn)" : "var(--dh-muted)" }}
         />
         RAW MODEL OUTPUTS
         <span className="text-[10px] font-normal normal-case tracking-normal text-muted">
@@ -40,9 +40,9 @@ export function RawOutputs({ result }: RawOutputsProps) {
           {tags.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-bold tracking-wider text-foreground/70">
+                <h3 className="text-xs font-bold tracking-wider text-foreground/70">
                   WD14 TAGS
-                </h4>
+                </h3>
                 <span className="text-[10px] text-muted">
                   {tags.length} tags
                 </span>
@@ -56,7 +56,7 @@ export function RawOutputs({ result }: RawOutputsProps) {
                       className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs transition-colors ${
                         isRemoved
                           ? "bg-transparent border border-border text-muted line-through"
-                          : "bg-accent-purple/20 border border-accent-purple/40 text-accent-purple"
+                          : "bg-accent-purple/20 border border-accent-purple/40 text-accent-purple-ink"
                       }`}
                     >
                       {isRemoved ? "−" : "+"} {tag.replace(/_/g, " ")}
@@ -65,7 +65,7 @@ export function RawOutputs({ result }: RawOutputsProps) {
                 })}
               </div>
               <div className="mt-3 p-2.5 rounded bg-background/50 border border-border/50">
-                <p className="text-xs font-mono text-foreground/60 leading-relaxed break-all">
+                <p className="text-xs font-mono text-muted leading-relaxed break-all">
                   {result.raw_tags}
                 </p>
               </div>
@@ -75,9 +75,9 @@ export function RawOutputs({ result }: RawOutputsProps) {
           {/* Prose output */}
           {result.raw_prose && (
             <div>
-              <h4 className="text-xs font-bold tracking-wider text-foreground/70 mb-3">
+              <h3 className="text-xs font-bold tracking-wider text-foreground/70 mb-3">
                 {result.backend_name.toUpperCase().replace(/_/g, " ") || "PROSE"}
-              </h4>
+              </h3>
               <div className="p-3 rounded bg-background/50 border border-border/50">
                 <p className="text-sm text-foreground/80 leading-relaxed">
                   {result.raw_prose}

@@ -22,10 +22,10 @@ export function ScanSummaryPanel({ summary }: Props) {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="Total" value={summary.total} color="text-foreground" />
-        <Stat label="Passed" value={summary.passed} color="text-accent-green" />
-        <Stat label="Rejected" value={summary.rejected} color="text-accent-red" />
-        <Stat label="Near-dupes" value={summary.duplicates} color="text-accent-amber" />
-        <Stat label="Identities" value={summary.face_clusters.length} color="text-accent-teal" />
+        <Stat label="Passed" value={summary.passed} color="text-accent-green-ink" />
+        <Stat label="Rejected" value={summary.rejected} color="text-accent-red-ink" />
+        <Stat label="Near-dupes" value={summary.duplicates} color="text-accent-amber-ink" />
+        <Stat label="Identities" value={summary.face_clusters.length} color="text-accent-teal-ink" />
       </div>
 
       <div className="flex flex-wrap gap-3 text-xs">
@@ -66,7 +66,7 @@ export function ScanSummaryPanel({ summary }: Props) {
                     className="h-1.5 shrink-0 rounded-full bg-accent-red/60"
                     style={{ width: `${Math.max(pct, 2)}%`, maxWidth: "120px" }}
                   />
-                  <div className="w-8 shrink-0 text-right font-mono text-xs text-accent-red">{count}</div>
+                  <div className="w-8 shrink-0 text-right font-mono text-xs text-accent-red-ink">{count}</div>
                 </div>
               );
             })}

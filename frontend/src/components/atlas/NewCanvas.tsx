@@ -197,11 +197,11 @@ export function NewCanvas({
               onClick={submit}
               disabled={!ready || busy || !permits(canGdal)}
               title={gdalReason ?? undefined}
-              className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {busy ? "Running GDAL…" : "Build controls"}
             </button>
-            {error && <span className="text-xs text-accent-red">{error}</span>}
+            {error && <span className="text-xs text-accent-red-ink">{error}</span>}
           </div>
         </div>
       )}

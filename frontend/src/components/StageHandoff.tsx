@@ -3,11 +3,11 @@ import { stageFor, type StageTone } from "@/lib/pipeline";
 
 /** Per-stage accent, so a hand-off is coloured like the page it leads to. */
 const TONE: Record<StageTone, string> = {
-  purple: "border-accent-purple/40 bg-accent-purple/10 text-accent-purple hover:bg-accent-purple/20",
-  amber: "border-accent-amber/40 bg-accent-amber/10 text-accent-amber hover:bg-accent-amber/20",
-  green: "border-accent-green/40 bg-accent-green/10 text-accent-green hover:bg-accent-green/20",
-  teal: "border-accent-teal/40 bg-accent-teal/10 text-accent-teal hover:bg-accent-teal/20",
-  blue: "border-accent-blue/40 bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20",
+  purple: "border-accent-purple/40 bg-accent-purple/10 text-accent-purple-ink hover:bg-accent-purple/20",
+  amber: "border-accent-amber/40 bg-accent-amber/10 text-accent-amber-ink hover:bg-accent-amber/20",
+  green: "border-accent-green/40 bg-accent-green/10 text-accent-green-ink hover:bg-accent-green/20",
+  teal: "border-accent-teal/40 bg-accent-teal/10 text-accent-teal-ink hover:bg-accent-teal/20",
+  blue: "border-accent-blue/40 bg-accent-blue/10 text-accent-blue-ink hover:bg-accent-blue/20",
 };
 
 /**

@@ -186,7 +186,7 @@ export function JobView({
               type="button"
               onClick={() => setBase(k)}
               className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
-                base === k ? "border-accent-blue/60 bg-accent-blue/10 text-accent-blue" : "border-border text-muted hover:bg-surface-hover"
+                base === k ? "border-accent-blue/60 bg-accent-blue/10 text-accent-blue-ink" : "border-border text-muted hover:bg-surface-hover"
               }`}
             >
               {k}
@@ -201,7 +201,7 @@ export function JobView({
               title={labelsRecord.count === 0 ? `No names survive at z${labelsRecord.zoom}` : labelsRecord.cutoff}
               className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
                 showLabels && labelsRecord.count > 0
-                  ? "border-accent-amber/60 bg-accent-amber/10 text-accent-amber"
+                  ? "border-accent-amber/60 bg-accent-amber/10 text-accent-amber-ink"
                   : "border-border text-muted hover:bg-surface-hover"
               }`}
             >
@@ -262,7 +262,7 @@ export function JobView({
               </span>
             ))}
         </div>
-        {showLabels && labelsError && <p className="text-center text-[11px] text-accent-red">{labelsError}</p>}
+        {showLabels && labelsError && <p className="text-center text-[11px] text-accent-red-ink">{labelsError}</p>}
         {showLabels && placed && (
           <p className="text-center text-[11px] text-muted">
             {placed.total > MAX_LABELS ? `Showing the top ${MAX_LABELS} of ${placed.total} names. ` : ""}
@@ -280,11 +280,11 @@ export function JobView({
         <section className="space-y-2 rounded-xl border border-border bg-surface/50 px-5 py-4">
           <h3 className="text-xs font-semibold tracking-widest text-muted uppercase">Last bake</h3>
           {!bake.aligned && (
-            <p className="text-xs text-accent-red">
+            <p className="text-xs text-accent-red-ink">
               Alignment gate failed{bake.error ? `: ${bake.error}` : ""}. The PNG is kept for inspection; no GeoTIFF was written.
             </p>
           )}
-          {bake.aligned && bake.error && <p className="text-xs text-accent-red">{bake.error}</p>}
+          {bake.aligned && bake.error && <p className="text-xs text-accent-red-ink">{bake.error}</p>}
           <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-xs [overflow-wrap:anywhere] sm:grid-cols-2">
             <div><dt className="inline text-muted">Preset </dt><dd className="inline font-mono">{bake.params.preset ?? "—"}</dd></div>
             {bake.params.recipe && (
@@ -326,7 +326,7 @@ export function JobView({
                 <>
                   <a
                     href={archiveUrl(s.job_id)}
-                    className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
+                    className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue-ink hover:bg-accent-blue/20"
                   >
                     Download fantasy.pmtiles
                   </a>
@@ -338,7 +338,7 @@ export function JobView({
                 // Not bundled in the static demo (size); the whole map is browsable on realms.
                 <ExternalLink
                   href={REALMS_URL}
-                  className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
+                  className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue-ink hover:bg-accent-blue/20"
                 >
                   View the full map on realms.dragonhound.dev
                 </ExternalLink>
@@ -352,12 +352,12 @@ export function JobView({
               onClick={tile}
               disabled={tiling || blocked !== null || !permits(canGdal)}
               title={blocked ?? gdalReason ?? undefined}
-              className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {tiling ? "Cutting tiles…" : "Cut PMTiles archive"}
             </button>
           )}
-          {tilesError && <span className="text-xs text-accent-red">{tilesError}</span>}
+          {tilesError && <span className="text-xs text-accent-red-ink">{tilesError}</span>}
           {!tiles && (tilesRefused ?? blocked) && (
             <div className="w-full">
               <CapabilityNotice reason={tilesRefused ?? blocked} />

@@ -49,7 +49,7 @@ export function ModerationPanel({ img, policies, officialPolicy, nsfwRan, held }
           <span className="text-muted">{rating ?? "not scored"}</span>
         </div>
         {nudenet ? <Rows rows={nudenet} /> : <p className="text-xs text-muted">No reading. That does not mean clear.</p>}
-        {source && <p className="text-[11px] leading-snug text-accent-orange/90">{source}</p>}
+        {source && <p className="text-[11px] leading-snug text-accent-orange-ink">{source}</p>}
       </div>
 
       {erax && (
@@ -69,13 +69,13 @@ export function ModerationPanel({ img, policies, officialPolicy, nsfwRan, held }
                 <div className="flex items-center gap-1.5">
                   {shield && <GuardShield shield={shield} />}
                   <span className="min-w-0 truncate font-mono text-foreground/90">{verdict.policy}</span>
-                  {verdict.official && <span className="text-[10px] text-accent-teal">official</span>}
-                  <span className={`ml-auto shrink-0 ${verdict.result.safe ? "text-accent-green" : "text-accent-red"}`}>
+                  {verdict.official && <span className="text-[10px] text-accent-teal-ink">official</span>}
+                  <span className={`ml-auto shrink-0 ${verdict.result.safe ? "text-accent-green-ink" : "text-accent-red-ink"}`}>
                     {verdict.result.safe ? "safe" : "unsafe"}
                   </span>
                 </div>
                 {(verdict.result.rules ?? []).map((rule) => (
-                  <p key={rule} className="text-accent-red/90">
+                  <p key={rule} className="text-accent-red-ink">
                     {rule}
                   </p>
                 ))}
