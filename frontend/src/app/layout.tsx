@@ -98,9 +98,7 @@ export default async function RootLayout({
         */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts -- blocking on purpose: it must set the theme before first paint */}
         <script src="/dh-theme.js" nonce={nonce} />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="icon" href="/favicon.ico" sizes="32x32" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        {/* favicon.ico, icon.svg and apple-icon.png sit in src/app/ (argus-cortex brand/mark/favicon/); Next emits their <link> tags. */}
         <link rel="manifest" href="/site.webmanifest" />
         {/*
           Sets the global `runtimeConfig()` reads, so the client sees the same
