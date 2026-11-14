@@ -54,7 +54,9 @@ function withoutRejects(reasons: Record<string, number>, rows: readonly ImageRes
  * fetched still count. A near-duplicate cluster left with one frame stops being
  * a cluster. An identity whose representative moved takes the next frame with
  * that face, so the rail does not request the moved thumb, and goes only when
- * no such frame is left.
+ * no such frame is left. When the next frame may sit on a page a paged load
+ * never fetched, the identity stays, with no representative until that record
+ * arrives, rather than vanishing (and taking its filter with it).
  */
 export function withoutRelPaths(summary: ScanSummary, gone: readonly string[]): ScanSummary {
   const drop = new Set(gone.filter(Boolean));
@@ -82,8 +84,13 @@ export function withoutRelPaths(summary: ScanSummary, gone: readonly string[]): 
     reject_reasons: withoutRejects(summary.reject_reasons, dropped),
     face_clusters: summary.face_clusters.flatMap((cluster) => {
       if (!drop.has(cluster.representative_rel_path)) return [cluster];
-      const next = results.find((img) => img.faces.some((face) => face.cluster_id === cluster.cluster_id));
-      return next ? [{ ...cluster, representative_rel_path: next.rel_path, representative_bbox: null }] : [];
+      const hasFace = (img: ImageResult) => img.faces.some((face) => face.cluster_id === cluster.cluster_id);
+      const next = results.find(hasFace);
+      if (next) return [{ ...cluster, representative_rel_path: next.rel_path, representative_bbox: null }];
+      const unfetched = summary.returned < summary.total;
+      const facesLeft = cluster.size - dropped.reduce((n, img) => n + img.faces.filter((face) => face.cluster_id === cluster.cluster_id).length, 0);
+      if (!unfetched || facesLeft <= 0) return [];
+      return [{ ...cluster, size: facesLeft, representative_rel_path: "", representative_bbox: null }];
     }),
     results,
     returned: results.length,

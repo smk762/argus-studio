@@ -81,7 +81,10 @@ export function promptChangedVerdict(record: Pick<GenerationRecord, "guard">): b
 }
 
 export function allCells(guard: Pick<GenerationRecord["guard"], "scans">): Cell[] {
-  return Object.values(guard.scans ?? {}).flatMap((pair) => [pair.isolated, pair.with_prompt]);
+  // A pair is half-scanned while a generation is in flight: skip the missing cell.
+  return Object.values(guard.scans ?? {})
+    .flatMap((pair): (Cell | null | undefined)[] => [pair?.isolated, pair?.with_prompt])
+    .filter((cell): cell is Cell => cell != null);
 }
 
 /** The overall shield beside the image: the worst cell, or null before any scan. */

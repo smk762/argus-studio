@@ -59,6 +59,9 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
   const [recordId, setRecordId] = useState<string | null>(null);
   const touched = useRef(false);
   const controller = useRef<AbortController | null>(null);
+  // The latest pre-flight; a newer check or a generation aborts it, so a slow
+  // older verdict can never overwrite the one the form now stands for.
+  const checkCtrl = useRef<AbortController | null>(null);
 
   // Server defaults the first time the catalogue arrives; afterwards only keep the form consistent with it.
   useEffect(() => {
@@ -89,18 +92,25 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
   const check = useCallback(async () => {
     const request = toRequest(compose, expandable);
     const key = JSON.stringify(request);
+    checkCtrl.current?.abort();
+    const abort = new AbortController();
+    checkCtrl.current = abort;
     setPreflight({ state: "checking", result: null, error: null, forRequest: key });
     // The verdict shows in the Generate pane, and only with no finished generation in it.
     if (!controller.current) dispatch({ type: "reset" });
     setRecordId(null);
     setView("generate");
     try {
-      const result = await runPreflight(request);
+      const result = await runPreflight(request, abort.signal);
+      if (abort.signal.aborted) return null;
       setPreflight({ state: "done", result, error: null, forRequest: key });
       return result;
     } catch (caught) {
+      if (abort.signal.aborted) return null;
       setPreflight({ state: "error", result: null, error: caught instanceof Error ? caught.message : String(caught), forRequest: key });
       return null;
+    } finally {
+      if (checkCtrl.current === abort) checkCtrl.current = null;
     }
   }, [compose, expandable]);
 
@@ -108,6 +118,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(() => {
     if (controller.current) return;
+    checkCtrl.current?.abort();
     const request = toRequest(compose, expandable);
     const abort = new AbortController();
     controller.current = abort;

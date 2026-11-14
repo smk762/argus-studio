@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  clearSentEdits,
   applyEdits,
   compositeScore,
   editsToUpdates,
@@ -204,7 +205,13 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
     setRevealed(new Set());
     setFocus(0);
     setSaveError(null);
+    setSaving(false);
   }
+  // The run on screen, for a save that resolves after the board has moved on.
+  const currentRun = useRef(initialReport);
+  useEffect(() => {
+    currentRun.current = initialReport;
+  }, [initialReport]);
 
   // The report as the reviewer's unsaved edits make it look right now. With no
   // edits it IS the report, so the header shows the server's authoritative
@@ -333,6 +340,8 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
     // is not part of it and must survive, so clear only the keys actually sent
     // rather than dropping the whole map on resolve.
     const sent = edits;
+    const startedFor = initialReport;
+    const stillCurrent = () => currentRun.current === startedFor;
     try {
       // Writable: send the edits and adopt the server's authoritative recompute.
       // Demo: apply the same edits locally, laundered identically (normalizeEdits
@@ -340,18 +349,16 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
       const updated = permits(canWrite)
         ? await submitHitl(report.run_id, { rater: rater || null, updates: editsToUpdates(sent) })
         : applyEdits(report, normalizeEdits(sent), rater || null);
-      setReport(updated);
+      // The page's run list still learns what was saved, but a board that has
+      // switched runs keeps the new run's report and edits.
       onReportChange?.(updated);
-      setEdits((cur) => {
-        if (cur === sent) return new Map();
-        const next = new Map(cur);
-        for (const id of sent.keys()) next.delete(id);
-        return next;
-      });
+      if (!stillCurrent()) return;
+      setReport(updated);
+      setEdits((cur) => clearSentEdits(cur, sent));
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save review");
+      if (stillCurrent()) setSaveError(err instanceof Error ? err.message : "Failed to save review");
     } finally {
-      setSaving(false);
+      if (stillCurrent()) setSaving(false);
     }
   };
 

@@ -170,7 +170,10 @@ describe("curator capabilities", () => {
     expect(speaksSupportedManifest(health({ manifest_version: "2.1" }))).toBe(true);
     expect(speaksSupportedManifest(health({ manifest_version: "3.0" }))).toBe(false);
     expect(speaksSupportedManifest(health())).toBe(true);
-    expect(speaksSupportedManifest(health({ manifest_version: "garbage" }))).toBe(true);
+    // Declared but unparseable is not the same as absent: it must not pass.
+    for (const bad of ["garbage", "02.1", "v2", ""]) {
+      expect(speaksSupportedManifest(health({ manifest_version: bad }))).toBe(false);
+    }
   });
 });
 

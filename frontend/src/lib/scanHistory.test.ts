@@ -117,6 +117,25 @@ describe("withoutRelPaths", () => {
     expect(cluster?.representative_bbox).toBeNull();
   });
 
+  it("keeps an identity whose other frames sit on a page not loaded yet", () => {
+    const face = { cluster_id: "b" } as ImageResult["faces"][number];
+    const base = summary([image("keep.jpg"), image("gone.jpg", { faces: [face] })]);
+    const paged = {
+      ...base,
+      total: 500,
+      face_clusters: [{ cluster_id: "b", size: 4, representative_rel_path: "gone.jpg", representative_bbox: null }],
+    };
+    const next = withoutRelPaths(paged, ["gone.jpg"]);
+    expect(next.face_clusters).toEqual([{ cluster_id: "b", size: 3, representative_rel_path: "", representative_bbox: null }]);
+    expect(knownClusterFilters({ ...defaultFilters(), faceClusters: ["b"] }, next).faceClusters).toEqual(["b"]);
+  });
+
+  it("drops a paged identity once its last face has moved", () => {
+    const face = { cluster_id: "b" } as ImageResult["faces"][number];
+    const paged = { ...summary([image("gone.jpg", { faces: [face] })]), total: 500 };
+    expect(withoutRelPaths(paged, ["gone.jpg"]).face_clusters.map((c) => c.cluster_id)).not.toContain("b");
+  });
+
   it("keeps the rows a paged load never fetched in the total", () => {
     const paged = { ...summary([image("keep.jpg"), image("gone.jpg")]), total: 15000 };
     expect(withoutRelPaths(paged, ["gone.jpg"]).total).toBe(14999);

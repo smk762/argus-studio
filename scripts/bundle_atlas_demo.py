@@ -104,7 +104,8 @@ def main() -> None:
             envelope = {"job_id": sidecar.job_id, "status": sidecar.status, "sidecar": dumped}
             (dst / "job.json").write_text(json.dumps(envelope))
             labels = store.labels_path(d.job_id) if hasattr(store, "labels_path") else None
-            if labels is not None:
+            # The accessor names the path whether or not the job wrote any labels.
+            if labels is not None and Path(labels).is_file():
                 shutil.copy2(labels, dst / "labels.geojson")
             kinds = dict(sidecar.controls)
             if sidecar.bake:

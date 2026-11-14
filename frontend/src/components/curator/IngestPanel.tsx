@@ -6,6 +6,7 @@ import { uploadImages } from "@/lib/curatorApi";
 import { immichPullStream, listImmichAlbums, type ImmichAlbum } from "@/lib/lensApi";
 import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
+import { albumSlug } from "@/lib/albumSlug";
 
 /** Join a dataset-relative folder onto the curator container's source path. */
 function absSourcePath(rel: string): string {
@@ -14,11 +15,6 @@ function absSourcePath(rel: string): string {
 }
 
 const isImageFile = (f: File) => f.type.startsWith("image/");
-
-/** Turn an album name into a safe dataset folder name. */
-function slugify(name: string): string {
-  return name.trim().replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "immich";
-}
 
 interface Props {
   /** Called with the folder (as the curator sees it) that just received images. */
@@ -89,7 +85,7 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
     setPull(null);
     try {
       const res = await immichPullStream(
-        { album_id: album.id, dest_folder: `immich/${slugify(album.name)}` },
+        { album_id: album.id, dest_folder: `immich/${albumSlug(album.name, album.id)}` },
         (p) => setPull({ done: p.done, total: p.total }),
       );
       setNote(

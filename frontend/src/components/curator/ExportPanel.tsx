@@ -393,7 +393,11 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
   // Which stage comes next for THIS export. While captioning is still streaming
   // there is no summary yet, so fall back to the intent — otherwise the link
   // would offer to caption an export that is being captioned as it renders.
-  const handoffCaptioned = captionSummary ? captionSummary.captioned > 0 : toCaption && !manifestProblem;
+  // Once the run is over, only a summary with captions counts: a failed or
+  // aborted captioning run leaves none, and must route to Lens, not Forge.
+  const handoffCaptioned = captionSummary
+    ? captionSummary.captioned > 0
+    : busy && toCaption && !manifestProblem;
   const notes = result ? exportNotes(result) : { notes: [], warning: null };
 
   return (

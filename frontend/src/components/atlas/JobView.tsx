@@ -85,8 +85,11 @@ export function JobView({
   const [tilesRefused, setTilesRefused] = useState<string | null>(null);
   const [showCommands, setShowCommands] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
-  const [collection, setCollection] = useState<LabelCollection | null>(null);
-  const [labelsError, setLabelsError] = useState<string | null>(null);
+  // Each load is tagged with the job and labels file it came from, so a job
+  // without labels (or a refresh that drops them) never shows the last map's names.
+  const [labelsLoad, setLabelsLoad] = useState<
+    { key: string; collection: LabelCollection | null; error: string | null } | null
+  >(null);
 
   const bake = s.bake;
   const tiles = s.tiles;
@@ -101,22 +104,25 @@ export function JobView({
   // Names are drawn by the page, never painted: nothing here touches the raster.
   const labelsRecord = s.labels ?? null;
   const labelsVersion = labelsRecord && labelsRecord.count > 0 ? labelsRecord.file.sha256 : null;
+  const labelsKey = labelsVersion ? `${s.job_id}:${labelsVersion}` : null;
   useEffect(() => {
-    if (!labelsVersion || !showLabels) return;
+    if (!labelsKey || !showLabels) return;
     const ctrl = new AbortController();
     (async () => {
       try {
         const loaded = await getLabels(s.job_id, ctrl.signal);
-        setCollection(loaded);
-        setLabelsError(null);
+        setLabelsLoad({ key: labelsKey, collection: loaded, error: null });
       } catch (err) {
         if (ctrl.signal.aborted) return;
-        setCollection(null);
-        setLabelsError(err instanceof Error ? err.message : "Could not load the labels");
+        const error = err instanceof Error ? err.message : "Could not load the labels";
+        setLabelsLoad({ key: labelsKey, collection: null, error });
       }
     })();
     return () => ctrl.abort();
-  }, [s.job_id, labelsVersion, showLabels]);
+  }, [s.job_id, labelsKey, showLabels]);
+  const current = labelsKey && labelsLoad?.key === labelsKey ? labelsLoad : null;
+  const collection = current?.collection ?? null;
+  const labelsError = current?.error ?? null;
   const placed = useMemo(() => (collection ? placeLabels(collection, s.grid) : null), [collection, s.grid]);
 
   const tile = async () => {

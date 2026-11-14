@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listFolders } from "@/lib/curatorApi";
 import type { FolderListing } from "./types";
 
@@ -21,23 +21,36 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
   const [listing, setListing] = useState<FolderListing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The path whose fetch failed, so the inline error can offer a retry.
+  const [failedPath, setFailedPath] = useState<string | null>(null);
+  // Only the latest navigation may land: each fetch aborts the one before it,
+  // so a slow, older listing can never replace the folder the user is in.
+  const inFlight = useRef<AbortController | null>(null);
 
   // Fetch + apply results only in async callbacks (safe to call from an effect).
   const fetchListing = useCallback(
-    (path: string, signal?: AbortSignal) => {
+    (path: string) => {
+      inFlight.current?.abort();
+      const ctrl = new AbortController();
+      inFlight.current = ctrl;
+      const { signal } = ctrl;
       fetcher(path, signal)
         .then((data) => {
+          if (signal.aborted) return;
           setListing(data);
           setRel(data.path);
           setError(null);
+          setFailedPath(null);
         })
         .catch((err) => {
-          if (signal?.aborted) return;
+          if (signal.aborted) return;
           setError(err instanceof Error ? err.message : "Could not list folders");
+          setFailedPath(path);
         })
         .finally(() => {
-          if (!signal?.aborted) setLoading(false);
+          if (!signal.aborted) setLoading(false);
         });
+      return ctrl;
     },
     [fetcher],
   );
@@ -52,17 +65,25 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
   );
 
   useEffect(() => {
-    const ctrl = new AbortController();
-    fetchListing("", ctrl.signal);
+    const ctrl = fetchListing("");
     return () => ctrl.abort();
   }, [fetchListing]);
 
   const crumbs = rel ? rel.split("/") : [];
 
-  if (error) {
+  // Nothing listed yet: the server has no browsable root, so fall back to the
+  // manual path. A later navigation error keeps the last good listing instead.
+  if (error && !listing) {
     return (
       <div className="rounded-lg border border-accent-amber/30 bg-warn-tint p-3 text-[11px] leading-relaxed text-warn-ink">
-        Folder browsing unavailable: {error}. Configure a source root on the server, or enter a path manually below.
+        Folder browsing unavailable: {error}. Configure a source root on the server, or enter a path manually below.{" "}
+        <button
+          type="button"
+          onClick={() => load(failedPath ?? "")}
+          className="cursor-pointer font-medium underline"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -95,6 +116,19 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
           );
         })}
       </div>
+
+      {error && (
+        <div className="flex items-center justify-between gap-2 rounded border border-accent-amber/30 bg-warn-tint px-2 py-1.5 text-[11px] text-warn-ink">
+          <span>Could not open that folder: {error}</span>
+          <button
+            type="button"
+            onClick={() => load(failedPath ?? rel)}
+            className="shrink-0 cursor-pointer font-medium underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Listing */}
       <div className="scrollbar-thin max-h-52 space-y-1 overflow-y-auto">
