@@ -13,7 +13,9 @@
     "wire:types": "node scripts/wire-types.mjs",
     "wire:check": "node scripts/wire-types.mjs --check",
     "wire:pull": "node scripts/wire-types.mjs --pull",
-    "docs:links": "node scripts/check-links.mjs"
+    "docs:links": "node scripts/check-links.mjs",
+    "docs:pull": "node scripts/package-docs.mjs --pull",
+    "docs:check": "node scripts/package-docs.mjs --check"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.1",
@@ -24,10 +26,13 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

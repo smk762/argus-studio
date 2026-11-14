@@ -1,0 +1,308 @@
+{
+  "$comment": "Where /docs/packages comes from (argus-studio#170): each package's dev branch at one commit. `npm run docs:pull` writes the docs to src/content/packages/<short>/ and their images to public/package-docs/<short>/, with a sha256 per file here; `npm run docs:check` holds the committed copies to this record offline, and .github/workflows/docs-drift.yml flags a dev branch that moved on. Never hand-edit the imported files.",
+  "packages": {
+    "lens": {
+      "package": "argus-lens",
+      "repo": "smk762/argus-lens",
+      "branch": "dev",
+      "commit": "4804154cc51f27df711c3101b91f56e0740da32e",
+      "version": "0.11.1.dev4+g4804154",
+      "pages": [
+        {
+          "file": "README.md",
+          "slug": "",
+          "title": "argus-lens"
+        },
+        {
+          "file": "docs/cli.md",
+          "slug": "cli",
+          "title": "CLI reference"
+        },
+        {
+          "file": "docs/caption-result.md",
+          "slug": "caption-result",
+          "title": "Caption result reference"
+        }
+      ],
+      "held": [],
+      "files": {
+        "src/content/packages/lens/docs/caption-result.md": "5a413cd0dcf7c7d712b7fb37db0be2a0b9203458110d670374c6fc57907f95f0",
+        "src/content/packages/lens/docs/cli.md": "69b75c8101dd2e72dd0ad44181e3930ef3433798ee53786d3d08b29af011708c",
+        "src/content/packages/lens/README.md": "9a13cf8e7ad6099e2103c58a11677ce5e6c644c1ffed252328e3d3eaca631d88"
+      }
+    },
+    "curator": {
+      "package": "argus-curator",
+      "repo": "smk762/argus-curator",
+      "branch": "dev",
+      "commit": "97021d6c0d1b790d82c3a77ad66904450b18d065",
+      "version": "0.15.1.dev11+g97021d6",
+      "pages": [
+        {
+          "file": "README.md",
+          "slug": "",
+          "title": "argus-curator"
+        },
+        {
+          "file": "docs/scoring.md",
+          "slug": "scoring",
+          "title": "How scoring works"
+        },
+        {
+          "file": "docs/face-attributes.md",
+          "slug": "face-attributes",
+          "title": "Face attributes (MiVOLO, FairFace)"
+        },
+        {
+          "file": "docs/face-sources.md",
+          "slug": "face-sources",
+          "title": "Face sources (argus-mask)"
+        },
+        {
+          "file": "docs/scene-tags.md",
+          "slug": "scene-tags",
+          "title": "Scene tags (Places365)"
+        },
+        {
+          "file": "docs/garments.md",
+          "slug": "garments",
+          "title": "Garments (Fashionpedia)"
+        },
+        {
+          "file": "docs/nudity.md",
+          "slug": "nudity",
+          "title": "Nudity detection (NudeNet)"
+        },
+        {
+          "file": "docs/policy-check.md",
+          "slug": "policy-check",
+          "title": "Policy check (SingGuard)"
+        },
+        {
+          "file": "docs/moderation.md",
+          "slug": "moderation",
+          "title": "Standalone moderation and dataset auditing"
+        },
+        {
+          "file": "docs/prefilter.md",
+          "slug": "prefilter",
+          "title": "Prefilter: drop before the slow checks"
+        },
+        {
+          "file": "docs/crops.md",
+          "slug": "crops",
+          "title": "Crops: watermarks and borders, without touching the source"
+        },
+        {
+          "file": "docs/sidecars.md",
+          "slug": "sidecars",
+          "title": "Sidecars and run stats"
+        },
+        {
+          "file": "docs/xmp.md",
+          "slug": "xmp",
+          "title": "XMP sidecars"
+        },
+        {
+          "file": "docs/manifest.md",
+          "slug": "manifest",
+          "title": "Manifest reference"
+        },
+        {
+          "file": "docs/synthetic-face-sets.md",
+          "slug": "synthetic-face-sets",
+          "title": "Synthetic source portraits for argus-mask"
+        },
+        {
+          "file": "docs/http-api.md",
+          "slug": "http-api",
+          "title": "HTTP API (:8101)"
+        },
+        {
+          "file": "docs/cli.md",
+          "slug": "cli",
+          "title": "argus-curator CLI reference"
+        },
+        {
+          "file": "docs/gpu.md",
+          "slug": "gpu",
+          "title": "Docker and the GPU"
+        }
+      ],
+      "held": [],
+      "files": {
+        "src/content/packages/curator/docs/cli.md": "06bcb49b384fe0b496ab38c476e580268ff7a7aee9fb2ab6e15dd19978e6e6c4",
+        "src/content/packages/curator/docs/crops.md": "b836606ee147f8595946d7c8d069ae2abce2d3321870634016167f2930196003",
+        "src/content/packages/curator/docs/face-attributes.md": "ea77a57dd3c166862273fc729284215edac0aa355cda2fd384be26e2e7f2f3bc",
+        "src/content/packages/curator/docs/face-sources.md": "55a97881a93f9613a7694621eba705a9d1df3cfe09fdb6fc2d70043880b3ce79",
+        "src/content/packages/curator/docs/garments.md": "28329b9da6ebe1815ee87b14b1d7dfd984a480298dcfe02c7969f19be9763aa0",
+        "src/content/packages/curator/docs/gpu.md": "3308207ec0a1b733705ff64da236f0302cc7a374fd1bfe7a30a8c3e31a1cb98e",
+        "src/content/packages/curator/docs/http-api.md": "87ff36ddb404347b07f404c444625390551ae9a5d5fd69464fbd34137ebb6757",
+        "src/content/packages/curator/docs/manifest.md": "b30406daef784ae5d3d1ed7c234e2e4612038d40895a53caa04f447233b018ab",
+        "src/content/packages/curator/docs/moderation.md": "91ff5feef378bceaf8dd979c176fca46452327aacd39e2795e422076aadf24eb",
+        "src/content/packages/curator/docs/nudity.md": "05ecb61e9d990300f71fca95e0ad4f7507b32729b0dde67c8d60c1bb64e13486",
+        "src/content/packages/curator/docs/policy-check.md": "0e050cce3625a38c76f400ebe0588f42eed0e881a16f6ec213b0cafb23bc6267",
+        "src/content/packages/curator/docs/prefilter.md": "363fd7c0173b26a88f3f33724380aa280e53f310a89e7698f2fe17aa627c427c",
+        "src/content/packages/curator/docs/scene-tags.md": "8fb733d4c428762f3fa0711361cbad011a1171507faf7632f1cc2b674eb384fe",
+        "src/content/packages/curator/docs/scoring.md": "91b52750b1deaa28278ec2e5d4d6e7381bd8c26c30ec53c0d945486c148cdac7",
+        "src/content/packages/curator/docs/sidecars.md": "724b0b530604694f76991e740b591c9a304580df3c660362af9f19c0cce7b0ac",
+        "src/content/packages/curator/docs/synthetic-face-sets.md": "2ffa3df5240c6ec35068e65a21ca6c9dd60b01ada362de4280e86432f8a05d6a",
+        "src/content/packages/curator/docs/xmp.md": "943cb59854be467a3497644933ae43a3a68c50b432f226b9439d676725a8330d",
+        "src/content/packages/curator/README.md": "b4058ee1fa605a73d9048806e464527a225d55379bb3c7f75cd87085390cb822"
+      }
+    },
+    "quarry": {
+      "package": "argus-quarry",
+      "repo": "smk762/argus-quarry",
+      "branch": "dev",
+      "commit": "9370dbd01973a241a7c50c573983ca377ae70b56",
+      "version": "0.4.1.dev5+g9370dbd",
+      "pages": [],
+      "held": [
+        "README.md",
+        "DESIGN.md"
+      ],
+      "files": {}
+    },
+    "forge": {
+      "package": "argus-forge",
+      "repo": "smk762/argus-forge",
+      "branch": "dev",
+      "commit": "44e7e6baca849edafadf03d0f711894631ed65a3",
+      "version": "0.1.2.dev25+g44e7e6b",
+      "pages": [],
+      "held": [
+        "README.md"
+      ],
+      "files": {}
+    },
+    "proof": {
+      "package": "argus-proof",
+      "repo": "smk762/argus-proof",
+      "branch": "dev",
+      "commit": "26f26fc6aeba2faafe70ce32f7e1cc68b98b03f0",
+      "version": "0.2.3.dev14+g26f26fc",
+      "pages": [
+        {
+          "file": "README.md",
+          "slug": "",
+          "title": "argus-proof"
+        }
+      ],
+      "held": [],
+      "files": {
+        "src/content/packages/proof/README.md": "d21ffe5bddcdaeb4deeab0101194a1fce65191bd19c32034822780a781df053c"
+      }
+    },
+    "atlas": {
+      "package": "argus-atlas",
+      "repo": "smk762/argus-atlas",
+      "branch": "dev",
+      "commit": "77cc8fdf13277b9d319ba0ee392dcd18fae1768b",
+      "version": "0.3.1.dev21+g77cc8fd",
+      "pages": [
+        {
+          "file": "README.md",
+          "slug": "",
+          "title": "argus-atlas"
+        },
+        {
+          "file": "docs/your-first-bake.md",
+          "slug": "your-first-bake",
+          "title": "Your first bake"
+        },
+        {
+          "file": "docs/styles.md",
+          "slug": "styles",
+          "title": "Styles and the knobs that matter"
+        },
+        {
+          "file": "docs/relief.md",
+          "slug": "relief",
+          "title": "Relief: the Mercator correction and vertical exaggeration"
+        },
+        {
+          "file": "docs/data-sources.md",
+          "slug": "data-sources",
+          "title": "Data sources for atlas layers and DEMs"
+        },
+        {
+          "file": "docs/alignment-gate.md",
+          "slug": "alignment-gate",
+          "title": "The alignment gate"
+        },
+        {
+          "file": "docs/chunks-and-mosaic.md",
+          "slug": "chunks-and-mosaic",
+          "title": "Chunks, mosaics and place names"
+        },
+        {
+          "file": "docs/cli.md",
+          "slug": "cli",
+          "title": "argus-atlas CLI reference"
+        }
+      ],
+      "held": [],
+      "files": {
+        "public/package-docs/atlas/docs/img/flow-sirmione.jpg": "6d9f7afe8c7dd2e16199bb5de2846c69cb79b30971d4bca7270137ae6e1643b4",
+        "public/package-docs/atlas/docs/img/garda-1-checkpoints.jpg": "aadd60da4ee6b0dd9bc5dc8651cfb85e733f6ac76b0f1c7c2057f1211e092d73",
+        "public/package-docs/atlas/docs/img/garda-1-denoise.jpg": "6288f714e9300a12426dd81efbc9076ff02d7bf29c730f94e549470c74a1d492",
+        "public/package-docs/atlas/docs/img/garda-1-minecraft.jpg": "b1f36676111ecbaf2085d56008d3411bacbc511a76b85aff7e5da16902c46b24",
+        "public/package-docs/atlas/docs/img/garda-1-styles.jpg": "ef0ea3f2293bd4803e1091962323124eab5f703d7cc0ec469f7520900ef73fda",
+        "public/package-docs/atlas/docs/img/garda-1-themes.jpg": "a096ee459f9650d92c9deb9f91f12a082962bbd4d8d3d71c933ed2c9556fc80a",
+        "public/package-docs/atlas/docs/img/garda-2-composite.jpg": "4cb7584c602793756b2aca9653e15a413852d4d44560cc12e0addc5bf9f84342",
+        "public/package-docs/atlas/docs/img/hero-cook-strait.jpg": "b86524bf6946bc4f5297c0d375528e24bf100890e552ef4829fcf97fb6e4705a",
+        "src/content/packages/atlas/docs/alignment-gate.md": "cbdf64370d5377499130d7f70fc34a55c87caa0973bff03755baff6a45815aed",
+        "src/content/packages/atlas/docs/chunks-and-mosaic.md": "447713a4ec1b18ebca1bfd4ec3ddbd596edc6b12cadaccc659825b5ecd837fb5",
+        "src/content/packages/atlas/docs/cli.md": "feca138cd61ae8b97c1c9db5bda1ef2b05db63ef41e6e64a5337108d8e590457",
+        "src/content/packages/atlas/docs/data-sources.md": "ca2f1d1003638b5a00ecfb57a2a312fbc45b35965d9dc4fc07acd5add28da01b",
+        "src/content/packages/atlas/docs/relief.md": "1a6483ccc14298e8398453250120158ecc9893c0c83858804029ec8a1eb467fd",
+        "src/content/packages/atlas/docs/styles.md": "d39f96734bd70d51361c181455b90f6649ab4f52428cc5549c1c8c53936419ca",
+        "src/content/packages/atlas/docs/your-first-bake.md": "19c436427f0554ec27b6bcec0dde6da8dd91f2b2b58a7fe7242f82cd5658af79",
+        "src/content/packages/atlas/README.md": "11f256803a0262710a96c3078e0bc5d89840a8a4e99cca7ed88811de4899e00f"
+      }
+    },
+    "darkroom": {
+      "package": "argus-darkroom",
+      "repo": "smk762/argus-darkroom",
+      "branch": "dev",
+      "commit": "aafcbd6efa47b285715a4fd9a7632777c480e89c",
+      "version": "0.1.4.dev34+gaafcbd6",
+      "pages": [
+        {
+          "file": "README.md",
+          "slug": "",
+          "title": "argus-darkroom"
+        },
+        {
+          "file": "spec.md",
+          "slug": "spec",
+          "title": "argus-darkroom — build doc"
+        }
+      ],
+      "held": [],
+      "files": {
+        "src/content/packages/darkroom/README.md": "7c14fbbe452a42692599ab1770d7d4687f91281c6fa2bbf2bb7e57181388ae6c",
+        "src/content/packages/darkroom/spec.md": "692952fda20aabc2148d661a0bd17e6b0ad8d8ff8f38f3f707c51a964383b26a"
+      }
+    },
+    "cortex": {
+      "package": "argus-cortex",
+      "repo": "smk762/argus-cortex",
+      "branch": "dev",
+      "commit": "3449529928971e50de1e18ad50121e9323040e79",
+      "version": "0.4.8.dev62+g3449529",
+      "pages": [
+        {
+          "file": "README.md",
+          "slug": "",
+          "title": "argus-cortex"
+        }
+      ],
+      "held": [],
+      "files": {
+        "src/content/packages/cortex/README.md": "87f4f96a4a740ce16ef2fea403cf5586d4eef095d09357ed622680d39d37fa75"
+      }
+    }
+  }
+}

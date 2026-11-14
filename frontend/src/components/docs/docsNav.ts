@@ -4,10 +4,13 @@
  * pages are authored (epic: interactive-docs).
  */
 import { SERVICES, serviceHref } from "@/content/services";
+import { PACKAGE_DOCS, packageHref, subPages } from "@/lib/packageDocs";
 
 export interface DocsNavItem {
   href: string;
   label: string;
+  /** Pages under this one: in reading order and the breadcrumb, but not in the sidebar (the page lists them). */
+  children?: DocsNavItem[];
 }
 
 export interface DocsNavSection {
@@ -43,11 +46,24 @@ export const DOCS_NAV: DocsNavSection[] = [
       ...SERVICES.map((s) => ({ href: serviceHref(s.id), label: s.title })),
     ],
   },
+  {
+    // Each package's own docs, imported at its dev HEAD (argus-studio#170,
+    // scripts/package-docs.mjs). One entry per package: its docs/*.md pages are
+    // listed on the package page, not here.
+    title: "Packages",
+    items: PACKAGE_DOCS.map((pkg) => ({
+      href: packageHref(pkg.short),
+      label: pkg.package,
+      children: subPages(pkg).map((page) => ({ href: packageHref(pkg.short, page.slug), label: page.title })),
+    })),
+  },
 ];
 
 /** A page in reading order, carrying the section it belongs to (for breadcrumbs). */
 export interface DocsNavPage extends DocsNavItem {
   section: string;
+  /** The nav item a child page sits under. */
+  parent?: DocsNavItem;
 }
 
 /**
@@ -55,7 +71,10 @@ export interface DocsNavPage extends DocsNavItem {
  * prev/next paging and the breadcrumb read, so page order lives in one place.
  */
 export const DOCS_PAGES: DocsNavPage[] = DOCS_NAV.flatMap((section) =>
-  section.items.map((item) => ({ ...item, section: section.title })),
+  section.items.flatMap((item) => [
+    { ...item, section: section.title },
+    ...(item.children ?? []).map((child) => ({ ...child, section: section.title, parent: item })),
+  ]),
 );
 
 /** Prev/next/current for `pathname`, or nulls when it is not a registered page. */
@@ -64,7 +83,9 @@ export function docsPager(pathname: string): {
   prev: DocsNavPage | null;
   next: DocsNavPage | null;
 } {
-  const i = DOCS_PAGES.findIndex((p) => p.href === pathname);
+  // The static export serves every route with a trailing slash.
+  const path = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
+  const i = DOCS_PAGES.findIndex((p) => p.href === path);
   if (i === -1) return { current: null, prev: null, next: null };
   return {
     current: DOCS_PAGES[i],

@@ -22,6 +22,10 @@ const nextConfig: NextConfig = {
   ...(staticDemo ? {} : { redirects: async () => [{ source: "/caption", destination: "/", permanent: true }] }),
   // Let `.mdx` files be treated as routes/pages alongside TS/TSX.
   pageExtensions: ["ts", "tsx", "mdx"],
+  // The package docs (/docs/packages, argus-studio#170) are read from disk when
+  // a page renders, which the server build does per request: ship them in the
+  // standalone image beside the server.
+  outputFileTracingIncludes: { "/docs/packages/**": ["./src/content/packages/**/*.md"] },
 };
 
 const withMDX = createMDX({

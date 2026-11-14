@@ -37,7 +37,8 @@ describe("opsecFindings", () => {
   });
 });
 
-// The gate itself: every published docs source must pass. CI supplies the
+// The gate itself: every published docs source must pass, the package docs
+// imported under src/content/packages included. CI supplies the
 // private denylist as the DOCS_OPSEC_DENYLIST secret.
 const ROOT = join(__dirname, "..");
 const PUBLISHED = [join(ROOT, "app", "docs"), join(ROOT, "content")];
@@ -46,7 +47,7 @@ function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) return files(p);
-    return /\.(mdx|ts|tsx)$/.test(name) && !name.endsWith(".test.ts") ? [p] : [];
+    return /\.(md|mdx|ts|tsx)$/.test(name) && !name.endsWith(".test.ts") ? [p] : [];
   });
 }
 
