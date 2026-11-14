@@ -1,0 +1,147 @@
+name: Package docs drift
+
+# Daily: has any package's `dev` branch moved past the commit
+# frontend/schema/docs.json records for it (argus-studio#170)? If so, re-import
+# every package's docs at its current dev HEAD (`npm run docs:pull`), check them
+# (`npm run docs:check` and the vitest suite, which holds the opsec gate, the
+# registry and every in-site link and anchor), and open or update one PR from
+# `chore/docs-sync` into dev. If the opsec gate refuses a doc, nothing is
+# written; open or update one issue instead, so the fix lands upstream.
+#
+# A PR opened or pushed with GITHUB_TOKEN does not trigger other workflows, so
+# ci.yml will not run on it by itself. As argus-cull's curator drift job does
+# (cull's .github/workflows/sync-drift.yml), this job runs the checks CI would
+# before it opens the PR, so the PR only exists when they pass. To get CI's own
+# checks on it, close and reopen the PR or push a commit to the branch (both
+# count as a person's event).
+#
+# Scope: docs only. The wire pins (frontend/schema/pins.json) and the recorded
+# demo data (frontend/public/demo/) still move by hand; converging them onto the
+# same dev commit is a follow-up.
+
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: docs-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: chore/docs-sync
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - id: compare
+        run: |
+          moved=""
+          for short in $(jq -r '.packages | keys_unsorted[]' schema/docs.json); do
+            repo=$(jq -r ".packages[\"$short\"].repo" schema/docs.json)
+            recorded=$(jq -r ".packages[\"$short\"].commit" schema/docs.json)
+            head=$(git ls-remote "https://github.com/$repo" refs/heads/dev | cut -f1)
+            if [ -n "$head" ] && [ "$head" != "$recorded" ]; then
+              echo "$short: ${recorded:0:9} -> ${head:0:9}"
+              moved="$moved $short"
+            fi
+          done
+          echo "moved=${moved# }" >> "$GITHUB_OUTPUT"
+          [ -n "$moved" ] || echo "Every package's dev is still at its recorded commit."
+
+      - if: steps.compare.outputs.moved != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.4"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - if: steps.compare.outputs.moved != ''
+        run: npm ci
+
+      - id: pull
+        if: steps.compare.outputs.moved != ''
+        continue-on-error: true
+        env:
+          # Private terms the opsec gate refuses (never committed, never echoed).
+          DOCS_OPSEC_DENYLIST: ${{ secrets.DOCS_OPSEC_DENYLIST }}
+        run: |
+          set -o pipefail
+          npm run docs:pull 2>&1 | tee "$RUNNER_TEMP/pull.log"
+
+      - id: check
+        if: steps.compare.outputs.moved != '' && steps.pull.outcome == 'success'
+        continue-on-error: true
+        env:
+          DOCS_OPSEC_DENYLIST: ${{ secrets.DOCS_OPSEC_DENYLIST }}
+        run: |
+          npm run docs:check
+          npm run lint
+          npm run typecheck
+          npm test
+
+      - id: pr
+        if: steps.compare.outputs.moved != '' && steps.check.outcome == 'success'
+        env:
+          MOVED: ${{ steps.compare.outputs.moved }}
+        run: |
+          if git diff --quiet -- schema/docs.json; then
+            echo "Nothing changed after the pull."
+            exit 0
+          fi
+          summary=$(jq -r '.packages | to_entries[] | "- \(.value.package) \(.value.version) @ \(.value.commit[0:7])"' schema/docs.json)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add schema/docs.json src/content/packages public/package-docs
+          git commit -m "chore(docs): sync package docs to dev HEAD ($MOVED)"
+          git push --force origin "$BRANCH"
+          body="Re-imports the package docs at each package's current \`dev\` HEAD (moved: $MOVED). \`docs:check\`, lint, typecheck and the vitest suite (opsec gate, registry, in-site links and anchors) passed in the drift job.
+
+          $summary
+
+          Opened with GITHUB_TOKEN, so CI does not run on it by itself: close and reopen this PR (or push to \`$BRANCH\`) to run it. Part of #170."
+          number=$(gh pr list --head "$BRANCH" --base dev --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/pulls/$number" -f body="$body" >/dev/null
+            echo "Updated #$number."
+          else
+            gh pr create --base dev --head "$BRANCH" --title "chore(docs): sync package docs to dev HEAD" --body "$body"
+          fi
+
+      - if: steps.compare.outputs.moved != '' && (steps.pull.outcome == 'failure' || steps.check.outcome == 'failure')
+        env:
+          MOVED: ${{ steps.compare.outputs.moved }}
+          WHY: ${{ steps.pull.outcome == 'failure' && 'docs:pull refused the import (the opsec gate, or a file missing from a package) and wrote nothing' || 'the re-imported docs failed docs:check, lint, typecheck or the tests' }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Package docs sync blocked"
+          # The pull log names file, line and rule, never a matched value from the denylist.
+          detail=$(grep -E '^\s+smk762/' "$RUNNER_TEMP/pull.log" 2>/dev/null | head -50 || true)
+          body="The package docs could not be synced to \`dev\` HEAD (moved: $MOVED): $WHY. Run: $RUN
+
+          ${detail:+Refused:
+          \`\`\`
+          $detail
+          \`\`\`
+          }Fix each refusal in that package's \`dev\` branch (never in Studio's copy), or move the file to \`held\` in frontend/scripts/package-docs-lib.mjs. Part of #170."
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

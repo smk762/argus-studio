@@ -362,6 +362,10 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 
 `frontend/src/lib/generated/` holds TypeScript generated from the curator, forge and proof wire schemas. The schemas are committed under `frontend/schema/` and pinned to a release in `pins.json`. To move to a new release, change the tag in `pins.json`, run `npm run wire:pull`, and fix whatever `npm run typecheck` reports. `npm run wire:check` is the CI step that fails on drift, and needs no network or sibling checkout.
 
+### Package docs
+
+`/docs/packages/<package>` shows each package's own README and `docs/*.md` pages, imported from its repo at the HEAD of its `dev` branch. The copies are committed under `frontend/src/content/packages/` (images under `frontend/public/package-docs/`), and `frontend/schema/docs.json` records each package's commit, version and a sha256 per file, so a build needs no network. `npm run docs:pull` re-imports every package (or `npm run docs:pull -- lens` for one) and refuses the whole import if a doc fails the opsec gate; `npm run docs:check` is the offline CI step. `.github/workflows/docs-drift.yml` opens a sync PR daily when a package's `dev` moves on. Never edit the imported files: fix the doc upstream and pull again.
+
 ## Configuration
 
 | Variable | Default | Description |

@@ -12,9 +12,13 @@ import { join } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 const SOURCES = [join(ROOT, "src/app/docs"), join(ROOT, "src/content")];
+// The imported package docs (src/content/packages, argus-studio#170) are left
+// out: each package owns its links, so this stays about Studio's own pages.
+const SKIP = new Set([join(ROOT, "src/content/packages")]);
 const URL_RE = /https?:\/\/[^\s"'`<>)\]]+/g;
 
 function walk(dir) {
+  if (SKIP.has(dir)) return [];
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) return walk(p);

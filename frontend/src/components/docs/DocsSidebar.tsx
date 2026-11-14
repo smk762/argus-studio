@@ -16,14 +16,17 @@ export function DocsSidebar() {
           </p>
           <ul className="space-y-0.5">
             {section.items.map((item) => {
-              const active = pathname === item.href;
+              const path = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
+              const active = path === item.href;
+              // A child page (a package's docs/*.md) highlights its parent, which lists it.
+              const within = !active && (item.children ?? []).some((child) => child.href === path);
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={
-                      active
+                      active || within
                         ? "block rounded-md border-l-2 border-accent-purple bg-surface px-3 py-1.5 text-sm text-foreground"
                         : "block rounded-md border-l-2 border-transparent px-3 py-1.5 text-sm text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
                     }

@@ -39,6 +39,12 @@ jobs:
       # Fails if src/lib/generated has drifted from the schemas in schema/pins.json.
       - run: npm run wire:check
 
+      # Fails if the imported package docs (src/content/packages, public/package-docs)
+      # no longer match schema/docs.json, or fail the opsec gate. Offline.
+      - run: npm run docs:check
+        env:
+          DOCS_OPSEC_DENYLIST: ${{ secrets.DOCS_OPSEC_DENYLIST }}
+
       - run: npm run lint
 
       - run: npm run typecheck
