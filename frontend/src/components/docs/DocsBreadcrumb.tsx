@@ -19,14 +19,6 @@ export function DocsBreadcrumb() {
       <span aria-hidden>/</span>
       <span>{current.section}</span>
       <span aria-hidden>/</span>
-      {current.parent ? (
-        <>
-          <Link href={current.parent.href} className="transition-colors hover:text-foreground">
-            {current.parent.label}
-          </Link>
-          <span aria-hidden>/</span>
-        </>
-      ) : null}
       <span className="text-foreground/80">{current.label}</span>
     </nav>
   );

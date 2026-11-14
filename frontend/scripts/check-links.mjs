@@ -1,7 +1,7 @@
 // External link check for the /docs pages (argus-studio#172).
 //
 // Collects every http(s) URL in the docs sources (src/app/docs/**/*.mdx and the
-// service registry in src/content/), fetches each one following redirects, and
+// concept registry in src/content/), fetches each one following redirects, and
 // fails if any final response is not 2xx. Run on a schedule by
 // .github/workflows/docs-links.yml, not on every PR, so CI never depends on a
 // third party's uptime.
@@ -12,13 +12,9 @@ import { join } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 const SOURCES = [join(ROOT, "src/app/docs"), join(ROOT, "src/content")];
-// The imported package docs (src/content/packages, argus-studio#170) are left
-// out: each package owns its links, so this stays about Studio's own pages.
-const SKIP = new Set([join(ROOT, "src/content/packages")]);
 const URL_RE = /https?:\/\/[^\s"'`<>)\]]+/g;
 
 function walk(dir) {
-  if (SKIP.has(dir)) return [];
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) return walk(p);

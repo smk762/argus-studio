@@ -43,9 +43,10 @@ describe("opsecFindings", () => {
   });
 });
 
-// The gate itself: every published docs source must pass, the package docs
-// imported under src/content/packages included. CI supplies the
-// private denylist as the DOCS_OPSEC_DENYLIST secret.
+// The gate itself: every published docs source must pass. That is Studio's own
+// /docs pages and the concept registry they render (src/content/concepts.ts);
+// the setup guides and package docs moved to argus-handbook, which runs its own
+// gate. CI supplies the private denylist as the DOCS_OPSEC_DENYLIST secret.
 const ROOT = join(__dirname, "..");
 const PUBLISHED = [join(ROOT, "app", "docs"), join(ROOT, "content")];
 
