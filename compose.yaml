@@ -413,9 +413,7 @@ services:
 
   argus-sightline:
     profiles: ["survey"]
-    # Not on GHCR: argus-sightline publishes no image yet, so run this profile
-    # with compose.build.yaml (builds ../argus-sightline, tagged with this name).
-    image: ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.0}
+    image: ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.1}
     ports:
       - "${SIGHTLINE_PORT:-3107}:3000"
     environment:
