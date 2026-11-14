@@ -21,8 +21,9 @@ Thumbs.db
 # Local-only compose tweaks + env backups
 compose.override.yaml
 .env.bak-*
-quarry/
-recipes/
+# Repo-root only: src/content/packages/quarry/ is tracked.
+/quarry/
+/recipes/
 
 # Agent skills installed locally by `npx modern-web-guidance install` (see CLAUDE.md)
 **/.claude/skills/

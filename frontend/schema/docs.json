@@ -36,7 +36,7 @@
       "repo": "smk762/argus-curator",
       "branch": "dev",
       "commit": "97021d6c0d1b790d82c3a77ad66904450b18d065",
-      "version": "0.15.1.dev11+g97021d6",
+      "version": "0.15.2.dev2+g97021d6",
       "pages": [
         {
           "file": "README.md",
@@ -157,19 +157,26 @@
       "branch": "dev",
       "commit": "9370dbd01973a241a7c50c573983ca377ae70b56",
       "version": "0.4.1.dev5+g9370dbd",
-      "pages": [],
-      "held": [
-        "README.md",
-        "DESIGN.md"
+      "pages": [
+        {
+          "file": "DESIGN.md",
+          "slug": "design",
+          "title": "argus-quarry — Design Doc (Draft)"
+        }
       ],
-      "files": {}
+      "held": [
+        "README.md"
+      ],
+      "files": {
+        "src/content/packages/quarry/DESIGN.md": "63061567a3b57d0c05b305c30f149b3b1521bdba4597ca90d0d55321d8c2f2f4"
+      }
     },
     "forge": {
       "package": "argus-forge",
       "repo": "smk762/argus-forge",
       "branch": "dev",
       "commit": "44e7e6baca849edafadf03d0f711894631ed65a3",
-      "version": "0.1.2.dev25+g44e7e6b",
+      "version": "0.2.1.dev5+g44e7e6b",
       "pages": [],
       "held": [
         "README.md"
@@ -199,7 +206,7 @@
       "repo": "smk762/argus-atlas",
       "branch": "dev",
       "commit": "77cc8fdf13277b9d319ba0ee392dcd18fae1768b",
-      "version": "0.3.1.dev21+g77cc8fd",
+      "version": "0.3.2.dev6+g77cc8fd",
       "pages": [
         {
           "file": "README.md",
@@ -267,7 +274,7 @@
       "repo": "smk762/argus-darkroom",
       "branch": "dev",
       "commit": "aafcbd6efa47b285715a4fd9a7632777c480e89c",
-      "version": "0.1.4.dev34+gaafcbd6",
+      "version": "0.2.1.dev7+gaafcbd6",
       "pages": [
         {
           "file": "README.md",
@@ -291,7 +298,7 @@
       "repo": "smk762/argus-cortex",
       "branch": "dev",
       "commit": "3449529928971e50de1e18ad50121e9323040e79",
-      "version": "0.4.8.dev62+g3449529",
+      "version": "0.5.1.dev22+g3449529",
       "pages": [
         {
           "file": "README.md",
