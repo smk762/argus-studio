@@ -36,7 +36,7 @@ services:
 
   argus-curator:
     # The default image is CPU only, so reserving a GPU for it does nothing.
-    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-latest}-gpu
+    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.15.0}-gpu
     environment:
       - ARGUS_GPU_COORDINATOR=${ARGUS_GPU_COORDINATOR:-lease}
     deploy:

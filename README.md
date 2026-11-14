@@ -44,10 +44,21 @@ docker compose --profile full    up  # whole suite (pull + run GHCR images)
 docker compose --profile full    pull  # refresh the images to the current *_TAG
 ```
 
-Pin a specific released version with the `*_TAG` vars in `.env`
-(`CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG`).
-Most default to `latest`. `LENS_TAG` (`0.10.0`), `ATLAS_TAG` (`0.3.0a1`) and
-`DARKROOM_TAG` (`0.1.1`) default to a pinned release instead; see `.env.example`.
+Every backend defaults to the release this studio was checked against.
+Override one with its `*_TAG` var in `.env` (see `.env.example`):
+
+| Service | Var | Default |
+|---|---|---|
+| argus-curator | `CURATOR_TAG` | `0.15.0` (`0.15.0-gpu` under `compose.gpu.yaml`) |
+| argus-lens | `LENS_TAG` | `0.11.0` |
+| argus-quarry | `QUARRY_TAG` | `0.4.0` |
+| argus-forge | `FORGE_TAG` | `0.2.0` (`0.2.0-train` adds the trainer stack) |
+| argus-proof | `PROOF_TAG` | `0.2.2` |
+| argus-atlas | `ATLAS_TAG` | `0.3.1` |
+| argus-darkroom | `DARKROOM_TAG` | `0.2.0` |
+| argus-survey | `SURVEY_TAG` | `0.1.1` |
+| argus-sightline | `SIGHTLINE_TAG` | `0.1.0` (no published image yet: build it with `compose.build.yaml`) |
+| Ollama | `OLLAMA_TAG` | `0.40.16` |
 
 **Build from local source instead** — clone the sibling repos and layer the build
 override, which re-adds each backend's `build:` context:
@@ -374,8 +385,8 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `DARKROOM_PUBLISH` | `127.0.0.1:8106` | Host address and port for argus-darkroom. Loopback by default: darkroom is not for public hosting |
 | `ATLAS_RECIPES_DIR` | `./recipes` | Host dir of style recipes, mounted read-only at `/data/recipes` on argus-atlas for its CLI; no API route reads them |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
-| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG` | `latest`, except `LENS_TAG=0.10.0`, `ATLAS_TAG=0.3.0a1`, `DARKROOM_TAG=0.1.1` | GHCR image tag per backend on the default pull path; pin an exact release for reproducible deploys. Atlas only moves `latest` on final releases |
-| `LENS_CORS_ORIGINS` | _(unset)_ | Comma-separated browser origins lens accepts. Lens 0.10 allows any origin, but its next release narrows to `http://localhost:3000` and refuses cross-site writes from unlisted origins, so set this before bumping `LENS_TAG` for a LAN or public studio. Keep localhost in the list |
+| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG` / `SURVEY_TAG` / `SIGHTLINE_TAG` / `OLLAMA_TAG` | the checked release for each (see [the table above](#whole-suite-in-one-stack-recommended)) | Image tag per backend on the default pull path. `latest` follows each repo's newest release |
+| `LENS_CORS_ORIGINS` | _(unset)_ | Comma-separated browser origins lens accepts. Unset means `http://localhost:3000` only, and lens refuses writes from any unlisted origin with a 403, so set this for a LAN or public studio. Keep localhost in the list |
 | `LENS_EXTRAS` | `server,local` | pip extras for a **source build** only (`-f compose.build.yaml`); ignored on the default pull path (`server,openai,replicate` for a cloud-only image) |
 | `PROOF_EXTRAS` | `server,cli` | pip extras for a **source build** only (`-f compose.build.yaml`); `server,cli,score` adds the identity/quality/safety scorer stack |
 | `FRONTEND_PORT` / `LENS_PORT` / `CURATOR_PORT` | `3000` / `8100` / `8101` | Host ports |

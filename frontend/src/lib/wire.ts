@@ -40,6 +40,16 @@ import type { EvalReport } from "@/lib/proofApi";
  */
 export type Filled<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
 
+/**
+ * `T` with only the fields `K` required. From curator 0.15 the schema marks a
+ * field required wherever the server always sends it (argus-curator#129), so
+ * the generated response models are all required. This app still reads older
+ * curators, which leave newer fields out, so a response type built from one of
+ * those models keeps required only what it relied on before (its old schema
+ * required fields plus any it {@link Filled}), and the rest stay optional.
+ */
+export type Sparse<T, K extends keyof T = never> = Partial<Omit<T, K>> & Pick<T, K>;
+
 /** A model as a current server sends it: every field present, all the way down. */
 type Sent<T> = T extends object ? { [K in keyof T]-?: Sent<T[K]> } : T;
 
@@ -66,11 +76,10 @@ export type WireChecks = [
   // Built from nothing but aliases, so an Omit would only restate them.
   Expect<Fits<Proof.EvalReport, EvalReport>>,
 
-  // The suite's TargetProfile is cortex's. A service pinned before cortex grew a
-  // category (curator v0.14.1 lacks `concept`) must still fit inside it; once
-  // every pin carries the full taxonomy these can tighten to Same.
+  // The suite's TargetProfile is cortex's, and every pinned service now takes
+  // its copy from cortex (curator from v0.15.0, forge from v0.2.0).
   Expect<Same<TargetProfile, Required<Cortex.TargetProfile>>>,
-  Expect<Fits<Curator.TargetProfile, TargetProfile>>,
+  Expect<Same<Curator.TargetProfile, Cortex.TargetProfile>>,
   Expect<Same<Forge.TargetProfile, Cortex.TargetProfile>>,
 
   // Unions that drive runtime constants, so they stay declared next to those.

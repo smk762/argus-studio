@@ -1,4 +1,4 @@
-// Generated from smk762/argus-curator@v0.14.1 schema/curator-wire.schema.json.
+// Generated from smk762/argus-curator@v0.15.0 schema/curator-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface CuratorWire {
@@ -13,11 +13,14 @@ export interface CuratorWire {
   FaceCluster?: FaceCluster;
   FaceConfig?: FaceConfig;
   FaceDetection?: FaceDetection;
+  FaceLandmarks?: FaceLandmarks;
+  FaceSourceFilter?: FaceSourceFilter;
   GarmentConfig?: GarmentConfig;
   GarmentDetection?: GarmentDetection;
   GuardConfig?: GuardConfig;
   GuardResult?: GuardResult;
   ImageResult?: ImageResult;
+  ManifestFace?: ManifestFace;
   ManifestRow?: ManifestRow;
   NsfwConfig?: NsfwConfig;
   NsfwDetection?: NsfwDetection;
@@ -89,7 +92,7 @@ export interface CropConfig {
  * A finished scan records whether the check ran as True or False.
  */
 export interface EraxConfig {
-  enabled?: boolean | null;
+  enabled: boolean | null;
 }
 /**
  * One EraX-NSFW detection. ``bbox`` is ``[x, y, w, h]`` in source pixels.
@@ -109,8 +112,8 @@ export interface EraxDetection {
  * EraX-NSFW's view of one image. Classes are EraX's own, not NudeNet's.
  */
 export interface EraxResult {
-  detections?: EraxDetection[];
-  labels?: {
+  detections: EraxDetection[];
+  labels: {
     [k: string]: number;
   };
 }
@@ -161,6 +164,7 @@ export interface ExportRequest {
   face_poses?: ("frontal" | "three_quarter" | "profile")[] | null;
   face_races?:
     ("white" | "black" | "latino_hispanic" | "east_asian" | "southeast_asian" | "indian" | "middle_eastern")[] | null;
+  face_source?: FaceSourceFilter | null;
   garments?:
     | (
         | "shirt_blouse"
@@ -206,6 +210,7 @@ export interface ExportRequest {
    */
   include_rejected?: boolean;
   keep_similar?: boolean;
+  landmarks?: boolean;
   max_age_years?: number | null;
   max_keep?: number | null;
   min_age_years?: number | null;
@@ -274,26 +279,49 @@ export interface ExportRequest {
   write_manifest?: boolean;
   write_xmp?: boolean;
 }
+/**
+ * The face-source preset: images a head can be built from (argus-mask).
+ *
+ * Every check reads the primary face; ``None`` turns a check off. The
+ * defaults are the preset, so ``{}`` asks for all of it: one identity, one
+ * face, frontal and level, large and sharp, eyes open, mouth closed, close
+ * to the identity, and an adult age. An image that fails is kept out with
+ * ``face-source:<check>`` as its keep reason, and the kept images are ranked
+ * best first.
+ */
+export interface FaceSourceFilter {
+  cluster?: string | null;
+  max_identity_distance?: number | null;
+  max_mouth_open?: number | null;
+  max_pitch?: number | null;
+  max_roll?: number | null;
+  max_yaw?: number | null;
+  min_eye_open?: number | null;
+  min_face_px?: number | null;
+  min_face_sharpness?: number | null;
+  require_adult?: boolean;
+  single_face?: boolean;
+}
 export interface ExportResult {
-  captioned?: boolean;
+  captioned: boolean;
   copied: number;
-  cropped?: number;
+  cropped: number;
   dest: string;
-  exported_abs_paths?: {
+  exported_abs_paths: {
     [k: string]: string;
   };
-  exported_paths?: {
+  exported_paths: {
     [k: string]: string;
   };
-  manifest_path?: string | null;
-  manifest_version?: string;
-  mode: string;
-  run_stats_path?: string | null;
-  selected_rel_paths?: string[];
-  sidecars_carried?: number;
-  sidecars_failed?: number;
+  manifest_path: string | null;
+  manifest_version: string;
+  mode: "copy" | "symlink" | "move";
+  run_stats_path: string | null;
+  selected_rel_paths: string[];
+  sidecars_carried: number;
+  sidecars_failed: number;
   skipped: number;
-  xmp_written?: number;
+  xmp_written: number;
 }
 /**
  * Predicted attributes of one face (or a cluster's pooled prediction).
@@ -305,25 +333,27 @@ export interface ExportResult {
  * ``age`` is its derived bracket, and ``age_conf`` is ``None``.
  */
 export interface FaceAttributes {
-  age?: ("0-2" | "3-9" | "10-19" | "20-29" | "30-39" | "40-49" | "50-59" | "60-69" | "70+") | null;
-  age_body?: boolean | null;
-  age_conf?: number | null;
-  age_source?: ("fairface" | "mivolo") | null;
-  age_years?: number | null;
-  gender?: ("male" | "female") | null;
-  gender_conf?: number | null;
-  gender_source?: ("fairface" | "mivolo") | null;
-  race?:
-    ("white" | "black" | "latino_hispanic" | "east_asian" | "southeast_asian" | "indian" | "middle_eastern") | null;
-  race_conf?: number | null;
+  age: ("0-2" | "3-9" | "10-19" | "20-29" | "30-39" | "40-49" | "50-59" | "60-69" | "70+") | null;
+  age_body: boolean | null;
+  age_conf: number | null;
+  age_source: ("fairface" | "mivolo") | null;
+  age_years: number | null;
+  gender: ("male" | "female") | null;
+  gender_conf: number | null;
+  gender_source: ("fairface" | "mivolo") | null;
+  race: ("white" | "black" | "latino_hispanic" | "east_asian" | "southeast_asian" | "indian" | "middle_eastern") | null;
+  race_conf: number | null;
 }
 /**
  * A clustered identity across the scanned dataset.
  */
 export interface FaceCluster {
-  attributes?: FaceAttributes | null;
+  attributes: FaceAttributes | null;
   cluster_id: string;
-  representative_bbox?: number[] | null;
+  /**
+   * [x, y, w, h]
+   */
+  representative_bbox: [number, number, number, number] | null;
   representative_rel_path: string;
   size: number;
 }
@@ -346,6 +376,7 @@ export interface FaceConfig {
   mivolo_body?: boolean;
   model?: string;
   profile_min_yaw?: number;
+  reference_paths?: string[];
   set_age?: boolean;
   set_age_min_faces?: number;
   set_age_min_share?: number;
@@ -354,7 +385,7 @@ export interface FaceConfig {
  * One detected face within an image.
  */
 export interface FaceDetection {
-  attributes?: FaceAttributes | null;
+  attributes: FaceAttributes | null;
   /**
    * [x, y, w, h]
    *
@@ -362,17 +393,35 @@ export interface FaceDetection {
    * @maxItems 4
    */
   bbox: [number, number, number, number];
-  cluster_id?: string | null;
+  cluster_distance: number | null;
+  cluster_id: string | null;
   det_score: number;
-  exposed_score?: number;
-  nsfw_labels?: {
+  exposed_score: number;
+  eye_open: number | null;
+  mouth_open: number | null;
+  nsfw_labels: {
     [k: string]: number;
   };
-  person_index?: number | null;
-  pitch?: number | null;
-  pose?: ("frontal" | "three_quarter" | "profile") | null;
-  primary?: boolean;
-  yaw?: number | null;
+  person_index: number | null;
+  pitch: number | null;
+  pose: ("frontal" | "three_quarter" | "profile") | null;
+  primary: boolean;
+  reference_distance: number | null;
+  roll: number | null;
+  sharpness: number | null;
+  yaw: number | null;
+}
+/**
+ * InsightFace's landmarks for one face, in the image's pixels.
+ *
+ * ``kps`` are the detector's 5 keypoints (eyes, nose tip, mouth corners) as
+ * ``[x, y]``; ``landmark_3d_68`` the 68 iBUG points as ``[x, y, z]``. Kept in
+ * the scan cache only, and written to a manifest when an export asks
+ * (``ExportRequest.landmarks``): they are the largest per-face payload.
+ */
+export interface FaceLandmarks {
+  kps: number[][] | null;
+  landmark_3d_68: number[][] | null;
 }
 /**
  * Fashionpedia garment detection on whole images (see garments.py).
@@ -426,7 +475,7 @@ export interface GarmentDetection {
     | "bag_wallet"
     | "scarf"
     | "umbrella";
-  touches_edge?: boolean;
+  touches_edge: boolean;
 }
 /**
  * SingGuard policy check via a remote SingGuard server (see guard.py).
@@ -459,52 +508,54 @@ export interface GuardResult {
  */
 export interface ImageResult {
   abs_path: string;
-  artifact_score?: number;
+  artifact_score: number;
   /**
    * Derived from :attr:`nsfw` on read, so a scan cached before ratings existed has one too.
    */
   content_rating: ("safe" | "suggestive" | "explicit") | null;
-  crop?: CropBox | null;
-  crop_source?: ("manual" | "detected") | null;
-  duplicate_of?: string | null;
-  erax?: EraxResult | null;
-  erax_filled?: boolean;
-  face_count?: number;
-  face_error?: string | null;
-  faces?: FaceDetection[];
-  garments?: GarmentDetection[] | null;
-  group_size?: number;
-  guard?: GuardResult | null;
-  guard_variants?: {
+  crop: CropBox | null;
+  crop_source: ("manual" | "detected") | null;
+  duplicate_of: string | null;
+  erax: EraxResult | null;
+  erax_filled: boolean;
+  face_count: number;
+  face_error: string | null;
+  faces: FaceDetection[];
+  garments: GarmentDetection[] | null;
+  group_size: number;
+  guard: GuardResult | null;
+  guard_variants: {
     [k: string]: GuardResult;
   } | null;
-  height?: number;
-  is_duplicate?: boolean;
-  is_representative?: boolean;
-  keep_reason?: string;
-  nsfw?: NsfwResult | null;
-  nudenet_failed?: boolean;
-  passed?: boolean;
-  people?: PersonDetection[];
-  people_check?: ("ok" | "detection_failed" | "body_ages_failed") | null;
-  people_error?: string | null;
-  phash?: string;
-  primary_face_attributes?: FaceAttributes | null;
-  primary_face_cluster?: string | null;
-  primary_face_pose?: ("frontal" | "three_quarter" | "profile") | null;
-  primary_face_yaw?: number | null;
-  reject_reason?: string | null;
+  height: number;
+  is_duplicate: boolean;
+  is_representative: boolean;
+  keep_reason: string;
+  nsfw: NsfwResult | null;
+  nudenet_failed: boolean;
+  passed: boolean;
+  people: PersonDetection[];
+  people_check: ("ok" | "detection_failed" | "body_ages_failed") | null;
+  people_error: string | null;
+  phash: string;
+  primary_face_attributes: FaceAttributes | null;
+  primary_face_cluster: string | null;
+  primary_face_pitch: number | null;
+  primary_face_pose: ("frontal" | "three_quarter" | "profile") | null;
+  primary_face_roll: number | null;
+  primary_face_yaw: number | null;
+  reject_reason: string | null;
   rel_path: string;
-  scene?: SceneTags | null;
-  score?: number;
-  score_breakdown?: {
+  scene: SceneTags | null;
+  score: number;
+  score_breakdown: {
     [k: string]: number;
   };
-  set_age?: SetAge | null;
-  sharpness?: number;
-  similar_group?: number;
-  watermarks?: WatermarkDetection[] | null;
-  width?: number;
+  set_age: SetAge | null;
+  sharpness: number;
+  similar_group: number;
+  watermarks: WatermarkDetection[] | null;
+  width: number;
 }
 /**
  * NudeNet's view of one image.
@@ -560,9 +611,9 @@ export interface NsfwDetection {
  * are NudeNet detections whose box overlaps this person.
  */
 export interface PersonDetection {
-  age_body?: boolean | null;
-  age_source?: ("fairface" | "mivolo") | null;
-  age_years?: number | null;
+  age_body: boolean | null;
+  age_source: ("fairface" | "mivolo") | null;
+  age_years: number | null;
   /**
    * [x, y, w, h]
    *
@@ -571,9 +622,9 @@ export interface PersonDetection {
    */
   bbox: [number, number, number, number];
   det_score: number;
-  exposed_score?: number;
-  face_index?: number | null;
-  nsfw_labels?: {
+  exposed_score: number;
+  face_index: number | null;
+  nsfw_labels: {
     [k: string]: number;
   };
 }
@@ -585,7 +636,7 @@ export interface PersonDetection {
  * categories of the chosen environment, so it is always at least 0.5.
  */
 export interface SceneTags {
-  categories?: SceneLabel[];
+  categories: SceneLabel[];
   environment: "indoor" | "outdoor";
   environment_conf: number;
 }
@@ -613,9 +664,37 @@ export interface SetAge {
  * One watermark the detector found: ``[x, y, w, h]`` in displayed pixels of the uncropped frame.
  */
 export interface WatermarkDetection {
-  bbox: number[];
+  /**
+   * [x, y, w, h]
+   *
+   * @minItems 4
+   * @maxItems 4
+   */
+  bbox: [number, number, number, number];
   label: string;
   score: number;
+}
+/**
+ * The primary face of a manifest row (manifest 2.3).
+ */
+export interface ManifestFace {
+  age_years: number | null;
+  /**
+   * [x, y, w, h]
+   *
+   * @minItems 4
+   * @maxItems 4
+   */
+  bbox: [number, number, number, number];
+  cluster_distance: number | null;
+  eye_open: number | null;
+  landmarks: FaceLandmarks | null;
+  mouth_open: number | null;
+  pitch: number | null;
+  reference_distance: number | null;
+  roll: number | null;
+  sharpness: number | null;
+  yaw: number | null;
 }
 /**
  * One line of the JSONL handoff manifest (written by ``export.write_manifest``).
@@ -638,14 +717,16 @@ export interface WatermarkDetection {
  */
 export interface ManifestRow {
   abs_path: string;
-  crop?: CropBox | null;
+  crop: CropBox | null;
   exported_abs_path: string;
   exported_path: string;
-  manifest_version?: string;
-  primary_face_cluster?: string | null;
-  primary_face_pose?: ("frontal" | "three_quarter" | "profile") | null;
+  manifest_version: string;
+  primary_face: ManifestFace | null;
+  primary_face_cluster: string | null;
+  primary_face_pose: ("frontal" | "three_quarter" | "profile") | null;
   rel_path: string;
   score: number;
+  set_age: SetAge | null;
   similar_group: number;
   target_profile: TargetProfile;
 }
@@ -659,7 +740,7 @@ export interface ManifestRow {
 export interface TargetProfile {
   checkpoint?: string | null;
   target_backend?: string | null;
-  target_category?: "identity" | "wardrobe" | "pose_composition" | "setting";
+  target_category?: "identity" | "wardrobe" | "pose_composition" | "setting" | "concept";
   target_style?: "photo" | "anime";
 }
 /**
@@ -738,29 +819,30 @@ export interface SceneConfig {
  */
 export interface ScanSummary {
   config: ScanConfig;
-  crop_config?: CropConfig;
+  crop_config: CropConfig;
   duplicates: number;
-  erax_config?: EraxConfig;
-  face_clusters?: FaceCluster[];
+  erax_config: EraxConfig;
+  face_clusters: FaceCluster[];
   faces_config: FaceConfig;
   folder: string;
-  garments_config?: GarmentConfig;
-  guard_config?: GuardConfig;
-  limit?: number | null;
-  nsfw_config?: NsfwConfig;
-  offset?: number;
+  garments_config: GarmentConfig;
+  guard_config: GuardConfig;
+  limit: number | null;
+  nsfw_config: NsfwConfig;
+  offset: number;
   passed: number;
-  prefilter_config?: PrefilterConfig;
-  reject_reasons?: {
+  prefilter_config: PrefilterConfig;
+  reference_skipped: string | null;
+  reject_reasons: {
     [k: string]: number;
   };
   rejected: number;
-  results?: ImageResult[];
-  returned?: number;
+  results: ImageResult[];
+  returned: number;
   scan_id: string;
-  scenes_config?: SceneConfig;
-  set_age?: SetAge | null;
-  set_age_skipped?: string | null;
+  scenes_config: SceneConfig;
+  set_age: SetAge | null;
+  set_age_skipped: string | null;
   similar_clusters: number;
   target_profile: TargetProfile;
   total: number;
@@ -811,6 +893,7 @@ export interface SelectRequest {
   face_poses?: ("frontal" | "three_quarter" | "profile")[] | null;
   face_races?:
     ("white" | "black" | "latino_hispanic" | "east_asian" | "southeast_asian" | "indian" | "middle_eastern")[] | null;
+  face_source?: FaceSourceFilter | null;
   garments?:
     | (
         | "shirt_blouse"
@@ -919,7 +1002,7 @@ export interface SelectRequest {
  */
 export interface SelectResult {
   kept: number;
-  rows?: SelectRow[];
+  rows: SelectRow[];
   scan_id: string;
   total: number;
 }
@@ -932,6 +1015,6 @@ export interface SelectResult {
  */
 export interface SelectRow {
   abs_path: string;
-  keep_reason?: string;
+  keep_reason: string;
   rel_path: string;
 }

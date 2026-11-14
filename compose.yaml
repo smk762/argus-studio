@@ -20,10 +20,10 @@
 #   docker compose --profile full    pull    # refresh images to the current *_TAG
 #                                            # (`up` will NOT re-pull a tag already cached locally)
 #
-# Pin a specific released version with the *_TAG vars in .env (default `latest`,
-# except LENS_TAG and ATLAS_TAG, which default to a pinned release; see .env.example):
+# Every backend defaults to a pinned release that this studio was checked
+# against; override with the *_TAG vars in .env (see .env.example):
 #   CURATOR_TAG / LENS_TAG / QUARRY_TAG / FORGE_TAG / PROOF_TAG / ATLAS_TAG /
-#   DARKROOM_TAG.
+#   DARKROOM_TAG / SURVEY_TAG / SIGHTLINE_TAG / OLLAMA_TAG.
 # (Only `frontend` is always built locally from ./frontend — it is this repo,
 # argus-studio, and has no published image yet.)
 #
@@ -92,15 +92,14 @@ services:
     profiles: ["lens", "full"]
     # Default: pull the published standalone image (baked EXTRAS=server,local).
     # For a source build (or a different LENS_EXTRAS) add compose.build.yaml.
-    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.10.0}
+    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.11.0}
     ports:
       - "${LENS_PORT:-8100}:8100"
     environment:
       - ARGUS_BACKEND=${ARGUS_BACKEND:-hybrid}
       - ARGUS_API_KEY=${ARGUS_API_KEY:-}
-      # Browser origins allowed to call lens. Ignored by lens 0.10 (its --cors
-      # allows any origin); from the next lens release an empty value means
-      # localhost:3000 only, and cross-site writes from other origins get 403.
+      # Browser origins allowed to call lens. Empty means localhost:3000 only
+      # (lens 0.11+), and a write from any other origin gets a 403.
       - LENS_CORS_ORIGINS=${LENS_CORS_ORIGINS:-}
       # Optional Immich integration (caption page "Immich" mode + pull-to-dataset).
       # Leave unset to disable; lens's /immich/* endpoints then return 503.
@@ -166,7 +165,7 @@ services:
   # reaches it as http://ollama:11434/v1. ~6 GB VRAM for qwen3:8b while loaded.
   ollama:
     profiles: ["lens", "full"]
-    image: ollama/ollama:${OLLAMA_TAG:-0.40.11}
+    image: ollama/ollama:${OLLAMA_TAG:-0.40.16}
     volumes:
       - ollama:/root/.ollama
     restart: unless-stopped
@@ -175,7 +174,7 @@ services:
   # present). Retries until the ollama server is up.
   ollama-pull:
     profiles: ["lens", "full"]
-    image: ollama/ollama:${OLLAMA_TAG:-0.40.11}
+    image: ollama/ollama:${OLLAMA_TAG:-0.40.16}
     environment:
       - OLLAMA_HOST=ollama:11434
     command: ["pull", "${ARGUS_REFINE_MODEL:-qwen3:8b}"]
@@ -188,7 +187,7 @@ services:
     # export flow hands off to it. /forge itself works without the curator —
     # point it at any export dir under the shared root.
     profiles: ["curator", "forge", "full"]
-    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-latest}
+    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.15.0}
     ports:
       - "${CURATOR_PORT:-8101}:8101"
     environment:
@@ -279,7 +278,7 @@ services:
     profiles: ["forge", "full"]
     # Demo-safe by default: the image refuses live POST /run training unless
     # explicitly enabled (needs a GPU + sd-scripts). See argus-halo#7.
-    image: ghcr.io/smk762/argus-forge:${FORGE_TAG:-latest}
+    image: ghcr.io/smk762/argus-forge:${FORGE_TAG:-0.2.0}
     ports:
       - "${FORGE_PORT:-8103}:8103"
     environment:
@@ -308,7 +307,7 @@ services:
     # Default: pull the published image (baked EXTRAS=server,cli). For the full
     # scorer stack (PROOF_EXTRAS=server,cli,score) build via compose.build.yaml.
     # Demo-safe: live GPU eval (POST /run/stream) 403s by default (argus-halo#7).
-    image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-latest}
+    image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-0.2.2}
     ports:
       - "${PROOF_PORT:-8104}:8104"
     environment:
@@ -354,7 +353,7 @@ services:
     # Demo-safe: POST /bake/stream 403s unless ATLAS_ALLOW_BAKE=1, and the
     # server never fetches OSM unless ATLAS_ALLOW_OSM=1. POST /controls and
     # POST /tiles are GDAL-only and always allowed.
-    image: ghcr.io/smk762/argus-atlas:${ATLAS_TAG:-0.3.0a1}
+    image: ghcr.io/smk762/argus-atlas:${ATLAS_TAG:-0.3.1}
     ports:
       - "${ATLAS_PORT:-8105}:8105"
     environment:
@@ -391,8 +390,7 @@ services:
     # Point clouds -> survey deliverables (QA, ground, DTM/DSM, contours, volumes,
     # change, ASPRS accuracy). Not part of `full`: a separate audience (land
     # surveyors), driven by its own UI below rather than a studio page.
-    # Not on GHCR yet: run this profile with compose.build.yaml (builds ../argus-survey).
-    image: ghcr.io/smk762/argus-survey:${SURVEY_TAG:-latest}
+    image: ghcr.io/smk762/argus-survey:${SURVEY_TAG:-0.1.1}
     user: "${UID:-1000}:${GID:-1000}"
     command: [argus-survey, serve, --host, 0.0.0.0, --port, "8107", --cors]
     ports:
@@ -411,7 +409,9 @@ services:
 
   argus-sightline:
     profiles: ["survey"]
-    image: ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-latest}
+    # Not on GHCR: argus-sightline publishes no image yet, so run this profile
+    # with compose.build.yaml (builds ../argus-sightline, tagged with this name).
+    image: ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.0}
     ports:
       - "${SIGHTLINE_PORT:-3107}:3000"
     environment:
@@ -428,7 +428,7 @@ services:
     # and no SingGuard is bundled here. The URL has no `:?` guard either, because
     # that would fail every other profile too.
     profiles: ["darkroom"]
-    image: ghcr.io/smk762/argus-darkroom:${DARKROOM_TAG:-0.1.1}
+    image: ghcr.io/smk762/argus-darkroom:${DARKROOM_TAG:-0.2.0}
     ports:
       # Loopback by default: darkroom is not for public hosting.
       - "${DARKROOM_PUBLISH:-127.0.0.1:8106}:8106"
@@ -471,7 +471,7 @@ services:
     profiles: ["gallery"]
     # Same published image as argus-quarry-server (baked EXTRAS=cli,phash,server);
     # here it runs the acquisition job via the command override below.
-    image: ghcr.io/smk762/argus-quarry:${QUARRY_TAG:-latest}
+    image: ghcr.io/smk762/argus-quarry:${QUARRY_TAG:-0.4.0}
     environment:
       - QUARRY_HOME=/data/quarry
       # --export publishes to $DATASET_DIR *as seen inside the container* (the
@@ -494,7 +494,7 @@ services:
   # sqlite provenance DB, plus pooled-image thumbnails. Read-only by design.
   argus-quarry-server:
     profiles: ["gallery", "full"]
-    image: ghcr.io/smk762/argus-quarry:${QUARRY_TAG:-latest}
+    image: ghcr.io/smk762/argus-quarry:${QUARRY_TAG:-0.4.0}
     ports:
       - "${QUARRY_SERVER_PORT:-8102}:8102"
     environment:
