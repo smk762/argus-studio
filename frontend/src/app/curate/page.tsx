@@ -60,7 +60,7 @@ import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
 import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
-import { RecordedDemoNote } from "@/components/DemoChrome";
+import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { ExternalLink } from "@/components/ExternalLink";
 
@@ -560,33 +560,33 @@ export default function CuratePage() {
         title="Argus Curator"
         subtitle="Curate by quality and by face, then caption with argus-lens"
         badge={
-          <ApiVersionBadge
-            label="argus-curator"
-            version={version}
-            className="flex shrink-0 flex-col items-end gap-1"
-          >
-            <span
-              className={`rounded border px-2 py-0.5 text-[9px] uppercase tracking-wider ${
-                isLive()
-                  ? "border-accent-teal/40 bg-accent-teal/10 text-accent-teal"
-                  : "border-accent-purple/40 bg-accent-purple/10 text-accent-purple"
-              }`}
-              title={
-                isLive()
-                  ? "ARGUS_CURATOR_UI_MODE=live — real scans against the curator host."
-                  : "ARGUS_CURATOR_UI_MODE=demo — read-only bundled sample."
-              }
+          STATIC_DEMO ? (
+            <DemoBadge state="sample" title="A bundled, illustrative scan, not real output; scanning needs argus-curator." />
+          ) : (
+            <ApiVersionBadge
+              label="argus-curator"
+              version={version}
+              className="flex shrink-0 flex-col items-end gap-1"
             >
-              {isLive() ? "Live" : "Demo sample"}
-            </span>
-          </ApiVersionBadge>
+              {isLive() ? (
+                <span
+                  className="rounded border border-accent-teal/40 bg-accent-teal/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-accent-teal-ink"
+                  title="ARGUS_CURATOR_UI_MODE=live — real scans against the curator host."
+                >
+                  Live
+                </span>
+              ) : (
+                <DemoBadge state="sample" title="ARGUS_CURATOR_UI_MODE=demo — a read-only bundled sample." />
+              )}
+            </ApiVersionBadge>
+          )
         }
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {STATIC_DEMO && (
           <div className="mb-6">
-            <RecordedDemoNote label="Sample scan" summary="a bundled, illustrative 14-image curator scan.">
+            <RecordedDemoNote summary="A bundled, illustrative 14-image curator scan.">
               Thumbnails are placeholders. Filtering, selection and the export manifest all run in your browser;
               scanning real folders needs a running argus-curator.
             </RecordedDemoNote>
@@ -623,7 +623,7 @@ export default function CuratePage() {
                   >
                     {loading ? "Scanning…" : "Scan folder"}
                   </button>
-                  {formProblem && <p className="text-[11px] leading-relaxed text-accent-orange/90">{formProblem}</p>}
+                  {formProblem && <p className="text-[11px] leading-relaxed text-accent-orange-ink">{formProblem}</p>}
                   <ScanControlButtons
                     scanning={scanning}
                     scanId={scanId}
@@ -705,9 +705,10 @@ export default function CuratePage() {
                 </div>
               )}
               </>
-            ) : (
+            ) : STATIC_DEMO ? null : (
+              // The static demo says this in its note and header badge; only the self-hosted demo mode needs it here.
               <div className="space-y-2 rounded-xl border border-accent-purple/30 bg-accent-purple/5 p-4">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-accent-purple">Demo sample</span>
+                <span className="block text-xs font-semibold text-accent-purple-ink">Sample data</span>
                 <p className="text-[11px] leading-relaxed text-muted">
                   A pre-computed scan (2 identities, a near-duplicate pair, some rejects). Explore the facets, cluster
                   review, and manifest export read-only. Set{" "}
@@ -752,7 +753,7 @@ export default function CuratePage() {
             )}
 
             {error && (
-              <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 text-sm text-accent-red">{error}</div>
+              <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 text-sm text-accent-red-ink">{error}</div>
             )}
 
             {summary && (
@@ -852,7 +853,7 @@ export default function CuratePage() {
 
             {!summary && !loading && !error && (
               <div className="py-24 text-center text-muted">
-                <p className="text-lg text-foreground/60">Enter a folder path and scan to begin.</p>
+                <p className="text-lg text-muted">Enter a folder path and scan to begin.</p>
               </div>
             )}
           </div>
@@ -864,7 +865,7 @@ export default function CuratePage() {
           <>
             <ExternalLink
               href="https://github.com/smk762/argus-curator"
-              className="text-accent-teal transition-colors hover:text-accent-teal/80"
+              className="text-accent-teal-ink transition-colors hover:text-accent-teal-ink"
             >
               argus-curator
             </ExternalLink>{" "}
@@ -923,7 +924,7 @@ function DeleteActions({
   const selectedReason = waiting ?? capabilityReason(anyImage, DELETE_ANY_DENIED);
   const flaggedReason = waiting ?? capabilityReason(flagged, IMAGE_DELETE_DENIED);
   const style =
-    "rounded-lg border border-accent-red/40 px-2.5 py-1 text-xs text-accent-red transition-colors enabled:cursor-pointer enabled:hover:bg-accent-red/10 disabled:opacity-40";
+    "rounded-lg border border-accent-red/40 px-2.5 py-1 text-xs text-accent-red-ink transition-colors enabled:cursor-pointer enabled:hover:bg-accent-red/10 disabled:opacity-40";
   return (
     <>
       <button
@@ -995,7 +996,7 @@ function CachedScanList({
           <span className="block truncate font-mono text-[11px] text-foreground/90" title={active.folder}>
             {active.folder}
           </span>
-          <span className="block text-[10px] text-accent-teal">
+          <span className="block text-[10px] text-accent-teal-ink">
             {active.cancelling ? "Stopping" : "In progress"} · {scanPhaseLabel(active.phase)}
             {active.total > 0 ? ` · ${active.done}/${active.total}` : ""}
           </span>
@@ -1032,7 +1033,7 @@ function CachedScanList({
               onClick={() => onDelete(scan.scan_id)}
               disabled={!canDelete || busy}
               title={deleteReason ?? "Remove this scan from the cache. Source images stay."}
-              className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-accent-red hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
+              className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-accent-red-ink hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {forgetting === scan.scan_id ? "…" : "Delete"}
             </button>
@@ -1077,7 +1078,7 @@ function ScanProgressView({
         ) : (
           <p className="text-xs text-muted">{compact ? "Reading the folder…" : "This can take a moment for large folders…"}</p>
         )}
-        {waiting && <p className="text-xs text-accent-teal">Still checking {waiting}</p>}
+        {waiting && <p className="text-xs text-accent-teal-ink">Still checking {waiting}</p>}
       </div>
     </div>
   );
@@ -1125,7 +1126,7 @@ function ScanControlButtons({
         disabled={!allowed || purging}
         title={allowed ? "Stop a running scan and delete every cached scan. Source images stay." : (reason ?? SCAN_CONTROL_DENIED)}
         onClick={onPurge}
-        className="flex-1 cursor-pointer rounded-lg border border-accent-red/40 px-3 py-2 text-sm text-accent-red transition-colors hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex-1 cursor-pointer rounded-lg border border-accent-red/40 px-3 py-2 text-sm text-accent-red-ink transition-colors hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {purging ? "Purging…" : "Purge"}
       </button>
@@ -1160,7 +1161,7 @@ function DetectorBadges({ detectors }: { detectors: Detectors }) {
           title={`${hint} — ${detectors[key] ? "available" : "not installed on the curator"}`}
           className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
             detectors[key]
-              ? "border-accent-green/40 bg-accent-green/10 text-accent-green"
+              ? "border-accent-green/40 bg-accent-green/10 text-accent-green-ink"
               : "border-border bg-background text-muted line-through"
           }`}
         >
@@ -1177,7 +1178,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
       type="button"
       onClick={onClick}
       className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-        active ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal" : "border border-border bg-surface text-muted hover:text-foreground"
+        active ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal-ink" : "border border-border bg-surface text-muted hover:text-foreground"
       }`}
     >
       {children}

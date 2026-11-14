@@ -16,7 +16,7 @@ export function AgeEstimate({ age }: { age: AgeBlock | null }) {
           {line}
         </li>
       ))}
-      {age.minor_exposed ? <li className="text-xs text-accent-red">An estimate under 18 coincided with NudeNet exposure (the minor-exposed rule).</li> : null}
+      {age.minor_exposed ? <li className="text-xs text-accent-red-ink">An estimate under 18 coincided with NudeNet exposure (the minor-exposed rule).</li> : null}
     </ul>
   );
 }

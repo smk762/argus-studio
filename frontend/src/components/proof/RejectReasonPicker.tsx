@@ -37,7 +37,7 @@ export function RejectReasonPicker({ selected, onToggle, disabled = false }: Rej
             onClick={() => onToggle(r.code)}
             className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
               on
-                ? "border-accent-red/50 bg-accent-red/15 text-accent-red"
+                ? "border-accent-red/50 bg-accent-red/15 text-accent-red-ink"
                 : "border-border bg-surface text-muted hover:border-accent-red/30 hover:text-foreground"
             }`}
           >
@@ -75,7 +75,7 @@ export function UnsafeCategoryPicker({
             onClick={() => onToggle(slug)}
             className={`rounded-md border px-1.5 py-0.5 text-[10px] transition-colors ${
               on
-                ? "border-accent-red/50 bg-accent-red/15 text-accent-red"
+                ? "border-accent-red/50 bg-accent-red/15 text-accent-red-ink"
                 : "border-border bg-surface text-muted hover:border-accent-red/30 hover:text-foreground"
             }`}
           >

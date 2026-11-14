@@ -40,7 +40,7 @@ export function ShieldGrid({ guard, rows: given }: { guard: GridGuard; rows?: Po
               <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="font-mono text-sm text-foreground [overflow-wrap:anywhere]">{row.policy}</span>
                 {row.enforcing ? (
-                  <Badge className="border-accent-purple/60 text-accent-teal" title="Its verdict decides pre-flight and sets the mode">
+                  <Badge className="border-accent-purple/60 text-accent-teal-ink" title="Its verdict decides pre-flight and sets the mode">
                     enforcing
                   </Badge>
                 ) : (
@@ -55,7 +55,7 @@ export function ShieldGrid({ guard, rows: given }: { guard: GridGuard; rows?: Po
             ))}
             <td className="w-8 text-center">
               {rowDisagrees(row.pair) ? (
-                <span title="The isolated and with-prompt scans disagree" aria-label="scans disagree" className="inline-block rounded-sm border border-accent-amber/60 px-1 text-xs font-bold text-accent-amber">
+                <span title="The isolated and with-prompt scans disagree" aria-label="scans disagree" className="inline-block rounded-sm border border-accent-amber/60 px-1 text-xs font-bold text-accent-amber-ink">
                   ≠
                 </span>
               ) : null}
@@ -77,7 +77,7 @@ export function PreflightColumn({ results, enforcing }: { results: Record<string
           <ShieldCell cell={results[name]} heading={`${name} · pre-flight`} size="h-8 w-8" labelBelow={false} />
           <span className="font-mono text-sm text-foreground">{name}</span>
           {name === enforcing ? (
-            <Badge className="border-accent-purple/60 text-accent-teal">enforcing</Badge>
+            <Badge className="border-accent-purple/60 text-accent-teal-ink">enforcing</Badge>
           ) : (
             <span className="text-xs text-muted">advisory</span>
           )}

@@ -10,7 +10,7 @@ export function SuiteLinks() {
     <nav aria-label="Standalone demos" className="mx-auto flex max-w-7xl flex-wrap gap-x-4 gap-y-1 px-4 pb-2 text-xs text-muted sm:px-6">
       <span>Standalone demos:</span>
       {links.map((link) => (
-        <ExternalLink key={link.label} href={link.href} className="text-accent-purple transition-colors hover:text-accent-purple/80">
+        <ExternalLink key={link.label} href={link.href} className="text-accent-purple-ink transition-colors hover:text-accent-purple-ink">
           {link.label} <span className="text-muted">({link.service})</span>
         </ExternalLink>
       ))}

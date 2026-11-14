@@ -11,14 +11,14 @@ import { ExternalLink } from "@/components/ExternalLink";
 // injects a hast `node` object into every override, and spreading it would emit
 // an invalid `node` attribute on the DOM element.
 const LINK_CLASS =
-  "text-accent-purple underline decoration-dotted underline-offset-2 hover:text-accent-purple/80 transition-colors";
+  "text-accent-purple-ink underline decoration-dotted underline-offset-2 hover:text-accent-purple-ink transition-colors";
 
 const MARKDOWN_COMPONENTS: Components = {
   strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
   ul: ({ children }) => <ul className="ml-4 list-disc space-y-1 marker:text-muted">{children}</ul>,
   ol: ({ children }) => <ol className="ml-4 list-decimal space-y-1 marker:text-muted">{children}</ol>,
   code: ({ children }) => (
-    <code className="rounded bg-background px-1 py-0.5 font-mono text-[0.75rem] text-accent-teal/90">
+    <code className="rounded bg-background px-1 py-0.5 font-mono text-[0.75rem] text-accent-teal-ink">
       {children}
     </code>
   ),

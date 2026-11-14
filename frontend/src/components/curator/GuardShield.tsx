@@ -4,8 +4,8 @@ const BODY = "M12 2 4 5.5V11c0 5.1 3.4 9.8 8 11 4.6-1.2 8-5.9 8-11V5.5L12 2Z";
 
 const TONE: Record<PolicyShield["state"], string> = {
   pending: "text-muted",
-  safe: "text-accent-green",
-  unsafe: "text-accent-red",
+  safe: "text-accent-green-ink",
+  unsafe: "text-accent-red-ink",
 };
 
 /**

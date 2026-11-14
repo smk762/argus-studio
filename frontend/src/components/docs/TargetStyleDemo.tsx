@@ -52,7 +52,7 @@ export function TargetStyleDemo() {
             aria-pressed={style === s}
             className={
               style === s
-                ? "cursor-pointer rounded-lg bg-accent-purple px-3 py-1.5 text-sm font-medium text-white"
+                ? "cursor-pointer rounded-lg bg-accent-purple px-3 py-1.5 text-sm font-medium text-on-accent"
                 : "cursor-pointer rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-surface-hover"
             }
           >
@@ -87,7 +87,7 @@ export function TargetStyleDemo() {
       ) : (
         // A style the server offers that this page has no worked example for.
         <p className="text-sm text-muted">
-          This server offers <span className="font-mono text-accent-teal/90">{style}</span>. See the
+          This server offers <span className="font-mono text-accent-teal-ink">{style}</span>. See the
           Caption tool for its output.
         </p>
       )}

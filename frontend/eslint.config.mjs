@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Dragonhound shared layer: vendored verbatim (vendor/dh) and served
+    // unchanged (public/dh-theme.js); fixes go upstream to dragonhound-site/shared.
+    "vendor/**",
+    "public/dh-theme.js",
   ]),
 ]);
 

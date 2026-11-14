@@ -86,7 +86,7 @@ export function KeepSetPanel({ summary, filters, disabled, onUse, exportBlocked,
         Keep near-duplicates
       </label>
       {notSent.length > 0 && (
-        <p className="text-[11px] leading-relaxed text-accent-orange/90">
+        <p className="text-[11px] leading-relaxed text-accent-orange-ink">
           The curator has no filter for {notSent.join(" or ")}, so the preview leaves {notSent.length === 1 ? "it" : "them"} out.
         </p>
       )}
@@ -98,12 +98,12 @@ export function KeepSetPanel({ summary, filters, disabled, onUse, exportBlocked,
       >
         {asking ? "Asking…" : "Preview keep set"}
       </button>
-      {error && <p className="text-[11px] leading-relaxed text-accent-red">{error}</p>}
+      {error && <p className="text-[11px] leading-relaxed text-accent-red-ink">{error}</p>}
       {preview && (
         <div className="space-y-1.5">
           <p className="text-xs text-foreground">
             Keeps {preview.result.kept} of {preview.result.total}.
-            {!fresh && <span className="text-accent-orange/90"> The facets changed, so preview again.</span>}
+            {!fresh && <span className="text-accent-orange-ink"> The facets changed, so preview again.</span>}
           </p>
           {reasons.length > 0 && (
             <ul className="space-y-0.5">
@@ -116,7 +116,7 @@ export function KeepSetPanel({ summary, filters, disabled, onUse, exportBlocked,
             </ul>
           )}
           {usable.length < preview.result.kept && (
-            <p className="text-[11px] leading-relaxed text-accent-orange/90">
+            <p className="text-[11px] leading-relaxed text-accent-orange-ink">
               {preview.result.kept - usable.length} kept by the curator cannot be selected here.
             </p>
           )}
@@ -124,7 +124,7 @@ export function KeepSetPanel({ summary, filters, disabled, onUse, exportBlocked,
             type="button"
             onClick={() => onUse(usable)}
             disabled={disabled || !fresh || usable.length === 0}
-            className="w-full cursor-pointer rounded-lg border border-accent-green/40 bg-accent-green/10 px-3 py-1.5 text-xs font-medium text-accent-green transition-colors hover:bg-accent-green/20 disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full cursor-pointer rounded-lg border border-accent-green/40 bg-accent-green/10 px-3 py-1.5 text-xs font-medium text-accent-green-ink transition-colors hover:bg-accent-green/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Use as selection ({usable.length})
           </button>
@@ -174,7 +174,7 @@ export function KeepSetPanel({ summary, filters, disabled, onUse, exportBlocked,
               onClick={() => onExportCapped({ ...body, ...cap })}
               disabled={disabled || capBlocked !== null}
               title={capBlocked ?? undefined}
-              className="w-full cursor-pointer rounded-lg border border-accent-green/40 px-3 py-1.5 text-xs font-medium text-accent-green transition-colors hover:bg-accent-green/10 disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full cursor-pointer rounded-lg border border-accent-green/40 px-3 py-1.5 text-xs font-medium text-accent-green-ink transition-colors hover:bg-accent-green/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Export capped set + manifest
             </button>

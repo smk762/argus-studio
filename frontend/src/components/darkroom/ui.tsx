@@ -3,9 +3,9 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 type Tone = "primary" | "neutral" | "danger";
 
 const BUTTON_TONE: Record<Tone, string> = {
-  primary: "bg-accent-purple text-white hover:bg-accent-purple/80 disabled:hover:bg-accent-purple",
+  primary: "bg-accent-purple text-on-accent hover:bg-accent-purple/80 disabled:hover:bg-accent-purple",
   neutral: "bg-surface-hover text-foreground hover:bg-border disabled:hover:bg-surface-hover",
-  danger: "bg-accent-red/15 text-accent-red border border-accent-red/40 hover:bg-accent-red/25 disabled:hover:bg-accent-red/15",
+  danger: "bg-accent-red/15 text-accent-red-ink border border-accent-red/40 hover:bg-accent-red/25 disabled:hover:bg-accent-red/15",
 };
 
 export function Button({ tone = "neutral", small = false, className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: Tone; small?: boolean }) {
@@ -34,7 +34,7 @@ export function Notice({ tone = "info", children, className = "" }: { tone?: "in
   const word = { info: "Note", warning: "Warning", error: "Error" };
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`rounded-md border bg-surface-hover/60 px-3 py-2 text-sm ${tones[tone]} ${className}`}>
-      <span className={`mr-2 font-semibold ${tone === "warning" ? "text-accent-amber" : tone === "error" ? "text-accent-red" : "text-accent-blue"}`}>{word[tone]}:</span>
+      <span className={`mr-2 font-semibold ${tone === "warning" ? "text-accent-amber-ink" : tone === "error" ? "text-accent-red-ink" : "text-accent-blue-ink"}`}>{word[tone]}:</span>
       {children}
     </div>
   );

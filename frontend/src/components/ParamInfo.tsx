@@ -45,7 +45,7 @@ export function ParamInfo({
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="text-muted hover:text-accent-purple transition-colors cursor-pointer"
+          className="text-muted hover:text-accent-purple-ink transition-colors cursor-pointer"
           aria-label={`${expanded ? "Hide" : "Show"} info for ${resolvedLabel}`}
         >
           <svg
@@ -78,14 +78,14 @@ export function ParamInfo({
         <div className="mt-2 pt-2 border-t border-border/50 space-y-2">
           {resolvedBody && <Markdown>{resolvedBody}</Markdown>}
           {resolvedExample && (
-            <code className="block text-xs text-accent-teal/80 bg-background rounded px-2 py-1 font-mono">
+            <code className="block text-xs text-accent-teal-ink bg-background rounded px-2 py-1 font-mono">
               {resolvedExample}
             </code>
           )}
           {concept?.href && (
             <Link
               href={concept.href}
-              className="inline-flex items-center gap-1 text-xs font-medium text-accent-purple hover:text-accent-purple/80 transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-medium text-accent-purple-ink hover:text-accent-purple-ink transition-colors"
             >
               Learn more
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

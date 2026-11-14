@@ -1,59 +1,45 @@
 import type { ReactNode } from "react";
-import { HOME_URL, REPO_URL } from "@/lib/staticDemo";
+import { REPO_URL } from "@/lib/staticDemo";
 import { ExternalLink } from "@/components/ExternalLink";
 
 /**
- * The thin strip above every page of the static demo export. Rendered by the
- * root layout only when STATIC_DEMO is set, so the normal build is untouched.
+ * The family's four demo states (dh-shared README, "Demo-state vocabulary"), styled
+ * by vendor/dh/dh-badge.css. One per page, in the header, says what kind of data the
+ * page shows; a control the demo can't run carries "off" beside it.
  */
-export function DemoBanner() {
+export const DEMO_STATES = {
+  recorded: { label: "Recorded", className: "dh-badge", title: "Recorded output from a real run; no model runs while you browse" },
+  sample: { label: "Sample data", className: "dh-badge dh-badge--sample", title: "Synthetic sample to show the layout; not real output" },
+  browser: { label: "In-browser", className: "dh-badge dh-badge--browser", title: "Runs in your browser; nothing is sent anywhere" },
+  off: { label: "Not in this demo", className: "dh-badge dh-badge--off", title: "Needs the self-hosted backend; see the README" },
+} as const;
+
+export type DemoState = keyof typeof DEMO_STATES;
+
+export function DemoBadge({ state, title }: { state: DemoState; title?: string }) {
+  const s = DEMO_STATES[state];
   return (
-    <div className="border-b border-border bg-surface/80 text-[11px] text-muted">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1.5 sm:px-6">
-        <span>
-          <span className="font-medium text-foreground/80">Static demo</span>
-          <span className="hidden sm:inline"> — recorded outputs, no live backends.</span>
-        </span>
-        <span className="flex items-center gap-3">
-          <ExternalLink href={REPO_URL} className="text-accent-teal hover:underline">
-            Run it yourself on GitHub
-          </ExternalLink>
-          <span aria-hidden>·</span>
-          <ExternalLink href={HOME_URL} className="hover:text-foreground hover:underline">
-            dragonhound.dev
-          </ExternalLink>
-        </span>
-      </div>
-    </div>
+    <span className={`${s.className} shrink-0`} title={title ?? s.title}>
+      {s.label}
+    </span>
   );
 }
 
 /**
- * The per-page "this is recorded" note: one quiet line under the page title.
- * {@link DemoBanner} already says the whole site is a demo, so this only names
- * what kind of non-live data the page shows. The long provenance text goes in
- * `children`, folded into a native `<details>` disclosure (no script, so the
- * static export's hash CSP is unaffected). Muted text keeps 4.5:1 contrast in
- * both themes.
+ * The per-page demo note: one quiet line under the page title saying what the page
+ * shows (the header badge already names the state, so the note doesn't repeat it).
+ * The long provenance text goes in `children`, folded into a native `<details>`
+ * disclosure (no script, so the static export's hash CSP is unaffected).
  */
 export function RecordedDemoNote({
-  label = "Recorded demo",
   summary,
   children,
 }: {
-  /** Leading label: what kind of non-live data the page shows. */
-  label?: string;
-  /** The rest of the one-line note. */
-  summary?: ReactNode;
+  /** The one-line note, a full sentence. */
+  summary: ReactNode;
   /** Long provenance text, shown on demand. */
   children?: ReactNode;
 }) {
-  const line = (
-    <>
-      <span className="font-medium text-foreground/80">{label}</span>
-      {summary ? <> — {summary}</> : null}
-    </>
-  );
   const runIt = (
     <>
       Run it yourself:{" "}
@@ -65,14 +51,14 @@ export function RecordedDemoNote({
   if (!children) {
     return (
       <p role="note" className="text-xs leading-relaxed text-muted">
-        {line} {runIt}
+        {summary} {runIt}
       </p>
     );
   }
   return (
     <details className="group text-xs leading-relaxed text-muted">
-      <summary className="cursor-pointer list-none select-none hover:text-foreground/80 [&::-webkit-details-marker]:hidden">
-        {line}{" "}
+      <summary className="cursor-pointer list-none select-none hover:text-foreground [&::-webkit-details-marker]:hidden">
+        {summary}{" "}
         <span className="whitespace-nowrap underline underline-offset-2">
           <span className="group-open:hidden">Details</span>
           <span className="hidden group-open:inline">Hide details</span>
@@ -83,23 +69,6 @@ export function RecordedDemoNote({
         <div>{runIt}</div>
       </div>
     </details>
-  );
-}
-
-/**
- * The header pill a demo page shows in place of a live API version. Muted, not
- * amber: it marks the state without competing with the page.
- */
-export function RecordedBadge({ label = "Recorded", title }: { label?: string; title?: string }) {
-  return (
-    <div className="shrink-0 text-right">
-      <span
-        title={title ?? "Recorded output from a real run; no live backend in this build."}
-        className="rounded-md border border-border px-2 py-1 text-[10px] uppercase tracking-wider text-muted"
-      >
-        {label}
-      </span>
-    </div>
   );
 }
 

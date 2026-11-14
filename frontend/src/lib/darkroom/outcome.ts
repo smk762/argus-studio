@@ -13,11 +13,11 @@ export const OUTCOME_LABEL: Record<Outcome, string> = {
 
 /** Token classes for an outcome badge. Each badge also carries its word, so colour is never the only signal. */
 export const OUTCOME_TONE: Record<Outcome, string> = {
-  passed: "text-accent-green border-accent-green/50",
-  review: "text-accent-amber border-accent-amber/50",
-  deleted: "text-accent-red border-accent-red/50",
+  passed: "text-accent-green-ink border-accent-green/50",
+  review: "text-accent-amber-ink border-accent-amber/50",
+  deleted: "text-accent-red-ink border-accent-red/50",
   omitted: "text-foreground/70 border-border",
-  refused: "text-accent-red border-accent-red/50",
+  refused: "text-accent-red-ink border-accent-red/50",
   failed: "text-foreground/70 border-border",
 };
 

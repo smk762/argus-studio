@@ -142,7 +142,7 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
           type="button"
           onClick={() => void runUpload()}
           disabled={disabled || busy || files.length === 0 || !folder.trim()}
-          className="cursor-pointer whitespace-nowrap rounded-lg bg-accent-teal/20 px-3 py-2 text-xs font-semibold text-accent-teal transition-colors hover:bg-accent-teal/30 disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer whitespace-nowrap rounded-lg bg-accent-teal/20 px-3 py-2 text-xs font-semibold text-accent-teal-ink transition-colors hover:bg-accent-teal/30 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy && files.length > 0 ? "Uploading…" : "Upload"}
         </button>
@@ -175,7 +175,7 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
             type="button"
             onClick={() => void runPull()}
             disabled={disabled || busy || !albumId}
-            className="cursor-pointer whitespace-nowrap rounded-lg bg-accent-teal/20 px-3 py-2 text-xs font-semibold text-accent-teal transition-colors hover:bg-accent-teal/30 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer whitespace-nowrap rounded-lg bg-accent-teal/20 px-3 py-2 text-xs font-semibold text-accent-teal-ink transition-colors hover:bg-accent-teal/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {pull ? `${pull.done}/${pull.total}` : "Pull album"}
           </button>
@@ -190,8 +190,8 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
           />
         </div>
       )}
-      {note && <p className="text-[11px] leading-relaxed text-accent-green">{note}</p>}
-      {error && <p className="text-[11px] leading-relaxed text-accent-red">{error}</p>}
+      {note && <p className="text-[11px] leading-relaxed text-accent-green-ink">{note}</p>}
+      {error && <p className="text-[11px] leading-relaxed text-accent-red-ink">{error}</p>}
     </div>
   );
 }

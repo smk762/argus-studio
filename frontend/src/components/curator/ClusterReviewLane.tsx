@@ -47,13 +47,13 @@ export function ClusterReviewLane({ scanId, results, nsfwRan, pending = [], sele
     <div className="space-y-4">
       <p className="text-[11px] leading-relaxed text-muted">
         Each row is a near-duplicate cluster. The representative (highest score, marked{" "}
-        <span className="font-mono text-accent-amber">*</span>) is kept by default; tick the ones you actually want in
+        <span className="font-mono text-accent-amber-ink">*</span>) is kept by default; tick the ones you actually want in
         the export.
       </p>
       {groups.map((g) => (
         <div key={g.id} className="rounded-xl border border-border bg-surface p-4">
           <div className="mb-3 flex items-center gap-2">
-            <span className="rounded bg-accent-amber/20 px-2 py-0.5 font-mono text-xs text-accent-amber">g{g.id}</span>
+            <span className="rounded bg-accent-amber/20 px-2 py-0.5 font-mono text-xs text-accent-amber-ink">g{g.id}</span>
             <span className="text-xs text-muted">{g.members.length} near-duplicates</span>
           </div>
           <div className="scrollbar-thin flex gap-3 overflow-x-auto pb-1">
@@ -102,7 +102,7 @@ export function ClusterReviewLane({ scanId, results, nsfwRan, pending = [], sele
                     {basename(m.rel_path)}
                   </div>
                   {waiting.length > 0 && (
-                    <div className="truncate px-1.5 pb-1.5 text-[9px] text-accent-teal">Checking {pendingCaption(waiting)}</div>
+                    <div className="truncate px-1.5 pb-1.5 text-[9px] text-accent-teal-ink">Checking {pendingCaption(waiting)}</div>
                   )}
                 </div>
               );

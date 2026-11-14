@@ -1,11 +1,13 @@
+import { pageMetadata } from "@/lib/pageMeta";
 import { ConceptBody } from "@/components/docs/ConceptBody";
 import { TokenBudgetDemo } from "@/components/docs/TokenBudgetDemo";
 
-export const metadata = {
-  title: "Target backend · Argus Studio Docs",
+export const metadata = pageMetadata({
+  title: "Target backend · Docs",
+  path: "/docs/captioning/target-backend/",
   description:
     "The diffusion architecture that will consume the caption, and the token budget it imposes.",
-};
+});
 
 # Target backend
 

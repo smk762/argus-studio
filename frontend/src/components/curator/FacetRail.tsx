@@ -80,7 +80,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
   return (
     <div className="space-y-5 rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">Facets</h3>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Facets</h2>
         <span className="text-[11px] text-muted">{visibleCount} shown</span>
       </div>
 
@@ -93,7 +93,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
               <button
                 type="button"
                 onClick={() => set({ faceClusters: [] })}
-                className="cursor-pointer text-[10px] text-accent-teal hover:underline"
+                className="cursor-pointer text-[10px] text-accent-teal-ink hover:underline"
               >
                 clear
               </button>
@@ -152,7 +152,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
               <button
                 type="button"
                 onClick={() => set({ poses: [] })}
-                className="cursor-pointer text-[10px] text-accent-teal hover:underline"
+                className="cursor-pointer text-[10px] text-accent-teal-ink hover:underline"
               >
                 clear
               </button>
@@ -355,7 +355,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
                       onClick={() => set({ guardPolicies: flip(filters.guardPolicies, policy) })}
                       title={i === 0 ? "The official policy" : "A variant"}
                       className={`cursor-pointer rounded-md border px-1.5 py-0.5 font-mono text-[10px] ${
-                        on ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal" : "border-border bg-background text-foreground/85"
+                        on ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal-ink" : "border-border bg-background text-foreground/85"
                       }`}
                     >
                       {policy} {flags.get(policy) ?? 0}
@@ -372,7 +372,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
       <div>
         <div className="mb-1 flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">Min score</span>
-          <span className="font-mono text-xs text-accent-teal">{filters.minScore.toFixed(2)}</span>
+          <span className="font-mono text-xs text-accent-teal-ink">{filters.minScore.toFixed(2)}</span>
         </div>
         <input
           type="range"
@@ -415,7 +415,7 @@ function FacetGroup({ title, note, active, onClear, children }: {
           {title}
         </span>
         {active && (
-          <button type="button" onClick={onClear} className="cursor-pointer text-[10px] text-accent-teal hover:underline">
+          <button type="button" onClick={onClear} className="cursor-pointer text-[10px] text-accent-teal-ink hover:underline">
             clear
           </button>
         )}
@@ -447,7 +447,7 @@ function Chips<T extends string>({ options, selected, count, onToggle }: {
             onClick={() => onToggle(option)}
             className={`cursor-pointer rounded-md border px-1.5 py-0.5 text-[11px] transition-colors ${
               active
-                ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal"
+                ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal-ink"
                 : "border-border bg-background text-foreground/85 hover:bg-surface-hover"
             }`}
           >
@@ -469,7 +469,7 @@ function ConfSlider({ label, value, min = 0, onChange }: {
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[10px] text-muted">{label}</span>
-        <span className="font-mono text-xs text-accent-teal">{value.toFixed(2)}</span>
+        <span className="font-mono text-xs text-accent-teal-ink">{value.toFixed(2)}</span>
       </div>
       <input
         type="range"

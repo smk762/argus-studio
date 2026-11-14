@@ -43,7 +43,7 @@ export function SubjectCount({ result }: { result: CaptionResult }) {
 
   const disagree = s.agree === false;
   const tone = s.multiple || disagree
-    ? "border-accent-amber/40 bg-accent-amber/5 text-accent-amber"
+    ? "border-accent-amber/40 bg-accent-amber/5 text-accent-amber-ink"
     : "border-border bg-surface text-muted";
 
   return (

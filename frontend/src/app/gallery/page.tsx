@@ -26,7 +26,7 @@ import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
 import { replaceQuery, useDeepLink } from "@/lib/deepLink";
 import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
-import { RecordedBadge } from "@/components/DemoChrome";
+import { DemoBadge } from "@/components/DemoChrome";
 import { ExternalLink } from "@/components/ExternalLink";
 import { tileLoading } from "@/lib/imageLoading";
 
@@ -181,14 +181,14 @@ export default function GalleryPage() {
         subtitle="Provenance-first PD/CC0 acquisition pool"
         badge={
           STATIC_DEMO ? (
-            <RecordedBadge label="Not in demo" title="The gallery needs a live argus-quarry pool; none is bundled." />
+            <DemoBadge state="off" title="The gallery needs a live argus-quarry pool; none is bundled. See the README to run it." />
           ) : (
             <ApiVersionBadge label="argus-quarry" version={version} prefix="v" />
           )
         }
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {STATIC_DEMO ? (
           <div className="mx-auto max-w-2xl space-y-5 py-16 text-center">
             <h2 className="text-lg font-medium text-foreground/80">The gallery browses a live acquisition pool.</h2>
@@ -205,7 +205,7 @@ export default function GalleryPage() {
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
               <StageHandoff href="/curate" label="Explore the curator sample" />
-              <ExternalLink href={REPO_URL} className="text-accent-teal hover:underline">
+              <ExternalLink href={REPO_URL} className="text-accent-teal-ink hover:underline">
                 Run it yourself
               </ExternalLink>
             </div>
@@ -255,7 +255,7 @@ export default function GalleryPage() {
                   {Object.entries(stats.by_licence).map(([lic, n]) => (
                     <span
                       key={lic}
-                      className="rounded border border-accent-amber/40 bg-accent-amber/10 px-1.5 py-0.5 font-mono text-[10px] text-accent-amber"
+                      className="rounded border border-accent-amber/40 bg-accent-amber/10 px-1.5 py-0.5 font-mono text-[10px] text-accent-amber-ink"
                     >
                       {lic} · {n}
                     </span>
@@ -322,7 +322,7 @@ export default function GalleryPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 text-sm text-accent-red">{error}</div>
+              <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 text-sm text-accent-red-ink">{error}</div>
             )}
 
             {/* Grid */}
@@ -368,7 +368,7 @@ export default function GalleryPage() {
 
             {!loading && photos.length === 0 && !error && (
               <div className="py-24 text-center text-muted">
-                <p className="text-lg text-foreground/60">Nothing here yet.</p>
+                <p className="text-lg text-muted">Nothing here yet.</p>
                 <p className="mt-2 text-sm">
                   Run an acquisition (<span className="font-mono text-foreground/80">docker compose --profile gallery up</span>)
                   to fill the pool, slice one from <b>Sources</b>, or loosen the filters.
@@ -386,7 +386,7 @@ export default function GalleryPage() {
           <>
             <ExternalLink
               href="https://github.com/smk762/argus-quarry"
-              className="text-accent-amber transition-colors hover:text-accent-amber/80"
+              className="text-accent-amber-ink transition-colors hover:text-accent-amber-ink"
             >
               argus-quarry
             </ExternalLink>{" "}
@@ -480,7 +480,7 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
         )}
         <div className="space-y-3 p-4 text-sm">
           {error && (
-            <p className="text-xs text-accent-red">
+            <p className="text-xs text-accent-red-ink">
               {photo ? `Showing the grid's copy. Couldn't reload this record: ${error}` : error}
             </p>
           )}
@@ -510,7 +510,7 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
                 {sourceUrl && (
                   <ExternalLink
                     href={sourceUrl}
-                    className="block truncate text-xs text-accent-amber hover:text-accent-amber/80"
+                    className="block truncate text-xs text-accent-amber-ink hover:text-accent-amber-ink"
                   >
                     View source page ↗
                   </ExternalLink>
@@ -518,7 +518,7 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
                 {originalUrl && (
                   <ExternalLink
                     href={originalUrl}
-                    className="block truncate text-xs text-accent-amber hover:text-accent-amber/80"
+                    className="block truncate text-xs text-accent-amber-ink hover:text-accent-amber-ink"
                   >
                     Original file ↗
                   </ExternalLink>
@@ -567,7 +567,7 @@ function ProvRow({ label, value, mono = false, highlight = false }: { label: str
       <dt className="w-20 shrink-0 text-muted">{label}</dt>
       <dd
         className={`min-w-0 break-all ${
-          highlight ? "font-semibold text-accent-amber" : mono ? "font-mono text-foreground/80" : "text-foreground/90"
+          highlight ? "font-semibold text-accent-amber-ink" : mono ? "font-mono text-foreground/80" : "text-foreground/90"
         }`}
       >
         {value}

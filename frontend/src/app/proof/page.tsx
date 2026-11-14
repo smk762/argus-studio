@@ -15,7 +15,7 @@ import { type Capability } from "@/lib/capabilities";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { isLive } from "@/lib/curatorEnv";
 import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
-import { RecordedBadge } from "@/components/DemoChrome";
+import { DemoBadge } from "@/components/DemoChrome";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ProofBoard } from "@/components/proof/ProofBoard";
@@ -143,15 +143,17 @@ export default function ProofPage() {
         title="Argus Proof"
         subtitle="Post-training LoRA evaluation & review"
         badge={
-          version === "demo" ? (
-            <RecordedBadge label="Demo" title="No argus-proof answering: a bundled sample." />
+          STATIC_DEMO && !previewSample ? (
+            <DemoBadge state="off" title="No recorded evaluation run yet; a real run needs argus-proof and a GPU. See the README." />
+          ) : version === "demo" ? (
+            <DemoBadge state="sample" title="No argus-proof answering: a bundled synthetic report, not real output." />
           ) : (
             <ApiVersionBadge label="argus-proof" version={version} prefix="v" />
           )
         }
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {STATIC_DEMO && !previewSample ? (
           <ProofComingSoon onPreview={() => setPreviewSample(true)} />
         ) : unreachable ? (
@@ -198,7 +200,7 @@ export default function ProofPage() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-mono text-xs text-foreground">{s.run_id}</span>
                     <span className="block text-[10px] text-muted">
-                      {(s.pass_rate * 100).toFixed(0)}% · {s.n_needs_hitl} to review
+                      {(s.pass_rate * 100).toFixed(0)}% · {s.n_needs_hitl} {s.n_needs_hitl === 1 ? "group" : "groups"} to review
                     </span>
                   </span>
                 </button>
@@ -208,7 +210,7 @@ export default function ProofPage() {
             {/* Selected report */}
             <div>
               {loading && <p className="py-12 text-center text-sm text-muted">Loading report…</p>}
-              {error && <p className="py-12 text-center text-sm text-accent-red">{error}</p>}
+              {error && <p className="py-12 text-center text-sm text-accent-red-ink">{error}</p>}
               {!loading && !error && report && (
                 <>
                   <ProofBoard
@@ -243,9 +245,6 @@ export default function ProofPage() {
 function ProofComingSoon({ onPreview }: { onPreview: () => void }) {
   return (
     <div className="mx-auto max-w-2xl space-y-5 py-16 text-center">
-      <span className="inline-block rounded-md border border-accent-green/40 bg-accent-green/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-green">
-        Coming soon
-      </span>
       <h2 className="text-lg font-medium text-foreground/80">No recorded evaluation run yet.</h2>
       <p className="text-sm leading-relaxed text-muted">
         Proof is the post-training stage: it renders a seed/weight grid from a trained LoRA, scores every image
@@ -261,7 +260,7 @@ function ProofComingSoon({ onPreview }: { onPreview: () => void }) {
         >
           Preview the review UI with synthetic data
         </button>
-        <ExternalLink href={REPO_URL} className="rounded-lg px-4 py-2 text-accent-teal hover:underline">
+        <ExternalLink href={REPO_URL} className="rounded-lg px-4 py-2 text-accent-teal-ink hover:underline">
           Run it yourself
         </ExternalLink>
       </div>

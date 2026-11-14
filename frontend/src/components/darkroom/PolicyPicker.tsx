@@ -66,7 +66,7 @@ export function PolicyPicker({
                   <span className="font-mono">{policy.name}</span>
                   <ModeBadge mode={policy.mode} />
                   {block ? <span className="text-xs">advisory only</span> : null}
-                  <button type="button" onClick={() => setWording(policy)} className="text-xs text-accent-teal underline-offset-2 hover:underline">
+                  <button type="button" onClick={() => setWording(policy)} className="text-xs text-accent-teal-ink underline-offset-2 hover:underline">
                     wording
                   </button>
                 </label>
@@ -135,7 +135,7 @@ export function PolicyDialog({ policy, onClose }: { policy: PolicyInfo; onClose:
             <ul className="mt-1 space-y-0.5">
               {policy.illegal_rules.map((rule) => (
                 <li key={rule.code}>
-                  <span className="font-mono font-semibold text-accent-red">{rule.code}</span> {rule.name}
+                  <span className="font-mono font-semibold text-accent-red-ink">{rule.code}</span> {rule.name}
                 </li>
               ))}
             </ul>

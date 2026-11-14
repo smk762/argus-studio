@@ -53,10 +53,10 @@ export function ResultsGrid({ scanId, results, nsfwRan, pending = [], policies =
 function ScoreBadge({ score }: { score: number }) {
   const color =
     score >= 0.7
-      ? "text-accent-green"
+      ? "text-accent-green-ink"
       : score >= 0.4
-        ? "text-accent-amber"
-        : "text-accent-red";
+        ? "text-accent-amber-ink"
+        : "text-accent-red-ink";
   return <span className={`rounded bg-surface/90 px-1.5 py-0.5 font-mono text-[10px] font-bold ${color}`}>{score.toFixed(2)}</span>;
 }
 
@@ -97,13 +97,15 @@ function Card({
         ? "border-accent-amber/50"
         : "border-border";
 
-  const fade = img.passed ? "opacity-100" : "opacity-60 saturate-75";
+  // A rejected tile dims its picture only: dimming the whole tile took its labels
+  // below 4.5:1 (S9). The red border and the "Rejected" chip carry the state.
+  const fade = img.passed ? "" : "opacity-60 saturate-75";
 
   const status = !img.passed
-    ? { label: "Rejected", cls: "bg-accent-red/20 text-accent-red" }
+    ? { label: "Rejected", cls: "bg-accent-red/20 text-accent-red-ink" }
     : img.is_duplicate
-      ? { label: "Duplicate", cls: "bg-accent-amber/20 text-accent-amber" }
-      : { label: "Passed", cls: "bg-accent-green/15 text-accent-green" };
+      ? { label: "Duplicate", cls: "bg-accent-amber/20 text-accent-amber-ink" }
+      : { label: "Passed", cls: "bg-accent-green/15 text-accent-green-ink" };
 
   // Unique face clusters present on this image.
   const clusters = Array.from(
@@ -111,14 +113,14 @@ function Card({
   );
 
   return (
-    <div className={`group relative overflow-hidden rounded-lg border bg-surface transition-all ${border} ${fade}`}>
+    <div className={`group relative overflow-hidden rounded-lg border bg-surface transition-all ${border}`}>
       {/* Selection checkbox */}
       <button
         type="button"
         onClick={onToggle}
         disabled={!exportable}
         title={exportable ? (selected ? "Deselect" : "Select for export") : (blocked ?? "Not exported")}
-        className={`absolute left-1.5 top-1.5 z-30 flex h-5 w-5 items-center justify-center rounded border text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        className={`absolute left-1.5 top-1.5 z-30 flex h-6 w-6 items-center justify-center rounded border text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
           exportable ? "cursor-pointer" : ""
         } ${
           selected
@@ -130,13 +132,15 @@ function Card({
       </button>
 
       <div className="relative aspect-square" title={`${img.rel_path}\n\n${statusExplanation(img)}`}>
-        <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} onActivate={onOpen} eager={eager} />
+        <div className={`h-full w-full ${fade}`}>
+          <SafeThumb scanId={scanId} img={img} nsfwRan={nsfwRan} pending={pending} onActivate={onOpen} eager={eager} />
+        </div>
         <div className="pointer-events-none absolute right-1 top-1 z-10">
           <ScoreBadge score={img.score} />
         </div>
         {img.group_size > 1 && (
           <span
-            className="pointer-events-none absolute bottom-1 left-1 z-10 rounded bg-surface/90 px-1.5 py-0.5 font-mono text-[10px] text-accent-amber"
+            className="pointer-events-none absolute bottom-1 left-1 z-10 rounded bg-surface/90 px-1.5 py-0.5 font-mono text-[10px] text-accent-amber-ink"
             title={`Near-duplicate cluster g${img.similar_group} (${img.group_size} images)`}
           >
             g{img.similar_group}
@@ -146,12 +150,12 @@ function Card({
         {img.face_count > 0 && (
           <div className="pointer-events-none absolute bottom-1 right-1 z-10 flex flex-wrap justify-end gap-0.5">
             {clusters.slice(0, 2).map((c) => (
-              <span key={c} className="rounded bg-surface/90 px-1 py-0.5 font-mono text-[9px] text-accent-teal">
+              <span key={c} className="rounded bg-surface/90 px-1 py-0.5 font-mono text-[9px] text-accent-teal-ink">
                 {c}
               </span>
             ))}
             {img.face_count > 1 && clusters.length <= 1 && (
-              <span className="rounded bg-surface/90 px-1 py-0.5 font-mono text-[9px] text-accent-pink">
+              <span className="rounded bg-surface/90 px-1 py-0.5 font-mono text-[9px] text-accent-pink-ink">
                 {img.face_count} faces
               </span>
             )}
@@ -174,7 +178,7 @@ function Card({
           </span>
           {img.primary_face_pose && (
             <span
-              className="ml-1 inline-block rounded bg-accent-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple"
+              className="ml-1 inline-block rounded bg-accent-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple-ink"
               title={
                 img.primary_face_yaw != null
                   ? `Primary face orientation (yaw ${img.primary_face_yaw.toFixed(0)}°)`
@@ -186,7 +190,7 @@ function Card({
           )}
           {age && (
             <span
-              className="ml-1 inline-block rounded bg-accent-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple"
+              className="ml-1 inline-block rounded bg-accent-purple/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-purple-ink"
               title="A model's estimate"
             >
               {age}
@@ -194,7 +198,7 @@ function Card({
           )}
           {warnings.length > 0 && (
             <span
-              className="ml-1 inline-block rounded bg-accent-orange/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-orange"
+              className="ml-1 inline-block rounded bg-accent-orange/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-orange-ink"
               title={warnings.join(" ")}
             >
               Unchecked
@@ -202,7 +206,7 @@ function Card({
           )}
           {img.crop && (
             <span
-              className="ml-1 inline-block rounded bg-accent-teal/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-teal"
+              className="ml-1 inline-block rounded bg-accent-teal/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-teal-ink"
               title={img.crop_source === "detected" ? "Cropped: watermark at the edge" : "Cropped by a box by hand"}
             >
               Cropped
@@ -216,12 +220,12 @@ function Card({
             </span>
           )}
           {waiting.length > 0 && (
-            <div className="truncate text-[10px] leading-tight text-accent-teal" title={`Still checking ${pendingCaption(waiting)}`}>
+            <div className="truncate text-[10px] leading-tight text-accent-teal-ink" title={`Still checking ${pendingCaption(waiting)}`}>
               Checking {pendingCaption(waiting)}
             </div>
           )}
           {img.reject_reason && (
-            <div className="truncate text-[10px] leading-tight text-accent-red/80" title={img.reject_reason}>
+            <div className="truncate text-[10px] leading-tight text-accent-red-ink" title={img.reject_reason}>
               {img.reject_reason}
             </div>
           )}

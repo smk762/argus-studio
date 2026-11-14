@@ -1,11 +1,13 @@
+import { pageMetadata } from "@/lib/pageMeta";
 import { ConceptBody } from "@/components/docs/ConceptBody";
 import { ProseEnrichmentDemo } from "@/components/docs/ProseEnrichmentDemo";
 
-export const metadata = {
-  title: "Prose enrichment · Argus Studio Docs",
+export const metadata = pageMetadata({
+  title: "Prose enrichment · Docs",
+  path: "/docs/captioning/prose-enrichment/",
   description:
     "Append novel Florence-2 prose tokens to the training caption at low priority, without displacing core tags.",
-};
+});
 
 # Prose enrichment
 

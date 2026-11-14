@@ -50,7 +50,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     a: ({ href = "", ...props }: ComponentPropsWithoutRef<"a">) => {
       const isInternal = href.startsWith("/") || href.startsWith("#");
       const className =
-        "text-accent-purple underline decoration-dotted underline-offset-2 hover:text-accent-purple/80 transition-colors";
+        "text-accent-purple-ink underline decoration-dotted underline-offset-2 hover:text-accent-purple-ink transition-colors";
       if (isInternal) {
         return <Link href={href} className={className} {...props} />;
       }
@@ -60,7 +60,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     },
     code: (props: ComponentPropsWithoutRef<"code">) => (
       <code
-        className="rounded bg-background px-1.5 py-0.5 font-mono text-[0.8125rem] text-accent-teal/90"
+        className="rounded bg-background px-1.5 py-0.5 font-mono text-[0.8125rem] text-accent-teal-ink"
         {...props}
       />
     ),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyEdits, summaryFromReport, withReportSummary, type HitlEdit, type ReportSummary } from "@/lib/proofApi";
+import { applyEdits, needsReviewFrames, summaryFromReport, withReportSummary, type HitlEdit, type ReportSummary } from "@/lib/proofApi";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 
 // The /proof run list must agree with the open report after "Apply review".
@@ -58,5 +58,21 @@ describe("withReportSummary", () => {
 
   it("does not append a run the list doesn't hold", () => {
     expect(withReportSummary([OTHER], reviewedSample())).toEqual([OTHER]);
+  });
+});
+
+// "Needs-review only" lists frames; the header and run list count near-dup groups.
+// The sample's near-dup pair both await review, so the two differ by one, and the
+// labels say which is which ("4 images" beside "3 groups to review").
+describe("needsReviewFrames", () => {
+  it("counts frames, not groups", () => {
+    expect(needsReviewFrames(DEMO_REPORT.images)).toBe(5);
+    expect(DEMO_REPORT.aggregate.n_needs_hitl).toBe(4);
+  });
+
+  it("drops the rated frame after a review is applied", () => {
+    const updated = reviewedSample();
+    expect(needsReviewFrames(updated.images)).toBe(4);
+    expect(updated.aggregate.n_needs_hitl).toBe(3);
   });
 });

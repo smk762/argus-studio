@@ -22,7 +22,7 @@ import {
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { isLive, localOutputPath } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
-import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { basename, normalizeRoot } from "@/lib/path";
@@ -47,10 +47,10 @@ const FALLBACK_TRAINERS: TrainerInfo[] = (Object.keys(TRAINER_LABELS) as Trainer
 }));
 
 const TONE_CLASS: Record<DatasetSizeTone, string> = {
-  empty: "border-accent-red/30 bg-accent-red/5 text-accent-red",
-  low: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange",
-  good: "border-accent-green/30 bg-accent-green/5 text-accent-green",
-  high: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange",
+  empty: "border-accent-red/30 bg-accent-red/5 text-accent-red-ink",
+  low: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange-ink",
+  good: "border-accent-green/30 bg-accent-green/5 text-accent-green-ink",
+  high: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange-ink",
 };
 
 const inputClass =
@@ -354,16 +354,15 @@ export default function ForgePage() {
           live ? (
             <ApiVersionBadge label="argus-forge" version={version} prefix="v" />
           ) : (
-            <RecordedBadge label="Demo" title="No argus-forge answering: configs are generated in your browser." />
+            <DemoBadge state="browser" title="No argus-forge answering: configs are generated in your browser; nothing is sent anywhere." />
           )
         }
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
         {STATIC_DEMO && (
           <RecordedDemoNote
-            label="In-browser demo"
-            summary="the kohya config below is generated in your browser by the same sizing heuristics argus-forge uses."
+            summary="The kohya config below is generated in your browser by the same sizing heuristics argus-forge uses."
           >
             Demo mode builds kohya configs only. A running argus-forge inspects a real export and emits all three
             trainers.
@@ -495,7 +494,7 @@ export default function ForgePage() {
         {error && (
           <p
             role="alert"
-            className="rounded-lg border border-accent-red/30 bg-accent-red/5 px-3 py-2 text-sm text-accent-red"
+            className="rounded-lg border border-accent-red/30 bg-accent-red/5 px-3 py-2 text-sm text-accent-red-ink"
           >
             {error}
           </p>
@@ -574,7 +573,7 @@ export default function ForgePage() {
                   title={demoOnly ? "Demo mode builds kohya configs only." : t.notes || undefined}
                   className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                     trainer === t.id
-                      ? "border border-accent-amber/40 bg-accent-amber/20 text-accent-amber"
+                      ? "border border-accent-amber/40 bg-accent-amber/20 text-accent-amber-ink"
                       : "border border-border bg-background text-muted hover:text-foreground"
                   }`}
                 >
@@ -719,7 +718,7 @@ export default function ForgePage() {
           <>
             <ExternalLink
               href="https://github.com/smk762/argus-forge"
-              className="text-accent-amber transition-colors hover:text-accent-amber/80"
+              className="text-accent-amber-ink transition-colors hover:text-accent-amber-ink"
             >
               argus-forge
             </ExternalLink>{" "}

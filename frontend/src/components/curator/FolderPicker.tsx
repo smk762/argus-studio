@@ -61,7 +61,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
 
   if (error) {
     return (
-      <div className="rounded-lg border border-accent-amber/30 bg-accent-amber/5 p-3 text-[11px] leading-relaxed text-accent-amber">
+      <div className="rounded-lg border border-accent-amber/30 bg-accent-amber/5 p-3 text-[11px] leading-relaxed text-accent-amber-ink">
         Folder browsing unavailable: {error}. Configure a source root on the server, or enter a path manually below.
       </div>
     );
@@ -74,7 +74,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
         <button
           type="button"
           onClick={() => load("")}
-          className="cursor-pointer rounded px-1.5 py-0.5 font-mono text-accent-teal hover:bg-surface-hover"
+          className="cursor-pointer rounded px-1.5 py-0.5 font-mono text-accent-teal-ink hover:bg-surface-hover"
           title={listing?.root}
         >
           root
@@ -124,7 +124,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
                   className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                   title={f.abs_path}
                 >
-                  <span className="text-accent-amber">{f.subfolder_count > 0 ? "▸" : "•"}</span>
+                  <span className="text-accent-amber-ink">{f.subfolder_count > 0 ? "▸" : "•"}</span>
                   <span className="truncate text-xs text-foreground">{f.name}</span>
                   <span className="shrink-0 font-mono text-[10px] text-muted">
                     {f.image_count} img{f.subfolder_count > 0 ? ` · ${f.subfolder_count} sub` : ""}
@@ -135,7 +135,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
                   onClick={() => onSelect(f.abs_path)}
                   className={`shrink-0 cursor-pointer rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
                     isSel
-                      ? "bg-accent-teal/20 text-accent-teal"
+                      ? "bg-accent-teal/20 text-accent-teal-ink"
                       : "border border-border text-muted hover:text-foreground"
                   }`}
                 >
@@ -159,7 +159,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
           onClick={() => onSelect(listing.abs_path)}
           className={`w-full cursor-pointer rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
             selectedAbs === listing.abs_path
-              ? "bg-accent-teal/20 text-accent-teal"
+              ? "bg-accent-teal/20 text-accent-teal-ink"
               : "border border-border text-muted hover:text-foreground"
           }`}
         >

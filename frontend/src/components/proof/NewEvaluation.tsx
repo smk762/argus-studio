@@ -280,7 +280,7 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
               onClick={start}
               disabled={!ready || running || !permits(canRun)}
               title={checking ? "Checking what this server allows…" : undefined}
-              className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {running ? (phase === "scoring" ? "Scoring…" : "Generating…") : checking ? "Checking…" : "Run evaluation"}
             </button>
@@ -299,9 +299,9 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
                 </span>
               </div>
             )}
-            {error && <span className="text-xs text-accent-red">{error}</span>}
+            {error && <span className="text-xs text-accent-red-ink">{error}</span>}
             {!running && selectedExport && (
-              <span className="text-[11px] text-muted/70">
+              <span className="text-[11px] text-muted">
                 {selectedExport.n_rows} dataset rows
                 {selectedExport.has_references ? " · has identity references" : " · no references/ dir (identity scoring skipped)"}
               </span>

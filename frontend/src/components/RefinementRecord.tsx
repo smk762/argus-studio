@@ -24,7 +24,7 @@ export function RefinementRecord({ result }: { result: CaptionResult }) {
   const fine = outcome === "refined" || outcome === "unchanged";
   const tone = fine
     ? "border-border bg-surface text-muted"
-    : "border-accent-amber/40 bg-accent-amber/5 text-accent-amber";
+    : "border-accent-amber/40 bg-accent-amber/5 text-accent-amber-ink";
   const rejected = Object.entries(record.rejected);
 
   return (

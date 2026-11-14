@@ -45,7 +45,7 @@ import { asError } from "@/lib/apiError";
 import { lensUrl } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { RECORDED_CAPTION, RECORDED_CAPTION_IMAGE } from "@/lib/lensSample";
-import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { ExternalLink } from "@/components/ExternalLink";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
@@ -484,16 +484,16 @@ export default function Home() {
         logo={{ letter: "A" }}
         title="Argus Lens"
         subtitle="Structured image captioning for training & generation"
-        badge={STATIC_DEMO ? <RecordedBadge /> : <ApiVersionBadge label="argus-lens" version={lensVersion} />}
+        badge={STATIC_DEMO ? <DemoBadge state="recorded" /> : <ApiVersionBadge label="argus-lens" version={lensVersion} />}
       />
 
       {/* Main content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
+      <main id="main" tabIndex={-1} className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
         {/* Input form */}
         <div className="mb-8">
           {STATIC_DEMO && (
             <div className="mb-6">
-              <RecordedDemoNote summary="one real argus-lens caption run, replayed below.">
+              <RecordedDemoNote summary="One real argus-lens caption run, replayed below.">
                 The parameters show what each knob does; changing them needs a running argus-lens.
               </RecordedDemoNote>
             </div>
@@ -517,7 +517,7 @@ export default function Home() {
                   setCaptionedFolder(null);
                 }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-                  mode === m ? "bg-accent-purple text-white" : "text-muted hover:text-foreground"
+                  mode === m ? "bg-accent-purple text-on-accent" : "text-muted hover:text-foreground"
                 }`}
               >
                 {MODE_LABELS[m]}
@@ -540,7 +540,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={loading || !imageUrl.trim()}
-                className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
               >
                 {loading ? <Spinner label="Analyzing..." /> : "Analyze"}
               </button>
@@ -579,7 +579,7 @@ export default function Home() {
                   type="button"
                   onClick={() => void runUpload()}
                   disabled={loading || uploadFiles.length === 0}
-                  className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {loading ? (
                     <Spinner label="Captioning..." />
@@ -596,12 +596,12 @@ export default function Home() {
           {mode === "immich" && (
             <div className="mb-6 space-y-3">
               <p className="text-xs text-muted">
-                Caption an <ExternalLink className="text-accent-purple hover:text-accent-purple/80" href="https://immich.app">Immich</ExternalLink>{" "}
+                Caption an <ExternalLink className="text-accent-purple-ink hover:text-accent-purple-ink" href="https://immich.app">Immich</ExternalLink>{" "}
                 album straight from your photo server — nothing is copied into the dataset. With write-back enabled,
                 each caption is pushed to the asset&apos;s description in Immich.
               </p>
               {immichError ? (
-                <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-accent-red">
+                <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-accent-red-ink">
                   {immichError}
                   <span className="block mt-1 text-muted">
                     Set <span className="font-mono">IMMICH_URL</span> and{" "}
@@ -630,7 +630,7 @@ export default function Home() {
                     type="button"
                     onClick={() => void runImmich()}
                     disabled={loading || !albumId}
-                    className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                    className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                   >
                     {loading ? <Spinner label="Captioning..." /> : "Caption album"}
                   </button>
@@ -663,7 +663,7 @@ export default function Home() {
                   type="button"
                   onClick={() => void runFolder()}
                   disabled={loading || !folderPath.trim()}
-                  className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {loading ? <Spinner label="Captioning..." /> : "Caption folder"}
                 </button>
@@ -689,13 +689,13 @@ export default function Home() {
                   type="file"
                   accept=".jsonl,.json,application/x-ndjson"
                   onChange={(e) => setManifestFile(e.target.files?.[0] ?? null)}
-                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-accent-purple/20 file:px-3 file:py-1.5 file:text-accent-purple"
+                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-accent-purple/20 file:px-3 file:py-1.5 file:text-accent-purple-ink"
                 />
                 <button
                   type="button"
                   onClick={() => void runManifest()}
                   disabled={loading || !manifestFile}
-                  className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {loading ? <Spinner label="Captioning..." /> : "Caption manifest"}
                 </button>
@@ -736,7 +736,7 @@ export default function Home() {
                     onClick={() => setTargetStyle(style)}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                       targetStyle === style
-                        ? "bg-accent-purple text-white"
+                        ? "bg-accent-purple text-on-accent"
                         : "bg-surface border border-border text-foreground hover:bg-surface-hover"
                     }`}
                   >
@@ -817,7 +817,7 @@ export default function Home() {
 
         {/* Error */}
         {error && (
-          <div className="mb-6 p-4 rounded-lg border border-accent-red/30 bg-accent-red/5 text-accent-red text-sm">
+          <div className="mb-6 p-4 rounded-lg border border-accent-red/30 bg-accent-red/5 text-accent-red-ink text-sm">
             {error}
           </div>
         )}
@@ -873,7 +873,7 @@ export default function Home() {
               )}
               <div className="px-1 flex items-center gap-2">
                 <span className="text-xs text-muted">Backend:</span>
-                <span className="text-xs text-accent-purple font-medium">
+                <span className="text-xs text-accent-purple-ink font-medium">
                   {result.backend_name}
                 </span>
               </div>
@@ -883,14 +883,14 @@ export default function Home() {
                   type="button"
                   onClick={recaptionLast}
                   disabled={loading}
-                  className="w-full px-4 py-2.5 rounded-lg border border-accent-purple/40 bg-accent-purple/10 text-accent-purple text-sm font-medium hover:bg-accent-purple/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  className="w-full px-4 py-2.5 rounded-lg border border-accent-purple/40 bg-accent-purple/10 text-accent-purple-ink text-sm font-medium hover:bg-accent-purple/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 >
                   {loading ? (
                     <Spinner label="Re-captioning..." />
                   ) : (
                     <>
                       Re-caption with this balance
-                      <span className="ml-1.5 font-mono text-xs text-accent-purple/70">
+                      <span className="ml-1.5 font-mono text-xs text-accent-purple-ink">
                         {hybrid.proseBias != null
                           ? `prose_bias ${hybrid.proseBias.toFixed(2)}`
                           : hybrid.preset}
@@ -937,7 +937,7 @@ export default function Home() {
                 />
               </svg>
             </div>
-            <h2 className="text-lg font-medium text-foreground/60 mb-1">
+            <h2 className="text-lg font-medium text-muted mb-1">
               {mode === "url"
                 ? "Paste an image URL to get started"
                 : mode === "upload"
@@ -991,7 +991,7 @@ export default function Home() {
         poweredBy={
           <ExternalLink
             href="https://github.com/smk762/argus-lens"
-            className="text-accent-purple hover:text-accent-purple/80 transition-colors"
+            className="text-accent-purple-ink hover:text-accent-purple-ink transition-colors"
           >
             argus-lens
           </ExternalLink>
@@ -1012,7 +1012,7 @@ function ProgressLine({ done, total }: { done: number; total: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="shrink-0 font-mono text-xs tabular-nums text-accent-purple">
+      <span className="shrink-0 font-mono text-xs tabular-nums text-accent-purple-ink">
         {done} / {total}
       </span>
     </div>
@@ -1100,7 +1100,7 @@ function PipelineStep({
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex items-center gap-2 mb-2">
-        <span className="w-6 h-6 rounded-full bg-accent-purple/20 border border-accent-purple/40 flex items-center justify-center text-xs font-bold text-accent-purple">
+        <span className="w-6 h-6 rounded-full bg-accent-purple/20 border border-accent-purple/40 flex items-center justify-center text-xs font-bold text-accent-purple-ink">
           {number}
         </span>
         <span className="text-sm font-medium text-foreground">{title}</span>

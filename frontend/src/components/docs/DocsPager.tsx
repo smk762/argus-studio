@@ -21,7 +21,7 @@ export function DocsPager() {
           className="group rounded-lg border border-border bg-surface/40 px-4 py-3 transition-colors hover:bg-surface-hover"
         >
           <span className="text-xs text-muted">← Previous</span>
-          <span className="mt-0.5 block text-sm font-medium text-foreground group-hover:text-accent-purple">
+          <span className="mt-0.5 block text-sm font-medium text-foreground group-hover:text-accent-purple-ink">
             {prev.label}
           </span>
         </Link>
@@ -35,7 +35,7 @@ export function DocsPager() {
           className="group rounded-lg border border-border bg-surface/40 px-4 py-3 text-right transition-colors hover:bg-surface-hover sm:col-start-2"
         >
           <span className="text-xs text-muted">Next →</span>
-          <span className="mt-0.5 block text-sm font-medium text-foreground group-hover:text-accent-purple">
+          <span className="mt-0.5 block text-sm font-medium text-foreground group-hover:text-accent-purple-ink">
             {next.label}
           </span>
         </Link>

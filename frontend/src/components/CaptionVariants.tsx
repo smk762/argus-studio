@@ -16,49 +16,49 @@ const VARIANT_STYLES: Record<string, VariantStyle> = {
   training: {
     label: "TRAINING",
     border: "border-l-accent-red",
-    labelColor: "text-accent-red",
+    labelColor: "text-accent-red-ink",
   },
   // Sentence-form training caption for T5-encoder models (argus-lens#53):
   // identity removed at the phrase level and sized to the T5 token budget.
   training_prose: {
     label: "TRAINING PROSE (FLUX / SD3)",
     border: "border-l-accent-red/60",
-    labelColor: "text-accent-red/80",
+    labelColor: "text-accent-red-ink",
   },
   zeroshot: {
     label: "ZERO-SHOT",
     border: "border-l-accent-teal",
-    labelColor: "text-accent-teal",
+    labelColor: "text-accent-teal-ink",
   },
   identity: {
     label: "IDENTITY",
     border: "border-l-accent-purple",
-    labelColor: "text-accent-purple",
+    labelColor: "text-accent-purple-ink",
   },
   wardrobe: {
     label: "WARDROBE",
     border: "border-l-accent-green",
-    labelColor: "text-accent-green",
+    labelColor: "text-accent-green-ink",
   },
   pose_composition: {
     label: "POSE / COMPOSITION",
     border: "border-l-accent-orange",
-    labelColor: "text-accent-orange",
+    labelColor: "text-accent-orange-ink",
   },
   setting: {
     label: "SETTING",
     border: "border-l-accent-blue",
-    labelColor: "text-accent-blue",
+    labelColor: "text-accent-blue-ink",
   },
   lighting: {
     label: "LIGHTING",
     border: "border-l-accent-yellow",
-    labelColor: "text-accent-yellow",
+    labelColor: "text-accent-yellow-ink",
   },
   action: {
     label: "ACTION",
     border: "border-l-accent-pink",
-    labelColor: "text-accent-pink",
+    labelColor: "text-accent-pink-ink",
   },
 };
 
@@ -101,7 +101,7 @@ function TokenCount({ text, backend, budgets }: { text: string; backend: string;
   return (
     <span
       title={over ? `Tokens past the budget may never reach ${backend}'s text encoder.` : undefined}
-      className={`font-mono text-[11px] tabular-nums ${over ? "font-semibold text-accent-amber" : "text-muted"}`}
+      className={`font-mono text-[11px] tabular-nums ${over ? "font-semibold text-accent-amber-ink" : "text-muted"}`}
     >
       about {used} / {budget} tokens{over && " · over budget"}
     </span>
@@ -112,7 +112,7 @@ function RewrittenBadge({ model }: { model: string }) {
   return (
     <span
       title={model ? `Rewritten by ${model}` : "Rewritten by an LLM"}
-      className="rounded border border-accent-teal/40 px-1.5 py-px text-[10px] font-semibold tracking-wider text-accent-teal"
+      className="rounded border border-accent-teal/40 px-1.5 py-px text-[10px] font-semibold tracking-wider text-accent-teal-ink"
     >
       LLM
     </span>
@@ -142,9 +142,9 @@ export function CaptionVariants({ result, backend, budgets, finalVariant, onChoo
 
   return (
     <div className="space-y-3">
-      <h3 className="text-xs font-semibold tracking-widest text-muted uppercase">
+      <h2 className="text-xs font-semibold tracking-widest text-muted uppercase">
         Caption Variants
-      </h3>
+      </h2>
       <p className="text-xs text-muted">
         Budget for <span className="font-mono">{backend}</span>:{" "}
         {`${tokenBudget(backend, budgets)} tokens. Counts are lens's word-based ${isT5Backend(backend) ? "T5" : "CLIP"} estimate, not a tokenizer's, so treat them as approximate.`}
@@ -153,13 +153,13 @@ export function CaptionVariants({ result, backend, budgets, finalVariant, onChoo
       {/* Derived training caption — highlighted */}
       <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 border-l-4 border-l-accent-red">
         <div className="flex items-center justify-between mb-2">
-          <span className="flex items-center gap-2 text-xs font-bold tracking-wider text-accent-red">
+          <span className="flex items-center gap-2 text-xs font-bold tracking-wider text-accent-red-ink">
             {chosen ? `FINAL CAPTION: ${getVariantStyle(final.selected_category).label}` : "DERIVED TRAINING CAPTION"}
             {rewritten.has(final.selected_category) && <RewrittenBadge model={refine?.model ?? ""} />}
           </span>
           <button
             onClick={() => handleCopy(derived, "__derived")}
-            className="text-xs text-accent-teal hover:text-accent-teal/80 transition-colors cursor-pointer"
+            className="text-xs text-accent-teal-ink hover:text-accent-teal-ink transition-colors cursor-pointer"
           >
             {copiedKey === "__derived" ? "Copied!" : "Copy to clipboard"}
           </button>
@@ -172,7 +172,7 @@ export function CaptionVariants({ result, backend, budgets, finalVariant, onChoo
           {chosen && (
             <button
               onClick={() => onChooseFinal(null)}
-              className="text-xs text-accent-teal hover:text-accent-teal/80 transition-colors cursor-pointer"
+              className="text-xs text-accent-teal-ink hover:text-accent-teal-ink transition-colors cursor-pointer"
             >
               Back to lens&apos;s pick ({getVariantStyle(result.selected_category).label})
             </button>
@@ -206,7 +206,7 @@ export function CaptionVariants({ result, backend, budgets, finalVariant, onChoo
                   (finalChoice(result, key) || key === result.selected_category) && (
                     <button
                       onClick={() => onChooseFinal(key)}
-                      className="text-xs text-accent-teal hover:text-accent-teal/80 transition-colors cursor-pointer"
+                      className="text-xs text-accent-teal-ink hover:text-accent-teal-ink transition-colors cursor-pointer"
                     >
                       Use as final
                     </button>
@@ -214,7 +214,7 @@ export function CaptionVariants({ result, backend, budgets, finalVariant, onChoo
                 )}
                 <button
                   onClick={() => handleCopy(caption, key)}
-                  className="text-xs text-accent-teal hover:text-accent-teal/80 transition-colors cursor-pointer"
+                  className="text-xs text-accent-teal-ink hover:text-accent-teal-ink transition-colors cursor-pointer"
                 >
                   {copiedKey === key ? "Copied!" : "Copy to clipboard"}
                 </button>

@@ -93,7 +93,7 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
             <Button onClick={() => setConfirming(false)} disabled={removing}>
               Keep
             </Button>
-            {removeError ? <span className="text-accent-red">{removeError}</span> : null}
+            {removeError ? <span className="text-accent-red-ink">{removeError}</span> : null}
           </span>
         ) : (
           <Button tone="danger" onClick={() => setConfirming(true)} disabled={writeBlock != null} title={writeBlock ?? "Ask darkroom to delete the image file. The record is kept, marked removed."}>
@@ -111,7 +111,7 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
             <Button onClick={() => setConfirmingPurge(false)} disabled={purging}>
               Keep
             </Button>
-            {purgeError ? <span className="text-accent-red">{purgeError}</span> : null}
+            {purgeError ? <span className="text-accent-red-ink">{purgeError}</span> : null}
           </span>
         ) : (
           <Button tone="danger" onClick={() => setConfirmingPurge(true)} disabled={running} title={running ? "Wait for the current generation to finish." : "Delete the record itself, as well as its image."}>
