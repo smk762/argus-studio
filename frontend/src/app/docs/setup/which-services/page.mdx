@@ -1,0 +1,90 @@
+import { pageMetadata } from "@/lib/pageMeta";
+
+export const metadata = pageMetadata({
+  title: "What to run for which UI · Docs",
+  path: "/docs/setup/which-services/",
+  description:
+    "For each Argus demo UI: the services it needs live, what its mock or recording replaces, and the command that runs it with no GPU.",
+});
+
+# What to run for which UI
+
+Every Argus demo UI runs with **no GPU and no backend**: each has a mock server,
+a recorded fixture or a static build that stands in for the live services. This
+page lists, per UI, what it talks to when it is live, what replaces it when it
+isn't, and the command for the no-GPU path. Each UI's README links its row here.
+
+Services on this page have their own setup pages under
+[Setup and services](/docs/setup). Hosts are written as `<GPU_HOST>` or
+`<LAN_HOST>`. Put the real address in your local `.env`, never in a doc.
+
+## Studio
+
+The site you are reading ([argus-studio](https://github.com/smk762/argus-studio#quick-start)).
+
+| | |
+|---|---|
+| **Live** | One compose profile per tool. `lens` brings argus-lens and [Ollama](/docs/setup/services/ollama). `curator` brings argus-curator and [NudeNet](/docs/setup/services/nudenet). `forge`, `proof` and `atlas` each bring their service, and atlas bakes through [ComfyUI](/docs/setup/services/comfyui). `gallery` brings argus-quarry. `survey` brings argus-survey and Sightline. `darkroom` brings argus-darkroom, which needs your own [SingGuard](/docs/setup/services/singguard) and ComfyUI. `full` is everything except `darkroom`, `survey` and `mask`. |
+| **Stand-in** | With no profile, `/curate` serves a bundled read-only sample (`ARGUS_CURATOR_UI_MODE=demo`). The static build replays recorded output on every page, `/darkroom` included. |
+| **No-GPU command** | `docker compose up`, or `cd frontend && npm ci && npm run build:static && npx serve out` |
+
+## Lightbox
+
+[argus-lightbox](https://github.com/smk762/argus-lightbox#quick-start) browses captions and their provenance.
+
+| | |
+|---|---|
+| **Live** | argus-lens, in folder mode only. Lens in turn can use [Ollama or another OpenAI-compatible server](/docs/setup/services/openai-compatible) and [models from Hugging Face](/docs/setup/services/model-downloads). |
+| **Stand-in** | A committed synthetic fixture (`web/public/data/`) or the recorded lens tape (`web/public/data-tape/`). |
+| **No-GPU command** | `make install && make dev` (serves the fixture), or `make build` for a static site |
+
+## Realms
+
+The hosted viewer for argus-atlas's prebaked fantasy-map mosaic. Its source isn't
+public: see [argus-atlas](https://github.com/smk762/argus-atlas#readme).
+
+| | |
+|---|---|
+| **Live** | Nothing at view time. The tiles are baked ahead of time by argus-atlas, through [ComfyUI](/docs/setup/services/comfyui) with [GDAL](/docs/setup/services/gdal-pdal) and [map data](/docs/setup/services/map-data). The basemap comes from OpenFreeMap. |
+| **Stand-in** | Not needed: the viewer serves the baked [PMTiles](https://docs.protomaps.com/pmtiles/) archive. |
+| **No-GPU command** | Only the bake needs a GPU. Studio's `/atlas` shows a recorded bake. |
+
+## Safelight
+
+[argus-safelight](https://github.com/smk762/argus-safelight#running-it) is the record view for guarded generation.
+
+| | |
+|---|---|
+| **Live** | argus-darkroom, which needs [SingGuard](/docs/setup/services/singguard) and [ComfyUI](/docs/setup/services/comfyui), plus [NudeNet](/docs/setup/services/nudenet) for the image scans and optionally [Ollama](/docs/setup/services/ollama) for prompt expansion. |
+| **Stand-in** | The `mock-darkroom` service (profile `mock`) serves the recorded `fixture/`. The other option is darkroom's own `make demo`: the real darkroom server against fake SingGuard, NudeNet, ComfyUI and Ollama. |
+| **No-GPU command** | `make mock` and `make dev`, or `docker compose up --build` with `COMPOSE_PROFILES=mock` |
+
+## Sightline
+
+[argus-sightline](https://github.com/smk762/argus-sightline#run-it) is the survey viewer.
+
+| | |
+|---|---|
+| **Live** | argus-survey, which needs [PDAL and GDAL](/docs/setup/services/gdal-pdal). These ship in its image, and its compose reserves no GPU. |
+| **Stand-in** | No mock: a synthetic survey kit is generated locally and processed by the real engine. |
+| **No-GPU command** | `cp .env.example .env && make demo-data && make up-published` (the published survey image). Studio's `survey` profile runs both too. |
+
+## Assay
+
+[argus-assay](https://github.com/smk762/argus-assay#running-it) is the review queue for argus-mint.
+
+| | |
+|---|---|
+| **Live** | argus-mint, which renders through argus-darkroom and pins and publishes through [IPFS, Foundry and Base](/docs/setup/services/ipfs-foundry-base). |
+| **Stand-in** | The `mock-mint` service (profile `mock`) serves a recorded fixture. |
+| **No-GPU command** | `make install && make mock && make dev`, or `docker compose up` with `COMPOSE_PROFILES=mock` |
+
+## Cull
+
+[argus-cull](https://github.com/smk762/argus-cull#quick-start) is a curation UI over argus-curator.
+
+| | |
+|---|---|
+| **Live** | argus-curator (GPU image), with [NudeNet](/docs/setup/services/nudenet), [EraX-NSFW](/docs/setup/services/erax-nsfw), the [watermark detector](/docs/setup/services/watermark-detector) and [SingGuard](/docs/setup/services/singguard). |
+| **Stand-in** | A recorded data tape (`web/public/data-tape/`). |
+| **No-GPU command** | `make pages` (static export of the tape) |

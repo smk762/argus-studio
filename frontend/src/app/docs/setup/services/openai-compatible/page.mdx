@@ -1,0 +1,38 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "vLLM and other OpenAI-compatible servers · Docs",
+  path: "/docs/setup/services/openai-compatible/",
+  description: "Use vLLM, LM Studio or any OpenAI-compatible server for argus-lens's prose captions.",
+});
+
+# vLLM and other OpenAI-compatible servers
+
+<ServiceFacts id="openai-compatible" />
+
+## Minimal setup
+
+1. Serve a vision-language model with an OpenAI-compatible API. For example, with vLLM:
+
+   ```bash
+   vllm serve Qwen/Qwen2.5-VL-7B-Instruct --port 8000
+   ```
+
+2. Point lens at it. Any of the `ARGUS_OPENAI_COMPAT_*` variables can be given
+   as a CLI flag instead:
+
+   ```bash
+   ARGUS_BACKEND=hybrid:wd14+openai-compat
+   ARGUS_OPENAI_COMPAT_BASE_URL=http://<GPU_HOST>:8000/v1
+   ARGUS_OPENAI_COMPAT_MODEL=Qwen/Qwen2.5-VL-7B-Instruct
+   ARGUS_OPENAI_COMPAT_API_KEY=   # only if the server wants one
+   ```
+
+`hybrid:wd14+openai-compat` tags locally with WD14 and asks the server for the
+prose. Plain `openai-compat` asks the server for everything.
+`ARGUS_OPENAI_COMPAT_PROMPT` picks a prompt preset (`detailed`,
+`straightforward`, `descriptive`, `booru`, `count`) or takes a literal prompt.
+
+Darkroom's `--expand` is the exception: it speaks Ollama's native API only (see
+[Ollama](/docs/setup/services/ollama)).

@@ -12,7 +12,8 @@
     "test": "vitest run",
     "wire:types": "node scripts/wire-types.mjs",
     "wire:check": "node scripts/wire-types.mjs --check",
-    "wire:pull": "node scripts/wire-types.mjs --pull"
+    "wire:pull": "node scripts/wire-types.mjs --pull",
+    "docs:links": "node scripts/check-links.mjs"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.1",

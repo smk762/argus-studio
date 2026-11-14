@@ -1,0 +1,29 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "GDAL and PDAL · Docs",
+  path: "/docs/setup/services/gdal-pdal/",
+  description: "Install GDAL for argus-atlas and PDAL, GDAL and PROJ for argus-survey, for native (non-Docker) runs.",
+});
+
+# GDAL and PDAL
+
+<ServiceFacts id="gdal-pdal" />
+
+## Minimal setup
+
+The Docker images already include these libraries. Install them only for a native run.
+
+- **atlas**: install `gdal-bin` from your distribution or conda-forge, so
+  `gdalwarp` and `gdal2tiles.py` are on `PATH`. Then `pip install 'argus-atlas[tiles]'`
+  and run `argus-atlas doctor` to check.
+- **survey**: create the pinned conda environment from its lockfile, then fetch
+  the datum grids:
+
+  ```bash
+  micromamba create -p ./.geo -f env/geo-linux-64.lock
+  projsync --system-directory --all   # or only the grids you need
+  ```
+
+  Survey forces `PROJ_NETWORK=OFF`, so grids are never fetched mid-run.

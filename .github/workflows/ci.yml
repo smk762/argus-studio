@@ -43,7 +43,11 @@ jobs:
 
       - run: npm run typecheck
 
+      # Includes the docs opsec gate (src/lib/docsOpsec.test.ts). The private
+      # denylist is a secret, never committed; it is empty on fork PRs.
       - run: npm test
+        env:
+          DOCS_OPSEC_DENYLIST: ${{ secrets.DOCS_OPSEC_DENYLIST }}
 
   # The static demo export (studio.dragonhound.dev) must not scroll sideways on
   # a phone: every route at 390 px, light and dark, plus no console errors or

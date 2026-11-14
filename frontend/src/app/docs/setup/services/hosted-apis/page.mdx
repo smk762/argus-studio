@@ -1,0 +1,30 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "Hosted inference APIs · Docs",
+  path: "/docs/setup/services/hosted-apis/",
+  description: "Caption with argus-lens through OpenAI, Hugging Face Inference Providers, Replicate or NVIDIA NIM.",
+});
+
+# Hosted inference APIs
+
+<ServiceFacts id="hosted-apis" />
+
+## Minimal setup
+
+1. Create an API key with the provider.
+2. Install the extra the backend needs: `pip install 'argus-lens[openai]'` or
+   `'argus-lens[replicate]'`. The Hugging Face and NIM backends need no extra.
+3. Export the key and pick the backend:
+
+   ```bash
+   export OPENAI_API_KEY=…
+   argus-lens caption ./images/ --backend openai
+   ```
+
+Every image you caption this way is uploaded to that provider. Read their
+data-retention terms before captioning anything private.
+
+Studio's compose doesn't pass these keys to the lens container. Add them to the
+`argus-lens` service's `environment` if you want cloud backends there.

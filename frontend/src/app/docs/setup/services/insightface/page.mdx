@@ -1,0 +1,28 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "InsightFace · Docs",
+  path: "/docs/setup/services/insightface/",
+  description: "Install InsightFace for argus-curator's face pipeline and argus-proof's identity scorer.",
+});
+
+# InsightFace
+
+<ServiceFacts id="insightface" />
+
+## Minimal setup
+
+1. Install the extra: `argus-curator[faces]` (CPU) or `[gpu]` for curator,
+   and `argus-proof[score]` for proof.
+2. On Debian or Ubuntu, add the system libraries it loads:
+
+   ```bash
+   apt install libgl1 libglib2.0-0 libgomp1
+   ```
+
+3. Run once. The `buffalo_l` model pack downloads itself into `~/.insightface`.
+   In a container, mount that directory so it isn't downloaded again on every start.
+
+Check the InsightFace model licence before any commercial use: the pretrained
+packs are for non-commercial research.

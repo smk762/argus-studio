@@ -60,7 +60,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     },
     code: (props: ComponentPropsWithoutRef<"code">) => (
       <code
-        className="rounded bg-background px-1.5 py-0.5 font-mono text-[0.8125rem] text-accent-teal-ink"
+        className="rounded bg-background px-1.5 py-0.5 font-mono text-[0.8125rem] text-accent-teal-ink [overflow-wrap:anywhere]"
         {...props}
       />
     ),

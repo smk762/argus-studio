@@ -1,0 +1,30 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "Map data and tiles · Docs",
+  path: "/docs/setup/services/map-data/",
+  description: "Data sources argus-atlas uses for elevation, OSM layers, place names and tiles, and their usage policies.",
+});
+
+# Map data and tiles
+
+<ServiceFacts id="map-data" />
+
+## Minimal setup
+
+None of these need an account.
+
+- **Elevation**: `argus-atlas dem` reads Copernicus GLO-30 from its public AWS
+  bucket. `ATLAS_DEM_SOURCE` points at a mirror.
+- **OSM layers**: `argus-atlas osm` queries the public Overpass API. It is
+  shared and rate-limited, so for anything beyond small areas run your own
+  instance and set `ATLAS_OVERPASS_URL`. The atlas server's `POST /osm` stays
+  off unless `ATLAS_ALLOW_OSM=1`.
+- **Place names**: `argus-atlas labels --source <file>` reads a local file, such as
+  a Natural Earth populated-places layer or a Geofabrik extract.
+- **Tiles**: `argus-atlas tiles` writes a single PMTiles archive (needs the
+  `[tiles]` extra), which any static host can serve.
+
+Don't point a viewer at `tile.openstreetmap.org` for anything heavy: the OSM
+tile policy forbids bulk use. Realms uses OpenFreeMap for its basemap.

@@ -18,7 +18,7 @@ const MARKDOWN_COMPONENTS: Components = {
   ul: ({ children }) => <ul className="ml-4 list-disc space-y-1 marker:text-muted">{children}</ul>,
   ol: ({ children }) => <ol className="ml-4 list-decimal space-y-1 marker:text-muted">{children}</ol>,
   code: ({ children }) => (
-    <code className="rounded bg-background px-1 py-0.5 font-mono text-[0.75rem] text-accent-teal-ink">
+    <code className="rounded bg-background px-1 py-0.5 font-mono text-[0.75rem] text-accent-teal-ink [overflow-wrap:anywhere]">
       {children}
     </code>
   ),

@@ -1,0 +1,58 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "ComfyUI · Docs",
+  path: "/docs/setup/services/comfyui/",
+  description: "Set up ComfyUI for argus-darkroom, argus-atlas and argus-proof, including darkroom's custom nodes.",
+});
+
+# ComfyUI
+
+<ServiceFacts id="comfyui" />
+
+## Minimal setup
+
+1. Install ComfyUI and start it (`python main.py --listen`). Use `--listen` so
+   containers can reach it. It listens on port 8188.
+2. Put your checkpoints and LoRAs in its `models/` tree (see
+   [Checkpoints and LoRAs](/docs/setup/services/checkpoints-loras)).
+3. Point each client at it. The variable names and defaults differ:
+
+   | Package | Variable | Default |
+   |---|---|---|
+   | darkroom | `ARGUS_DARKROOM_COMFYUI_URL` | `http://localhost:8188` |
+   | atlas | `COMFYUI_BASE_URL` | `http://host.docker.internal:8188`, even when run natively |
+   | proof | `COMFYUI_BASE_URL` | `http://127.0.0.1:8188` |
+   | Studio compose | `COMFYUI_BASE_URL` (passed to all three) | `http://host.docker.internal:8188` |
+
+   For a ComfyUI on another machine, use `http://<GPU_HOST>:8188`.
+
+### Darkroom's nodes
+
+Darkroom receives images over ComfyUI's websocket, so a stock install needs
+two additions.
+
+- **`SaveImageWebsocket`** ships with ComfyUI as an example node
+  (`custom_nodes/websocket_image_save.py`). Check that it's loaded:
+
+  ```bash
+  curl http://localhost:8188/object_info/SaveImageWebsocket
+  ```
+
+- **`DarkroomLoadImageBase64` and `DarkroomLoadMaskBase64`** are needed only for
+  image-to-image and inpainting. They live in darkroom's repo, outside the
+  Python package. Copy the file in and restart ComfyUI:
+
+  ```bash
+  cp argus-darkroom/comfyui/darkroom_load_image_base64.py <ComfyUI>/custom_nodes/
+  curl http://localhost:8188/object_info/DarkroomLoadMaskBase64
+  ```
+
+  If you copied an older version before the mask node existed, copy it again.
+
+### Atlas's workflow
+
+Atlas's starter workflow template names an SDXL depth ControlNet. Swap in one
+your ComfyUI actually has. See
+[the ComfyUI workflow template](https://github.com/smk762/argus-atlas/blob/dev/README.md#the-comfyui-workflow-template).

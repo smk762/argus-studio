@@ -1,0 +1,26 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "NudeNet server · Docs",
+  path: "/docs/setup/services/nudenet/",
+  description: "Run a NudeNet server for argus-curator, argus-darkroom and argus-proof.",
+});
+
+# NudeNet server
+
+<ServiceFacts id="nudenet" />
+
+## Minimal setup
+
+1. Run the server image. Studio's compose runs it as the `nudenet` service in
+   the `curator`, `forge`, `full` and `darkroom` profiles, using the same
+   `ghcr.io/notai-tech/nudenet` image that curator's compose pins.
+2. Point the clients at its origin. They add `/infer` themselves:
+   `ARGUS_CURATOR_NUDENET_URL=http://nudenet:8080` inside compose, or
+   `http://<LAN_HOST>:8080` from elsewhere.
+3. Check it: the server should answer a multipart `POST /infer` with
+   `{"prediction": [...], "success": true}`.
+
+How the answer becomes the suite's exposed score is on the
+[Moderation](/docs/setup/moderation#the-exposed-score) page.
