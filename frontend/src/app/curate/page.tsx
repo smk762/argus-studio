@@ -54,6 +54,7 @@ import { matchesFilters } from "@/lib/curatorFacets";
 import { policiesRun } from "@/lib/curatorGuard";
 import { sortResults, type ResultSort } from "@/lib/curatorModeration";
 import { canExport, isDeletableReject, isMinorExposed, scanCheckedNsfw } from "@/lib/curatorSafety";
+import { CURATOR_SAMPLE_VERSION } from "@/lib/curatorSampleThumbs";
 import { scanFormProblem } from "@/lib/curatorScanForm";
 import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
 import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
@@ -586,7 +587,7 @@ export default function CuratePage() {
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         {STATIC_DEMO && (
           <div className="mb-6">
-            <RecordedDemoNote summary="A recorded argus-curator 0.15.0 scan of 14 synthetic images.">
+            <RecordedDemoNote summary={`A recorded argus-curator ${CURATOR_SAMPLE_VERSION} scan of 14 synthetic images.`}>
               The images were generated for this demo with SDXL (CyberRealistic XL Desire v2.0, with InstantID to
               keep each face consistent); both people are fictional. Every score, face, pose, scene, garment and
               moderation verdict here is the curator&apos;s real output, recorded with its own thumbnails. Filtering, selection and the export manifest all run in your

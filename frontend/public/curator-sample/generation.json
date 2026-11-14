@@ -1,0 +1,193 @@
+{
+  "checkpoint": "cyberrealisticXL_desireV20.safetensors",
+  "sampler": "DPM++ 2M SDE Karras",
+  "steps": 30,
+  "cfg": 5.0,
+  "identity_scale": 0.8,
+  "negative": "nude, nsfw, topless, cleavage, lingerie, underwear, sexy, celebrity, famous person, cartoon, anime, painting, illustration, 3d render, cgi, deformed, disfigured, extra fingers, bad hands, watermark, text, logo, signature, frame, low quality, worst quality",
+  "negative_person_a": "nude, nsfw, topless, cleavage, lingerie, underwear, sexy, celebrity, famous person, cartoon, anime, painting, illustration, 3d render, cgi, deformed, disfigured, extra fingers, bad hands, watermark, text, logo, signature, frame, low quality, worst quality, teenager, young girl, childlike",
+  "shots": [
+    {
+      "rel": "_refs/A2_ref_1",
+      "prompt": "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud earrings, wearing a denim jacket over a white t-shirt, looking at the camera, upper body portrait, outdoors in a green city park, trees behind her, daylight, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 7701,
+      "identity": "reference"
+    },
+    {
+      "rel": "_refs/B_tv_front_1",
+      "prompt": "a fictional 45 year old man, square jaw, short salt-and-pepper hair, neatly trimmed greying beard, warm brown eyes, faint smile lines, wearing a navy blazer over a light blue shirt, looking directly at the camera, head and shoulders portrait, in a television studio with studio lights and screens behind him, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 2201,
+      "identity": "reference"
+    },
+    {
+      "rel": "personA/studio/01",
+      "prompt": "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud earrings, wearing an elegant burgundy dress, looking directly at the camera, head and shoulders portrait, in a theatre dressing room with a lit mirror behind her, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 1101,
+      "identity": "seed 51101, CFG 5.0",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personA/studio/02",
+      "prompt": "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud earrings, wearing an elegant burgundy dress, three-quarter view, face turned slightly to the side, upper body portrait, in a theatre dressing room with a lit mirror, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 1110,
+      "identity": "seed 51110, CFG 5.0",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personA/studio/02_copy",
+      "prompt": "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud earrings, wearing an elegant burgundy dress, three-quarter view, face turned slightly to the side, upper body portrait, in a theatre dressing room with a lit mirror, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 1110,
+      "identity": "seed 51110, CFG 5.3",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personA/outdoor/03",
+      "prompt": "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud earrings, wearing a denim jacket over a white t-shirt, looking at the camera, smiling, upper body portrait, outdoors in a green city park, trees behind her, daylight, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 1120,
+      "identity": "seed 51120, CFG 5.0",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personA/outdoor/04",
+      "prompt": "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud earrings, wearing a denim jacket over a white t-shirt, side profile view looking to the left, upper body, outdoors in a green city park, autumn trees, daylight, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 1131,
+      "identity": "seed 51131, CFG 5.0",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personA/outdoor/05",
+      "prompt": "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud earrings, wearing a modest navy one-piece swimsuit, standing on a sandy beach, waist-up portrait, ocean and sky behind her, summer daylight, wholesome holiday photo, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 1150,
+      "identity": "seed 51150, CFG 5.0",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personB/set1/01",
+      "prompt": "a fictional 45 year old man, square jaw, short salt-and-pepper hair, neatly trimmed greying beard, warm brown eyes, faint smile lines, wearing a navy blazer over a light blue shirt, looking directly at the camera, head and shoulders portrait, in a television studio with studio lights and screens behind him, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 2201,
+      "identity": "seed 52201, CFG 5.0",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personB/set1/02",
+      "prompt": "a fictional 45 year old man, square jaw, short salt-and-pepper hair, neatly trimmed greying beard, warm brown eyes, faint smile lines, wearing a navy blazer over a light blue shirt, three-quarter view, upper body portrait, seated in a television studio set, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 2210,
+      "identity": "seed 52210, CFG 5.0",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personB/set2/03",
+      "prompt": "a fictional 45 year old man, square jaw, short salt-and-pepper hair, neatly trimmed greying beard, warm brown eyes, faint smile lines, wearing a brown leather jacket, looking at the camera, upper body portrait, outdoors on a city street, daylight, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 2220,
+      "identity": "seed 52220, CFG 5.0",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personB/set2/04",
+      "prompt": "a fictional 45 year old man, square jaw, short salt-and-pepper hair, neatly trimmed greying beard, warm brown eyes, faint smile lines, wearing a brown leather jacket, side profile view looking to the right, upper body, outdoors on a city street, daylight, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 2230,
+      "identity": "seed 52230, CFG 5.0",
+      "post": null,
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personB/rejects/blurry",
+      "prompt": "a fictional 45 year old man, square jaw, short salt-and-pepper hair, neatly trimmed greying beard, warm brown eyes, faint smile lines, wearing a navy blazer over a light blue shirt, three-quarter view, upper body portrait, seated in a television studio set, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 2211,
+      "identity": "none",
+      "post": "blur",
+      "size": [
+        832,
+        1216
+      ]
+    },
+    {
+      "rel": "personA/rejects/lowres",
+      "prompt": "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud earrings, wearing a denim jacket over a white t-shirt, looking at the camera, smiling, upper body portrait, outdoors in a green city park, trees behind her, daylight, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 1121,
+      "identity": "seed 51121, CFG 5.0",
+      "post": "lowres",
+      "size": [
+        160,
+        234
+      ]
+    },
+    {
+      "rel": "misc/wide_banner",
+      "prompt": "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud earrings, small in frame, walking along a wide beach promenade at sunset, wide landscape shot, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 4400,
+      "identity": "seed 54400, CFG 5.0",
+      "post": "banner",
+      "size": [
+        2736,
+        547
+      ]
+    },
+    {
+      "rel": "mixed/group_shot",
+      "prompt": "medium shot of two colleagues standing a step apart in a green city park, a woman with wavy auburn hair in a green cardigan, a 45 year old man with a greying beard in a navy blazer, both smiling, daylight, professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light",
+      "seed": 3300,
+      "faces": [
+        {
+          "person": "B",
+          "identity": "seed 61001",
+          "box": [
+            595,
+            45,
+            1105,
+            554
+          ]
+        },
+        {
+          "person": "A",
+          "identity": "seed 61000",
+          "box": [
+            231,
+            106,
+            682,
+            557
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -27,6 +27,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Recorded demo samples (schema/demo.json) behind their package's dev HEAD.
+  # Re-recording needs a GPU host, so this only opens or updates one issue.
+  recordings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - run: |
+          behind=""
+          for name in $(jq -r 'keys_unsorted[]' frontend/schema/demo.json); do
+            repo=$(jq -r ".[\"$name\"].repo" frontend/schema/demo.json)
+            branch=$(jq -r ".[\"$name\"].branch" frontend/schema/demo.json)
+            recorded=$(jq -r ".[\"$name\"].commit" frontend/schema/demo.json)
+            version=$(jq -r ".[\"$name\"].version" frontend/schema/demo.json)
+            head=$(git ls-remote "https://github.com/$repo" "refs/heads/$branch" | cut -f1)
+            if [ -n "$head" ] && [ "$head" != "$recorded" ]; then
+              behind="$behind
+          - $repo: recorded at $version (\`${recorded:0:7}\`), dev is now \`${head:0:7}\` ([diff](https://github.com/$repo/compare/$recorded...$head))"
+            fi
+          done
+          title="Demo recordings behind dev"
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -z "$behind" ]; then
+            echo "Every recording is at its package's dev HEAD."
+            exit 0
+          fi
+          body="These recorded demo samples were made by an older \`dev\` commit than their package's current one:
+          $behind
+
+          Re-record a sample when the diff changes what it shows (the recipes are in scripts/ and each sample's provenance), then update frontend/schema/demo.json. A curator recording moves with its wire pin (schema/pins.json) in one PR."
+          if [ -n "$number" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/$number" -f body="$body" >/dev/null
+            echo "Updated #$number."
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+
   drift:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -50,6 +92,18 @@ jobs:
             recorded=$(jq -r ".[\"$name\"].commit" schema/pins.json)
             head=$(git ls-remote "https://github.com/$repo" "refs/heads/$branch" | cut -f1)
             if [ -n "$head" ] && [ "$head" != "$recorded" ]; then
+              # A package with a recorded demo sample (schema/demo.json) keeps its pin on the
+              # recorded commit until its schema itself changes: the two move together, and
+              # re-recording needs a GPU host (the recordings job tracks that lag).
+              if jq -e --arg n "$name" 'has($n)' schema/demo.json >/dev/null; then
+                path=$(jq -r ".[\"$name\"].path // \"schema/$name-wire.schema.json\"" schema/pins.json)
+                pinned=$(jq -r ".[\"$name\"].sha256" schema/pins.json)
+                now=$(curl -sfL "https://raw.githubusercontent.com/$repo/$head/$path" | sha256sum | cut -d' ' -f1)
+                if [ "$now" = "$pinned" ]; then
+                  echo "$name: dev moved to ${head:0:9}, schema unchanged; the pin stays with its recording"
+                  continue
+                fi
+              fi
               echo "$name: ${recorded:0:9} -> ${head:0:9}"
               moved="$moved $name"
             fi
@@ -118,9 +172,10 @@ jobs:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           title="Wire schema sync blocked"
-          body="Pulling the wire schemas at \`dev\` HEAD (moved: $MOVED) breaks wire:check, lint, typecheck or the tests: Studio's code has to follow a schema change. Run: $RUN
+          body="Pulling the wire schemas at \`dev\` HEAD (moved: $MOVED) breaks wire:check, lint, typecheck or the tests. Run: $RUN
 
-          Reproduce with \`npm run wire:pull -- $MOVED\` in frontend/, then fix what typecheck reports."
+          - If typecheck or a wire test fails, Studio's code has to follow a schema change: reproduce with \`npm run wire:pull -- $MOVED\` in frontend/ and fix what it reports.
+          - If only \`src/lib/demoRecordings.test.ts\` fails, the package's recorded demo sample must move with its pin (schema/demo.json): re-record it at the new commit (needs the GPU; see public/curator-sample/PROVENANCE.md and scripts/record_curator_demo.py), then pull the pin in the same PR."
           number=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
           if [ -n "$number" ]; then
             gh issue comment "$number" --body "$body"

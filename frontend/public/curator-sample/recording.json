@@ -1,0 +1,41 @@
+{
+  "package": "argus-curator",
+  "version": "0.15.2.dev2+g97021d6",
+  "recorded_at": "2026-11-14",
+  "options": {
+    "target_profile": {
+      "target_style": "photo",
+      "target_backend": "sdxl",
+      "target_category": "identity"
+    },
+    "config": {
+      "min_short_side": 512,
+      "max_aspect_ratio": 3.0,
+      "blur_threshold": 100.0,
+      "cluster_distance": 10
+    },
+    "faces": {
+      "enabled": true,
+      "model": "buffalo_l",
+      "mivolo": true
+    },
+    "scenes": {
+      "enabled": true,
+      "top_k": 5
+    },
+    "garments": {
+      "enabled": true,
+      "min_conf": 0.3
+    },
+    "nsfw": {
+      "enabled": true
+    },
+    "guard": {
+      "enabled": true,
+      "policy": "adult",
+      "variants": [
+        "adult-granular"
+      ]
+    }
+  }
+}
