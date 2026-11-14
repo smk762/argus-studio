@@ -1,23 +1,31 @@
 {
   "cortex": {
     "repo": "smk762/argus-cortex",
-    "tag": "v0.4.7",
+    "branch": "dev",
+    "commit": "a1ba8d8acdf05072f0d1bf562a290d383e9a6e57",
+    "version": "0.5.1.dev26+ga1ba8d8",
     "path": "taxonomy-schema.json",
     "sha256": "41360429bb7542230bb4e64ad3f94043b521a2eebcdb4b2e723e5fdaab861966"
   },
   "curator": {
     "repo": "smk762/argus-curator",
-    "tag": "v0.15.0",
+    "branch": "dev",
+    "commit": "97021d6c0d1b790d82c3a77ad66904450b18d065",
+    "version": "0.15.2.dev2+g97021d6",
     "sha256": "0eca1bcdc66a742983022fc338eab579b6c8a215cda33ee7155772c2830f656c"
   },
   "forge": {
     "repo": "smk762/argus-forge",
-    "tag": "v0.2.0",
+    "branch": "dev",
+    "commit": "4fb8a8a7e29fb8452d94e0a351c536ecb06b4a69",
+    "version": "0.2.1.dev7+g4fb8a8a",
     "sha256": "6ad334e451f0e873809e58b3ee1a08027310ba4beb474fa469989ef276e3bc05"
   },
   "proof": {
     "repo": "smk762/argus-proof",
-    "tag": "v0.2.2",
+    "branch": "dev",
+    "commit": "26f26fc6aeba2faafe70ce32f7e1cc68b98b03f0",
+    "version": "0.2.3.dev14+g26f26fc",
     "sha256": "10251be19b5a73ecb6fe9abe5fdeee6a999790722a91e0f3fa1d3221774320ee"
   }
 }

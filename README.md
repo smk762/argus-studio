@@ -361,7 +361,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 
 ### Wire types
 
-`frontend/src/lib/generated/` holds TypeScript generated from the curator, forge and proof wire schemas. The schemas are committed under `frontend/schema/` and pinned to a release in `pins.json`. To move to a new release, change the tag in `pins.json`, run `npm run wire:pull`, and fix whatever `npm run typecheck` reports. `npm run wire:check` is the CI step that fails on drift, and needs no network or sibling checkout.
+`frontend/src/lib/generated/` holds TypeScript generated from the cortex, curator, forge and proof wire schemas. The schemas are committed under `frontend/schema/`, and `pins.json` records each one's `dev` commit, the package version at that commit and the file's sha256: Studio follows each package's `dev` HEAD, not a release. `npm run wire:pull` (or `npm run wire:pull -- curator` for one) fetches them at the current `dev` HEAD; then fix whatever `npm run typecheck` reports. A daily workflow (`.github/workflows/wire-drift.yml`) does the same and opens a `chore/wire-sync` PR when a package's `dev` has moved on, or an issue when the checks fail. `npm run wire:check` is the CI step that fails on drift, and needs no network or sibling checkout.
 
 ### Package docs
 

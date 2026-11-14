@@ -1,4 +1,4 @@
-// Generated from smk762/argus-curator@v0.15.0 schema/curator-wire.schema.json.
+// Generated from smk762/argus-curator@97021d6 (0.15.2.dev2+g97021d6) schema/curator-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface CuratorWire {

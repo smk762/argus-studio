@@ -1,4 +1,4 @@
-// Generated from smk762/argus-proof@v0.2.2 schema/proof-wire.schema.json.
+// Generated from smk762/argus-proof@26f26fc (0.2.3.dev14+g26f26fc) schema/proof-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface ProofWire {
