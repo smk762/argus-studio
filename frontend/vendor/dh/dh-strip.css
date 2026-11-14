@@ -1,4 +1,6 @@
-/*! dh-strip v1.0.0 | Dragonhound Labs family bar. Requires dh-tokens.css. No JS. */
+/*! dh-strip v1.2.1 | Dragonhound Labs family bar. Requires dh-tokens.css. Works without JS.
+ * Current site: data-dh-site="<site>" on <html> or on the .dh-strip; the rules below show it without JS,
+ * and dh-theme.js adds aria-current="page" to that link. A hand-set aria-current still works. */
 .dh-strip {
   box-sizing: border-box;
   display: flex; align-items: center; gap: var(--dh-space-3);
@@ -21,7 +23,15 @@
 .dh-strip-home { color: var(--dh-text) !important; font-weight: var(--dh-weight-semibold); margin-left: calc(-1 * var(--dh-space-1)); }
 .dh-strip-mark { width: 18px; height: 18px; flex: none; fill: currentColor; }
 .dh-strip-links { display: flex; gap: var(--dh-space-1); margin: 0; padding: 0 0 0 var(--dh-space-3); list-style: none; border-left: 1px solid var(--dh-border); }
-.dh-strip-links a[aria-current] { color: var(--dh-text); font-weight: var(--dh-weight-semibold); box-shadow: inset 0 -2px 0 var(--dh-accent); border-radius: 0; }
+.dh-strip-links a[aria-current],
+/* @generated from dh-strip.mjs (npm run shared:stamp) */
+:root[data-dh-site="lightbox"] .dh-strip:not([data-dh-site]) .dh-strip-links a[data-dh-site="lightbox"],
+.dh-strip[data-dh-site="lightbox"] .dh-strip-links a[data-dh-site="lightbox"],
+:root[data-dh-site="studio"] .dh-strip:not([data-dh-site]) .dh-strip-links a[data-dh-site="studio"],
+.dh-strip[data-dh-site="studio"] .dh-strip-links a[data-dh-site="studio"],
+:root[data-dh-site="realms"] .dh-strip:not([data-dh-site]) .dh-strip-links a[data-dh-site="realms"],
+.dh-strip[data-dh-site="realms"] .dh-strip-links a[data-dh-site="realms"]
+/* @end */ { color: var(--dh-text); font-weight: var(--dh-weight-semibold); box-shadow: inset 0 -2px 0 var(--dh-accent); border-radius: 0; }
 .dh-strip-label { margin: 0 0 0 auto; padding-left: var(--dh-space-3); color: var(--dh-muted); }
 /* Phones: the mark carries "Dragonhound Labs" (kept for screen readers), the label shortens. */
 @media (max-width: 559px) {
