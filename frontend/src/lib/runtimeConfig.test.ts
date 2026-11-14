@@ -71,7 +71,7 @@ describe("resolveRuntimeConfig", () => {
 describe("standalone UI links", () => {
   it("are empty unless configured, with no dev default", () => {
     const c = resolveRuntimeConfig({});
-    expect([c.lightboxUrl, c.cullUrl, c.safelightUrl, c.sightlineUrl]).toEqual(["", "", "", ""]);
+    expect([c.lightboxUrl, c.cullUrl, c.safelightUrl, c.sightlineUrl, c.maskUrl]).toEqual(["", "", "", "", ""]);
     expect(resolveRuntimeConfig({ ARGUS_CULL_URL: "  " }).cullUrl).toBe("");
   });
 

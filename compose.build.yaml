@@ -18,6 +18,7 @@
 #   ../argus-atlas
 #   ../argus-darkroom
 #   ../argus-survey  ../argus-sightline   (the `survey` profile)
+#   ../argus-mask                         (the `mask` profile)
 #
 # Layers cleanly with compose.gpu.yaml (add -f compose.gpu.yaml as well).
 # (frontend is always built from ./frontend in the base file — not repeated here.)
@@ -83,3 +84,9 @@ services:
   argus-sightline:
     build:
       context: ../argus-sightline
+
+  # Mask's Dockerfile derives the version from git history, so the checkout
+  # must include .git.
+  argus-mask:
+    build:
+      context: ../argus-mask

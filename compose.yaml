@@ -16,6 +16,8 @@
 #   docker compose --profile atlas   up      # frontend + argus-atlas
 #   docker compose --profile darkroom up     # frontend + argus-darkroom (not in full)
 #                                            # (georeferenced fantasy-map bakes)
+#   docker compose --profile mask    up      # frontend + argus-mask (not in full)
+#                                            # (talking-face viewer, linked in the footer)
 #   docker compose --profile full    up      # whole suite (pulls any MISSING images, then runs)
 #   docker compose --profile full    pull    # refresh images to the current *_TAG
 #                                            # (`up` will NOT re-pull a tag already cached locally)
@@ -23,7 +25,7 @@
 # Every backend defaults to a pinned release that this studio was checked
 # against; override with the *_TAG vars in .env (see .env.example):
 #   CURATOR_TAG / LENS_TAG / QUARRY_TAG / FORGE_TAG / PROOF_TAG / ATLAS_TAG /
-#   DARKROOM_TAG / SURVEY_TAG / SIGHTLINE_TAG / OLLAMA_TAG.
+#   DARKROOM_TAG / SURVEY_TAG / SIGHTLINE_TAG / MASK_TAG / OLLAMA_TAG.
 # (Only `frontend` is always built locally from ./frontend — it is this repo,
 # argus-studio, and has no published image yet.)
 #
@@ -80,6 +82,8 @@ services:
       - ARGUS_SAFELIGHT_URL=${ARGUS_SAFELIGHT_URL-}
       # Footer link to argus-sightline. The `survey` profile runs it on :3107; set this to show the link.
       - ARGUS_SIGHTLINE_URL=${ARGUS_SIGHTLINE_URL-}
+      # Footer link to argus-mask's viewer. The `mask` profile runs it on :8109; set this to show the link.
+      - ARGUS_MASK_URL=${ARGUS_MASK_URL-}
       - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE-${NEXT_PUBLIC_CURATOR_UI_MODE-demo}}
       - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH-${NEXT_PUBLIC_CURATOR_SOURCE_PATH-/data/images}}
       - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH-/data/out}}
@@ -458,6 +462,44 @@ services:
       # With extra_model_paths, that can differ from MODELS_DIR.
       - ${DARKROOM_MODELS_DIR:-${MODELS_DIR:-./models}}:/models:ro
     extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  argus-mask:
+    # A talking face: audio in, facial animation frames out, rendered by the
+    # viewer mask serves on its own port. A standalone viewer, not a studio
+    # stage, so studio only links to it (ARGUS_MASK_URL on the frontend). Not
+    # in "full": a separate audience, and a face needs assets you provide.
+    profiles: ["mask"]
+    image: ghcr.io/smk762/argus-mask:${MASK_TAG:-0.2.0}
+    ports:
+      # Loopback by default, as in mask's own compose: there is no
+      # authentication, so reaching the port is access. Put a TLS proxy in
+      # front to serve screens on the LAN.
+      - "${MASK_PUBLISH:-127.0.0.1:8109}:8109"
+    environment:
+      # energy: mouth from loudness, CPU only. a2f: an Audio2Face server at
+      # MASK_A2F_URL (built from argus-mask's a2f/, needs an NVIDIA GPU; not
+      # bundled here). Mask's own process uses no GPU.
+      ARGUS_MASK_DRIVER: ${MASK_DRIVER:-energy}
+      ARGUS_MASK_A2F_URL: ${MASK_A2F_URL:-}
+      ARGUS_MASK_FPS: ${MASK_FPS:-30}
+      # Origins allowed to open the viewer and source sockets, besides mask's
+      # own host, which is always allowed. Studio only links to the viewer, so
+      # it needs no entry here; name a TLS proxy's origin when there is one.
+      ARGUS_MASK_CORS_ORIGINS: ${MASK_CORS_ORIGINS:-}
+      # 1 refuses every audio source (push, say, /speak); viewers still connect.
+      ARGUS_MASK_READ_ONLY: ${MASK_READ_ONLY:-0}
+      # TTS stream for POST /speak (empty: /speak answers 422; /push needs none).
+      ARGUS_MASK_TTS_URL: ${MASK_TTS_URL:-}
+      ARGUS_MASK_TTS_VOICE: ${MASK_TTS_VOICE:-}
+    volumes:
+      # ro: the faces, one directory per face (the image ships none). Consent
+      # records live under <assets>/.consent; the server only reads them, and
+      # `argus-mask consent` writes them from the CLI. Mask keeps no database.
+      - ${MASK_ASSETS_DIR:-./mask-assets}:/assets:ro
+    extra_hosts:
+      # Reach an A2F or TTS service on the compose host.
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 

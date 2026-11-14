@@ -40,6 +40,7 @@ docker compose --profile forge   up  # frontend + curator + argus-forge (trainin
 docker compose --profile proof   up  # frontend + argus-proof (post-training LoRA evaluation)
 docker compose --profile atlas   up  # frontend + argus-atlas (fantasy-map bakes from real terrain)
 docker compose --profile darkroom up # frontend + argus-darkroom (needs DARKROOM_SINGGUARD_URL; not in full)
+docker compose --profile mask    up  # frontend + argus-mask (talking-face viewer on :8109; not in full)
 docker compose --profile full    up  # whole suite (pull + run GHCR images)
 docker compose --profile full    pull  # refresh the images to the current *_TAG
 ```
@@ -58,6 +59,7 @@ Override one with its `*_TAG` var in `.env` (see `.env.example`):
 | argus-darkroom | `DARKROOM_TAG` | `0.2.0` |
 | argus-survey | `SURVEY_TAG` | `0.1.1` |
 | argus-sightline | `SIGHTLINE_TAG` | `0.1.0` (no published image yet: build it with `compose.build.yaml`) |
+| argus-mask | `MASK_TAG` | `0.2.0` |
 | Ollama | `OLLAMA_TAG` | `0.40.16` |
 
 **Build from local source instead** — clone the sibling repos and layer the build
@@ -84,6 +86,7 @@ docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
 | `proof` | frontend + argus-proof | Post-training LoRA evaluation ([epic](https://github.com/smk762/argus-studio/issues/6)): review scored eval runs at `/proof` — pass/fail verdict, per-metric scores, and a keyboard-first HITL review (5-star + structured reject reasons, blind mode) against argus-proof on :8104 |
 | `atlas` | frontend + argus-atlas | Baking a georeferenced fantasy-map overlay from a DEM at `/atlas`: GDAL controls, a ComfyUI restyle (off unless `ATLAS_ALLOW_BAKE=1`), the alignment gate, and a PMTiles archive, against argus-atlas on :8105 |
 | `darkroom` | frontend + argus-darkroom | Guarded generation at `/darkroom`. Needs `DARKROOM_SINGGUARD_URL` and ComfyUI; not part of `full`, because no SingGuard is bundled and darkroom refuses to start without one |
+| `mask` | frontend + argus-mask | A talking face: audio in, a rigged head speaking in step on any screen. Mask serves its own viewer on :8109 (loopback, `MASK_PUBLISH`); studio only links to it from the footer when `ARGUS_MASK_URL` is set. Faces go in `MASK_ASSETS_DIR`. Not part of `full` |
 | `full` | frontend + curator + nudenet + lens + ollama + quarry server + forge + proof + atlas | End-to-end acquire → curate → caption → forge → evaluate → bake (set `ARGUS_CURATOR_UI_MODE=live`) |
 
 **argus-quarry** (the `gallery` profile) is the upstream producer: it fetches
@@ -356,7 +359,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
 | `ARGUS_DARKROOM_URL` | `http://localhost:8106` | URL the **browser** uses to reach argus-darkroom (the `/darkroom` generation view) |
 | `ARGUS_ATLAS_URL` | `http://localhost:8105` | URL the **browser** uses to reach argus-atlas (the `/atlas` map-bake view) |
-| `ARGUS_LIGHTBOX_URL`, `ARGUS_CULL_URL`, `ARGUS_SAFELIGHT_URL`, `ARGUS_SIGHTLINE_URL` | _(empty)_ | Footer links to the standalone demo UIs, and to argus-sightline (the `survey` profile, `:3107`). A UI left empty gets no link |
+| `ARGUS_LIGHTBOX_URL`, `ARGUS_CULL_URL`, `ARGUS_SAFELIGHT_URL`, `ARGUS_SIGHTLINE_URL`, `ARGUS_MASK_URL` | _(empty)_ | Footer links to the standalone demo UIs, to argus-sightline (the `survey` profile, `:3107`) and to argus-mask's viewer (the `mask` profile, `:8109`). A UI left empty gets no link |
 | `ARGUS_CSP` | `enforce` | The nonce-based Content-Security-Policy on every page: `enforce`, `report-only` (logs violations to the console) or `off`. X-Frame-Options, nosniff and Referrer-Policy are sent in every mode |
 | `DEVMODE` (or `ARGUS_DEVMODE`, which wins) | _(unset)_ | Offers SingGuard's `adult-*` policies on `/curate` and `/darkroom`, and lets curator and darkroom delete anything (darkroom's Delete record / Delete everything). Every delete still asks first. `CURATOR_DEVMODE=0` / `DARKROOM_DEVMODE=0` keep the policies without that service's deletes |
 | `CURATOR_ALLOW_MOVE` / `CURATOR_ALLOW_DELETE` | _(commented out)_ | Let the curator `move` source images on export / delete any selected image. Uncomment them in `compose.yaml` |
@@ -382,10 +385,11 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ATLAS_ALLOW_BAKE` / `ATLAS_ALLOW_OSM` | _(unset)_ | Let argus-atlas bake on the GPU / fetch OSM from Overpass; both off by default |
 | `DARKROOM_SINGGUARD_URL` (or `SINGGUARD_URL`) | _(empty)_ | **Required** by argus-darkroom, which won't start without it. The other `DARKROOM_*` settings are in `.env.example` |
 | `DARKROOM_MODELS_DIR` | `MODELS_DIR` | The folder ComfyUI lists models from, mounted read-only on argus-darkroom |
+| `MASK_PUBLISH` | `127.0.0.1:8109` | Host address and port for argus-mask. Loopback by default: mask has no authentication. The other `MASK_*` settings are in `.env.example` |
 | `DARKROOM_PUBLISH` | `127.0.0.1:8106` | Host address and port for argus-darkroom. Loopback by default: darkroom is not for public hosting |
 | `ATLAS_RECIPES_DIR` | `./recipes` | Host dir of style recipes, mounted read-only at `/data/recipes` on argus-atlas for its CLI; no API route reads them |
 | `LENS_SOURCE_PATH` | `/data/images` | Root the caption page's folder picker browses on lens (`GET /folders`) |
-| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG` / `SURVEY_TAG` / `SIGHTLINE_TAG` / `OLLAMA_TAG` | the checked release for each (see [the table above](#whole-suite-in-one-stack-recommended)) | Image tag per backend on the default pull path. `latest` follows each repo's newest release |
+| `CURATOR_TAG` / `LENS_TAG` / `QUARRY_TAG` / `FORGE_TAG` / `PROOF_TAG` / `ATLAS_TAG` / `DARKROOM_TAG` / `SURVEY_TAG` / `SIGHTLINE_TAG` / `MASK_TAG` / `OLLAMA_TAG` | the checked release for each (see [the table above](#whole-suite-in-one-stack-recommended)) | Image tag per backend on the default pull path. `latest` follows each repo's newest release |
 | `LENS_CORS_ORIGINS` | _(unset)_ | Comma-separated browser origins lens accepts. Unset means `http://localhost:3000` only, and lens refuses writes from any unlisted origin with a 403, so set this for a LAN or public studio. Keep localhost in the list |
 | `LENS_EXTRAS` | `server,local` | pip extras for a **source build** only (`-f compose.build.yaml`); ignored on the default pull path (`server,openai,replicate` for a cloud-only image) |
 | `PROOF_EXTRAS` | `server,cli` | pip extras for a **source build** only (`-f compose.build.yaml`); `server,cli,score` adds the identity/quality/safety scorer stack |
@@ -442,6 +446,7 @@ All captioning parameters are exposed in the UI with inline documentation:
 - [argus-proof](https://github.com/smk762/argus-proof) — post-training LoRA evaluation and optimisation (the `proof` profile; [epic](https://github.com/smk762/argus-studio/issues/6))
 - [argus-darkroom](https://github.com/smk762/argus-darkroom) — guarded image generation: a check before, two after, and a record of every attempt
 - [argus-atlas](https://github.com/smk762/argus-atlas) — georeferenced fantasy-map overlays from real terrain: DEM in, PMTiles out (the `atlas` profile)
+- [argus-mask](https://github.com/smk762/argus-mask) — a talking face: audio in, animation frames out, rendered by its own LAN viewer (the `mask` profile)
 
 ## License
 

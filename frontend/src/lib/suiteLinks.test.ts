@@ -19,4 +19,9 @@ describe("suiteLinks", () => {
     const links = suiteLinks({ lightbox: "", cull: "", safelight: "", sightline: "http://localhost:3107" });
     expect(links).toEqual([{ label: "Sightline", service: "argus-survey", href: "http://localhost:3107" }]);
   });
+
+  it("links argus-mask's viewer when configured", () => {
+    const links = suiteLinks({ lightbox: "", cull: "", safelight: "", mask: "http://localhost:8109" });
+    expect(links).toEqual([{ label: "Mask", service: "argus-mask", href: "http://localhost:8109" }]);
+  });
 });
