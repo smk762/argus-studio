@@ -27,6 +27,7 @@ import {
 import { permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { StarRating } from "@/components/proof/StarRating";
+import { RefinementPanel } from "@/components/proof/RefinementPanel";
 import { RejectReasonPicker, UnsafeCategoryPicker } from "@/components/proof/RejectReasonPicker";
 import { tileLoading } from "@/lib/imageLoading";
 
@@ -362,9 +363,21 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
     }
   };
 
+  // A saved refinement changes only the refinement layer; the board adopts the
+  // returned report so a later review save starts from it.
+  const onRefined = useCallback(
+    (updated: EvalReport) => {
+      if (currentRun.current !== initialReport) return;
+      setReport(updated);
+      onReportChange?.(updated);
+    },
+    [initialReport, onReportChange],
+  );
+
   const agg = view.aggregate;
 
   return (
+    <div className="space-y-6">
     <div ref={boardRef} tabIndex={0} onKeyDown={onKeyDown} className="space-y-6 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-purple">
       {/* Summary header */}
       <section className="rounded-xl border border-border bg-surface/50 p-5">
@@ -564,6 +577,18 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
         })}
       </section>
       {order.length === 0 && <p className="py-12 text-center text-sm text-muted">No samples match the current filter.</p>}
+    </div>
+
+    {/* Outside the keyboard-driven board: its number keys rate the focused sample. */}
+    <RefinementPanel
+      report={report}
+      live={live}
+      canWrite={canWrite}
+      rater={rater || null}
+      reviewDirty={dirty}
+      blind={blind}
+      onRefined={onRefined}
+    />
     </div>
   );
 }

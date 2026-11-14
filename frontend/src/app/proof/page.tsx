@@ -201,6 +201,7 @@ export default function ProofPage() {
                     <span className="block truncate font-mono text-xs text-foreground">{s.run_id}</span>
                     <span className="block text-[10px] text-muted">
                       {(s.pass_rate * 100).toFixed(0)}% · {s.n_needs_hitl} {s.n_needs_hitl === 1 ? "group" : "groups"} to review
+                      {s.n_refined ? ` · ${s.n_refined} refined` : ""}
                     </span>
                   </span>
                 </button>

@@ -46,14 +46,21 @@ describe("withReportSummary", () => {
     expect(line.pending).toBe(updated.verdict.pending);
   });
 
-  it("leaves other runs, the order and the list's own created_at and n_refined alone", () => {
+  it("leaves other runs, the order and the list's own created_at alone", () => {
     const updated = reviewedSample();
-    const listed = { ...DEMO_SUMMARY, created_at: "listed-at", n_refined: 3 };
+    const listed = { ...DEMO_SUMMARY, created_at: "listed-at" };
     const out = withReportSummary([OTHER, listed], updated);
     expect(out[0]).toBe(OTHER);
     expect(out[1].run_id).toBe(DEMO_REPORT.run_id);
     expect(out[1].created_at).toBe("listed-at");
-    expect(out[1].n_refined).toBe(3);
+  });
+
+  it("takes n_refined from the report's refinement layer", () => {
+    const [first] = DEMO_REPORT.images;
+    const refined = { ...DEMO_REPORT, images: DEMO_REPORT.images.map((i) => (i === first ? { ...i, refinement: { rank: 4 } } : i)) };
+    const listed = { ...DEMO_SUMMARY, n_refined: 3 };
+    expect(withReportSummary([listed], refined)[0].n_refined).toBe(1);
+    expect(withReportSummary([listed], DEMO_REPORT)[0].n_refined).toBe(0);
   });
 
   it("does not append a run the list doesn't hold", () => {

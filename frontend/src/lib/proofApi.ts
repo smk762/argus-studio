@@ -84,16 +84,22 @@ export function summaryFromReport(report: EvalReport): ReportSummary {
   };
 }
 
+/** Images carrying a refinement, counted as argus_proof.reports does for `n_refined`. */
+export function refinedCount(report: EvalReport): number {
+  return report.images.filter((img) => img.refinement != null).length;
+}
+
 /**
- * `summaries` with the entry for `report.run_id` refreshed from the report.
- * Other runs and the list order are kept, as are the entry's `created_at` and
- * `n_refined` (a review doesn't touch either). A run not in the list is not
- * appended: the list is the server's.
+ * `summaries` with the entry for `report.run_id` refreshed from the report:
+ * pass rate and HITL queue from a review, `n_refined` from a refinement (a
+ * review can change it too, by failing a refined image). Other runs and the
+ * list order are kept, as is the entry's `created_at`. A run not in the list is
+ * not appended: the list is the server's.
  */
 export function withReportSummary(summaries: ReportSummary[], report: EvalReport): ReportSummary[] {
   return summaries.map((s) =>
     s.run_id === report.run_id
-      ? { ...s, ...summaryFromReport(report), n_refined: s.n_refined, created_at: s.created_at }
+      ? { ...s, ...summaryFromReport(report), n_refined: refinedCount(report), created_at: s.created_at }
       : s,
   );
 }
@@ -109,6 +115,22 @@ export interface HitlImageUpdate {
 export interface HitlRequest {
   rater?: string | null;
   updates: HitlImageUpdate[];
+}
+
+// --- refinement request shapes (POST /report/{id}/refine) -------------------
+// Hand-written: argus_proof.refinement's request models aren't in the wire schema.
+
+/** One passing image's refined rank. `rank: null` retracts its refinement
+ * (rank, notes and rater all cleared); `notes: null` keeps the stored note. */
+export interface RefinementImageUpdate {
+  image_id: string;
+  rank: number | null;
+  notes?: string | null;
+}
+
+export interface RefinementRequest {
+  rater?: string | null;
+  updates: RefinementImageUpdate[];
 }
 
 // --- presentation metadata -------------------------------------------------
@@ -297,12 +319,16 @@ export interface HitlEdit {
 function withEdit(img: ImageScores, edit: HitlEdit | undefined, rater: string | null): ImageScores {
   if (!edit) return img;
   const decision = hitlDecision(edit.hitl_rating, edit.reject_reasons);
+  const passed = decision !== null ? decision : img.passed;
   return {
     ...img,
     hitl_rating: edit.hitl_rating,
     reject_reasons: edit.reject_reasons,
     hitl_rater: rater ?? img.hitl_rater,
-    passed: decision !== null ? decision : img.passed,
+    passed,
+    // An image that no longer passes loses its refinement, as on the server
+    // (argus_proof.reports.apply_hitl), so the layer never sits on a failure.
+    refinement: passed === true ? img.refinement : null,
   };
 }
 
@@ -371,10 +397,7 @@ export function normalizeEdits(edits: Map<string, HitlEdit>): Map<string, HitlEd
  * it still holds the very edit that was sent: an image re-rated while the POST
  * was in flight keeps its newer edit, still dirty, instead of being dropped.
  */
-export function clearSentEdits(
-  current: Map<string, HitlEdit>,
-  sent: Map<string, HitlEdit>,
-): Map<string, HitlEdit> {
+export function clearSentEdits<T>(current: Map<string, T>, sent: Map<string, T>): Map<string, T> {
   if (current === sent) return new Map();
   const next = new Map(current);
   for (const [id, edit] of sent) if (next.get(id) === edit) next.delete(id);
@@ -424,7 +447,7 @@ async function fetchProofHealth(signal?: AbortSignal): Promise<ProofHealth> {
   return resp.json();
 }
 
-/** The posture {@link submitHitl} and {@link runEvalStream} gate on. */
+/** The posture {@link submitHitl}, {@link submitRefinement} and {@link runEvalStream} gate on. */
 const proofHealth = healthMemo(fetchProofHealth);
 
 const READ_ONLY = "This argus-proof server is read-only (replay mode): stored reports are served, but runs and reviews are refused.";
@@ -452,6 +475,20 @@ export async function getReport(runId: string, signal?: AbortSignal): Promise<Ev
 export async function submitHitl(runId: string, req: HitlRequest, signal?: AbortSignal): Promise<EvalReport> {
   await requireCapability(proofHealth, allowsEval, READ_ONLY, signal);
   const resp = await fetch(`${proofUrl()}/report/${encodeURIComponent(runId)}/hitl`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+    signal,
+  });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** Apply a second-pass re-rank of the passing subset and get the report back
+ * (POST /report/{id}/refine). Verdict and aggregate come back unchanged. */
+export async function submitRefinement(runId: string, req: RefinementRequest, signal?: AbortSignal): Promise<EvalReport> {
+  await requireCapability(proofHealth, allowsEval, READ_ONLY, signal);
+  const resp = await fetch(`${proofUrl()}/report/${encodeURIComponent(runId)}/refine`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
