@@ -6,6 +6,12 @@
 // console errors and CSP violations, which the static build's hash CSP
 // (scripts/csp.mjs) turns into silent breakage otherwise.
 //
+// The shared theme script (public/dh-theme.js, a plain blocking <script src> in
+// <head>) is checked on every route too: it must have run (a CSP that blocks it
+// fails here, not just as a console line), the toggle must flip the scheme and
+// its aria-pressed, and a saved `dh-theme` cookie must be on <html> before
+// <body> is parsed, i.e. before the first paint (no flash of the wrong theme).
+//
 // Playwright is not a dependency of the app. CI installs it on the fly:
 //   npm i --no-save playwright@1.65.0 && npx playwright install --with-deps chromium
 // Locally, PLAYWRIGHT_MODULE=/path/to/node_modules/playwright and
@@ -68,6 +74,31 @@ async function resolveFile(urlPath) {
   return null;
 }
 
+/** dh-theme.js ran, and its toggle flips the scheme and aria-pressed both ways. */
+async function checkTheme(page, scheme) {
+  const out = [];
+  const state = () =>
+    page.evaluate(() => ({
+      api: typeof window.dhTheme === "object",
+      dark:
+        (document.documentElement.dataset.theme ||
+          (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark",
+      pressed: document.querySelector("[data-dh-theme-toggle]")?.getAttribute("aria-pressed") ?? null,
+    }));
+  const before = await state();
+  if (!before.api) return ["theme: dh-theme.js did not run (blocked, or not in <head>?)"];
+  if (before.dark !== (scheme === "dark")) out.push(`theme: ${scheme} system scheme rendered as ${before.dark ? "dark" : "light"}`);
+  if (before.pressed !== String(before.dark)) out.push(`theme: toggle aria-pressed=${before.pressed} on a ${before.dark ? "dark" : "light"} page`);
+  for (let i = 0; i < 2; i++) {
+    const prev = await state();
+    await page.locator("[data-dh-theme-toggle]").first().click();
+    const next = await state();
+    if (next.dark === prev.dark) out.push("theme: the toggle did not change the scheme");
+    if (next.pressed !== String(next.dark)) out.push(`theme: aria-pressed=${next.pressed} after toggling to ${next.dark ? "dark" : "light"}`);
+  }
+  return out;
+}
+
 const server = createServer(async (req, res) => {
   const file = await resolveFile(req.url ?? "/");
   if (!file) {
@@ -103,10 +134,33 @@ try {
         iw: window.innerWidth,
       }));
       if (sw > iw) problems.push(`scrolls sideways: scrollWidth ${sw} > innerWidth ${iw}`);
+      problems.push(...(await checkTheme(page, scheme)));
       console.log(`${problems.length ? "FAIL" : "ok  "} ${scheme.padEnd(5)} ${route} (${sw}/${iw})`);
       for (const p of problems) failures.push(`${scheme} ${route}: ${p}`);
       await page.close();
     }
+    await context.close();
+  }
+  // A saved choice (the cookie dh-theme.js writes) must be on <html> before <body>
+  // exists: that is what "no flash" means. Opposite of the system scheme, so a
+  // pass can't come from the media query alone.
+  for (const [scheme, saved] of [["light", "dark"], ["dark", "light"]]) {
+    const context = await browser.newContext({ viewport: { width, height: 844 }, colorScheme: scheme });
+    await context.addCookies([{ name: "dh-theme", value: saved, url: base }]);
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      // Init scripts run before <html> exists, so watch the document itself.
+      new MutationObserver((_, obs) => {
+        if (!document.body) return;
+        window.__themeAtBody = document.documentElement.dataset.theme ?? null;
+        obs.disconnect();
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.goto(`${base}${pages[0]}`, { waitUntil: "load" });
+    const atBody = await page.evaluate(() => window.__themeAtBody);
+    const ok = atBody === saved;
+    console.log(`${ok ? "ok  " : "FAIL"} cookie ${saved} on a ${scheme} system: data-theme=${atBody} before <body>`);
+    if (!ok) failures.push(`cookie dh-theme=${saved}: data-theme was ${atBody} when <body> was parsed (flash of the wrong theme)`);
     await context.close();
   }
 } finally {
@@ -118,4 +172,6 @@ if (failures.length) {
   console.error(`\n${failures.length} problem(s) at ${width}px:\n${failures.map((f) => `  - ${f}`).join("\n")}`);
   process.exit(1);
 }
-console.log(`\nAll ${pages.length} routes fit ${width}px in both schemes, with no console errors or CSP violations.`);
+console.log(
+  `\nAll ${pages.length} routes fit ${width}px in both schemes, with no console errors or CSP violations; the theme script runs, toggles and applies a saved choice before first paint.`,
+);

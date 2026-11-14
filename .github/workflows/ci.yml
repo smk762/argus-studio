@@ -47,7 +47,9 @@ jobs:
 
   # The static demo export (studio.dragonhound.dev) must not scroll sideways on
   # a phone: every route at 390 px, light and dark, plus no console errors or
-  # CSP violations. Playwright is installed here only; the app doesn't depend on it.
+  # CSP violations, and the shared theme script (dh-theme.js) must run, toggle and
+  # apply a saved choice before first paint. Playwright is installed here only;
+  # the app doesn't depend on it.
   static-overflow:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -70,3 +72,19 @@ jobs:
       - run: npm install --no-save playwright@1.65.0 && npx playwright install --with-deps chromium
 
       - run: node scripts/check-overflow.mjs out --width=390
+
+  # The Dragonhound shared design layer (frontend/vendor/dh) is vendored from
+  # dragonhound-site/shared and must not be edited here. Fails if a vendored file
+  # changed locally or no longer matches the published v1 manifest; a newer
+  # upstream version is only a warning (re-sync in its own PR).
+  dh-shared:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.4"
+
+      - run: node frontend/vendor/dh/sync-shared.mjs --check . --against https://dragonhound.dev/brand/v1/manifest.json --allow-outdated
