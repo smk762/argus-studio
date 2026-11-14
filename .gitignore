@@ -27,3 +27,5 @@ recipes/
 # Agent skills installed locally by `npx modern-web-guidance install` (see CLAUDE.md)
 **/.claude/skills/
 skills-lock.json
+
+__pycache__/
