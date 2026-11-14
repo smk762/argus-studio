@@ -320,9 +320,13 @@ shows a "coming soon" state (no real evaluation recorded yet) with an opt-in,
 clearly labelled synthetic preview, and `/gallery` explains what it needs. A
 thin banner links back to the repo.
 
-Cloudflare Pages: root directory `frontend`, build command `npm run build:static`,
-output directory `out`. The flag selects a different *build*; it is never set
-for the published image, which keeps resolving its config per request (#56).
+Deploys are automatic: `.github/workflows/deploy-demo.yml` builds every `dev`
+commit that passes CI and publishes `frontend/out` to the Cloudflare Pages
+project `argus-studio` as production (`--branch main`; any other branch name is
+only a preview). It needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
+repo secrets. By hand, from `dev`'s tip: `npm run build:static`, then
+`npx wrangler pages deploy out --project-name argus-studio --branch main`.
+The static flag selects a different *build*; it is never set for the published image, which keeps resolving its config per request (#56).
 
 ## Architecture
 
