@@ -191,7 +191,7 @@ services:
     # export flow hands off to it. /forge itself works without the curator —
     # point it at any export dir under the shared root.
     profiles: ["curator", "forge", "full"]
-    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.15.0}
+    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.15.1}
     ports:
       - "${CURATOR_PORT:-8101}:8101"
     environment:

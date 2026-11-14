@@ -55,7 +55,7 @@ Override one with its `*_TAG` var in `.env` (see `.env.example`):
 
 | Service | Var | Default |
 |---|---|---|
-| argus-curator | `CURATOR_TAG` | `0.15.0` (`0.15.0-gpu` under `compose.gpu.yaml`) |
+| argus-curator | `CURATOR_TAG` | `0.15.1` (`0.15.1-gpu` under `compose.gpu.yaml`) |
 | argus-lens | `LENS_TAG` | `0.11.0` |
 | argus-quarry | `QUARRY_TAG` | `0.4.0` |
 | argus-forge | `FORGE_TAG` | `0.2.0` (`0.2.0-train` adds the trainer stack) |
