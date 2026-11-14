@@ -2,8 +2,9 @@
 
 import { useState, type InputHTMLAttributes, type ReactNode } from "react";
 
-import { NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, parseTriggerWords, randomSeed } from "@/lib/darkroom/compose";
+import { DEMO_GENERATE_BLOCK, NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, parseTriggerWords, randomSeed } from "@/lib/darkroom/compose";
 import { THINKING_MODES, type ThinkingMode } from "@/lib/darkroomApi";
+import { STATIC_DEMO } from "@/lib/staticDemo";
 
 import { Tooltip } from "@/components/Tooltip";
 
@@ -80,10 +81,12 @@ export function ComposeForm() {
   const { compose, ready, update, check, preflight, start, stop, running } = useCompose();
   const ollamaDown = !canExpand(health);
   const checking = preflight.state === "checking";
-  const block = generateBlock(health, error, compose, policies);
+  // The static demo has nothing to generate with; say so plainly rather than
+  // surfacing the sample's read-only flag or a list of unreachable backends.
+  const block = STATIC_DEMO ? DEMO_GENERATE_BLOCK : generateBlock(health, error, compose, policies);
   const generateTip = block ?? "POST /generate/stream: pre-flight, then render, then the scans";
   const readOnly = health?.read_only === true;
-  const checkTip = readOnly ? READ_ONLY_BLOCK : !compose.userPrompt.trim() ? "Write a prompt first." : "POST /preflight: the text-only check, before anything is generated";
+  const checkTip = STATIC_DEMO ? DEMO_GENERATE_BLOCK : readOnly ? READ_ONLY_BLOCK : !compose.userPrompt.trim() ? "Write a prompt first." : "POST /preflight: the text-only check, before anything is generated";
 
   return (
     <div className="space-y-5">
@@ -103,7 +106,7 @@ export function ComposeForm() {
         <input type="checkbox" id="expand" checked={compose.expand && !ollamaDown} disabled={ollamaDown} onChange={(event) => update({ expand: event.target.checked })} className="mt-1 accent-accent-purple" />
         <label htmlFor="expand" className={`text-sm ${ollamaDown ? "text-muted" : "text-foreground"}`}>
           Expand the prompt with Ollama
-          <span className="block text-xs text-muted">{ollamaDown ? "Disabled: /health reports Ollama unreachable." : "The expanded prompt is shown after Check, and it is the text that gets checked."}</span>
+          <span className="block text-xs text-muted">{STATIC_DEMO ? "Disabled: no Ollama in this demo." : ollamaDown ? "Disabled: /health reports Ollama unreachable." : "The expanded prompt is shown after Check, and it is the text that gets checked."}</span>
         </label>
       </div>
 

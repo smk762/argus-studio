@@ -6,6 +6,7 @@ import {
   getProofHealth,
   getReport,
   listReports,
+  withReportSummary,
   type EvalReport,
   type ProofHealth,
   type ReportSummary,
@@ -38,6 +39,10 @@ export default function ProofPage() {
   const [summaries, setSummaries] = useState<ReportSummary[]>(live ? [] : [DEMO_SUMMARY]);
   const [selected, setSelected] = useState<string | null>(live ? null : DEMO_REPORT.run_id);
   const [report, setReport] = useState<EvalReport | null>(live ? null : DEMO_REPORT);
+  // The open report as last recomputed by an applied review. Kept apart from
+  // `report`, which is ProofBoard's `initialReport`: feeding the recompute back
+  // there would reset the board's review session.
+  const [reviewed, setReviewed] = useState<EvalReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // null until /health answers; drives the run affordance (#66). Deliberately
@@ -111,6 +116,14 @@ export default function ProofPage() {
     return () => ctrl.abort();
   }, [selected, loadReport]);
 
+  // An applied review recomputes the report's pass rate and HITL queue: bring
+  // the run list's line for it in step, so the list and the board agree.
+  const onReportChange = useCallback((updated: EvalReport) => {
+    setReviewed(updated);
+    setSummaries((cur) => withReportSummary(cur, updated));
+  }, []);
+  const current = report && reviewed?.run_id === report.run_id ? reviewed : report;
+
   // A finished evaluation run: refresh the run browser and land on the new
   // scored report for HITL review.
   const onRunComplete = useCallback(async (runId: string) => {
@@ -167,7 +180,7 @@ export default function ProofPage() {
             {live && (
               <NewEvaluation onComplete={onRunComplete} canRun={writable} deniedReason={evalDeniedReason} />
             )}
-            <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
             {/* Run browser */}
             <aside className="space-y-1">
               <div className="mb-2 text-[10px] uppercase tracking-wide text-muted">Runs</div>
@@ -203,9 +216,10 @@ export default function ProofPage() {
                     initialReport={report}
                     live={live}
                     canWrite={writable}
+                    onReportChange={onReportChange}
                   />
                   {/* A LoRA that passed is ready for the next stage: bake a georeferenced map with it. */}
-                  {report.verdict.passed && (
+                  {current?.verdict.passed && (
                     <div className="mt-6 flex justify-end gap-2">
                       <StageHandoff href="/darkroom" />
                       <StageHandoff href="/atlas" />

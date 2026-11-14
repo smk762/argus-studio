@@ -36,7 +36,7 @@ export function ApiVersionBadge({
       ) : (
         <div className="flex flex-col items-end gap-0.5" title={`${label} ${prefix}${version}`}>
           <span className="text-[10px] uppercase tracking-wider text-muted">{label}</span>
-          <span className="max-w-[14rem] truncate font-mono text-xs text-foreground/90 sm:max-w-xs">
+          <span className="max-w-[9rem] truncate font-mono text-xs text-foreground/90 sm:max-w-xs">
             {prefix}
             {version}
           </span>

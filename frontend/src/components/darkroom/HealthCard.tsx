@@ -3,12 +3,42 @@
 import { darkroomUrl } from "@/lib/curatorEnv";
 
 import { BACKENDS } from "@/lib/darkroom/health";
+import { STATIC_DEMO } from "@/lib/staticDemo";
 
 import { useDarkroom } from "./DarkroomProvider";
 import { Button, Card, SectionTitle, Spinner } from "./ui";
 
 /** What `/health` says about darkroom and the servers behind it. */
 export function HealthCard() {
+  // The static demo has no darkroom and no backends by design. Listing each as
+  // "unreachable" with a red dot reads as an outage, so it says what the demo is
+  // instead, the way /gallery, /forge and /proof do.
+  if (STATIC_DEMO) return <DemoHealthCard />;
+  return <LiveHealthCard />;
+}
+
+function DemoHealthCard() {
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-2">
+        <SectionTitle>Darkroom</SectionTitle>
+        <span className="rounded-md border border-border px-2 py-1 text-[10px] uppercase tracking-wider text-muted">
+          Not in demo
+        </span>
+      </div>
+      <p className="mt-2 text-sm leading-relaxed text-foreground/70">
+        Backends are not part of this demo. A running darkroom checks every prompt with SingGuard, renders with
+        ComfyUI and scans the result with NudeNet and an age check; this static build has none of them, so it
+        cannot generate.
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        The history is a recorded sample: open a record to see its verdicts.
+      </p>
+    </Card>
+  );
+}
+
+function LiveHealthCard() {
   const { health, error, loading, reload } = useDarkroom();
   return (
     <Card>
