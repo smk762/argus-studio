@@ -4,6 +4,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-14
+
 ### Added
 
 - **An optional `mask` compose profile and footer link.** It runs [argus-mask](https://github.com/smk762/argus-mask) `ghcr.io/smk762/argus-mask:${MASK_TAG:-0.2.0}`, the talking-face viewer, on loopback `:8109` (`MASK_PUBLISH`), with the faces from `MASK_ASSETS_DIR` mounted read-only. It isn't in `full`, uses no GPU (the `energy` driver by default; an Audio2Face server can be named with `MASK_A2F_URL`) and needs no database, since mask keeps its consent records as files under the assets directory. Mask is a standalone viewer, not a studio stage, so there is no new page: `ARGUS_MASK_URL` adds it to the footer's standalone links. `compose.build.yaml` builds `../argus-mask`.
@@ -142,6 +144,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 First published image. It covers the caption page (`/`), curation (`/curate`), the provenance gallery (`/gallery`), training configs (`/forge`) and LoRA evaluation with HITL review (`/proof`), plus the `/docs` handbook. The suite `compose.yaml` runs the backends from published GHCR images, and API config is resolved at runtime rather than baked into the bundle (#71).
 
+[0.4.0]: https://github.com/smk762/argus-studio/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/smk762/argus-studio/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/smk762/argus-studio/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/smk762/argus-studio/releases/tag/v0.1.0
