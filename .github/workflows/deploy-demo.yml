@@ -1,0 +1,70 @@
+name: Deploy demo
+
+# Publishes the static demo (studio.dragonhound.dev, Cloudflare Pages project
+# argus-studio) from every dev commit that passed CI. Production is the Pages
+# branch `main`; a deploy with any other --branch is only a preview.
+#
+# Needs two repo secrets: CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages >
+# Edit) and CLOUDFLARE_ACCOUNT_ID. Without them the job builds, then skips the
+# upload with a notice, so nothing fails before they are set.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# The newest dev commit wins; an older deploy still queued is pointless.
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.4"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build:static
+
+      - if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; built ${SHA::7} but did not deploy."
+
+      - if: env.HAS_TOKEN == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: >
+          npx --yes wrangler@4.162.0 pages deploy out
+          --project-name argus-studio --branch main
+          --commit-hash "$SHA" --commit-message "dev ${SHA::7}"
+
+      # The deploy is only done when the site serves it.
+      - if: env.HAS_TOKEN == 'true'
+        run: |
+          for path in / /docs/ /docs/setup/; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 5 --retry-delay 6 --retry-all-errors "https://studio.dragonhound.dev$path")
+            echo "$code $path"; [ "$code" = 200 ] || exit 1
+          done
