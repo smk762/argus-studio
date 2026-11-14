@@ -2,3 +2,10 @@
 # The Caption tab is the root page; /caption is the obvious guess for it (S8).
 /caption   /   301
 /caption/  /   301
+# The setup guides and package docs moved to argus-handbook (src/lib/handbook.ts).
+# A splat also matches the bare trailing-slash path (/docs/setup/). Keep these in
+# step with next.config.ts's server redirects: src/lib/handbook.test.ts checks both.
+/docs/setup        https://docs.dragonhound.dev/setup/           301
+/docs/setup/*      https://docs.dragonhound.dev/setup/:splat     301
+/docs/packages     https://docs.dragonhound.dev/packages/        301
+/docs/packages/*   https://docs.dragonhound.dev/packages/:splat  301

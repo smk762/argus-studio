@@ -22,10 +22,11 @@ Designed as a living onboarding document -- every parameter includes an inline e
 ## Quick Start
 
 What each UI needs live, and how to run it with no GPU:
-[What to run for which UI](https://studio.dragonhound.dev/docs/setup/which-services/#studio).
+[What to run for which UI](https://docs.dragonhound.dev/setup/which-services/#studio).
 The external services (ComfyUI, Ollama, NudeNet, SingGuard, the GPU host and the
 rest) each have a setup page under
-[Setup and services](https://studio.dragonhound.dev/docs/setup/).
+[Setup and services](https://docs.dragonhound.dev/setup/), in the suite
+handbook ([argus-handbook](https://github.com/smk762/argus-handbook)).
 
 ### Whole suite in one stack (recommended)
 
@@ -364,7 +365,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 
 ### Package docs
 
-`/docs/packages/<package>` shows each package's own README and `docs/*.md` pages, imported from its repo at the HEAD of its `dev` branch. The copies are committed under `frontend/src/content/packages/` (images under `frontend/public/package-docs/`), and `frontend/schema/docs.json` records each package's commit, version and a sha256 per file, so a build needs no network. `npm run docs:pull` re-imports every package (or `npm run docs:pull -- lens` for one) and refuses the whole import if a doc fails the opsec gate; `npm run docs:check` is the offline CI step. `.github/workflows/docs-drift.yml` opens a sync PR daily when a package's `dev` moves on. Never edit the imported files: fix the doc upstream and pull again.
+Each package's own README and `docs/*.md` pages, and the suite's setup guides, are published by [argus-handbook](https://github.com/smk762/argus-handbook) at [docs.dragonhound.dev](https://docs.dragonhound.dev/packages/). Studio's `/docs` keeps only the captioning concepts; its old `/docs/setup/…` and `/docs/packages/…` paths redirect there (301), in both the server build (`next.config.ts`) and the static demo (`frontend/public/_redirects`).
 
 ## Configuration
 

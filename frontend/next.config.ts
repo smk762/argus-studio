@@ -2,6 +2,7 @@ import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 import createMDX from "@next/mdx";
 import type { NextConfig } from "next";
+import { handbookRedirects } from "./src/lib/handbook";
 
 // Load repo-root `.env` (this file lives in `frontend/`).
 loadEnvConfig(path.join(__dirname, ".."));
@@ -17,15 +18,20 @@ const nextConfig: NextConfig = {
   // Static hosts serve `/curate/index.html` for `/curate/` and redirect the
   // bare path, so emit directories rather than `curate.html` files.
   ...(staticDemo ? { trailingSlash: true, images: { unoptimized: true } } : {}),
-  // The Caption tab is the root page; send the obvious guess there. The static
-  // export can't redirect, so public/_redirects does the same on the static host.
-  ...(staticDemo ? {} : { redirects: async () => [{ source: "/caption", destination: "/", permanent: true }] }),
+  // The Caption tab is the root page; send the obvious guess there. The setup
+  // guides and package docs moved to argus-handbook (src/lib/handbook.ts). The
+  // static export can't redirect, so public/_redirects does the same on the
+  // static host (src/lib/handbook.test.ts holds the two to one list).
+  ...(staticDemo
+    ? {}
+    : {
+        redirects: async () => [
+          { source: "/caption", destination: "/", permanent: true },
+          ...handbookRedirects(),
+        ],
+      }),
   // Let `.mdx` files be treated as routes/pages alongside TS/TSX.
   pageExtensions: ["ts", "tsx", "mdx"],
-  // The package docs (/docs/packages, argus-studio#170) are read from disk when
-  // a page renders, which the server build does per request: ship them in the
-  // standalone image beside the server.
-  outputFileTracingIncludes: { "/docs/packages/**": ["./src/content/packages/**/*.md"] },
 };
 
 const withMDX = createMDX({

@@ -4,6 +4,10 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- **Setup and services and the package docs moved to argus-handbook** at [docs.dragonhound.dev](https://docs.dragonhound.dev/) (smk762/argus-handbook). Studio's old `/docs/setup/…` and `/docs/packages/…` paths redirect there (301), in the server build (`next.config.ts`) and the static demo (`public/_redirects`). Studio's `/docs` keeps the captioning concepts, and its sidebar links the handbook under "Suite docs". The package-docs import (`docs:pull`, `docs:check`, `schema/docs.json`, the `docs-drift` workflow) and the service registry went with them.
+
 ### Added
 
 - **A "Setup and services" section in `/docs`** ([#172](https://github.com/smk762/argus-studio/issues/172)). It holds a cross-package **Moderation** topic, a **what to run for which UI** matrix, and one page per external service. The topic covers NudeNet and the exposed score, SingGuard verdicts and thinking modes, the EraX fallback, the MiVOLO under-18 rule, darkroom's `adult-*` policies and `ALLOW_NSFW`, and the limits. The matrix covers Studio, Lightbox, Realms, Safelight, Sightline, Assay and Cull. There are 21 service pages, among them GPU host, ComfyUI, Ollama, vLLM, hosted APIs, NudeNet, SingGuard, EraX, MiVOLO and model downloads. Each lists the packages that use the service and the env vars each reads at `dev` HEAD, the minimal setup, and the official guides. The SingGuard page is the first public guide to agent-composer's `/api/guard/check`: setup, model, request and response fields, and modes. The pages read from one registry, `src/content/services.ts`.

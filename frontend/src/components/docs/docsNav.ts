@@ -3,20 +3,21 @@
  * sidebar and (later) search read from this list. Grows as concept and guide
  * pages are authored (epic: interactive-docs).
  */
-import { SERVICES, serviceHref } from "@/content/services";
-import { PACKAGE_DOCS, packageHref, subPages } from "@/lib/packageDocs";
+import { handbookUrl } from "@/lib/handbook";
 
 export interface DocsNavItem {
+  /** A /docs route, or an absolute URL for a page that lives off-site. */
   href: string;
   label: string;
-  /** Pages under this one: in reading order and the breadcrumb, but not in the sidebar (the page lists them). */
-  children?: DocsNavItem[];
 }
 
 export interface DocsNavSection {
   title: string;
   items: DocsNavItem[];
 }
+
+/** True for an item that links off-site (the suite docs in argus-handbook). */
+export const isExternalItem = (item: DocsNavItem): boolean => /^https?:\/\//.test(item.href);
 
 export const DOCS_NAV: DocsNavSection[] = [
   {
@@ -35,46 +36,28 @@ export const DOCS_NAV: DocsNavSection[] = [
     ],
   },
   {
-    // Cross-package topics (argus-studio#172): other UIs link here rather than
-    // copying it. The per-service pages come from the registry, so a new
-    // service needs only its entry and its page.
-    title: "Setup and services",
+    // The setup guides and each package's docs live in argus-handbook
+    // (docs.dragonhound.dev). Links only: they are not in the pager.
+    title: "Suite docs",
     items: [
-      { href: "/docs/setup", label: "Overview" },
-      { href: "/docs/setup/moderation", label: "Moderation" },
-      { href: "/docs/setup/which-services", label: "What to run for which UI" },
-      ...SERVICES.map((s) => ({ href: serviceHref(s.id), label: s.title })),
+      { href: handbookUrl("setup/"), label: "Setup and services" },
+      { href: handbookUrl("packages/"), label: "Packages" },
     ],
-  },
-  {
-    // Each package's own docs, imported at its dev HEAD (argus-studio#170,
-    // scripts/package-docs.mjs). One entry per package: its docs/*.md pages are
-    // listed on the package page, not here.
-    title: "Packages",
-    items: PACKAGE_DOCS.map((pkg) => ({
-      href: packageHref(pkg.short),
-      label: pkg.package,
-      children: subPages(pkg).map((page) => ({ href: packageHref(pkg.short, page.slug), label: page.title })),
-    })),
   },
 ];
 
 /** A page in reading order, carrying the section it belongs to (for breadcrumbs). */
 export interface DocsNavPage extends DocsNavItem {
   section: string;
-  /** The nav item a child page sits under. */
-  parent?: DocsNavItem;
 }
 
 /**
- * The manifest flattened into linear reading order — the single source both
- * prev/next paging and the breadcrumb read, so page order lives in one place.
+ * The manifest's own pages flattened into linear reading order — the single
+ * source both prev/next paging and the breadcrumb read, so page order lives in
+ * one place. Off-site items are left out: paging never leaves Studio.
  */
 export const DOCS_PAGES: DocsNavPage[] = DOCS_NAV.flatMap((section) =>
-  section.items.flatMap((item) => [
-    { ...item, section: section.title },
-    ...(item.children ?? []).map((child) => ({ ...child, section: section.title, parent: item })),
-  ]),
+  section.items.filter((item) => !isExternalItem(item)).map((item) => ({ ...item, section: section.title })),
 );
 
 /** Prev/next/current for `pathname`, or nulls when it is not a registered page. */

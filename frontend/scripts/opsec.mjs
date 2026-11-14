@@ -1,13 +1,11 @@
 // The opsec gate for published docs (epic argus-studio#169, Approach 6): the
 // one set of rules. src/lib/docsOpsec.ts re-exports it for the vitest gate over
-// Studio's own pages, and scripts/package-docs.mjs runs it over every package
-// doc it imports, before it writes anything.
+// Studio's own /docs pages.
 //
 // It refuses, never redacts: a docs page that names a private or link-local
 // address, a home-directory or server path, an email address, or a term on the
 // private denylist fails, and the author swaps in a placeholder (`<GPU_HOST>`,
-// `<LAN_HOST>`, `<AGENT_HOST>`) or a container path. For an imported package
-// doc, that fix happens in the package's repo, never in Studio's copy.
+// `<LAN_HOST>`, `<AGENT_HOST>`) or a container path.
 //
 // Loopback (`localhost`, `127.0.0.1`) and documentation ranges are fine: they
 // name nothing real. The denylist is never committed; CI passes it in through

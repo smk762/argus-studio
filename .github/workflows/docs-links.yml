@@ -1,7 +1,8 @@
 name: Docs links
 
-# Weekly check that every official guide the /docs "Setup and services" pages
-# link to still answers (argus-studio#172). Scheduled rather than run on each
+# Weekly check that every external link in Studio's /docs pages still answers
+# (argus-studio#172). The setup guides and package docs, and their links, moved
+# to argus-handbook (docs.dragonhound.dev). Scheduled rather than run on each
 # PR, so a third party's outage never blocks a merge. A failure opens (or
 # comments on) one tracking issue instead of only failing quietly.
 

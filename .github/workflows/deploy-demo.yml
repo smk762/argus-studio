@@ -64,7 +64,7 @@ jobs:
       # The deploy is only done when the site serves it.
       - if: env.HAS_TOKEN == 'true'
         run: |
-          for path in / /docs/ /docs/setup/; do
+          for path in / /docs/ /docs/captioning/target-style/; do
             code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 5 --retry-delay 6 --retry-all-errors "https://studio.dragonhound.dev$path")
             echo "$code $path"; [ "$code" = 200 ] || exit 1
           done

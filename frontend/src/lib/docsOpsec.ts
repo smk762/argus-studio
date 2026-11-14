@@ -1,9 +1,7 @@
 /**
  * The opsec gate for published docs (epic argus-studio#169, Approach 6). The
- * rules live in `scripts/opsec.mjs`, the one source both this module (the
- * vitest gate over Studio's own pages and the imported package docs) and
- * `scripts/package-docs.mjs` (which gates every package doc before it writes
- * anything) use. It refuses, never redacts: a docs page that names a private or
+ * rules live in `scripts/opsec.mjs`; this module re-exports them for the vitest
+ * gate over Studio's own /docs pages. It refuses, never redacts: a docs page that names a private or
  * link-local address, a home-directory or server path, an email address, or a
  * term on the private denylist fails, and the author swaps in a placeholder
  * (`<GPU_HOST>`, `<LAN_HOST>`, `<AGENT_HOST>`) or a container path.
