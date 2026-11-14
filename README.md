@@ -1,4 +1,9 @@
-# Argus Studio
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/smk762/argus-cortex/dev/brand/packages/studio/argus-studio-lockup-dark.svg">
+    <img alt="Argus Studio" src="https://raw.githubusercontent.com/smk762/argus-cortex/dev/brand/packages/studio/argus-studio-lockup-light.svg" height="52">
+  </picture>
+</h1>
 
 The Argus suite's web UI and compose orchestration. The main page demonstrates [argus-lens](https://github.com/smk762/argus-lens) structured image captioning — paste a URL, drag in images, pick a server-side folder, or caption straight from an [Immich](https://immich.app) album — and inspects training-optimised caption variants, raw model outputs, and auto-removed tag analysis. A **curator** view at [`/curate`](http://localhost:3000/curate) talks to [argus-curator](https://github.com/smk762/argus-curator) for dataset ingestion, folder scans, and exports. Upstream acquisition ([argus-quarry](https://github.com/smk762/argus-quarry)) runs as a compose profile.
 
