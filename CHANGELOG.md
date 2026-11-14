@@ -7,6 +7,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 ### Changed
 
 - **argus-sightline is on GHCR.** The `survey` profile now pulls `ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.1}` (was `0.1.0`, which was never published), so it no longer needs `compose.build.yaml`.
+- **The release builds arm64 on a native arm runner instead of under QEMU.** Each architecture builds on its own runner (`ubuntu-24.04`, `ubuntu-24.04-arm`) and pushes by digest, and a final job tags the two as one multi-platform image. The v0.4.0 release died in the emulated arm64 `npm ci` (`qemu: uncaught target signal 4`) and hung to the job timeout. The build jobs now time out after 20 minutes.
 
 ## [0.4.0] - 2026-11-14
 
