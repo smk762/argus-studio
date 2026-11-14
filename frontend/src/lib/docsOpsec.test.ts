@@ -23,12 +23,18 @@ describe("opsecFindings", () => {
   });
 
   it("refuses home and host-mount paths and emails, with the line", () => {
-    const found = opsecFindings("ok\nsee /home/alice/models\n(/mnt/nas/photos)\nmail someone@example.org");
+    const found = opsecFindings("ok\nsee /home/alice/models\n(/mnt/nas/photos)\nmail someone@realmail.net");
     expect(found.map((f) => [f.rule, f.line])).toEqual([
       ["home-path", 2],
       ["server-path", 3],
       ["email", 4],
     ]);
+  });
+
+  it("lets reserved example domains through (RFC 2606 / 6761)", () => {
+    const text = "UA argus-quarry/0.1 (you@example.com), a@b.example.org, c@host.test, d@x.invalid, e@localhost.localhost";
+    expect(opsecFindings(text)).toEqual([]);
+    expect(opsecFindings("f@notexample.com").map((x) => x.rule)).toEqual(["email"]);
   });
 
   it("reports a denylist hit without echoing the term", () => {

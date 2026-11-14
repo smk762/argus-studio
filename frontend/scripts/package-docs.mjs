@@ -24,7 +24,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { denylistFromEnv, opsecFindings } from "./opsec.mjs";
-import { BRANCH, PACKAGES, repoImages, slugOf, titleOf, versionOf } from "./package-docs-lib.mjs";
+import { BRANCH, PACKAGES, releaseOf, repoImages, slugOf, titleOf, versionFrom } from "./package-docs-lib.mjs";
 
 const frontend = dirname(dirname(fileURLToPath(import.meta.url)));
 export const RECORD_PATH = join(frontend, "schema", "docs.json");
@@ -34,6 +34,29 @@ export const imagesDir = (short) => join(frontend, "public", "package-docs", sho
 const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 const rel = (path) => path.slice(frontend.length + 1);
 
+/** The package version at `commit`, counting releases tagged on a merge into `main` (see releaseOf). */
+function versionAt(git, commit) {
+  const lines = git("tag", "--list", "v[0-9]*", "--sort=-v:refname", "--format=%(refname:short) %(*objectname) %(objectname)").toString().trim().split("\n").filter(Boolean);
+  const tags = lines.map((line) => {
+    const [tag, peeled, object] = line.split(" ");
+    const at = peeled || object; // an annotated tag peels to its commit
+    const parents = git("rev-list", "--parents", "-n", "1", at).toString().trim().split(" ").slice(1);
+    return { tag, commit: at, released: parents.length > 1 ? [at, parents[1]] : [at] };
+  });
+  const isAncestor = (c) => {
+    try {
+      git("merge-base", "--is-ancestor", c, commit);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const found = releaseOf(tags, isAncestor);
+  if (!found) throw new Error(`no v* release tag behind ${commit}`);
+  const distance = Number(git("rev-list", "--count", `${found.base}..${commit}`).toString().trim());
+  return versionFrom(found.tag, distance, git("rev-parse", "--short", commit).toString().trim());
+}
+
 async function fetchPackage(pkg) {
   const work = await mkdtemp(join(tmpdir(), `package-docs-${pkg.short}-`));
   try {
@@ -42,7 +65,7 @@ async function fetchPackage(pkg) {
       stdio: "inherit",
     });
     const commit = git("rev-parse", "HEAD").toString().trim();
-    const version = versionOf(git("describe", "--tags", "--long", "--match", "v[0-9]*", commit).toString());
+    const version = versionAt(git, commit);
     const show = (path) => git("show", `${commit}:${path}`);
     const docs = Object.fromEntries(pkg.docs.map((path) => [path, show(path).toString()]));
     const held = Object.fromEntries((pkg.held ?? []).map((path) => [path, show(path).toString()]));

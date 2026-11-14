@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { DOCS_PAGES, docsPager } from "@/components/docs/docsNav";
 import { PackageReadme, PackageSubPage } from "@/components/docs/PackageDoc";
 
-import { PACKAGES, slugOf, titleOf, versionOf } from "../../scripts/package-docs-lib.mjs";
+import { PACKAGES, releaseOf, slugOf, titleOf, versionFrom, versionOf } from "../../scripts/package-docs-lib.mjs";
 import { check, RECORD_PATH } from "../../scripts/package-docs.mjs";
 import { opsecFindings } from "./docsOpsec";
 import { PACKAGE_DOCS, packageDocs, packageHref, subPages, type PackageDocPage, type PackageDocs } from "./packageDocs";
@@ -232,5 +232,38 @@ describe("the docs nav", () => {
     expect(current?.parent?.href).toBe(packageHref("lens"));
     expect(prev?.href).toBe(packageHref("lens"));
     expect(next?.href).toBe(packageHref("lens", second.slug));
+  });
+});
+
+describe("releaseOf", () => {
+  // dev: a1 <- a2 <- a3 (HEAD). v0.2.0 is a merge on main whose second parent is a2.
+  const history = new Set(["a1", "a2", "a3"]);
+  const isAncestor = (c: string) => history.has(c);
+
+  it("counts a release tagged on a merge into main by its second parent", () => {
+    const tags = [
+      { tag: "v0.2.0", commit: "m1", released: ["m1", "a2"] },
+      { tag: "v0.1.1", commit: "a1", released: ["a1"] },
+    ];
+    expect(releaseOf(tags, isAncestor)).toEqual({ tag: "v0.2.0", base: "a2" });
+  });
+
+  it("falls back to an older tag in dev's own history", () => {
+    const tags = [
+      { tag: "v0.3.0", commit: "m9", released: ["m9", "z9"] },
+      { tag: "v0.1.1", commit: "a1", released: ["a1"] },
+    ];
+    expect(releaseOf(tags, isAncestor)).toEqual({ tag: "v0.1.1", base: "a1" });
+  });
+
+  it("returns null with no release behind the commit", () => {
+    expect(releaseOf([{ tag: "v9.0.0", commit: "x", released: ["x"] }], isAncestor)).toBeNull();
+  });
+});
+
+describe("versionFrom", () => {
+  it("is the tag itself at distance 0, else the next patch's dev release", () => {
+    expect(versionFrom("v0.2.0", 0, "abc1234")).toBe("0.2.0");
+    expect(versionFrom("v0.2.0", 25, "44e7e6b00")).toBe("0.2.1.dev25+g44e7e6b00");
   });
 });

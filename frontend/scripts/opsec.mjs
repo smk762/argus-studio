@@ -38,8 +38,12 @@ const PATTERNS = [
   // Host mount points that only exist on one machine. Container paths
   // (`/data/…`, `/models`, `/app`) are the documented alternative.
   { rule: "server-path", re: /(?:^|[\s"'`(=])(\/(?:mnt|media|srv|volume\d+)\/[A-Za-z0-9._-]+)/g },
-  { rule: "email", re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b/g },
+  { rule: "email", re: /\b[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})\b/g },
 ];
+
+// RFC 2606 / 6761 names: an address here reaches no one, so a docs example
+// (`you@example.org` in a User-Agent) may use one.
+const RESERVED_EMAIL_DOMAIN = /(?:^|\.)(?:example\.(?:com|net|org)|example|test|invalid|localhost)$/i;
 
 /**
  * Parses the denylist secret: comma or newline separated, blanks dropped.
@@ -79,7 +83,13 @@ export function opsecFindings(text, denylist = []) {
       if (rule) out.push({ rule, match: m[0], line });
     }
     for (const { rule, re } of PATTERNS) {
-      for (const m of lineText.matchAll(re)) out.push({ rule, match: (m[1] ?? m[0]).trim(), line });
+      for (const m of lineText.matchAll(re)) {
+        if (rule === "email") {
+          if (!RESERVED_EMAIL_DOMAIN.test(m[1])) out.push({ rule, match: m[0], line });
+          continue;
+        }
+        out.push({ rule, match: (m[1] ?? m[0]).trim(), line });
+      }
     }
     const low = lineText.toLowerCase();
     lowered.forEach((term, j) => {

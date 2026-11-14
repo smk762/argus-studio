@@ -49,8 +49,8 @@ export const PACKAGES = [
     ],
   },
   // DESIGN.md is quarry's design doc (status, rationale, where the build diverged), its only page beyond the README.
-  // Held (2026-11-14): README.md names host mount paths, DESIGN.md an email address.
-  { short: "quarry", package: "argus-quarry", repo: "smk762/argus-quarry", docs: [], held: ["README.md", "DESIGN.md"] },
+  // Held (2026-11-14): README.md names host mount paths (fix: smk762/argus-quarry#36).
+  { short: "quarry", package: "argus-quarry", repo: "smk762/argus-quarry", docs: ["DESIGN.md"], held: ["README.md"] },
   // Held (2026-11-14): README.md names a host mount path.
   { short: "forge", package: "argus-forge", repo: "smk762/argus-forge", docs: [], held: ["README.md"] },
   { short: "proof", package: "argus-proof", repo: "smk762/argus-proof", docs: ["README.md"] },
@@ -101,9 +101,35 @@ export function versionOf(describe) {
   const found = /^v?(.+)-(\d+)-g([0-9a-f]+)$/.exec(describe.trim());
   if (!found) throw new Error(`cannot read a version from \`git describe\` output ${JSON.stringify(describe)}`);
   const [, tag, distance, sha] = found;
-  if (distance === "0") return tag;
-  const bumped = tag.replace(/(\d+)(?!.*\d)/, (n) => String(Number(n) + 1));
+  return versionFrom(tag, Number(distance), sha);
+}
+
+/** `0.15.0` at the tag itself, else the next patch's dev release (`0.15.1.dev9+gf9aae0bbf`), as setuptools-scm writes it. */
+export function versionFrom(tag, distance, sha) {
+  const bare = tag.replace(/^v/, "");
+  if (distance === 0) return bare;
+  const bumped = bare.replace(/(\d+)(?!.*\d)/, (n) => String(Number(n) + 1));
   return `${bumped}.dev${distance}+g${sha}`;
+}
+
+/**
+ * The release a `dev` commit builds on. `git describe` only sees tags in the
+ * commit's own history, but a release cut as a reviewed PR from `dev` into a
+ * protected `main` is tagged on the merge commit, which `dev` never contains
+ * (argus-forge v0.2.0, argus-cortex v0.5.0). Such a tag still released the dev
+ * commit that is its second parent. So a tag counts when its commit, or its
+ * merge's second parent, is in the commit's history; the newest one wins.
+ *
+ * @param {{ tag: string, commit: string, released: string[] }[]} tags newest first; `released` = the commits it released (itself, and a merge's second parent)
+ * @param {(ancestor: string) => boolean} isAncestor whether a commit is in the dev commit's history
+ * @returns {{ tag: string, base: string } | null}
+ */
+export function releaseOf(tags, isAncestor) {
+  for (const { tag, released } of tags) {
+    const base = released.find((c) => isAncestor(c));
+    if (base) return { tag, base };
+  }
+  return null;
 }
 
 const REMOTE = /^[a-z][a-z0-9+.-]*:|^\/\//i;
