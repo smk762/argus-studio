@@ -93,6 +93,8 @@ export function JobView({
   const painted = bake ? previewUrl(s.job_id, "fantasy", bake.completed_at) : null;
   const timings = stageTimings(s.timings);
   const relief = reliefSummary(s.relief);
+  // The static demo bundles no archive unless listed; it links to realms instead.
+  const archiveLinked = !STATIC_DEMO || DEMO_BUNDLED_ARCHIVES.has(s.job_id);
   const blocked = notTileableReason(s);
   const gdalReason = capabilityReason(canGdal, "GDAL is missing on this host, so it cannot cut tiles.");
 
@@ -320,7 +322,19 @@ export function JobView({
               <span className="font-mono text-xs text-foreground">
                 {tiles.n_tiles} tiles · z{tiles.min_zoom}–{tiles.max_zoom}
               </span>
-              {STATIC_DEMO && !DEMO_BUNDLED_ARCHIVES.has(s.job_id) ? (
+              {archiveLinked ? (
+                <>
+                  <a
+                    href={archiveUrl(s.job_id)}
+                    className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
+                  >
+                    Download fantasy.pmtiles
+                  </a>
+                  <span className="text-[11px] text-muted">
+                    Drape it on a basemap with argus-atlas&apos;s <span className="font-mono">examples/viewer.html</span>.
+                  </span>
+                </>
+              ) : (
                 // Not bundled in the static demo (size); the whole map is browsable on realms.
                 <ExternalLink
                   href={REALMS_URL}
@@ -328,17 +342,7 @@ export function JobView({
                 >
                   View the full map on realms.dragonhound.dev
                 </ExternalLink>
-              ) : (
-                <a
-                  href={archiveUrl(s.job_id)}
-                  className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
-                >
-                  Download fantasy.pmtiles
-                </a>
               )}
-              <span className="text-[11px] text-muted">
-                Drape it on a basemap with argus-atlas&apos;s <span className="font-mono">examples/viewer.html</span>.
-              </span>
             </>
           ) : STATIC_DEMO ? (
             <span className="text-xs text-muted">Not tiled in this recording.</span>

@@ -116,7 +116,7 @@ jobs:
           case "$tag" in *-*|*rc*|*a[0-9]*|*b[0-9]*) prerelease="--prerelease" ;; esac
           if gh release view "$tag" >/dev/null 2>&1; then
             # Re-run of the workflow: refresh the notes rather than failing.
-            gh release edit "$tag" --notes-file notes.md
+            gh release edit "$tag" --notes-file notes.md $prerelease
           else
             gh release create "$tag" --verify-tag --title "$tag" --notes-file notes.md $prerelease
           fi

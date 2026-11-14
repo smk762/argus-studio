@@ -76,8 +76,10 @@ def main() -> None:
     with_archive: set[str] = set()
     last = None
     for i, tok in enumerate(raw):
-        if tok == "--job":
+        if tok == "--job" and i + 1 < len(raw):
             last = Path(raw[i + 1]).name
+        elif tok.startswith("--job="):
+            last = Path(tok.split("=", 1)[1]).name
         elif tok == "--archive" and last:
             with_archive.add(last)
 

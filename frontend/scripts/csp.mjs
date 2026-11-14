@@ -25,8 +25,9 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
-const INLINE_SCRIPT = /<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+const INLINE_SCRIPT = /<script\b(?![^>]*\ssrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi;
 const INLINE_STYLE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
 
 /** @param {string} body */
@@ -96,7 +97,9 @@ function htmlFiles(dir) {
     .map((e) => join(e.parentPath, e.name));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL, not a `file://` template: import.meta.url is percent-encoded, so a
+// checkout path with a space would otherwise skip this block and ship no CSP at all.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const out = process.argv[2] ?? "out";
   const files = htmlFiles(out);
   for (const file of files) writeFileSync(file, withCsp(readFileSync(file, "utf8")));

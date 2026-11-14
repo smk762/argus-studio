@@ -396,7 +396,7 @@ export default function GalleryPage() {
         right="Images: PD / CC0 as recorded per item"
       />
 
-      {detail && !unreachable && <PhotoDetail key={detail.id} id={detail.id} seed={detail.seed} onClose={closePhoto} />}
+      {detail && !unreachable && !STATIC_DEMO && <PhotoDetail key={detail.id} id={detail.id} seed={detail.seed} onClose={closePhoto} />}
     </div>
   );
 }

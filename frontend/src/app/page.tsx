@@ -135,7 +135,8 @@ export default function Home() {
   // else's export should not be one click away from a pasted URL.
   useDeepLink((params) => {
     const folder = params.get("folder");
-    if (!folder) return;
+    // The static demo has no lens to caption a folder with; keep the recorded run.
+    if (!folder || STATIC_DEMO) return;
     setFolderPath(folder);
     setMode("folder");
     // The curator hands off a lens-valid value (its LENS_CATEGORY map bridges
