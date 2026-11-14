@@ -22,7 +22,11 @@ The suite's clients speak one API: `POST /api/guard/check`. Two servers implemen
   for images and for text-only checks. **Darkroom needs this one**, because
   its pre-flight is a text-only check.
 - **argus-cull's `singguard` service** (profile `local-singguard`, also on 9150).
-  It checks images only, and it shouldn't run beside agent-composer.
+  It supports all four modes too, but it checks images only, so it can't serve
+  darkroom's pre-flight. It shouldn't run beside agent-composer.
+
+Any other SingGuard deployment offers only the model's own `fast` and
+`fast-slow` modes.
 
 The rest of this page sets up agent-composer's guard.
 
@@ -34,9 +38,12 @@ The guard needs a GPU host with Docker and the NVIDIA Container Toolkit (see
 1. Clone [agent-composer](https://github.com/smk762/agent-composer) and copy
    `.env.example` to `.env`.
 2. `rag-chat` won't start without a vector store and a database, even if you only
-   want the guard. Set `QDRANT_URL` and `DATABASE_URL` in `.env`, either to
-   instances you already run or to the stack's own (see
-   [Postgres, Qdrant, MinIO](/docs/setup/services/stores)).
+   want the guard. Set `QDRANT_URL` and `DATABASE_URL` in `.env`, pointing at
+   instances you already run or at new ones. To set them up, see the
+   [PostgreSQL downloads](https://www.postgresql.org/download/) or the
+   [Postgres Docker image](https://hub.docker.com/_/postgres), and the
+   [Qdrant quickstart](https://qdrant.tech/documentation/quickstart/). A
+   two-command local setup is on [Postgres, Qdrant and MinIO](/docs/setup/services/stores).
 3. Start the stack: `docker compose up -d --build`. Ollama starts with it.
 4. Pull the model into that Ollama once:
 

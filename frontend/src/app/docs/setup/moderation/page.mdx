@@ -52,16 +52,27 @@ says so (`erax_filled: true`).
 
 ### The age estimate feeds the under-18 rules
 
-MiVOLO estimates an age for each face and body it finds. When a face estimated
+MiVOLO estimates an age for each face and body it finds. When anyone estimated
 **under 18** shares a frame with an exposed score of **0.2 or more**, the image
 is `minor-exposed`. This is a hard exclusion in curator and a deletion in
-darkroom, and no threshold or setting can override it.
+darkroom, and no request or threshold can override it.
 
-- **Curator** also checks that the person and the exposed region overlap
-  ([face attributes](https://github.com/smk762/argus-curator/blob/dev/docs/face-attributes.md)).
-- **Darkroom** applies the rule to any face under 18 in the frame. It gets the
-  estimate from curator's `POST /faces` (`ARGUS_DARKROOM_AGE_URL`) or from its
-  own `[age]` extra ([age check](https://github.com/smk762/argus-darkroom/blob/dev/README.md#age-check-optional)).
+Both packages apply the same rule, chosen by one setting
+(`ARGUS_CURATOR_MINOR_EXPOSED`, `ARGUS_DARKROOM_MINOR_EXPOSED`):
+
+| Mode | When it fires |
+|---|---|
+| `frame` (default) | Any age under 18 anywhere in the frame, plus exposure anywhere in the frame. |
+| `overlap` | Only when an exposed region overlaps a young person's box, or overlaps nobody's box. It still fails closed: a young face whose body wasn't found, or an age with no box to place it, flags any exposure. |
+
+`overlap` excludes fewer images (an adult's exposure beside a fully clothed
+child doesn't fire), and it relies on the person detector finding every body.
+`frame` doesn't. See
+[face attributes](https://github.com/smk762/argus-curator/blob/dev/docs/face-attributes.md)
+in curator and the
+[age check](https://github.com/smk762/argus-darkroom/blob/dev/README.md#age-check-optional)
+in darkroom. Darkroom gets the estimate from curator's `POST /faces`
+(`ARGUS_DARKROOM_AGE_URL`) or from its own `[age]` extra.
 
 The age is never sent to SingGuard as a verdict input.
 
@@ -173,12 +184,17 @@ to `slow` when its exposed score is already 0.2 or more.
 
 Which servers support which modes:
 
-- **[agent-composer's guard](/docs/setup/services/singguard)** accepts all four,
-  for images and for text-only checks. Darkroom's pre-flight needs text-only checks, so use this one for darkroom.
-- **argus-cull's `singguard` service** checks images only. It answers 422 to a text-only check.
-- **A stock SingGuard server** offers `fast` and `fast-slow`, and answers HTTP 400 to `slow`
-  or `cascade`. Curator then switches to `fast` for the rest of the run and logs
-  `singguard_mode_unsupported`.
+| Server | Modes | Checks |
+|---|---|---|
+| [agent-composer's guard](/docs/setup/services/singguard) | all four | images and text-only |
+| argus-cull's `singguard` service | all four | images only (a text-only check gets 422) |
+| any other SingGuard deployment | `fast` and `fast-slow`, the model's own two | depends on the server |
+
+`fast` and `fast-slow` are SingGuard's own template modes. `slow` and `cascade`
+are added by the two Argus servers. Darkroom's pre-flight is a text-only check,
+so darkroom needs agent-composer's guard. When a server answers HTTP 400 to
+`slow` or `cascade`, curator switches to `fast` for the rest of the run and
+logs `singguard_mode_unsupported`.
 
 ## The limits
 

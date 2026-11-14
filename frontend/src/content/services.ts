@@ -326,13 +326,13 @@ export const SERVICES: Service[] = [
       {
         pkg: "argus-curator",
         role: "Face attributes and the `minor-exposed` hard exclusion.",
-        config: ["ARGUS_CURATOR_MIVOLO_MODEL", "--mivolo-model", "mivolo-convert", "[mivolo-convert]"],
+        config: ["ARGUS_CURATOR_MIVOLO_MODEL", "ARGUS_CURATOR_MINOR_EXPOSED", "--mivolo-model", "mivolo-convert", "[mivolo-convert]"],
         docs: gh("argus-curator", "docs/face-attributes.md", "installing-the-model"),
       },
       {
         pkg: "argus-darkroom",
         role: "Age check through curator's `POST /faces?body=true`, or in process with the `[age]` extra.",
-        config: ["ARGUS_DARKROOM_AGE_URL", "[age]"],
+        config: ["ARGUS_DARKROOM_AGE_URL", "ARGUS_DARKROOM_MINOR_EXPOSED", "[age]"],
         docs: gh("argus-darkroom", "README.md", "age-check-optional"),
       },
     ],
@@ -629,6 +629,7 @@ export const SERVICES: Service[] = [
       { label: "PostgreSQL downloads", url: "https://www.postgresql.org/download/" },
       { label: "Postgres Docker image", url: "https://hub.docker.com/_/postgres" },
       { label: "Qdrant quickstart", url: "https://qdrant.tech/documentation/quickstart/" },
+      { label: "Qdrant installation", url: "https://qdrant.tech/documentation/guides/installation/" },
       { label: "MinIO in a container", url: "https://docs.min.io/aistor/installation/container/" },
     ],
   },
