@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BatchCaptionResult, CaptionResult, CaptionRequest } from "@/types";
+import type { BatchCaptionResult, BatchCaptionRow, CaptionResult, CaptionRequest } from "@/types";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
@@ -45,6 +45,7 @@ import {
 } from "@/lib/lensApi";
 import { LensBackends } from "@/components/LensBackends";
 import { finalChoice } from "@/lib/captionFinal";
+import { bucketsOf } from "@/lib/captionFacets";
 import { sizedForBackend, tokenBudget, tokenBudgetsOf } from "@/lib/captionTokens";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { RECORDED_CAPTION, RECORDED_CAPTION_IMAGE } from "@/lib/lensSample";
@@ -267,6 +268,7 @@ export default function Home() {
         target_category: targetCategory,
         target_backend: targetBackend,
         prose_enrichment: proseEnrichment,
+        include_buckets: true,
         ...hybridRequestFields(hybrid),
       });
       setBatchResult(data);
@@ -290,7 +292,7 @@ export default function Home() {
     setCaptionedFolder(null);
     setBatchSource(manifestFile.name);
 
-    const rows: { rel_path: string; final_caption: string }[] = [];
+    const rows: BatchCaptionRow[] = [];
     const errors: { rel_path: string; error: string }[] = [];
     try {
       const manifestText = await manifestFile.text();
@@ -304,7 +306,7 @@ export default function Home() {
         (p) => {
           setProgress({ done: p.done, total: p.total });
           if (p.error) errors.push({ rel_path: p.rel_path, error: p.error });
-          else rows.push({ rel_path: p.rel_path, final_caption: p.final_caption ?? "" });
+          else rows.push({ rel_path: p.rel_path, final_caption: p.final_caption ?? "", metadata: p.metadata });
           // Publish a growing snapshot so captions stream into the results table.
           setBatchResult({
             total: p.total,
@@ -319,6 +321,7 @@ export default function Home() {
           write_xmp: writeXmp,
           xmp_overwrite: writeXmp && xmpOverwrite,
           export_root: manifestExportRoot,
+          include_buckets: true,
         },
       );
       setBatchResult({ ...summary, results: rows, errors });
@@ -366,7 +369,11 @@ export default function Home() {
           total: files.length,
           captioned: rows.length,
           failed: skipped + errors.length,
-          results: rows.map((r) => ({ rel_path: r.name, final_caption: r.final_caption })),
+          results: rows.map((r) => ({
+            rel_path: r.name,
+            final_caption: r.final_caption,
+            metadata: { buckets: bucketsOf(r.metadata) },
+          })),
           errors: [
             ...errors.map((e) => ({ rel_path: e.name, error: e.error })),
             ...(skipped > 0
@@ -392,7 +399,7 @@ export default function Home() {
     setBatchResult(null);
     setCaptionedFolder(null);
     setProgress(null);
-    const rows: { rel_path: string; final_caption: string }[] = [];
+    const rows: BatchCaptionRow[] = [];
     const errors: { rel_path: string; error: string }[] = [];
     try {
       const summary = await immichCaptionStream(

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { BatchCaptionResult } from "@/types";
 import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
+import { activeCount, facetGroups, filterRows, hasBuckets, toggleTerm, type Selection } from "@/lib/captionFacets";
+import { CaptionFacets } from "@/components/CaptionFacets";
 
 interface Props {
   result: BatchCaptionResult;
@@ -14,8 +16,26 @@ interface Props {
 /** Renders the per-image results of a /caption/folder or /caption/manifest run. */
 export function BatchCaptionResults({ result, source }: Props) {
   const [copied, setCopied] = useState(false);
+  const [selection, setSelection] = useState<Selection>({});
 
-  const asJsonl = toJsonl(result.results);
+  // A new source is a new run: drop its filters. A streaming run keeps them
+  // while rows arrive (same source, growing result).
+  const [shownSource, setShownSource] = useState(source);
+  if (shownSource !== source) {
+    setShownSource(source);
+    setSelection({});
+  }
+
+  const faceted = useMemo(() => hasBuckets(result.results), [result.results]);
+  const groups = useMemo(() => (faceted ? facetGroups(result.results) : []), [faceted, result.results]);
+  const rows = useMemo(() => filterRows(result.results, selection), [result.results, selection]);
+  const filtering = activeCount(selection) > 0;
+
+  // The export is every row's caption, as before: buckets are for filtering here,
+  // not part of the captions.jsonl format.
+  const asJsonl = toJsonl(
+    result.results.map((r) => ({ rel_path: r.rel_path, final_caption: r.final_caption, ...(r.xmp_path ? { xmp_path: r.xmp_path } : {}) })),
+  );
 
   const copyAll = async () => {
     try {
@@ -76,8 +96,24 @@ export function BatchCaptionResults({ result, source }: Props) {
         </div>
       )}
 
-      {/* Rows */}
+      {/* Rows, with facets over lens's category buckets when it sent them */}
       {result.results.length > 0 && (
+        <div className={faceted ? "grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]" : ""}>
+        {faceted && (
+          <CaptionFacets
+            rows={result.results}
+            groups={groups}
+            selection={selection}
+            onToggle={(group, term) => setSelection((cur) => toggleTerm(cur, group, term))}
+            onClear={() => setSelection({})}
+          />
+        )}
+        <div className="min-w-0 space-y-2">
+        {filtering && (
+          <p className="text-xs text-muted" role="status">
+            Showing {rows.length} of {result.results.length} captions. Copy and Download still export every row.
+          </p>
+        )}
         <div className="scrollbar-thin max-h-[60vh] overflow-y-auto rounded-lg border border-border">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-surface">
@@ -87,7 +123,7 @@ export function BatchCaptionResults({ result, source }: Props) {
               </tr>
             </thead>
             <tbody>
-              {result.results.map((r) => (
+              {rows.map((r) => (
                 <tr key={r.rel_path} className="border-t border-border align-top hover:bg-surface-hover/50">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-accent-purple-ink">{r.rel_path}</td>
                   <td className="px-3 py-2 leading-relaxed text-foreground/90">{r.final_caption}</td>
@@ -95,6 +131,9 @@ export function BatchCaptionResults({ result, source }: Props) {
               ))}
             </tbody>
           </table>
+          {rows.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted">No caption matches these filters.</p>}
+        </div>
+        </div>
         </div>
       )}
     </div>

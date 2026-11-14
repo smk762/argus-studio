@@ -1,7 +1,7 @@
 /** Thin client for the argus-lens API (:8100) batch/folder endpoints. */
 
 import type { FolderListing } from "@/components/curator/types";
-import type { BatchCaptionResult, CaptionFolderRequest, CaptionRequest, CaptionResult } from "@/types";
+import type { BatchCaptionResult, BatchCaptionRow, CaptionFolderRequest, CaptionRequest, CaptionResult } from "@/types";
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 
@@ -193,9 +193,12 @@ export interface ManifestCaptionOptions {
    * without it lens reads `abs_path`, which needs a volume shared with the curator.
    */
   export_root?: string;
+  /** Add `metadata.buckets` to each row (lens ≥ 0.11; older lens ignores it). */
+  include_buckets?: boolean;
 }
 
 function appendManifestOptions(fd: FormData, opts?: ManifestCaptionOptions): void {
+  if (opts?.include_buckets) fd.append("include_buckets", "true");
   if (opts?.trigger_word) fd.append("trigger_word", opts.trigger_word);
   fd.append("write_sidecar", String(opts?.write_sidecar ?? true));
   fd.append("write_xmp", String(opts?.write_xmp ?? false));
@@ -222,6 +225,8 @@ export interface CaptionProgress {
   error?: string;
   /** Where the `.xmp` sidecar was written, when `write_xmp` wrote one. */
   xmp_path?: string;
+  /** With `include_buckets`: the row's category buckets. */
+  metadata?: BatchCaptionRow["metadata"];
 }
 
 export interface CaptionSummary {
