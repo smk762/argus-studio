@@ -2,7 +2,9 @@
 // Generates src/lib/generated/<service>.ts from the wire schemas pinned in
 // schema/pins.json. Each service publishes its own schema at
 // schema/<service>-wire.schema.json in its repo (built with argus_cortex.wire),
-// so a pin is that service's release tag plus the file's sha256.
+// so a pin is that service's release tag plus the file's sha256. A pin whose
+// file lives elsewhere names it in `path` (argus-cortex's taxonomy-schema.json);
+// the local copy keeps that file's basename.
 //
 //   node scripts/wire-types.mjs           regenerate from the committed schemas
 //   node scripts/wire-types.mjs --check   fail on drift; reads no network or sibling repo
@@ -12,13 +14,15 @@
 
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compile } from "json-schema-to-typescript";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pinsPath = join(root, "schema", "pins.json");
-const schemaPath = (service) => join(root, "schema", `${service}-wire.schema.json`);
+/** Where the schema lives in the pinned repo. */
+const remotePath = (service, pin) => pin.path ?? `schema/${service}-wire.schema.json`;
+const schemaPath = (service, pin) => join(root, "schema", basename(remotePath(service, pin)));
 const outputPath = (service) => join(root, "src", "lib", "generated", `${service}.ts`);
 
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
@@ -60,7 +64,7 @@ function rootedSchema(service, schema) {
 
 async function generate(service, pin, text) {
   const banner = [
-    `// Generated from ${pin.repo}@${pin.tag} schema/${service}-wire.schema.json.`,
+    `// Generated from ${pin.repo}@${pin.tag} ${remotePath(service, pin)}.`,
     "// Do not edit: change schema/pins.json and run `npm run wire:pull`.",
     "",
   ].join("\n");
@@ -73,11 +77,11 @@ async function generate(service, pin, text) {
 }
 
 async function pull(service, pin) {
-  const url = `https://raw.githubusercontent.com/${pin.repo}/${pin.tag}/schema/${service}-wire.schema.json`;
+  const url = `https://raw.githubusercontent.com/${pin.repo}/${pin.tag}/${remotePath(service, pin)}`;
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`${url}: HTTP ${resp.status}`);
   const text = await resp.text();
-  await writeFile(schemaPath(service), text);
+  await writeFile(schemaPath(service, pin), text);
   return { ...pin, sha256: sha256(text) };
 }
 
@@ -92,9 +96,9 @@ async function main() {
   for (const [service, listed] of Object.entries(pins)) {
     const pin = mode === "--pull" ? await pull(service, listed) : listed;
     pins[service] = pin;
-    const text = await readFile(schemaPath(service), "utf8");
+    const text = await readFile(schemaPath(service, pin), "utf8");
     if (sha256(text) !== pin.sha256) {
-      problems.push(`schema/${service}-wire.schema.json is not the file pinned at ${pin.repo}@${pin.tag}`);
+      problems.push(`schema/${basename(remotePath(service, pin))} is not the file pinned at ${pin.repo}@${pin.tag}`);
       continue;
     }
     const generated = await generate(service, pin, text);

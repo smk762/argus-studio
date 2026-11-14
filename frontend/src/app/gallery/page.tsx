@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Modal } from "@/components/Modal";
 import { SiteHeader } from "@/components/SiteHeader";
 import { StageHandoff } from "@/components/StageHandoff";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -24,6 +25,9 @@ import {
 import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
 import { replaceQuery, useDeepLink } from "@/lib/deepLink";
+import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedBadge } from "@/components/DemoChrome";
+import { ExternalLink } from "@/components/ExternalLink";
 import { tileLoading } from "@/lib/imageLoading";
 
 const PAGE_SIZE = 60;
@@ -90,6 +94,7 @@ export default function GalleryPage() {
 
   // Reachability + stats (re-read after a slice lands in the pool).
   useEffect(() => {
+    if (STATIC_DEMO) return; // nothing to reach; the page explains instead
     const ctrl = new AbortController();
     (async () => {
       // allSettled: only a failed /health means "not running". An empty or
@@ -119,7 +124,7 @@ export default function GalleryPage() {
 
   // Subject list follows the category filter.
   useEffect(() => {
-    if (!serveable) return;
+    if (STATIC_DEMO || !serveable) return;
     const ctrl = new AbortController();
     listQuarrySubjects(filters.category || undefined, ctrl.signal)
       .then(setSubjects)
@@ -159,7 +164,7 @@ export default function GalleryPage() {
 
   // Reload the grid whenever filters change.
   useEffect(() => {
-    if (!serveable) return;
+    if (STATIC_DEMO || !serveable) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- a fetch that follows the filters; only its spinner is set at once.
     void loadPage(0, false);
   }, [loadPage, serveable, poolVersion]);
@@ -174,11 +179,38 @@ export default function GalleryPage() {
         logo={{ letter: "Q" }}
         title="Argus Quarry"
         subtitle="Provenance-first PD/CC0 acquisition pool"
-        badge={<ApiVersionBadge label="argus-quarry" version={version} prefix="v" />}
+        badge={
+          STATIC_DEMO ? (
+            <RecordedBadge label="Not in demo" title="The gallery needs a live argus-quarry pool; none is bundled." />
+          ) : (
+            <ApiVersionBadge label="argus-quarry" version={version} prefix="v" />
+          )
+        }
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
-        {unreachable ? (
+        {STATIC_DEMO ? (
+          <div className="mx-auto max-w-2xl space-y-5 py-16 text-center">
+            <h2 className="text-lg font-medium text-foreground/80">The gallery browses a live acquisition pool.</h2>
+            <p className="text-sm leading-relaxed text-muted">
+              argus-quarry fetches public-domain and CC0 photographs from open archives, records the source, licence
+              and attribution of every file, and publishes them as curator-ready{" "}
+              <span className="font-mono text-foreground/80">&lt;category&gt;/&lt;subject&gt;/</span> folders. This
+              page is a read-only view of that provenance database, so there is nothing to show without one: this
+              static demo does not bundle a pool of third-party photographs.
+            </p>
+            <p className="text-sm leading-relaxed text-muted">
+              Run it yourself with <span className="font-mono text-foreground/80">docker compose --profile gallery up</span>,
+              or continue to the next stage, which ships with a sample scan.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
+              <StageHandoff href="/curate" label="Explore the curator sample" />
+              <ExternalLink href={REPO_URL} className="text-accent-teal hover:underline">
+                Run it yourself
+              </ExternalLink>
+            </div>
+          </div>
+        ) : unreachable ? (
           <div className="mx-auto max-w-xl space-y-4 py-24 text-center">
             <h2 className="text-lg font-medium text-foreground/70">The quarry provenance server is not running.</h2>
             <p className="text-sm leading-relaxed text-muted">
@@ -352,21 +384,19 @@ export default function GalleryPage() {
       <SiteFooter
         poweredBy={
           <>
-            <a
+            <ExternalLink
               href="https://github.com/smk762/argus-quarry"
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-accent-amber transition-colors hover:text-accent-amber/80"
             >
               argus-quarry
-            </a>{" "}
+            </ExternalLink>{" "}
             · provenance + public-domain archives
           </>
         }
         right="Images: PD / CC0 as recorded per item"
       />
 
-      {detail && !unreachable && <PhotoDetail key={detail.id} id={detail.id} seed={detail.seed} onClose={closePhoto} />}
+      {detail && !unreachable && !STATIC_DEMO && <PhotoDetail key={detail.id} id={detail.id} seed={detail.seed} onClose={closePhoto} />}
     </div>
   );
 }
@@ -425,15 +455,16 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
     return () => ctrl.abort();
   }, [id]);
 
+  const titleId = useId();
   const sourceUrl = externalUrl(photo?.source_url);
   const originalUrl = externalUrl(photo?.remote_url);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div
-        className="grid max-h-[85vh] w-full max-w-3xl grid-cols-1 overflow-y-auto rounded-xl border border-border bg-surface sm:grid-cols-[minmax(0,1fr)_280px]"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal labelledBy={titleId} className="max-w-3xl" onClose={onClose}>
+      <h2 id={titleId} className="sr-only">
+        {photo?.title ?? photo?.filename ?? `Photo ${id}`}
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_280px]">
         {photo?.filename && !imageFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -477,24 +508,20 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
               </dl>
               <div className="space-y-2 pt-1">
                 {sourceUrl && (
-                  <a
+                  <ExternalLink
                     href={sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="block truncate text-xs text-accent-amber hover:text-accent-amber/80"
                   >
                     View source page ↗
-                  </a>
+                  </ExternalLink>
                 )}
                 {originalUrl && (
-                  <a
+                  <ExternalLink
                     href={originalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="block truncate text-xs text-accent-amber hover:text-accent-amber/80"
                   >
                     Original file ↗
-                  </a>
+                  </ExternalLink>
                 )}
                 {photo.status === "complete" && (
                   <StageHandoff
@@ -507,7 +534,7 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

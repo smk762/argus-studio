@@ -3,6 +3,7 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
+import { ExternalLink } from "@/components/ExternalLink";
 
 // Studio-tokened renderers for the small subset of markdown our concept bodies
 // use. We render only the props we need (children, and href for links) rather
@@ -28,9 +29,9 @@ const MARKDOWN_COMPONENTS: Components = {
         {children}
       </Link>
     ) : (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+      <ExternalLink href={href} className={LINK_CLASS}>
         {children}
-      </a>
+      </ExternalLink>
     );
   },
 };

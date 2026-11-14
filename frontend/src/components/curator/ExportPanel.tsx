@@ -32,6 +32,7 @@ import { KeepSetPanel } from "./KeepSetPanel";
 import {
   LENS_CATEGORY,
   MANIFEST_VERSION,
+  manifestFace,
   datasetSizeStatus,
   type CapOptions,
   type CuratorFilters,
@@ -101,6 +102,8 @@ const manifestRow = (summary: ScanSummary, r: ImageResult, loc: RowLocators): Ma
   score: Number(r.score.toFixed(4)),
   similar_group: r.similar_group,
   crop: r.crop ?? null,
+  primary_face: manifestFace(r),
+  set_age: summary.set_age ?? null,
 });
 
 /**
@@ -636,7 +639,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
             </span>
             <p className="text-[11px] leading-relaxed text-muted">
               The suggested params above, rendered as kohya sd-scripts TOML client-side.{" "}
-              <Link href="/forge" className="text-accent-amber underline-offset-2 hover:underline">
+              <Link href="/forge" className="text-accent-amber underline underline-offset-2">
                 Forge
               </Link>{" "}
               does the same against a real export — and on a live host calls{" "}

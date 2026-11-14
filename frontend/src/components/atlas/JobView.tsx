@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   archiveUrl,
+  DEMO_BUNDLED_ARCHIVES,
+  REALMS_URL,
   cutTiles,
   getLabels,
   NotTileableError,
@@ -12,11 +14,13 @@ import {
   type JobStatus,
   type LabelCollection,
 } from "@/lib/atlasApi";
-import { labelsCredit, MAX_LABELS, notTileableReason, placeLabels, stageTimings } from "@/lib/atlasView";
+import { labelsCredit, MAX_LABELS, notTileableReason, placeLabels, reliefSummary, stageTimings } from "@/lib/atlasView";
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { BakePanel } from "@/components/atlas/BakePanel";
 import { JobBadges } from "@/components/atlas/JobBadges";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { ExternalLink } from "@/components/ExternalLink";
 
 export const STATUS_DOT: Record<JobStatus, string> = {
   controls: "bg-muted",
@@ -88,6 +92,9 @@ export function JobView({
   const tiles = s.tiles;
   const painted = bake ? previewUrl(s.job_id, "fantasy", bake.completed_at) : null;
   const timings = stageTimings(s.timings);
+  const relief = reliefSummary(s.relief);
+  // The static demo bundles no archive unless listed; it links to realms instead.
+  const archiveLinked = !STATIC_DEMO || DEMO_BUNDLED_ARCHIVES.has(s.job_id);
   const blocked = notTileableReason(s);
   const gdalReason = capabilityReason(canGdal, "GDAL is missing on this host, so it cannot cut tiles.");
 
@@ -147,7 +154,7 @@ export function JobView({
         />
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className={`grid gap-2 sm:grid-cols-3 ${relief ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
         <Stat label="Canvas" value={`${s.grid.width} × ${s.grid.height} px`} />
         <Stat label="Ground resolution" value={`${s.resolution.toFixed(1)} m/px`} />
         <Stat label="Native zoom" value={`z${s.native_zoom} (tiles z${s.zoom_range[0]}–${s.zoom_range[1]})`} />
@@ -156,6 +163,18 @@ export function JobView({
           label="AOI (W,S,E,N)"
           value={<span title={`${west},${south},${east},${north}`}>{[west, south, east, north].map((v) => v.toFixed(3)).join(", ")}</span>}
         />
+        {relief && (
+          // The height factor hillshade and slope were built with (0.3): Mercator flattens relief away from the equator.
+          <Stat
+            label="Relief"
+            value={
+              <span title={relief.detail}>
+                {relief.value}
+                <span className="block text-[10px] text-muted">{relief.short}</span>
+              </span>
+            }
+          />
+        )}
       </div>
 
       {/* Control / painted overlay on the shared pixel grid */}
@@ -303,16 +322,30 @@ export function JobView({
               <span className="font-mono text-xs text-foreground">
                 {tiles.n_tiles} tiles · z{tiles.min_zoom}–{tiles.max_zoom}
               </span>
-              <a
-                href={archiveUrl(s.job_id)}
-                className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
-              >
-                Download fantasy.pmtiles
-              </a>
-              <span className="text-[11px] text-muted">
-                Drape it on a basemap with argus-atlas&apos;s <span className="font-mono">examples/viewer.html</span>.
-              </span>
+              {archiveLinked ? (
+                <>
+                  <a
+                    href={archiveUrl(s.job_id)}
+                    className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
+                  >
+                    Download fantasy.pmtiles
+                  </a>
+                  <span className="text-[11px] text-muted">
+                    Drape it on a basemap with argus-atlas&apos;s <span className="font-mono">examples/viewer.html</span>.
+                  </span>
+                </>
+              ) : (
+                // Not bundled in the static demo (size); the whole map is browsable on realms.
+                <ExternalLink
+                  href={REALMS_URL}
+                  className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
+                >
+                  View the full map on realms.dragonhound.dev
+                </ExternalLink>
+              )}
             </>
+          ) : STATIC_DEMO ? (
+            <span className="text-xs text-muted">Not tiled in this recording.</span>
           ) : (
             <button
               type="button"
@@ -338,14 +371,16 @@ export function JobView({
         </section>
       )}
 
-      <BakePanel
-        key={s.job_id}
-        jobId={s.job_id}
-        presets={presets}
-        canBake={canBake}
-        recipe={s.recipe?.recipe.name}
-        onBaked={onChanged}
-      />
+      {!STATIC_DEMO && (
+        <BakePanel
+          key={s.job_id}
+          jobId={s.job_id}
+          presets={presets}
+          canBake={canBake}
+          recipe={s.recipe?.recipe.name}
+          onBaked={onChanged}
+        />
+      )}
 
       {timings.stages.length > 0 && (
         <section className="space-y-1">

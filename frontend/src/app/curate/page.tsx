@@ -59,7 +59,10 @@ import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
 import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
 import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
+import { ExternalLink } from "@/components/ExternalLink";
 
 type View = "grid" | "clusters";
 
@@ -581,6 +584,14 @@ export default function CuratePage() {
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+        {STATIC_DEMO && (
+          <div className="mb-6">
+            <RecordedDemoNote label="Sample scan" summary="a bundled, illustrative 14-image curator scan.">
+              Thumbnails are placeholders. Filtering, selection and the export manifest all run in your browser;
+              scanning real folders needs a running argus-curator.
+            </RecordedDemoNote>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
           <aside className="space-y-4">
             {isLive() ? (
@@ -766,7 +777,7 @@ export default function CuratePage() {
                           aria-label="Sort results"
                           value={sort}
                           onChange={(e) => setSort(e.target.value as ResultSort)}
-                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none"
+                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground"
                         >
                           <option value="scan">Scan order</option>
                           <option value="score">Best score</option>
@@ -851,14 +862,12 @@ export default function CuratePage() {
       <SiteFooter
         poweredBy={
           <>
-            <a
+            <ExternalLink
               href="https://github.com/smk762/argus-curator"
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-accent-teal transition-colors hover:text-accent-teal/80"
             >
               argus-curator
-            </a>{" "}
+            </ExternalLink>{" "}
             · mode: {curatorUiMode()}
           </>
         }

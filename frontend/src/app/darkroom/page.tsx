@@ -13,6 +13,9 @@ import { History } from "@/components/darkroom/History";
 import { RecordView } from "@/components/darkroom/RecordView";
 import { Button, Card } from "@/components/darkroom/ui";
 import { archiveUrl, DARKROOM_READ_ONLY_REASON } from "@/lib/darkroomApi";
+import { ExternalLink } from "@/components/ExternalLink";
+import { RecordedDemoNote } from "@/components/DemoChrome";
+import { STATIC_DEMO } from "@/lib/staticDemo";
 
 export default function DarkroomPage() {
   return (
@@ -49,7 +52,14 @@ function DarkroomStage() {
         <aside className="space-y-4">
           <HealthCard />
           {sample ? (
-            <CapabilityNotice reason="No darkroom is answering, so this is a bundled read-only sample: canned verdicts on flat drawings. Start the darkroom profile to generate." />
+            STATIC_DEMO ? (
+              <RecordedDemoNote label="Sample" summary="a bundled, read-only darkroom history.">
+                Canned verdicts on flat drawings, to show the record view. Generating needs a running argus-darkroom
+                (the darkroom compose profile).
+              </RecordedDemoNote>
+            ) : (
+              <CapabilityNotice reason="No darkroom is answering, so this is a bundled read-only sample: canned verdicts on flat drawings. Start the darkroom profile to generate." />
+            )
           ) : health?.read_only ? (
             <CapabilityNotice reason={DARKROOM_READ_ONLY_REASON} />
           ) : null}
@@ -74,7 +84,9 @@ function DarkroomStage() {
                 {tab.label}
               </Button>
             ))}
-            {sample ? null : (
+            {/* Server-only: the static demo has no darkroom to zip, and its prerendered HTML
+                can't wait for `sample` to settle, so it never offers the link at all. */}
+            {sample || STATIC_DEMO ? null : (
               <a
                 href={archiveUrl()}
                 className="ml-auto text-xs text-muted underline decoration-border underline-offset-2 hover:text-foreground"
@@ -91,14 +103,12 @@ function DarkroomStage() {
 
       <SiteFooter
         poweredBy={
-          <a
+          <ExternalLink
             href="https://github.com/smk762/argus-darkroom"
-            target="_blank"
-            rel="noopener noreferrer"
             className="text-accent-purple transition-colors hover:text-accent-purple/80"
           >
             argus-darkroom
-          </a>
+          </ExternalLink>
         }
         right="MIT License"
       />

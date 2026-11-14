@@ -26,7 +26,10 @@ selects which variant is written as the `final_caption`. In [Curate](/curate) th
 same idea biases the image scorer toward the framing each concept needs — that's
 the behaviour the widget above previews. The two tools share the core categories
 (identity, wardrobe, setting); Curate concentrates on the ones that most change
-what a good dataset looks like.
+what a good dataset looks like. Curate also has **Concept / Style**, for style
+LoRAs, which ignores faces and rewards clean, varied frames. The Caption tool has
+no variant of its own for it, so a concept set is handed to it as `setting`,
+whose caption describes the whole scene.
 
 ## Try it
 

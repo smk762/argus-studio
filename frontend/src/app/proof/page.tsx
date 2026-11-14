@@ -13,11 +13,14 @@ import {
 import { type Capability } from "@/lib/capabilities";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { isLive } from "@/lib/curatorEnv";
+import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedBadge } from "@/components/DemoChrome";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ProofBoard } from "@/components/proof/ProofBoard";
 import { NewEvaluation } from "@/components/proof/NewEvaluation";
 import { StageHandoff } from "@/components/StageHandoff";
+import { ExternalLink } from "@/components/ExternalLink";
 
 function verdictDot(s: ReportSummary): string {
   if (s.passed) return "bg-accent-green";
@@ -42,6 +45,10 @@ export default function ProofPage() {
   // argus-proof will accept a run. On the demo host the two disagree.
   const [health, setHealth] = useState<ProofHealth | null>(null);
   const unreachable = version === "";
+  // Static demo: no real evaluation has been recorded yet, so the page leads
+  // with an honest "coming soon" and only shows the bundled synthetic report
+  // (clearly labelled) when the visitor asks to preview the review UI.
+  const [previewSample, setPreviewSample] = useState(false);
 
   // Demo mode has no backend at all, so it is a settled `false` rather than an
   // unresolved `null` — the review still works, it just recomputes locally.
@@ -124,11 +131,7 @@ export default function ProofPage() {
         subtitle="Post-training LoRA evaluation & review"
         badge={
           version === "demo" ? (
-            <div className="shrink-0 text-right">
-              <span className="rounded-md border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-amber">
-                Demo
-              </span>
-            </div>
+            <RecordedBadge label="Demo" title="No argus-proof answering: a bundled sample." />
           ) : (
             <ApiVersionBadge label="argus-proof" version={version} prefix="v" />
           )
@@ -136,7 +139,9 @@ export default function ProofPage() {
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
-        {unreachable ? (
+        {STATIC_DEMO && !previewSample ? (
+          <ProofComingSoon onPreview={() => setPreviewSample(true)} />
+        ) : unreachable ? (
           <div className="mx-auto max-w-xl space-y-4 py-24 text-center">
             <h2 className="text-lg font-medium text-foreground/70">The argus-proof server is not running.</h2>
             <p className="text-sm text-muted">
@@ -146,6 +151,19 @@ export default function ProofPage() {
           </div>
         ) : (
           <div className="space-y-6">
+            {STATIC_DEMO && (
+              <p role="note" className="text-xs leading-relaxed text-muted">
+                <span className="font-medium text-foreground/80">Synthetic sample</span> — hand-made scores to show the
+                review UI, not a real evaluation. Ratings stay in your browser.{" "}
+                <button
+                  type="button"
+                  onClick={() => setPreviewSample(false)}
+                  className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+                >
+                  Back
+                </button>
+              </p>
+            )}
             {live && (
               <NewEvaluation onComplete={onRunComplete} canRun={writable} deniedReason={evalDeniedReason} />
             )}
@@ -203,6 +221,36 @@ export default function ProofPage() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+/** The static demo's /proof: what the stage does, and that no recorded run exists yet. */
+function ProofComingSoon({ onPreview }: { onPreview: () => void }) {
+  return (
+    <div className="mx-auto max-w-2xl space-y-5 py-16 text-center">
+      <span className="inline-block rounded-md border border-accent-green/40 bg-accent-green/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-green">
+        Coming soon
+      </span>
+      <h2 className="text-lg font-medium text-foreground/80">No recorded evaluation run yet.</h2>
+      <p className="text-sm leading-relaxed text-muted">
+        Proof is the post-training stage: it renders a seed/weight grid from a trained LoRA, scores every image
+        (identity, CLIP alignment, aesthetics, preference, near-duplicates), gates the run on pass rate and
+        diversity, and hands the borderline images to a keyboard-first human review. A real run will be recorded
+        here once one has been made — this demo will not show invented results as if they were.
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+        <button
+          type="button"
+          onClick={onPreview}
+          className="rounded-lg border border-border bg-surface px-4 py-2 text-foreground/80 transition-colors hover:bg-surface-hover"
+        >
+          Preview the review UI with synthetic data
+        </button>
+        <ExternalLink href={REPO_URL} className="rounded-lg px-4 py-2 text-accent-teal hover:underline">
+          Run it yourself
+        </ExternalLink>
+      </div>
     </div>
   );
 }

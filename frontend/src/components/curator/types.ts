@@ -6,12 +6,14 @@
  * though the curator always sends them, so {@link Filled} names the ones this
  * app reads without a check. The types still written out here are wider than
  * the schema on purpose, and `@/lib/wire` fails typecheck if they stop fitting
- * it. The shared TargetProfile is the contract argus-lens inherits.
+ * it. The shared TargetProfile is the contract argus-lens inherits; it comes
+ * from argus-cortex's taxonomy schema, which owns it for the whole suite.
  */
 
 import { guardBody } from "@/lib/curatorGuard";
+import type * as Cortex from "@/lib/generated/cortex";
 import type * as Wire from "@/lib/generated/curator";
-import type { Filled } from "@/lib/wire";
+import type { Filled, Sparse } from "@/lib/wire";
 
 /**
  * Version of the argus-curator handoff manifest. Mirrors
@@ -30,12 +32,20 @@ import type { Filled } from "@/lib/wire";
  *
  * 2.2 adds `crop` per row: the box baked into the exported file, or null when
  * the file is the source as it was. Also additive.
+ *
+ * 2.3 adds `primary_face` (the primary face's box, pose, quality readings,
+ * distances and age) and the scan's `set_age` per row. Also additive.
  */
-export const MANIFEST_VERSION = "2.2";
+export const MANIFEST_VERSION = "2.3";
 
-// Hand-written until argus-cortex exports the taxonomy (smk762/argus-cortex#29).
-export type TargetStyle = "photo" | "anime";
-export type TargetCategory = "identity" | "wardrobe" | "pose_composition" | "setting";
+/**
+ * The suite's shared training-target profile, from argus-cortex's
+ * taxonomy-schema.json. `@/lib/wire` checks that each pinned service's copy
+ * matches it.
+ */
+export type TargetProfile = Required<Cortex.TargetProfile>;
+export type TargetStyle = TargetProfile["target_style"];
+export type TargetCategory = TargetProfile["target_category"];
 export type FacePose = "frontal" | "three_quarter" | "profile";
 
 export const FACE_POSES: FacePose[] = ["frontal", "three_quarter", "profile"];
@@ -68,8 +78,6 @@ export type SceneEnvironment = (typeof SCENE_ENVIRONMENTS)[number];
 export const CONTENT_RATINGS = ["safe", "suggestive", "explicit"] as const;
 export type ContentRating = (typeof CONTENT_RATINGS)[number];
 export type AttributeSource = "fairface" | "mivolo";
-
-export type TargetProfile = Required<Wire.TargetProfile>;
 
 /** Curator's floor (argus-curator#114). A lower value fails ScanConfig validation. */
 export const MIN_SHORT_SIDE = 512;
@@ -130,14 +138,14 @@ export type WatermarkDetection = Wire.WatermarkDetection;
 export type CropConfig = Required<Wire.CropConfig>;
 
 /** A MiVOLO (or FairFace) age on a face or a body-only person. Years count only from MiVOLO. */
-export type AgeReading = Pick<Wire.FaceAttributes, "age_years" | "age_source">;
+export type AgeReading = Pick<FaceAttributes, "age_years" | "age_source">;
 
 /**
  * Predicted attributes of a face, or an identity's pooled prediction. Each
  * `*_conf` is the chosen label's probability. A MiVOLO age is a regression, so
  * it sets `age_years`, `age` is its bracket, and `age_conf` is null.
  */
-export type FaceAttributes = Wire.FaceAttributes;
+export type FaceAttributes = Sparse<Wire.FaceAttributes>;
 
 /**
  * An age for a frame with no face, read off the set. An inference, not a reading of the frame.
@@ -177,7 +185,10 @@ export interface GarmentDetection {
   color?: string;
 }
 
-export type FaceDetection = Filled<Wire.FaceDetection, "cluster_id" | "primary" | "yaw" | "pitch" | "pose">;
+export type FaceDetection = Sparse<
+  Wire.FaceDetection,
+  "bbox" | "det_score" | "cluster_id" | "primary" | "yaw" | "pitch" | "pose"
+>;
 
 /**
  * NudeNet's reading of one image. Absent or null means the image was not scored.
@@ -236,6 +247,9 @@ export interface ImageResult {
   primary_face_cluster: string | null;
   primary_face_pose: FacePose | null;
   primary_face_yaw: number | null;
+  /** Curator 0.15+: the primary face's pitch and head roll, in degrees. */
+  primary_face_pitch?: number | null;
+  primary_face_roll?: number | null;
   /** MiVOLO/FairFace attributes of the primary face, when that check ran. */
   primary_face_attributes?: FaceAttributes | null;
   /** Why detection failed here. With this set, `face_count` 0 means unchecked, not faceless. */
@@ -293,7 +307,7 @@ export function faceFocalPoint(img: ImageResult): string {
 }
 
 /** `attributes` is pooled over every member face. */
-export type FaceCluster = Filled<Wire.FaceCluster, "representative_bbox">;
+export type FaceCluster = Sparse<Wire.FaceCluster, "cluster_id" | "representative_rel_path" | "size" | "representative_bbox">;
 
 /** Hand-written: a scan from an older curator can lack any `*_config`, which the schema rules out as null. */
 export interface ScanSummary {
@@ -314,6 +328,8 @@ export interface ScanSummary {
   /** When `faces.set_age` asked: the age given to frames with no face, or why none was. */
   set_age?: SetAge | null;
   set_age_skipped?: string | null;
+  /** Curator 0.15+: why no `reference_distance` was measured, when `faces.reference_paths` asked for one. */
+  reference_skipped?: string | null;
   /** What the finished scan actually ran. `enabled: true` means NudeNet scored it. */
   nsfw_config?: { enabled?: boolean | null } | null;
   erax_config?: { enabled?: boolean | null } | null;
@@ -361,12 +377,12 @@ export type ExportRequest = Filled<
 export type CapOptions = Pick<Wire.ExportRequest, "max_keep" | "diversify_scenes" | "diversify_outfits">;
 
 /** `keep_reason` is empty when the image is kept, otherwise why it was left out. */
-export type SelectRow = Filled<Wire.SelectRow, "keep_reason">;
+export type SelectRow = Sparse<Wire.SelectRow, "abs_path" | "rel_path" | "keep_reason">;
 
-export type SelectResult = Omit<Wire.SelectResult, "rows"> & { rows: SelectRow[] };
+export type SelectResult = Sparse<Omit<Wire.SelectResult, "rows">, "kept" | "scan_id" | "total"> & { rows: SelectRow[] };
 
 /**
- * `mode` is a union here though the wire says `str`: the two-locator rule branches on it.
+ * `mode` is this app's `ExportMode`, which `@/lib/wire` checks against the request's enum: the two-locator rule branches on it.
  *
  * `manifest_version` was added to this payload *with* 2.1 (a manifest-2.0 curator
  * declares the version on each manifest row but not here), so its absence does
@@ -384,7 +400,10 @@ export type SelectResult = Omit<Wire.SelectResult, "rows"> & { rows: SelectRow[]
  * there can still be missing from `exported_paths`, so it has no consumer, and
  * deliberately not one.
  */
-export type ExportResult = Filled<Omit<Wire.ExportResult, "mode">, "manifest_path" | "captioned"> & {
+export type ExportResult = Sparse<
+  Omit<Wire.ExportResult, "mode">,
+  "dest" | "copied" | "skipped" | "manifest_path" | "captioned"
+> & {
   mode: ExportMode;
 };
 
@@ -397,11 +416,44 @@ export type ExportResult = Filled<Omit<Wire.ExportResult, "mode">, "manifest_pat
  * `exported_path` is the normative relative locator (posix, relative to the
  * export root). `crop` is the box baked into the exported file, or null for the
  * source as it was.
+ *
+ * Manifest 2.3 (curator 0.15) adds `primary_face` and `set_age`. They stay
+ * optional, as the rows a 2.2 or older curator wrote lack them. `set_age` is
+ * this app's wider {@link SetAge}.
  */
-export type ManifestRow = Filled<
-  Wire.ManifestRow,
-  "manifest_version" | "primary_face_cluster" | "primary_face_pose" | "crop"
->;
+export type ManifestRow = Sparse<
+  Omit<Wire.ManifestRow, "target_profile" | "set_age">,
+  | "abs_path"
+  | "exported_abs_path"
+  | "exported_path"
+  | "rel_path"
+  | "score"
+  | "similar_group"
+  | "manifest_version"
+  | "primary_face_cluster"
+  | "primary_face_pose"
+  | "crop"
+> & { target_profile: TargetProfile; set_age?: SetAge | null };
+
+/** The primary face of a manifest row (2.3), or null when the frame has none. Mirrors curator's `_manifest_face`. */
+export function manifestFace(r: ImageResult): Wire.ManifestFace | null {
+  const face = r.faces.find((f) => f.primary);
+  if (!face) return null;
+  return {
+    bbox: face.bbox,
+    yaw: face.yaw,
+    pitch: face.pitch,
+    roll: face.roll ?? null,
+    sharpness: face.sharpness ?? null,
+    eye_open: face.eye_open ?? null,
+    mouth_open: face.mouth_open ?? null,
+    cluster_distance: face.cluster_distance ?? null,
+    reference_distance: face.reference_distance ?? null,
+    age_years: face.attributes?.age_years ?? null,
+    // Scan results never carry landmarks; only curator's own export can add them.
+    landmarks: null,
+  };
+}
 
 export interface Detectors {
   torch: boolean;
@@ -450,14 +502,17 @@ export const TARGET_CATEGORIES: TargetCategory[] = [
   "wardrobe",
   "pose_composition",
   "setting",
+  "concept",
 ];
 
 /**
  * Curator category -> argus-lens caption category (argus-studio#67 hand-off).
  *
- * Lens's categories are a superset of the curator's four, under the same names
- * (lens adds `lighting` and `action`), so this is the identity map. It stays a
- * map so a future divergence has one place to land. Lens does not validate the
+ * Lens's categories share the curator's names (lens adds `lighting` and
+ * `action`), so this is the identity map except for `concept`, which lens has
+ * no category for. A style LoRA is captioned with what is in the frame, so the
+ * trigger word absorbs the look; lens's `setting` caption leads with the whole
+ * scene, which is the closest fit. Lens does not validate the
  * category: an unknown value yields an EMPTY caption (argus-studio#102), which
  * is why the old `pose_composition -> pose_gaze` mapping broke the hand-off.
  */
@@ -466,6 +521,7 @@ export const LENS_CATEGORY: Record<TargetCategory, string> = {
   wardrobe: "wardrobe",
   pose_composition: "pose_composition",
   setting: "setting",
+  concept: "setting",
 };
 
 export const CATEGORY_LABELS: Record<TargetCategory, string> = {
@@ -473,6 +529,7 @@ export const CATEGORY_LABELS: Record<TargetCategory, string> = {
   wardrobe: "Wardrobe",
   pose_composition: "Pose / Composition",
   setting: "Setting",
+  concept: "Concept / Style",
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<TargetCategory, string> = {
@@ -480,6 +537,7 @@ export const CATEGORY_DESCRIPTIONS: Record<TargetCategory, string> = {
   wardrobe: "Clothing / outfit LoRA — prefers full-body framing, looser face penalty.",
   pose_composition: "Pose LoRA — biases toward framing variety, stronger diversity pressure.",
   setting: "Scene LoRA — rewards wide framing and high resolution, minimal face penalty.",
+  concept: "Style / visual-concept LoRA — ignores faces, rewards clean, high-resolution, varied frames.",
 };
 
 export const CATEGORY_COLORS: Record<TargetCategory, string> = {
@@ -487,6 +545,7 @@ export const CATEGORY_COLORS: Record<TargetCategory, string> = {
   wardrobe: "accent-green",
   pose_composition: "accent-teal",
   setting: "accent-orange",
+  concept: "accent-pink",
 };
 
 /** Framing guidance shown under the category picker — what to feed the trainer. */
@@ -499,6 +558,8 @@ export const CATEGORY_COMPOSITION_TIPS: Record<TargetCategory, string> = {
     "Prioritise variety of pose and framing over a single subject. Mix wide and tight crops; the body/gesture matters more than a pristine face.",
   setting:
     "Reward wide, high-resolution scenes. Faces are incidental — keep establishing shots and environments; drop tight portraits.",
+  concept:
+    "The look is the concept, not who is in frame: favour clean, sharp, high-resolution frames across many different subjects and scenes, so the LoRA learns the style rather than any one person or place. Faces are ignored.",
 };
 
 /**
@@ -517,6 +578,7 @@ export const DATASET_SIZE_GUIDE: Record<TargetCategory, DatasetSizeGuide> = {
   wardrobe: { ideal: "20–40", low: 15, hi: 60 },
   pose_composition: { ideal: "20–40", low: 15, hi: 60 },
   setting: { ideal: "25–50", low: 15, hi: 80 },
+  concept: { ideal: "30–60", low: 20, hi: 100 },
 };
 
 /**
@@ -553,6 +615,7 @@ const TRAINING_BIAS: Record<TargetCategory, CategoryTrainingBias> = {
   wardrobe: { targetSteps: 1600, dim: 16, alpha: 8 },
   pose_composition: { targetSteps: 1800, dim: 32, alpha: 16 },
   setting: { targetSteps: 2000, dim: 32, alpha: 16 },
+  concept: { targetSteps: 2000, dim: 32, alpha: 16 },
 };
 
 export function suggestTrainingParams(count: number, category: TargetCategory): TrainingParams {

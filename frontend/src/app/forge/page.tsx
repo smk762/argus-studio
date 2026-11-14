@@ -21,6 +21,8 @@ import {
 } from "@/lib/forgeApi";
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { isLive, localOutputPath } from "@/lib/curatorEnv";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { basename, normalizeRoot } from "@/lib/path";
@@ -33,6 +35,7 @@ import {
   type TargetCategory,
 } from "@/components/curator/types";
 import { demoKohyaFiles, forgeSlug } from "@/components/curator/forgeDemo";
+import { ExternalLink } from "@/components/ExternalLink";
 
 /** Trainers to offer before `/trainers` answers (and the whole list in demo mode). */
 const FALLBACK_TRAINERS: TrainerInfo[] = (Object.keys(TRAINER_LABELS) as TrainerId[]).map((id) => ({
@@ -351,16 +354,21 @@ export default function ForgePage() {
           live ? (
             <ApiVersionBadge label="argus-forge" version={version} prefix="v" />
           ) : (
-            <div className="shrink-0 text-right">
-              <span className="rounded-md border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[10px] uppercase tracking-wider text-accent-amber">
-                Demo
-              </span>
-            </div>
+            <RecordedBadge label="Demo" title="No argus-forge answering: configs are generated in your browser." />
           )
         }
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+        {STATIC_DEMO && (
+          <RecordedDemoNote
+            label="In-browser demo"
+            summary="the kohya config below is generated in your browser by the same sizing heuristics argus-forge uses."
+          >
+            Demo mode builds kohya configs only. A running argus-forge inspects a real export and emits all three
+            trainers.
+          </RecordedDemoNote>
+        )}
         {unreachable && (
           <CapabilityNotice
             reason={
@@ -377,7 +385,8 @@ export default function ForgePage() {
             no forge to inspect it with, so the estimate below does not describe
             that export — then explains demo mode. The trigger word still carries;
             the client-side builder uses it. */}
-        {!live && (
+        {/* The static demo says this in its RecordedDemoNote, unless an export path was dropped. */}
+        {!live && (!STATIC_DEMO || deepLinked) && (
           <CapabilityNotice
             reason={
               <>
@@ -708,14 +717,12 @@ export default function ForgePage() {
       <SiteFooter
         poweredBy={
           <>
-            <a
+            <ExternalLink
               href="https://github.com/smk762/argus-forge"
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-accent-amber transition-colors hover:text-accent-amber/80"
             >
               argus-forge
-            </a>{" "}
+            </ExternalLink>{" "}
             · training bridge
           </>
         }
