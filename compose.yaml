@@ -234,6 +234,9 @@ services:
       - ARGUS_CURATOR_NUDENET_WORKERS=${ARGUS_CURATOR_NUDENET_WORKERS:-}
       # EraX second detector, off unless .env sets a URL (no published image).
       - ARGUS_CURATOR_ERAX_URL=${ARGUS_CURATOR_ERAX_URL-}
+      # minor-exposed rule: frame (default) or overlap. Images before the one
+      # that adds it ignore this and keep the overlap rule.
+      - ARGUS_CURATOR_MINOR_EXPOSED=${ARGUS_CURATOR_MINOR_EXPOSED:-frame}
       # Watermark detector for crops, off unless .env sets a URL (no server is
       # bundled). A scan asking for it gets a 503 while the detector is down.
       - ARGUS_CURATOR_WATERMARK_URL=${ARGUS_CURATOR_WATERMARK_URL-}
@@ -443,6 +446,10 @@ services:
       ARGUS_DARKROOM_NUDENET_URL: ${DARKROOM_NUDENET_URL-http://nudenet:8080}
       # Curator's POST /faces?body=true. Empty: records carry no age check.
       ARGUS_DARKROOM_AGE_URL: ${DARKROOM_AGE_URL:-}
+      # minor-exposed rule: frame (any age under 18 + any exposure) or overlap
+      # (the exposure must touch a young person's box). Images before the one
+      # that adds it ignore this.
+      ARGUS_DARKROOM_MINOR_EXPOSED: ${DARKROOM_MINOR_EXPOSED:-frame}
       ARGUS_DARKROOM_OLLAMA_URL: ${DARKROOM_OLLAMA_URL:-}
       ARGUS_DARKROOM_OLLAMA_MODEL: ${DARKROOM_OLLAMA_MODEL:-}
       ARGUS_DARKROOM_THINKING: ${DARKROOM_THINKING:-cascade}
