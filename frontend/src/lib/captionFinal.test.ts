@@ -76,18 +76,18 @@ describe("resultToJSON", () => {
 describe("resultToCSV", () => {
   it("puts the chosen text on the __final row", () => {
     const [, final] = csvRows(resultToCSV(lens, "u", "zeroshot"));
-    expect(final).toBe('u,__final,"pier at ""dusk"", wide shot",hybrid,zeroshot,"woman, red_hair",A woman on a pier.,blurry,note');
+    expect(final).toBe('u,__final,"pier at ""dusk"", wide shot",hybrid,zeroshot,"woman, red_hair",A woman on a pier.,blurry,note,identity,"a woman, red hair"');
   });
 
   it("marks every variant row with the same category", () => {
     const rows = csvRows(resultToCSV(lens, "u", "zeroshot")).slice(2);
     expect(rows).toHaveLength(Object.keys(lens.caption_variants).length);
-    expect(rows[0]).toBe('u,identity,"a woman, red hair",hybrid,zeroshot,,,,');
+    expect(rows[0]).toBe('u,identity,"a woman, red hair",hybrid,zeroshot,,,,,identity,');
   });
 
   it("is lens's pick without a choice", () => {
     const [header, final] = csvRows(resultToCSV(lens, "u", null));
-    expect(header).toBe("image_url,variant,caption,backend,selected_category,raw_tags,raw_prose,removed_phrases,compaction_notes");
-    expect(final).toBe('u,__final,"a woman, red hair",hybrid,identity,"woman, red_hair",A woman on a pier.,blurry,note');
+    expect(header).toBe("image_url,variant,caption,backend,selected_category,raw_tags,raw_prose,removed_phrases,compaction_notes,lens_selected_category,lens_final_caption");
+    expect(final).toBe('u,__final,"a woman, red hair",hybrid,identity,"woman, red_hair",A woman on a pier.,blurry,note,identity,"a woman, red hair"');
   });
 });

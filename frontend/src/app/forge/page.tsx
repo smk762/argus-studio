@@ -183,7 +183,17 @@ export default function ForgePage() {
   const atRoot = dirTrimmed !== "" && normalizeRoot(dirTrimmed) === exportRoot;
 
   const inspectKey = JSON.stringify({ dir: dirTrimmed, category });
-  const configKey = JSON.stringify({ dir: dirTrimmed, category, trainer, willWrite });
+  // Every input generate() sends, normalised as it sends them: a changed trigger
+  // or base model must hide the stale preview, or Download saves a config whose
+  // class_tokens or base model the form no longer has (#78).
+  const configKey = JSON.stringify({
+    dir: dirTrimmed,
+    category,
+    trainer,
+    willWrite,
+    trigger: trigger.trim() || null,
+    baseModel: baseModel.trim() || null,
+  });
   const shownDataset = dataset?.key === inspectKey ? dataset.info : null;
   const shownResult = result?.key === configKey ? result.res : null;
 

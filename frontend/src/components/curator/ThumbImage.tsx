@@ -48,7 +48,9 @@ export function ThumbImage({
 }: Props) {
   const [failed, setFailed] = useState(false);
   const bundled = isLive() ? null : sampleThumb(relPath);
-  const showImg = (isLive() || bundled !== null) && !failed;
+  // No path (an identity whose representative moved and whose next frame is on
+  // a page not loaded yet): draw the placeholder, never request a thumb.
+  const showImg = relPath !== "" && (isLive() || bundled !== null) && !failed;
   const seed = faceCluster ?? relPath;
   const hue = hueFor(seed);
   const base = basename(relPath);

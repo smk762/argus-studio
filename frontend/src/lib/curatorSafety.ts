@@ -86,6 +86,16 @@ export function isMinorExposed(img: ImageResult): boolean {
   return mivoloAges(img).some((age) => age < MINOR_AGE_YEARS);
 }
 
+/**
+ * A MiVOLO age under 18 with no usable nudity score: NudeNet failed, or left no
+ * score. Exposure cannot be ruled out, so such a frame is held on screen and
+ * never exported (a scan that skipped NudeNet still has no score to clear it).
+ */
+export function isMinorUnscored(img: ImageResult): boolean {
+  if (img.nsfw != null && !img.nudenet_failed) return false;
+  return mivoloAges(img).some((age) => age < MINOR_AGE_YEARS);
+}
+
 function held(label: string, reason: string): ThumbSafety {
   return { blurred: true, revealable: false, label, reason };
 }
@@ -128,6 +138,9 @@ export function thumbSafety(img: ImageResult, nsfwRan: boolean, pending: readonl
     return held("Stays blurred", "An under-18 face with exposure stays blurred.");
   }
   if (img.nudenet_failed) {
+    if (isMinorUnscored(img)) {
+      return held("Stays blurred", "An under-18 face whose nudity check failed stays blurred.");
+    }
     return veiled("NudeNet failed", "NudeNet's check failed, so this stays blurred until you reveal it.");
   }
   if (img.nsfw == null) {
@@ -151,9 +164,12 @@ export function scanCheckedNsfw(summary: { nsfw_config?: { enabled?: boolean | n
   return summary.nsfw_config?.enabled === true;
 }
 
-/** Rejected frames and minor-exposed frames are never part of an export selection. */
+/**
+ * Rejected frames, minor-exposed frames, and under-18 frames whose nudity was
+ * never scored are never part of an export selection.
+ */
 export function canExport(img: ImageResult): boolean {
-  return img.passed === true && !isMinorExposed(img);
+  return img.passed === true && !isMinorExposed(img) && !isMinorUnscored(img);
 }
 
 /** Why a frame cannot be selected, or null when it can. */
@@ -164,6 +180,7 @@ export function exportBlockReason(img: ImageResult): string | null {
       : "Rejected frames are not exported.";
   }
   if (isMinorExposed(img)) return "An under-18 image with exposure is not exported.";
+  if (isMinorUnscored(img)) return "An under-18 image whose nudity was not scored is not exported.";
   return null;
 }
 
@@ -177,6 +194,7 @@ export function framesLeftOut(requested: readonly ImageResult[], landed: (relPat
   const why = (img: ImageResult): string => {
     if (img.passed === false) return img.reject_reason?.trim() || "rejected";
     if (isMinorExposed(img)) return "minor-exposed";
+    if (isMinorUnscored(img)) return "under-18, nudity not scored";
     return "not transferred";
   };
   const detail = missing.map((img) => `${img.rel_path} (${why(img)})`).join("; ");

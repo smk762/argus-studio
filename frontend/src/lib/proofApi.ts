@@ -366,6 +366,21 @@ export function normalizeEdits(edits: Map<string, HitlEdit>): Map<string, HitlEd
   );
 }
 
+/**
+ * The edits left once a save of `sent` has landed. A key is cleared only while
+ * it still holds the very edit that was sent: an image re-rated while the POST
+ * was in flight keeps its newer edit, still dirty, instead of being dropped.
+ */
+export function clearSentEdits(
+  current: Map<string, HitlEdit>,
+  sent: Map<string, HitlEdit>,
+): Map<string, HitlEdit> {
+  if (current === sent) return new Map();
+  const next = new Map(current);
+  for (const [id, edit] of sent) if (next.get(id) === edit) next.delete(id);
+  return next;
+}
+
 /** Collect reviewer edits into the wire shape POST /report/{id}/hitl expects. */
 export function editsToUpdates(edits: Map<string, HitlEdit>): HitlImageUpdate[] {
   return [...edits.entries()].map(([image_id, e]) => ({

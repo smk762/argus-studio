@@ -35,6 +35,28 @@ describe("parseSseFrames", () => {
 });
 
 describe("readSseFrames", () => {
+  it("splits CRLF and bare-CR frames, as sse-starlette sends them", async () => {
+    const crlf = 'event: a\r\ndata: {"n":1}\r\n\r\nevent: b\r\ndata: {"n":2}\r\n\r\n';
+    expect(await collect([crlf])).toEqual([
+      { event: "a", data: { n: 1 } },
+      { event: "b", data: { n: 2 } },
+    ]);
+    expect(await collect(['data: {"n":1}\r\rdata: {"n":2}\r\r'])).toHaveLength(2);
+  });
+
+  it("delivers CRLF frames as they arrive, even with a CR and its LF in different chunks", async () => {
+    const seen: SseFrame[] = [];
+    const chunks = ['event: a\r', '\ndata: {"n":1}\r', "\n\r", '\nevent: b\r\ndata: {"n":2}\r\n\r\n'];
+    await readSseFrames(stream(chunks), (frame) => seen.push(frame));
+    expect(seen).toEqual([
+      { event: "a", data: { n: 1 } },
+      { event: "b", data: { n: 2 } },
+    ]);
+    const { events, rest } = parseSseFrames('event: a\r\ndata: {"n":1}\r');
+    expect(events).toEqual([]);
+    expect(rest).toBe('event: a\ndata: {"n":1}\r');
+  });
+
   it("reassembles a frame split across chunks", async () => {
     expect(await collect(["event: pro", 'gress\ndata: {"done"', ":1}\n\n"])).toEqual([{ event: "progress", data: { done: 1 } }]);
   });

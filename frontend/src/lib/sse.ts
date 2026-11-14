@@ -11,10 +11,18 @@ export interface SseFrame {
   data: unknown;
 }
 
-/** Split a byte stream into SSE frames, keeping a trailing partial frame. */
+/**
+ * Split a byte stream into SSE frames, keeping a trailing partial frame.
+ *
+ * The spec allows CRLF, LF and bare CR line endings (sse-starlette sends CRLF),
+ * so all three are read as LF. A CR at the very end stays raw in `rest`: its LF
+ * may be the first byte of the next chunk, and normalising it now would turn
+ * one line ending into two and end a frame early.
+ */
 export function parseSseFrames(buffer: string): { events: SseFrame[]; rest: string } {
   const events: SseFrame[] = [];
-  let rest = buffer;
+  const heldCr = buffer.endsWith("\r");
+  let rest = (heldCr ? buffer.slice(0, -1) : buffer).replace(/\r\n?/g, "\n");
   while (true) {
     const split = rest.indexOf("\n\n");
     if (split === -1) break;
@@ -31,7 +39,7 @@ export function parseSseFrames(buffer: string): { events: SseFrame[]; rest: stri
     if (!data.trim()) continue;
     events.push({ event, data: JSON.parse(data) });
   }
-  return { events, rest };
+  return { events, rest: heldCr ? `${rest}\r` : rest };
 }
 
 /** The last frame of a stream with no closing blank line. One cut off mid-JSON is dropped: the caller's "ended without a result" says more than a parse error. */

@@ -54,6 +54,10 @@ export function resultToCSV(result: CaptionResult, imageUrl: string, variant: st
     "raw_prose",
     "removed_phrases",
     "compaction_notes",
+    // Lens's own pick, as resultToJSON's final_choice names it: the columns above
+    // show the page's choice, so without these a chosen variant hides lens's.
+    "lens_selected_category",
+    "lens_final_caption",
   ];
 
   const rows: string[][] = [
@@ -67,6 +71,8 @@ export function resultToCSV(result: CaptionResult, imageUrl: string, variant: st
       final.raw_prose,
       final.removed_phrases.join("; "),
       final.compaction_notes.join("; "),
+      result.selected_category,
+      result.final_caption,
     ],
     ...Object.entries(final.caption_variants).map(([name, caption]) => [
       imageUrl,
@@ -77,6 +83,8 @@ export function resultToCSV(result: CaptionResult, imageUrl: string, variant: st
       "",
       "",
       "",
+      "",
+      result.selected_category,
       "",
     ]),
   ];

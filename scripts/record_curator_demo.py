@@ -26,7 +26,7 @@ import json
 import struct
 import urllib.parse
 import urllib.request
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "frontend" / "public" / "curator-sample"
@@ -61,6 +61,23 @@ def webp_size(data: bytes) -> tuple[int, int]:
     raise ValueError(f"unknown WebP chunk {chunk!r}")
 
 
+def thumb_dest(thumbs: Path, rel: str) -> Path:
+    """Where a row's thumbnail goes: under `thumbs`, never outside it.
+
+    `rel` comes from the curator's response, so an absolute path or a `..`
+    segment (from a misconfigured or hostile server) is refused rather than
+    written wherever it points.
+    """
+    rel_path = PurePosixPath(rel)
+    if not rel_path.parts or rel_path.is_absolute() or "\\" in rel or ".." in rel_path.parts:
+        raise ValueError(f"refusing unsafe rel_path from the curator: {rel!r}")
+    dest = (thumbs / Path(*rel_path.parts)).with_suffix(".webp")
+    root = thumbs.resolve()
+    if not dest.resolve().is_relative_to(root):
+        raise ValueError(f"refusing rel_path outside the thumbs dir: {rel!r}")
+    return dest
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--curator", required=True, help="argus-curator base URL")
@@ -82,10 +99,10 @@ def main() -> None:
     dims: dict[str, tuple[int, int]] = {}
     for row in summary["results"]:
         rel = row["rel_path"]
+        dest = thumb_dest(thumbs, rel)
         q = urllib.parse.urlencode({"path": rel, "scan_id": summary["scan_id"]})
         with urllib.request.urlopen(f"{base}/thumb?{q}", timeout=120) as resp:
             data = resp.read()
-        dest = thumbs / Path(rel).with_suffix(".webp")
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(data)
         dims[rel] = webp_size(data)

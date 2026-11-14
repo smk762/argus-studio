@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildScanBody, clampShortSide, defaultCuratorConfig, type ImageResult } from "@/components/curator/types";
 import {
   canExport,
+  exportBlockReason,
   isDeletableReject,
   exposedReading,
   framesLeftOut,
@@ -146,6 +147,31 @@ describe("thumbSafety", () => {
     expect(isMinorExposed(body)).toBe(true);
     const set = image({ nsfw: exposed(0.3), set_age: { years: 16 } });
     expect(isMinorExposed(set)).toBe(true);
+  });
+});
+
+describe("under-18 frames with no nudity score", () => {
+  it("holds an under-18 frame whose NudeNet check failed, unrevealably", () => {
+    const failed = image({ nudenet_failed: true, primary_face_attributes: years(15) });
+    expect(thumbSafety(failed, true)).toMatchObject({ blurred: true, revealable: false, label: "Stays blurred" });
+    const adult = image({ nudenet_failed: true, primary_face_attributes: years(30) });
+    expect(thumbSafety(adult, true)).toMatchObject({ revealable: true, label: "NudeNet failed" });
+  });
+
+  it("does not export what display holds", () => {
+    const unscored = image({ primary_face_attributes: years(15) });
+    expect(thumbSafety(unscored, true).revealable).toBe(false);
+    expect(canExport(unscored)).toBe(false);
+    expect(exportBlockReason(unscored)).toContain("not scored");
+
+    const failed = image({ nudenet_failed: true, nsfw: exposed(0.05), primary_face_attributes: years(15) });
+    expect(canExport(failed)).toBe(false);
+    expect(exportBlockReason(failed)).toContain("not scored");
+  });
+
+  it("still exports scored under-18 frames with no exposure, and unscored adults", () => {
+    expect(canExport(image({ nsfw: exposed(0.05), primary_face_attributes: years(15) }))).toBe(true);
+    expect(canExport(image({ primary_face_attributes: years(30) }))).toBe(true);
   });
 });
 

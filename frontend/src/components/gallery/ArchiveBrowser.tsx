@@ -166,19 +166,29 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
     return () => ctrl.abort();
   }, [archive, ready]);
 
+  // One search in flight at a time: a fresh search (filter, sort, archive) or
+  // another "Load more" aborts the last, so a stale page is never appended to
+  // a new result set and its `finally` never clears the newer spinner.
+  const searchCtrl = useRef<AbortController | null>(null);
   const load = useCallback(
-    async (offset: number, append: boolean, signal?: AbortSignal) => {
+    async (offset: number, append: boolean) => {
+      searchCtrl.current?.abort();
+      const ctrl = new AbortController();
+      searchCtrl.current = ctrl;
+      const { signal } = ctrl;
       setLoading(true);
       setError(null);
       try {
         const page = await searchArchive(archive, query, { limit: PAGE_SIZE, offset }, signal);
+        if (signal.aborted) return;
         setTotal(page.total);
         setItems((cur) => (append ? [...cur, ...page.items] : page.items));
       } catch (err) {
-        if (signal?.aborted) return;
+        if (signal.aborted) return;
         setError(err instanceof Error ? err.message : "Search failed");
       } finally {
-        if (!signal?.aborted) setLoading(false);
+        if (!signal.aborted) setLoading(false);
+        if (searchCtrl.current === ctrl) searchCtrl.current = null;
       }
     },
     [archive, query],
@@ -186,11 +196,10 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
 
   useEffect(() => {
     if (!ready) return;
-    const ctrl = new AbortController();
     (async () => {
-      await load(0, false, ctrl.signal);
+      await load(0, false);
     })();
-    return () => ctrl.abort();
+    return () => searchCtrl.current?.abort();
   }, [load, ready]);
 
   const apply = (next: Partial<Form>, immediate = true) => {

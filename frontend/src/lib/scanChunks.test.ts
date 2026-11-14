@@ -92,6 +92,19 @@ describe("mergeChunk", () => {
     expect(mergeChunk(first, chunk({ pending_checks: [] })).nsfw_config?.enabled).toBe(true);
   });
 
+  it("reads nudity from scored frames when the check finished before the first chunk", () => {
+    const scored = image("a.jpg", { nsfw: { exposed_score: 0.1, labels: {} } });
+    expect(mergeChunk(null, chunk({ pending_checks: [], results: [scored] })).nsfw_config?.enabled).toBe(true);
+    const failed = image("b.jpg", { nudenet_failed: true });
+    expect(mergeChunk(null, chunk({ pending_checks: [], results: [failed] })).nsfw_config?.enabled).toBe(true);
+  });
+
+  it("does not count rows still waiting on checks as rejected", () => {
+    const undecided = image("a.jpg", { passed: undefined as unknown as boolean });
+    const merged = mergeChunk(null, chunk({ results: [undecided, image("b.jpg", { passed: false })] }));
+    expect(merged.rejected).toBe(1);
+  });
+
   it("reads no nudity on a scan that never listed it, and assumes it when the curator sends no list", () => {
     expect(mergeChunk(null, chunk({ pending_checks: ["faces"] })).nsfw_config?.enabled).toBe(false);
     expect(mergeChunk(null, chunk({ pending_checks: undefined })).nsfw_config?.enabled).toBe(true);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  clearSentEdits,
   applyEdits,
   categoryChoices,
   compositeScore,
@@ -291,5 +292,33 @@ describe("unsafeBreakdown", () => {
     ]);
     const edited = applyEdits(report([image("a")]), edits, null);
     expect(unsafeBreakdown(edited.images).slices).toEqual([{ category: "hate", images: 1 }]);
+  });
+});
+
+describe("clearSentEdits", () => {
+  it("clears everything when nothing changed in flight", () => {
+    const sent = new Map<string, HitlEdit>([["a", { hitl_rating: 3, reject_reasons: [] }]]);
+    expect(clearSentEdits(sent, sent).size).toBe(0);
+  });
+
+  it("keeps an image re-rated while its save was in flight", () => {
+    const sentA: HitlEdit = { hitl_rating: 3, reject_reasons: [] };
+    const sentB: HitlEdit = { hitl_rating: 2, reject_reasons: [] };
+    const sent = new Map([
+      ["a", sentA],
+      ["b", sentB],
+    ]);
+    const newerA: HitlEdit = { hitl_rating: 5, reject_reasons: [] };
+    const fresh: HitlEdit = { hitl_rating: 1, reject_reasons: [] };
+    const current = new Map([
+      ["a", newerA],
+      ["b", sentB],
+      ["c", fresh],
+    ]);
+    const left = clearSentEdits(current, sent);
+    expect([...left.entries()]).toEqual([
+      ["a", newerA],
+      ["c", fresh],
+    ]);
   });
 });
