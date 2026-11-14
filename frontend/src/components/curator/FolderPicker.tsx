@@ -61,7 +61,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
 
   if (error) {
     return (
-      <div className="rounded-lg border border-accent-amber/30 bg-accent-amber/5 p-3 text-[11px] leading-relaxed text-accent-amber-ink">
+      <div className="rounded-lg border border-accent-amber/30 bg-warn-tint p-3 text-[11px] leading-relaxed text-warn-ink">
         Folder browsing unavailable: {error}. Configure a source root on the server, or enter a path manually below.
       </div>
     );

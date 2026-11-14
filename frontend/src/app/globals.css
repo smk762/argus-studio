@@ -22,12 +22,17 @@
  * solid buttons; at least 4.5:1 on the surfaces) and an `-ink` for text, which
  * keeps 4.5:1 on its own /5 to /30 tint in both schemes: text on a tint uses the
  * ink, never the fill (dh-shared README). Green, red and amber are the family
- * status colours. Selectors mirror dh-tokens.css so the cascade lines up.
+ * status colours, ink included (--dh-warn-ink keeps 4.5:1 up to a /20 amber tint,
+ * the strongest one used with it; the family --dh-warn-tint is for warnings).
+ * Teal, Curate's tone, is the family's Data stage colour (--dh-stage-data, the
+ * colour of argus-curator's mark) with Studio's own teal ink, which keeps 5.3:1 on
+ * a /30 tint of it. The other tones don't line up with a stage (Forge is amber,
+ * not Training red; Atlas is blue, not Apps ochre), so they stay local.
+ * Selectors mirror dh-tokens.css so the cascade lines up.
  */
 :root {
   --dh-accent: #6d28d9;
-  --accent-teal: #0f766e;   --accent-teal-ink: #134e4a;
-  --accent-amber-ink: #78350f;
+  --accent-teal-ink: #134e4a;
   --accent-orange: #c2410c; --accent-orange-ink: #7c2d12;
   --accent-blue: #1d4ed8;   --accent-blue-ink: #1e3a8a;
   --accent-pink: #be185d;   --accent-pink-ink: #831843;
@@ -37,8 +42,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --dh-accent: #a78bfa;
-    --accent-teal: #2dd4bf;   --accent-teal-ink: #5eead4;
-    --accent-amber-ink: #f0c36a;
+    --accent-teal-ink: #5eead4;
     --accent-orange: #fb923c; --accent-orange-ink: #fdba74;
     --accent-blue: #60a5fa;   --accent-blue-ink: #93c5fd;
     --accent-pink: #f472b6;   --accent-pink-ink: #f9a8d4;
@@ -48,8 +52,7 @@
 }
 :root[data-theme="dark"] {
   --dh-accent: #a78bfa;
-  --accent-teal: #2dd4bf;   --accent-teal-ink: #5eead4;
-  --accent-amber-ink: #f0c36a;
+  --accent-teal-ink: #5eead4;
   --accent-orange: #fb923c; --accent-orange-ink: #fdba74;
   --accent-blue: #60a5fa;   --accent-blue-ink: #93c5fd;
   --accent-pink: #f472b6;   --accent-pink-ink: #f9a8d4;
@@ -73,8 +76,10 @@
   --color-accent-red: var(--dh-danger);
   --color-accent-red-ink: var(--dh-danger-ink);
   --color-accent-amber: var(--dh-warn);
-  --color-accent-amber-ink: var(--accent-amber-ink);
-  --color-accent-teal: var(--accent-teal);
+  --color-accent-amber-ink: var(--dh-warn-ink);
+  --color-warn-tint: var(--dh-warn-tint);
+  --color-warn-ink: var(--dh-warn-ink);
+  --color-accent-teal: var(--dh-stage-data);
   --color-accent-teal-ink: var(--accent-teal-ink);
   --color-accent-orange: var(--accent-orange);
   --color-accent-orange-ink: var(--accent-orange-ink);

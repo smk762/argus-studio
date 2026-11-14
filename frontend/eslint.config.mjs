@@ -12,10 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // The Dragonhound shared layer: vendored verbatim (vendor/dh) and served
-    // unchanged (public/dh-theme.js); fixes go upstream to dragonhound-site/shared.
+    // The Dragonhound shared layer, vendored verbatim; fixes go upstream to
+    // dragonhound-site/shared. Its served copy, public/dh-theme.js, lints clean
+    // since dh-shared 1.2.0, so it is linted like the rest.
     "vendor/**",
-    "public/dh-theme.js",
   ]),
 ]);
 

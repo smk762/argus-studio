@@ -6,12 +6,12 @@ import { Tooltip } from "@/components/Tooltip";
 import { effectiveScheme, serverScheme, subscribeScheme } from "@/lib/theme";
 
 /**
- * The family's two-state theme toggle. Clicks are handled by public/dh-theme.js
- * (any `[data-dh-theme-toggle]`), which stores the choice in the shared cookie;
- * this component only renders the button and keeps `aria-pressed` (pressed =
- * dark) in step for buttons mounted after that script's first pass, such as on
- * a client-side navigation. Both icons are in the markup and globals.css shows
- * the right one from the first paint.
+ * The family's two-state theme toggle. public/dh-theme.js handles clicks on any
+ * `[data-dh-theme-toggle]`, stores the choice in the shared cookie and keeps
+ * `aria-pressed` (pressed = dark) in step, including on buttons mounted after a
+ * client-side navigation, so React renders it once and leaves it alone. The
+ * tooltip follows `dhTheme.subscribe`. Both icons are in the markup and
+ * globals.css shows the right one from the first paint.
  */
 export function ThemeToggle() {
   const dark = useSyncExternalStore(subscribeScheme, effectiveScheme, serverScheme) === "dark";
@@ -21,8 +21,8 @@ export function ThemeToggle() {
         type="button"
         data-dh-theme-toggle=""
         aria-label="Dark theme"
-        aria-pressed={dark}
-        // dh-theme.js may set aria-pressed before hydration; React then corrects it to the same value.
+        // Owned by dh-theme.js, which corrects it before hydration; React never updates it.
+        aria-pressed="false"
         suppressHydrationWarning
         className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
       >

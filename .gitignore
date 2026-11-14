@@ -29,3 +29,6 @@ recipes/
 skills-lock.json
 
 __pycache__/
+
+# Cloudflare wrangler local state
+.wrangler/

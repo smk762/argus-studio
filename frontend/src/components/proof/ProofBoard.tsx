@@ -69,7 +69,7 @@ function MetricBar({ label, value, hint }: { label: string; value: number | null
 const STATE_STYLES = {
   pass: "border-accent-green/50 bg-accent-green/15 text-accent-green-ink",
   fail: "border-accent-red/50 bg-accent-red/15 text-accent-red-ink",
-  needs_hitl: "border-accent-amber/50 bg-accent-amber/15 text-accent-amber-ink",
+  needs_hitl: "border-accent-amber/50 bg-warn-tint text-warn-ink",
 } as const;
 
 const STATE_LABEL = { pass: "Pass", fail: "Fail", needs_hitl: "Needs review" } as const;

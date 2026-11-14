@@ -11,6 +11,13 @@
 // fails here, not just as a console line), the toggle must flip the scheme and
 // its aria-pressed, and a saved `dh-theme` cookie must be on <html> before
 // <body> is parsed, i.e. before the first paint (no flash of the wrong theme).
+// Since dh-shared 1.2 the script also keeps aria-pressed in step on toggles
+// mounted by a client-side navigation (Studio's own workaround is gone), so
+// that is checked after a navigation too.
+//
+// The family strip (components/DemoStrip.tsx, rendered from dh-strip.mjs) must
+// be on every route once, as data-dh-site="studio" with aria-current="page" on
+// Studio's link only.
 //
 // Playwright is not a dependency of the app. CI installs it on the fly:
 //   npm i --no-save playwright@1.65.0 && npx playwright install --with-deps chromium
@@ -99,6 +106,51 @@ async function checkTheme(page, scheme) {
   return out;
 }
 
+/** The strip is there once, marked as Studio, with only Studio's link current. */
+async function checkStrip(page) {
+  const s = await page.evaluate(() => {
+    const strips = document.querySelectorAll("nav.dh-strip");
+    const nav = strips[0];
+    return {
+      count: strips.length,
+      site: nav?.getAttribute("data-dh-site") ?? null,
+      current: nav ? [...nav.querySelectorAll('a[aria-current="page"]')].map((a) => a.getAttribute("data-dh-site")) : [],
+    };
+  });
+  if (s.count !== 1) return [`strip: ${s.count} .dh-strip navs (expected 1)`];
+  const out = [];
+  if (s.site !== "studio") out.push(`strip: data-dh-site=${s.site} (expected studio)`);
+  if (s.current.join() !== "studio") out.push(`strip: aria-current on [${s.current.join(", ")}] (expected studio only)`);
+  return out;
+}
+
+/**
+ * After a client-side navigation (a Next <Link> in the header), the toggle still
+ * reports the scheme: dh-theme.js presses toggles that React mounts later.
+ */
+async function checkNavigation(page, route) {
+  const target = await page.evaluate((here) => {
+    const a = [...document.querySelectorAll('header a[href^="/"]')].find((x) => x.getAttribute("href") !== here && x.getAttribute("href") !== here.replace(/\/$/, ""));
+    return a?.getAttribute("href") ?? null;
+  }, route);
+  if (!target) return ["navigation: no internal header link to follow"];
+  await page.evaluate(() => window.dhTheme.set("dark"));
+  await page.locator(`header a[href="${target}"]`).first().click();
+  await page.waitForURL((u) => u.pathname.replace(/\/$/, "") === target.replace(/\/$/, ""));
+  await page.waitForTimeout(300);
+  const r = await page.evaluate(() => ({
+    full: performance.getEntriesByType("navigation")[0]?.name ?? "",
+    pressed: [...document.querySelectorAll("[data-dh-theme-toggle]")].map((b) => b.getAttribute("aria-pressed")),
+    theme: document.documentElement.dataset.theme ?? null,
+  }));
+  const out = [];
+  if (!new URL(r.full).pathname.startsWith(route)) out.push(`navigation: ${target} was a full page load, not a client-side navigation`);
+  if (r.theme !== "dark") out.push(`navigation: data-theme=${r.theme} after a client-side navigation to ${target}`);
+  if (!r.pressed.length || r.pressed.some((p) => p !== "true")) out.push(`navigation: toggle aria-pressed=[${r.pressed}] on a dark page after navigating to ${target}`);
+  await page.evaluate(() => window.dhTheme.set(null));
+  return out;
+}
+
 const server = createServer(async (req, res) => {
   const file = await resolveFile(req.url ?? "/");
   if (!file) {
@@ -135,10 +187,22 @@ try {
       }));
       if (sw > iw) problems.push(`scrolls sideways: scrollWidth ${sw} > innerWidth ${iw}`);
       problems.push(...(await checkTheme(page, scheme)));
+      problems.push(...(await checkStrip(page)));
       console.log(`${problems.length ? "FAIL" : "ok  "} ${scheme.padEnd(5)} ${route} (${sw}/${iw})`);
       for (const p of problems) failures.push(`${scheme} ${route}: ${p}`);
       await page.close();
     }
+    await context.close();
+  }
+  // Client-side navigation keeps the toggle in step (light system, so "dark" is an override).
+  {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 844 }, colorScheme: "light" });
+    const page = await context.newPage();
+    page.on("pageerror", (e) => failures.push(`navigation: pageerror ${e.message}`));
+    await page.goto(`${base}${pages[0]}`, { waitUntil: "networkidle" });
+    const problems = await checkNavigation(page, pages[0]);
+    console.log(`${problems.length ? "FAIL" : "ok  "} toggle aria-pressed after a client-side navigation`);
+    failures.push(...problems);
     await context.close();
   }
   // A saved choice (the cookie dh-theme.js writes) must be on <html> before <body>
@@ -173,5 +237,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `\nAll ${pages.length} routes fit ${width}px in both schemes, with no console errors or CSP violations; the theme script runs, toggles and applies a saved choice before first paint.`,
+  `\nAll ${pages.length} routes fit ${width}px in both schemes, with no console errors or CSP violations; the strip marks Studio; the theme script runs, toggles, applies a saved choice before first paint and keeps the toggle in step after a client-side navigation.`,
 );

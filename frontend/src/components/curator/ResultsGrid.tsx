@@ -104,7 +104,7 @@ function Card({
   const status = !img.passed
     ? { label: "Rejected", cls: "bg-accent-red/20 text-accent-red-ink" }
     : img.is_duplicate
-      ? { label: "Duplicate", cls: "bg-accent-amber/20 text-accent-amber-ink" }
+      ? { label: "Duplicate", cls: "bg-warn-tint text-warn-ink" }
       : { label: "Passed", cls: "bg-accent-green/15 text-accent-green-ink" };
 
   // Unique face clusters present on this image.

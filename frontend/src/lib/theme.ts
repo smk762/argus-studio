@@ -3,31 +3,38 @@
  * vendor/dh/dh-theme.js; see dhShared.test.ts). It runs blocking in <head>, sets
  * `data-theme` on <html> before the first paint from a `dh-theme` cookie (Domain
  * .dragonhound.dev on the live hosts, so the choice follows you between the
- * family's sites), and handles clicks on any `[data-dh-theme-toggle]` button.
+ * family's sites), handles clicks on any `[data-dh-theme-toggle]` button and keeps
+ * their `aria-pressed` in step, also for buttons mounted later.
  *
- * Two states, system default: no `data-theme` means "follow prefers-color-scheme".
- * React only mirrors the effective scheme for the toggle's `aria-pressed`; it
- * never writes the theme itself.
+ * React only reads the effective scheme through the script's API (`dhTheme`),
+ * for labels; it never writes the theme or `aria-pressed` itself.
  */
 
-/** The scheme on screen now: the explicit `data-theme`, else the system's. */
-export function effectiveScheme(): "light" | "dark" {
-  const set = document.documentElement.dataset.theme;
-  if (set === "light" || set === "dark") return set;
+type Scheme = "light" | "dark";
+
+interface DhTheme {
+  get(): Scheme | null;
+  effective(): Scheme;
+  set(theme: Scheme | null): void;
+  subscribe(listener: (detail: { theme: Scheme; stored: Scheme | null; source: string }) => void): () => void;
+}
+
+declare global {
+  interface Window {
+    dhTheme?: DhTheme;
+  }
+}
+
+/** The scheme on screen now. Falls back to the system's if dh-theme.js did not run. */
+export function effectiveScheme(): Scheme {
+  if (window.dhTheme) return window.dhTheme.effective();
   return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-/** Server snapshot: unknown, rendered as not pressed until hydration reads the real one. */
-export const serverScheme = (): "light" | "dark" => "light";
+/** Server snapshot: unknown, rendered as light until hydration reads the real one. */
+export const serverScheme = (): Scheme => "light";
 
-/** Calls `listener` when `data-theme` changes on <html> or the system scheme flips. */
+/** Calls `listener` when the effective scheme changes (toggle, system, another subdomain). */
 export function subscribeScheme(listener: () => void): () => void {
-  const observer = new MutationObserver(listener);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-  const media = matchMedia("(prefers-color-scheme: dark)");
-  media.addEventListener("change", listener);
-  return () => {
-    observer.disconnect();
-    media.removeEventListener("change", listener);
-  };
+  return window.dhTheme?.subscribe(listener) ?? (() => {});
 }

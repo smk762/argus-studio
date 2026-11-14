@@ -1,4 +1,4 @@
-/*! dh-tokens v1.0.0 | sha256:7a63c8893bc7db679a6372c239ce32fa9aa2be2c2b317723aef1e4331b68252b
+/*! dh-tokens v1.2.1 | sha256:84e53f176d9380d4b06f19b8f15df73c76d4cba2031cc86dd5481873163250e8
  * Dragonhound Labs shared design tokens. Source of truth: dragonhound-site/shared/.
  * Do not edit a vendored copy; change the source, bump the version, run scripts/sync-shared.mjs.
  * The checksum covers everything after this header comment (see shared/README.md).
@@ -23,13 +23,29 @@
   /* Focus ring colour (3:1 minimum against bg and surface) */
   --dh-focus: #003366;          /* 12.2:1 on bg */
 
-  /* Status: fill (icons, borders; >= 3:1 on bg), ink (text on its tint; >= 4.5:1), tint (background) */
+  /* Status: fill (icons, borders; >= 3:1 on bg), ink (text; >= 4.5:1 on its -tint, on a 20% mix of the fill
+     over bg or surface, and on bg/surface themselves; see README), tint (background) */
   --dh-success: #15803d; --dh-success-ink: #14532d; --dh-success-tint: #e7f3ec;
-  --dh-warn: #b45309;    --dh-warn-ink: #8a5a00;    --dh-warn-tint: #fdf3dc;
+  --dh-warn: #b45309;    --dh-warn-ink: #7a4f00;    --dh-warn-tint: #fdf3dc;
   --dh-danger: #b91c1c;  --dh-danger-ink: #7f1d1d;  --dh-danger-tint: #fdecec;
 
   /* Demo-state badge (neutral base; see dh-badge.css and README for the four labels) */
   --dh-demo-ink: #3f474f; --dh-demo-tint: #eef0f1; --dh-demo-border: #c9ced3;
+
+  /* Pipeline stage colours (Argus): the single eye in each Argus package mark (>= 3:1 on bg; see brand/ in argus-cortex) */
+  --dh-stage-data: #1d5f74; --dh-stage-training: #b33a2a; --dh-stage-apps: #8f6210; --dh-stage-foundation: #2a4a7a;
+
+  /* Categorical palette for facets and series (1.2.0): blue, orange, green, red, magenta, olive, sky, slate.
+     Fill >= 3:1 on bg and surface; -ink >= 5.5:1 on its -tint (20% fill over surface) and on bg/surface.
+     Chosen for separation under deuteranopia, protanopia and tritanopia; still pair colour with a label. */
+  --dh-cat-1: #214f8d; --dh-cat-1-ink: #25518c;
+  --dh-cat-2: #a35f0e; --dh-cat-2-ink: #7f4701;
+  --dh-cat-3: #03795f; --dh-cat-3-ink: #015e49;
+  --dh-cat-4: #ae0321; --dh-cat-4-ink: #833433;
+  --dh-cat-5: #920c62; --dh-cat-5-ink: #7c345a;
+  --dh-cat-6: #9a8c0d; --dh-cat-6-ink: #635901;
+  --dh-cat-7: #2386ac; --dh-cat-7-ink: #035e7c;
+  --dh-cat-8: #29313b; --dh-cat-8-ink: #464f5b;
 
   /* Elevation */
   --dh-shadow-color: rgb(0 0 0 / .10);
@@ -57,6 +73,15 @@
     --dh-warn: #e0a84f;    --dh-warn-ink: #f0c36a;    --dh-warn-tint: #2e2716;
     --dh-danger: #f07a7a;  --dh-danger-ink: #fbb4b4;  --dh-danger-tint: #2e1618;
     --dh-demo-ink: #c5ccd2; --dh-demo-tint: #23282d; --dh-demo-border: #3a4148;
+    --dh-stage-data: #6fb7cc; --dh-stage-training: #e57a64; --dh-stage-apps: #e8b54e; --dh-stage-foundation: #8eacdc;
+    --dh-cat-1: #7daff4; --dh-cat-1-ink: #a9cdff;
+    --dh-cat-2: #ffddb9; --dh-cat-2-ink: #ffd4a7;
+    --dh-cat-3: #049763; --dh-cat-3-ink: #75cfa1;
+    --dh-cat-4: #ff9f9b; --dh-cat-4-ink: #febfbb;
+    --dh-cat-5: #c069a9; --dh-cat-5-ink: #f1a7db;
+    --dh-cat-6: #9fa448; --dh-cat-6-ink: #c7cd77;
+    --dh-cat-7: #d0f2ff; --dh-cat-7-ink: #abe9ff;
+    --dh-cat-8: #c2cfdc; --dh-cat-8-ink: #cad8e5;
     --dh-shadow-color: rgb(0 0 0 / .45);
     --dh-glow: var(--dh-highlight);
     --dh-shadow-hover: 0 8px 24px var(--dh-shadow-color), 0 0 18px -4px var(--dh-glow);
@@ -78,6 +103,15 @@
   --dh-warn: #e0a84f;    --dh-warn-ink: #f0c36a;    --dh-warn-tint: #2e2716;
   --dh-danger: #f07a7a;  --dh-danger-ink: #fbb4b4;  --dh-danger-tint: #2e1618;
   --dh-demo-ink: #c5ccd2; --dh-demo-tint: #23282d; --dh-demo-border: #3a4148;
+  --dh-stage-data: #6fb7cc; --dh-stage-training: #e57a64; --dh-stage-apps: #e8b54e; --dh-stage-foundation: #8eacdc;
+  --dh-cat-1: #7daff4; --dh-cat-1-ink: #a9cdff;
+  --dh-cat-2: #ffddb9; --dh-cat-2-ink: #ffd4a7;
+  --dh-cat-3: #049763; --dh-cat-3-ink: #75cfa1;
+  --dh-cat-4: #ff9f9b; --dh-cat-4-ink: #febfbb;
+  --dh-cat-5: #c069a9; --dh-cat-5-ink: #f1a7db;
+  --dh-cat-6: #9fa448; --dh-cat-6-ink: #c7cd77;
+  --dh-cat-7: #d0f2ff; --dh-cat-7-ink: #abe9ff;
+  --dh-cat-8: #c2cfdc; --dh-cat-8-ink: #cad8e5;
   --dh-shadow-color: rgb(0 0 0 / .45);
   --dh-glow: var(--dh-highlight);
   --dh-shadow-hover: 0 8px 24px var(--dh-shadow-color), 0 0 18px -4px var(--dh-glow);
@@ -139,6 +173,16 @@
   /* Movement is expressed through these, so reduced motion turns it off in one place */
   --dh-lift: -3px;            /* card hover translateY */
   --dh-zoom: 1.04;            /* image zoom inside a hovered card */
+
+  /* Categorical tints: 20% of the fill over the surface, in both schemes (text on them uses --dh-cat-N-ink) */
+  --dh-cat-1-tint: color-mix(in srgb, var(--dh-cat-1) 20%, var(--dh-surface));
+  --dh-cat-2-tint: color-mix(in srgb, var(--dh-cat-2) 20%, var(--dh-surface));
+  --dh-cat-3-tint: color-mix(in srgb, var(--dh-cat-3) 20%, var(--dh-surface));
+  --dh-cat-4-tint: color-mix(in srgb, var(--dh-cat-4) 20%, var(--dh-surface));
+  --dh-cat-5-tint: color-mix(in srgb, var(--dh-cat-5) 20%, var(--dh-surface));
+  --dh-cat-6-tint: color-mix(in srgb, var(--dh-cat-6) 20%, var(--dh-surface));
+  --dh-cat-7-tint: color-mix(in srgb, var(--dh-cat-7) 20%, var(--dh-surface));
+  --dh-cat-8-tint: color-mix(in srgb, var(--dh-cat-8) 20%, var(--dh-surface));
 
   /* Layout */
   --dh-max: 1080px;
