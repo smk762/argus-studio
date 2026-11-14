@@ -7,8 +7,8 @@
   },
   "curator": {
     "repo": "smk762/argus-curator",
-    "tag": "v0.14.1",
-    "sha256": "619967efc95ac32937b1206ffc46a68fa14e72471a311af3c523f890fd6d48bd"
+    "tag": "v0.15.0",
+    "sha256": "0eca1bcdc66a742983022fc338eab579b6c8a215cda33ee7155772c2830f656c"
   },
   "forge": {
     "repo": "smk762/argus-forge",

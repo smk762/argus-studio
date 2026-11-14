@@ -32,6 +32,7 @@ import { KeepSetPanel } from "./KeepSetPanel";
 import {
   LENS_CATEGORY,
   MANIFEST_VERSION,
+  manifestFace,
   datasetSizeStatus,
   type CapOptions,
   type CuratorFilters,
@@ -101,6 +102,8 @@ const manifestRow = (summary: ScanSummary, r: ImageResult, loc: RowLocators): Ma
   score: Number(r.score.toFixed(4)),
   similar_group: r.similar_group,
   crop: r.crop ?? null,
+  primary_face: manifestFace(r),
+  set_age: summary.set_age ?? null,
 });
 
 /**

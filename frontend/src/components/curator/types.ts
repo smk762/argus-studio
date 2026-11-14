@@ -13,7 +13,7 @@
 import { guardBody } from "@/lib/curatorGuard";
 import type * as Cortex from "@/lib/generated/cortex";
 import type * as Wire from "@/lib/generated/curator";
-import type { Filled } from "@/lib/wire";
+import type { Filled, Sparse } from "@/lib/wire";
 
 /**
  * Version of the argus-curator handoff manifest. Mirrors
@@ -32,13 +32,16 @@ import type { Filled } from "@/lib/wire";
  *
  * 2.2 adds `crop` per row: the box baked into the exported file, or null when
  * the file is the source as it was. Also additive.
+ *
+ * 2.3 adds `primary_face` (the primary face's box, pose, quality readings,
+ * distances and age) and the scan's `set_age` per row. Also additive.
  */
-export const MANIFEST_VERSION = "2.2";
+export const MANIFEST_VERSION = "2.3";
 
 /**
  * The suite's shared training-target profile, from argus-cortex's
- * taxonomy-schema.json. A service's own wire schema can lag cortex (curator's
- * pin predates `concept`); `@/lib/wire` checks each one still fits this.
+ * taxonomy-schema.json. `@/lib/wire` checks that each pinned service's copy
+ * matches it.
  */
 export type TargetProfile = Required<Cortex.TargetProfile>;
 export type TargetStyle = TargetProfile["target_style"];
@@ -135,14 +138,14 @@ export type WatermarkDetection = Wire.WatermarkDetection;
 export type CropConfig = Required<Wire.CropConfig>;
 
 /** A MiVOLO (or FairFace) age on a face or a body-only person. Years count only from MiVOLO. */
-export type AgeReading = Pick<Wire.FaceAttributes, "age_years" | "age_source">;
+export type AgeReading = Pick<FaceAttributes, "age_years" | "age_source">;
 
 /**
  * Predicted attributes of a face, or an identity's pooled prediction. Each
  * `*_conf` is the chosen label's probability. A MiVOLO age is a regression, so
  * it sets `age_years`, `age` is its bracket, and `age_conf` is null.
  */
-export type FaceAttributes = Wire.FaceAttributes;
+export type FaceAttributes = Sparse<Wire.FaceAttributes>;
 
 /**
  * An age for a frame with no face, read off the set. An inference, not a reading of the frame.
@@ -182,7 +185,10 @@ export interface GarmentDetection {
   color?: string;
 }
 
-export type FaceDetection = Filled<Wire.FaceDetection, "cluster_id" | "primary" | "yaw" | "pitch" | "pose">;
+export type FaceDetection = Sparse<
+  Wire.FaceDetection,
+  "bbox" | "det_score" | "cluster_id" | "primary" | "yaw" | "pitch" | "pose"
+>;
 
 /**
  * NudeNet's reading of one image. Absent or null means the image was not scored.
@@ -241,6 +247,9 @@ export interface ImageResult {
   primary_face_cluster: string | null;
   primary_face_pose: FacePose | null;
   primary_face_yaw: number | null;
+  /** Curator 0.15+: the primary face's pitch and head roll, in degrees. */
+  primary_face_pitch?: number | null;
+  primary_face_roll?: number | null;
   /** MiVOLO/FairFace attributes of the primary face, when that check ran. */
   primary_face_attributes?: FaceAttributes | null;
   /** Why detection failed here. With this set, `face_count` 0 means unchecked, not faceless. */
@@ -298,7 +307,7 @@ export function faceFocalPoint(img: ImageResult): string {
 }
 
 /** `attributes` is pooled over every member face. */
-export type FaceCluster = Filled<Wire.FaceCluster, "representative_bbox">;
+export type FaceCluster = Sparse<Wire.FaceCluster, "cluster_id" | "representative_rel_path" | "size" | "representative_bbox">;
 
 /** Hand-written: a scan from an older curator can lack any `*_config`, which the schema rules out as null. */
 export interface ScanSummary {
@@ -319,6 +328,8 @@ export interface ScanSummary {
   /** When `faces.set_age` asked: the age given to frames with no face, or why none was. */
   set_age?: SetAge | null;
   set_age_skipped?: string | null;
+  /** Curator 0.15+: why no `reference_distance` was measured, when `faces.reference_paths` asked for one. */
+  reference_skipped?: string | null;
   /** What the finished scan actually ran. `enabled: true` means NudeNet scored it. */
   nsfw_config?: { enabled?: boolean | null } | null;
   erax_config?: { enabled?: boolean | null } | null;
@@ -366,12 +377,12 @@ export type ExportRequest = Filled<
 export type CapOptions = Pick<Wire.ExportRequest, "max_keep" | "diversify_scenes" | "diversify_outfits">;
 
 /** `keep_reason` is empty when the image is kept, otherwise why it was left out. */
-export type SelectRow = Filled<Wire.SelectRow, "keep_reason">;
+export type SelectRow = Sparse<Wire.SelectRow, "abs_path" | "rel_path" | "keep_reason">;
 
-export type SelectResult = Omit<Wire.SelectResult, "rows"> & { rows: SelectRow[] };
+export type SelectResult = Sparse<Omit<Wire.SelectResult, "rows">, "kept" | "scan_id" | "total"> & { rows: SelectRow[] };
 
 /**
- * `mode` is a union here though the wire says `str`: the two-locator rule branches on it.
+ * `mode` is this app's `ExportMode`, which `@/lib/wire` checks against the request's enum: the two-locator rule branches on it.
  *
  * `manifest_version` was added to this payload *with* 2.1 (a manifest-2.0 curator
  * declares the version on each manifest row but not here), so its absence does
@@ -389,7 +400,10 @@ export type SelectResult = Omit<Wire.SelectResult, "rows"> & { rows: SelectRow[]
  * there can still be missing from `exported_paths`, so it has no consumer, and
  * deliberately not one.
  */
-export type ExportResult = Filled<Omit<Wire.ExportResult, "mode">, "manifest_path" | "captioned"> & {
+export type ExportResult = Sparse<
+  Omit<Wire.ExportResult, "mode">,
+  "dest" | "copied" | "skipped" | "manifest_path" | "captioned"
+> & {
   mode: ExportMode;
 };
 
@@ -402,11 +416,44 @@ export type ExportResult = Filled<Omit<Wire.ExportResult, "mode">, "manifest_pat
  * `exported_path` is the normative relative locator (posix, relative to the
  * export root). `crop` is the box baked into the exported file, or null for the
  * source as it was.
+ *
+ * Manifest 2.3 (curator 0.15) adds `primary_face` and `set_age`. They stay
+ * optional, as the rows a 2.2 or older curator wrote lack them. `set_age` is
+ * this app's wider {@link SetAge}.
  */
-export type ManifestRow = Filled<
-  Omit<Wire.ManifestRow, "target_profile">,
-  "manifest_version" | "primary_face_cluster" | "primary_face_pose" | "crop"
-> & { target_profile: TargetProfile };
+export type ManifestRow = Sparse<
+  Omit<Wire.ManifestRow, "target_profile" | "set_age">,
+  | "abs_path"
+  | "exported_abs_path"
+  | "exported_path"
+  | "rel_path"
+  | "score"
+  | "similar_group"
+  | "manifest_version"
+  | "primary_face_cluster"
+  | "primary_face_pose"
+  | "crop"
+> & { target_profile: TargetProfile; set_age?: SetAge | null };
+
+/** The primary face of a manifest row (2.3), or null when the frame has none. Mirrors curator's `_manifest_face`. */
+export function manifestFace(r: ImageResult): Wire.ManifestFace | null {
+  const face = r.faces.find((f) => f.primary);
+  if (!face) return null;
+  return {
+    bbox: face.bbox,
+    yaw: face.yaw,
+    pitch: face.pitch,
+    roll: face.roll ?? null,
+    sharpness: face.sharpness ?? null,
+    eye_open: face.eye_open ?? null,
+    mouth_open: face.mouth_open ?? null,
+    cluster_distance: face.cluster_distance ?? null,
+    reference_distance: face.reference_distance ?? null,
+    age_years: face.attributes?.age_years ?? null,
+    // Scan results never carry landmarks; only curator's own export can add them.
+    landmarks: null,
+  };
+}
 
 export interface Detectors {
   torch: boolean;
