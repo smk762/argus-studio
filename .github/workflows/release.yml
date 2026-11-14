@@ -23,6 +23,10 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Read-only by default; each job asks for what it needs.
+permissions:
+  contents: read
+
 jobs:
   publish-image:
     runs-on: ubuntu-latest
@@ -69,3 +73,50 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           # No build-args: the image takes no build-time configuration at all.
+
+  github-release:
+    # The GitHub Release is the last step, so it only appears once the image is
+    # actually on GHCR. Its notes are this version's CHANGELOG.md section, with
+    # the image to pull appended. Studio builds no wheel or other file, so the
+    # Release carries no assets. Ported from argus-lens#67.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: publish-image
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/argus-studio
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v head="## [${version}]" 'index($0, head) == 1 {found = 1; next} found && /^## \[/ {exit} found' \
+            CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::CHANGELOG.md has no section for ${version}"
+            exit 1
+          fi
+          # Drop the link-reference definitions at the foot of the last section.
+          sed -i '/^\[[^]]*\]: /d' notes.md
+          {
+            echo
+            echo "### Image"
+            echo
+            echo '```sh'
+            echo "docker pull ${IMAGE}:${version}"
+            echo '```'
+          } >> notes.md
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          prerelease=""
+          case "$tag" in *-*|*rc*|*a[0-9]*|*b[0-9]*) prerelease="--prerelease" ;; esac
+          if gh release view "$tag" >/dev/null 2>&1; then
+            # Re-run of the workflow: refresh the notes rather than failing.
+            gh release edit "$tag" --notes-file notes.md
+          else
+            gh release create "$tag" --verify-tag --title "$tag" --notes-file notes.md $prerelease
+          fi
