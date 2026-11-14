@@ -21,6 +21,12 @@ Designed as a living onboarding document -- every parameter includes an inline e
 
 ## Quick Start
 
+What each UI needs live, and how to run it with no GPU:
+[What to run for which UI](https://studio.dragonhound.dev/docs/setup/which-services/#studio).
+The external services (ComfyUI, Ollama, NudeNet, SingGuard, the GPU host and the
+rest) each have a setup page under
+[Setup and services](https://studio.dragonhound.dev/docs/setup/).
+
 ### Whole suite in one stack (recommended)
 
 The suite repos are designed to run together but stay loosely coupled — bring up

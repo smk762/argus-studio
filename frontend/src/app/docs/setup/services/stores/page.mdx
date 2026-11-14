@@ -1,0 +1,38 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "Postgres, Qdrant and MinIO/S3 · Docs",
+  path: "/docs/setup/services/stores/",
+  description: "Optional stores for argus-cortex, lens's replay backend and the SingGuard guard server.",
+});
+
+# Postgres, Qdrant and MinIO/S3
+
+<ServiceFacts id="stores" />
+
+## Minimal setup
+
+For production, follow the official guides: the
+[PostgreSQL install guide](https://www.postgresql.org/download/) and the
+[Postgres Docker image](https://hub.docker.com/_/postgres) (its environment
+variables and data volume), the
+[Qdrant quickstart](https://qdrant.tech/documentation/quickstart/) and its
+[installation guide](https://qdrant.tech/documentation/guides/installation/),
+and [MinIO in a container](https://docs.min.io/aistor/installation/container/).
+For a local try-out, the official images are enough:
+
+```bash
+docker run -d --name pg -e POSTGRES_PASSWORD=… -p 127.0.0.1:5432:5432 postgres
+docker run -d --name qdrant -p 127.0.0.1:6333:6333 qdrant/qdrant
+```
+
+Then point each client at them:
+
+- **cortex and lens**: `CORTEX_PG_URL=postgresql://user:pass@localhost:5432/argus`,
+  `CORTEX_QDRANT_URL=http://localhost:6333`, and for S3
+  `CORTEX_S3_ENDPOINT`, `CORTEX_S3_ACCESS_KEY`, `CORTEX_S3_SECRET_KEY`,
+  `CORTEX_S3_BUCKET` (and `CORTEX_S3_REGION`). Install the matching extras.
+  Every store is off unless its variable is set.
+- **agent-composer**: `DATABASE_URL` and `QDRANT_URL` in its `.env`. Its
+  `rag-chat` service won't start without them, even if you only use the guard.

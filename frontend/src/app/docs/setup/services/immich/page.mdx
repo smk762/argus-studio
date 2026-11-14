@@ -1,0 +1,27 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "Immich · Docs",
+  path: "/docs/setup/services/immich/",
+  description: "Connect argus-lens to an Immich photo library.",
+});
+
+# Immich
+
+<ServiceFacts id="immich" />
+
+## Minimal setup
+
+1. Run Immich (its Docker Compose install is the supported path).
+2. In Immich, create an API key under **Account Settings → API Keys**.
+3. Give lens the server and the key:
+
+   ```bash
+   IMMICH_URL=http://<LAN_HOST>:2283
+   IMMICH_API_KEY=…
+   ```
+
+Lens reads both on each request, so you don't need to restart it to change them.
+See [Immich](https://github.com/smk762/argus-lens/blob/dev/README.md#immich) in
+lens's README for the endpoints and the write-back behaviour.

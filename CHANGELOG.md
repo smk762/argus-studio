@@ -4,6 +4,17 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- **A "Setup and services" section in `/docs`** ([#172](https://github.com/smk762/argus-studio/issues/172)). It holds a cross-package **Moderation** topic, a **what to run for which UI** matrix, and one page per external service. The topic covers NudeNet and the exposed score, SingGuard verdicts and thinking modes, the EraX fallback, the MiVOLO under-18 rule, darkroom's `adult-*` policies and `ALLOW_NSFW`, and the limits. The matrix covers Studio, Lightbox, Realms, Safelight, Sightline, Assay and Cull. There are 21 service pages, among them GPU host, ComfyUI, Ollama, vLLM, hosted APIs, NudeNet, SingGuard, EraX, MiVOLO and model downloads. Each lists the packages that use the service and the env vars each reads at `dev` HEAD, the minimal setup, and the official guides. The SingGuard page is the first public guide to agent-composer's `/api/guard/check`: setup, model, request and response fields, and modes. The pages read from one registry, `src/content/services.ts`.
+- **A docs opsec gate.** `npm test` fails if a published docs source names a private or link-local address, a home or host-mount path, an email address, or a term on the private denylist (the `DOCS_OPSEC_DENYLIST` secret).
+- **A weekly external link check** (`npm run docs:links`, `.github/workflows/docs-links.yml`). Every official guide URL in the docs is checked weekly. A broken one opens or updates a tracking issue. It never runs on PRs, so a third party's outage can't block a merge.
+
+### Fixed
+
+- **Compose passes the `minor-exposed` rule** to curator and darkroom: `ARGUS_CURATOR_MINOR_EXPOSED` and `DARKROOM_MINOR_EXPOSED` (both `frame` by default; `overlap` restores curator's box-overlap rule). Images older than smk762/argus-curator#153 and smk762/argus-darkroom#49 ignore it.
+- `.env.example` no longer shows a private LAN address in the `ARGUS_OPENAI_COMPAT_BASE_URL` example; it uses `<LAN_HOST>`.
+
 ### Changed
 
 - **Compose defaults to argus-curator 0.15.1** (`0.15.1-gpu` under `compose.gpu.yaml`; `CURATOR_TAG` still overrides). 0.15.1 measures blur on the image interior rather than its 1 px border. Its wire schema is byte-identical to v0.15.0, so the curator wire pin and generated types stay at v0.15.0. The `/curate` demo sample remains a 0.15.0 recording (see its PROVENANCE.md).

@@ -1,0 +1,46 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceIndex } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "Setup and services · Docs",
+  path: "/docs/setup/",
+  description:
+    "The external services the Argus packages depend on (ComfyUI, Ollama, vLLM, NudeNet, SingGuard, model downloads, the GPU host) and how to set each one up.",
+});
+
+# Setup and services
+
+Most Argus packages are **clients of services they don't ship**. ComfyUI
+renders, Ollama or a vLLM server writes prose, NudeNet and SingGuard judge,
+model weights come from Hugging Face, and much of it needs a GPU host. Each
+package's README covers its own part. These pages cover the shared services
+once, so that running darkroom, say, doesn't mean reading four READMEs.
+
+Every service page lists:
+
+- **who uses it**: each package, and the exact env var or flag it reads;
+- **the minimal setup**, written out where the suite needs something
+  non-stock, such as darkroom's ComfyUI custom nodes;
+- **the official guides** for the rest.
+
+The env-var facts come from each package's `dev` branch, and the package docs
+stay the source of truth. Hosts are always written as `<GPU_HOST>` or
+`<LAN_HOST>`. Put the real address in your local `.env`.
+
+## Cross-package topics
+
+- [Moderation](/docs/setup/moderation): how NudeNet, SingGuard, EraX-NSFW and the
+  MiVOLO age check fit together, where curator, darkroom, cortex and proof use
+  them, and darkroom's adult policies.
+- [What to run for which UI](/docs/setup/which-services): the services each demo
+  UI needs live, what its mock replaces, and the no-GPU command.
+
+## Services
+
+<ServiceIndex />
+
+## Nothing to install for a look around
+
+Every demo runs without these services. Studio's static build, Lightbox,
+Safelight, Assay and Cull replay recorded output, and darkroom's `make demo`
+runs against fake servers. See [What to run for which UI](/docs/setup/which-services).

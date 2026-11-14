@@ -1,0 +1,36 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "Trainers (kohya sd-scripts, OneTrainer) · Docs",
+  path: "/docs/setup/services/trainers/",
+  description: "Run the training configs argus-forge emits with kohya sd-scripts or OneTrainer.",
+});
+
+# Trainers (kohya sd-scripts, OneTrainer)
+
+<ServiceFacts id="trainers" />
+
+## Minimal setup
+
+The quickest way is forge's training image, which ships kohya sd-scripts at
+`/opt/sd-scripts`:
+
+```bash
+docker run --rm --init --gpus all --shm-size=8g \
+  -e ARGUS_FORGE_READONLY=0 \
+  -p 127.0.0.1:8103:8103 -v <export-dir>:/data/out \
+  -v hf-cache:/root/.cache/huggingface \
+  ghcr.io/smk762/argus-forge:latest-train
+```
+
+An armed `POST /run` executes a forged script with no authentication, so treat
+reaching that port as shell access on the host. Keep it on loopback or a
+trusted network.
+
+To run the forged `train.sh` on your own machine instead, clone
+kohya-ss/sd-scripts, install its requirements, and set `SD_SCRIPTS_DIR` to the
+checkout. The configs refer to container paths (`/data/out`, `/data/images`),
+so swap in your own `OUTPUT_DIR` and `DATASET_DIR`, or set `FORGE_PATH_MAP`.
+
+OneTrainer configs are loaded in OneTrainer's own UI. Forge doesn't run them.

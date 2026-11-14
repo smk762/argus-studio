@@ -1,0 +1,214 @@
+import { pageMetadata } from "@/lib/pageMeta";
+
+export const metadata = pageMetadata({
+  title: "Moderation · Docs",
+  path: "/docs/setup/moderation/",
+  description:
+    "How the Argus suite judges images and prompts: NudeNet, SingGuard, EraX-NSFW and the MiVOLO age check, where each package uses them, and darkroom's adult policies.",
+});
+
+# Moderation
+
+Four packages judge content: **curator** filters datasets, **darkroom** guards
+generation, **proof** scores trained LoRAs, and **cortex** holds the clients
+they share. They all lean on the same few external services. This page
+explains that stack as one system and links to each package's own docs for the
+flags and fields. The package docs are the source of truth. This page is the map.
+
+## What judges what
+
+| Judge | What it answers | Setup |
+|---|---|---|
+| **NudeNet** | Which body parts are exposed in an image, and how confident it is about each one. | [NudeNet server](/docs/setup/services/nudenet) |
+| **SingGuard** | Whether an image or a prompt breaks a written policy. It returns a verdict and the rule that fired. | [SingGuard guard server](/docs/setup/services/singguard) |
+| **EraX-NSFW** | A second nudity detector. Curator uses it to fill in when NudeNet finds no exposed parts. | [EraX-NSFW](/docs/setup/services/erax-nsfw) |
+| **MiVOLO** | An age estimate per face and body. It feeds the under-18 rules. | [MiVOLO v2](/docs/setup/services/mivolo) |
+
+### The exposed score
+
+The suite defines nudity **once**, as cortex's `DEFAULT_EXPOSED_LABELS`:
+`BUTTOCKS_EXPOSED`, `FEMALE_BREAST_EXPOSED`, `FEMALE_GENITALIA_EXPOSED`,
+`MALE_GENITALIA_EXPOSED` and `ANUS_EXPOSED`. An image's **exposed score** is the
+highest NudeNet score among those five labels, or 0 when none is found.
+Detections under 0.2 are dropped, and a NaN or infinite score is rejected rather
+than read as safe. Every package that talks about "exposed" means this number,
+from [`argus_cortex.moderation`](https://github.com/smk762/argus-cortex/blob/dev/src/argus_cortex/moderation/nudenet.py).
+
+### SingGuard verdicts
+
+A SingGuard check sends the image (or just the text) with a **policy**: a
+Markdown list of rules, each a `###` heading with a letter. The server answers
+`safe`, the verdict, the rule that fired, and an explanation. The policy text
+lives in the clients, in cortex's `policies.py`. The server holds only
+SingGuard's defaults. See the [request and response
+fields](/docs/setup/services/singguard#the-check-endpoint).
+
+### EraX fills gaps
+
+[Curator runs EraX](https://github.com/smk762/argus-curator/blob/dev/docs/nudity.md#erax-a-second-detector)
+beside NudeNet on every image. It maps EraX's hits onto NudeNet's labels only
+when NudeNet's exposed score is 0 or the NudeNet check failed. A filled result
+says so (`erax_filled: true`).
+
+### The age estimate feeds the under-18 rules
+
+MiVOLO estimates an age for each face and body it finds. When anyone estimated
+**under 18** shares a frame with an exposed score of **0.2 or more**, the image
+is `minor-exposed`. This is a hard exclusion in curator and a deletion in
+darkroom, and no request or threshold can override it.
+
+Both packages apply the same rule, chosen by one setting
+(`ARGUS_CURATOR_MINOR_EXPOSED`, `ARGUS_DARKROOM_MINOR_EXPOSED`):
+
+| Mode | When it fires |
+|---|---|
+| `frame` (default) | Any age under 18 anywhere in the frame, plus exposure anywhere in the frame. |
+| `overlap` | Only when an exposed region overlaps a young person's box, or overlaps nobody's box. It still fails closed: a young face whose body wasn't found, or an age with no box to place it, flags any exposure. |
+
+`overlap` excludes fewer images (an adult's exposure beside a fully clothed
+child doesn't fire), and it relies on the person detector finding every body.
+`frame` doesn't. See
+[the under-18 rule](https://github.com/smk762/argus-curator/blob/dev/docs/moderation.md#the-under-18-rule-minor-exposed)
+in curator and the
+[age check](https://github.com/smk762/argus-darkroom/blob/dev/README.md#age-check-optional)
+in darkroom. Darkroom gets the estimate from curator's `POST /faces`
+(`ARGUS_DARKROOM_AGE_URL`) or from its own `[age]` extra.
+
+The age is never sent to SingGuard as a verdict input.
+
+## Where each is used
+
+### curator
+
+Dataset filtering. Every exclusion is recorded with its reason, so a selection
+can be audited afterwards.
+
+- **Scan filters**: NudeNet (`--nsfw-threshold`, `--nsfw-label`) and SingGuard
+  (`--guard-unsafe`, `--guard-rules`), each an opt-in exclusion.
+  See [nudity](https://github.com/smk762/argus-curator/blob/dev/docs/nudity.md#scores-and-filters)
+  and [standalone moderation](https://github.com/smk762/argus-curator/blob/dev/docs/moderation.md).
+- **Policy check**: a SingGuard verdict per image under a named policy, with
+  optional context (age, folder, caption, scene).
+  See [policy check](https://github.com/smk762/argus-curator/blob/dev/docs/policy-check.md).
+- **Prefilter**: cheap rules that drop images before the slow checks run.
+  See [prefilter](https://github.com/smk762/argus-curator/blob/dev/docs/prefilter.md).
+- **`drop_nsfw`** (`--drop-nsfw`): a prefilter rule that drops an image with an
+  exposed score of 0.2 or more. It is refused when no NudeNet is configured.
+
+Env: `ARGUS_CURATOR_NUDENET_URL`, `ARGUS_CURATOR_SINGGUARD_URL`,
+`ARGUS_CURATOR_ERAX_URL`, `ARGUS_CURATOR_MIVOLO_MODEL`.
+
+### darkroom
+
+Guarded generation. Nothing is written to disk before the verdict.
+See [how a generation runs](https://github.com/smk762/argus-darkroom/blob/dev/README.md#how-a-generation-runs).
+
+- **Pre-flight**: a text-only SingGuard check of the prompt and negative prompt,
+  under every selected policy, before anything renders.
+- **Per-policy image scans**: each image is judged by SingGuard once per policy,
+  on its own and with its prompt. NudeNet runs once, and MiVOLO runs when it is
+  available.
+- **`minor-exposed` deletion**: as above. The record is marked `critical`.
+
+Env: `ARGUS_DARKROOM_SINGGUARD_URL` (required), `ARGUS_DARKROOM_NUDENET_URL`,
+`ARGUS_DARKROOM_AGE_URL`, `ARGUS_DARKROOM_THINKING`.
+
+### cortex
+
+[`argus_cortex.moderation`](https://github.com/smk762/argus-cortex/blob/dev/src/argus_cortex/moderation/__init__.py)
+holds the shared clients: `NudeNetClient` and `NsfwResult`, `SingGuardClient`
+and `GuardResult`, `DEFAULT_EXPOSED_LABELS`, `THINKING_MODES`, and the policy
+texts in `policies.py`. Cortex reads no environment: each package reads its own
+env and passes the URL in.
+
+### proof
+
+`SafetyScorer` reports `safety = 1 − (the highest unsafe probability)` for each
+evaluation image, using NudeNet through cortex's client (`PROOF_NUDENET_URL`).
+Without a URL the scorer is skipped. Proof uses no SingGuard.
+See [argus-proof](https://github.com/smk762/argus-proof/blob/dev/README.md).
+
+## darkroom's adult policies
+
+Darkroom runs **SFW** by default. Setting `ARGUS_DARKROOM_ALLOW_NSFW=1` (or
+`--allow-nsfw`) lets a request name an NSFW **enforcing** policy. These are the
+`adult-*` family: `adult`, `adult-granular`, `adult-cautious` and
+`adult-cinematic`, from cortex's `policies.py`. With NSFW allowed, the server
+default is `adult-granular`. The variants are still being evaluated, and only
+one will remain at release. Until then, Studio offers them only in dev mode.
+
+Rule letters are not the same across policies, so darkroom reads rule names
+from the data, never from a fixed list. `adult-cinematic` drops the crimes
+heading at B, so its letters B–G shift, and it treats depicted crime and
+violence as safe unless it is sexual, gory or instructional. See
+[policies](https://github.com/smk762/argus-darkroom/blob/dev/spec.md#policies).
+
+**What an NSFW enforcing policy changes**: two things, and nothing else
+([mode](https://github.com/smk762/argus-darkroom/blob/dev/spec.md#mode)):
+
+- At pre-flight, a rule that is not illegal **warns** instead of refusing.
+- An exposed score at or above the threshold **blurs** the image instead of
+  omitting it.
+
+Without `ALLOW_NSFW`, a request that names an NSFW enforcing policy gets HTTP
+400, and a server configured with one refuses to start.
+
+**What stays illegal under every policy**: each policy marks some rules
+illegal. A for every adult policy, and A, H and I for `adult-granular`. Rule A
+covers minors. An illegal rule firing under any policy is refused at
+pre-flight and deleted on output, whatever the mode. `minor-exposed` deletes in
+both modes too. See [illegal rules](https://github.com/smk762/argus-darkroom/blob/dev/spec.md#illegal-rules).
+
+**Why a deleted image is never shown**: the image is judged in memory before
+anything is written. A deleted image's buffer is dropped, so the record keeps
+only its sha256 and pHash, never pixels, a thumbnail or a preview, because any of
+those would be the image again. Studio's `/darkroom` and Safelight follow the
+same rule: no image for a deleted, omitted, refused or failed record. See
+[record](https://github.com/smk762/argus-darkroom/blob/dev/spec.md#record).
+
+## Thinking modes
+
+SingGuard can spend more or less effort on a verdict. The client chooses with a
+`thinking` field (`ARGUS_CURATOR_SINGGUARD_THINKING`,
+`ARGUS_DARKROOM_THINKING`):
+
+| Mode | What it does | Cost |
+|---|---|---|
+| `fast` | Verdict and rule only. | About 1 s per image. |
+| `fast-slow` | SingGuard's own reasoning mode: a first-line verdict, then the reasoning. | Several seconds per image. |
+| `slow` | Reasoning first, then the verdict, so the reasoning isn't anchored to a snap judgement. | Several seconds per image. |
+| `cascade` | `fast` on everything, then `slow` on whatever `fast` flags (or can't parse). The slow verdict stands. | One fast pass for clean content, fast plus slow for flagged content. |
+
+Curator and darkroom both default to `cascade`. Curator sends a frame straight
+to `slow` when its exposed score is already 0.2 or more.
+
+Which servers support which modes:
+
+| Server | Modes | Checks |
+|---|---|---|
+| [agent-composer's guard](/docs/setup/services/singguard) | all four | images and text-only |
+| argus-cull's `singguard` service | all four | images only (a text-only check gets 422) |
+| any other SingGuard deployment | `fast` and `fast-slow`, the model's own two | depends on the server |
+
+`fast` and `fast-slow` are SingGuard's own template modes. `slow` and `cascade`
+are added by the two Argus servers. Darkroom's pre-flight is a text-only check,
+so darkroom needs agent-composer's guard. When a server answers HTTP 400 to
+`slow` or `cascade`, curator switches to `fast` for the rest of the run and
+logs `singguard_mode_unsupported`.
+
+## The limits
+
+- **Age estimates are automated guesses.** MiVOLO can be wrong in both
+  directions. The under-18 rule is a safety net, not proof of age. An age check
+  that can't run never deletes on its own, but it never clears an image either.
+- **A failed check fails closed.** In curator, an image an enabled filter couldn't check is
+  excluded (`nsfw-unchecked`, `guard-unchecked`, `face-attributes-missing`). In
+  darkroom, a missing SingGuard URL stops startup, an unchecked enforcing
+  pre-flight refuses, an unchecked enforcing scan deletes, and in SFW a NudeNet
+  outage omits the image. Cortex raises `CheckFailed` rather than returning a pass. Proof is
+  the exception: it is a scorer, not a gate, so an image it couldn't score is
+  left out of the safety metric.
+- **No real sexual content is in any repo, fixture or demo.** Tests drive the
+  NSFW and illegal paths with fake NudeNet and SingGuard servers that return
+  scripted verdicts. Demo records are hand-written, and deleted records carry no
+  image.

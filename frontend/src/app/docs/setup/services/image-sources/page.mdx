@@ -1,0 +1,27 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "Image sources · Docs",
+  path: "/docs/setup/services/image-sources/",
+  description: "Where argus-quarry acquires public-domain images: Wikimedia Commons and the PD12M and Megalith metadata.",
+});
+
+# Image sources
+
+<ServiceFacts id="image-sources" />
+
+## Minimal setup
+
+- **Wikimedia Commons** needs no account. Set `COMMONS_USER_AGENT` (or
+  `QUARRY_USER_AGENT`) to something that identifies your deployment and gives a
+  contact, as Wikimedia's API policy asks.
+- **PD12M and Megalith** are metadata-only datasets on Hugging Face. Fetch them
+  with quarry's `scripts/fetch_public_domain_metadata.py` (`--hf-token` or
+  `HF_TOKEN`) into `QUARRY_PD12M_DIR` and `QUARRY_MEGALITH_DIR`. The server's
+  fetch button stays off unless `QUARRY_ALLOW_FETCH=1`.
+- **Text search** over PD12M needs the `[search]` extra and a CLIP model
+  (`QUARRY_CLIP_MODEL`, an OpenAI CLIP ViT-L/14 from the HF cache by default).
+
+Every acquired image keeps its source, author and licence. See
+[public-domain archives](https://github.com/smk762/argus-quarry/blob/dev/README.md#public-domain-archives).

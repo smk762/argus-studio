@@ -1,0 +1,128 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "SingGuard guard server · Docs",
+  path: "/docs/setup/services/singguard/",
+  description:
+    "Run the SingGuard guard server (agent-composer's /api/guard/check) that darkroom requires and curator and cortex call.",
+});
+
+# SingGuard guard server
+
+<ServiceFacts id="singguard" />
+
+## Which server
+
+The suite's clients speak one API: `POST /api/guard/check`. Two servers implement it:
+
+- **agent-composer's guard** (recommended). It is the `/api/guard/*` router
+  inside agent-composer's `rag-chat` service, on port 9150. It runs SingGuard on
+  Ollama and supports all four [thinking modes](/docs/setup/moderation#thinking-modes),
+  for images and for text-only checks. **Darkroom needs this one**, because
+  its pre-flight is a text-only check.
+- **argus-cull's `singguard` service** (profile `local-singguard`, also on 9150).
+  It supports all four modes too, but it checks images only, so it can't serve
+  darkroom's pre-flight. It shouldn't run beside agent-composer.
+
+Any other SingGuard deployment offers only the model's own `fast` and
+`fast-slow` modes.
+
+The rest of this page sets up agent-composer's guard.
+
+## Minimal setup
+
+The guard needs a GPU host with Docker and the NVIDIA Container Toolkit (see
+[GPU host](/docs/setup/services/gpu-host)).
+
+1. Clone [agent-composer](https://github.com/smk762/agent-composer) and copy
+   `.env.example` to `.env`.
+2. `rag-chat` won't start without a vector store and a database, even if you only
+   want the guard. Set `QDRANT_URL` and `DATABASE_URL` in `.env`, pointing at
+   instances you already run or at new ones. To set them up, see the
+   [PostgreSQL downloads](https://www.postgresql.org/download/) or the
+   [Postgres Docker image](https://hub.docker.com/_/postgres), and the
+   [Qdrant quickstart](https://qdrant.tech/documentation/quickstart/). A
+   two-command local setup is on [Postgres, Qdrant and MinIO](/docs/setup/services/stores).
+3. Start the stack: `docker compose up -d --build`. Ollama starts with it.
+4. Pull the model into that Ollama once:
+
+   ```bash
+   docker exec ollama ollama pull hf.co/inclusionAI/SingGuard-4b-GGUF:Q4_K_M
+   ```
+
+   That is the default `GUARD_MODEL`. The same Hugging Face repo also has
+   `Q8_0` and `F16` builds, and there are 0.8b, 2b and 8b sizes. The 0.8b repo is
+   spelled `Sing-Guard-0.8b-GGUF`. To use another one, set `GUARD_MODEL` to its
+   `hf.co/…` tag and pull it the same way.
+5. Check it: `curl http://localhost:9150/health`. There is also a tester page at
+   `/ui/guard`.
+6. Point the clients at it, for example
+   `ARGUS_DARKROOM_SINGGUARD_URL=http://<GPU_HOST>:9150`. In Studio's
+   compose, set `DARKROOM_SINGGUARD_URL` (or `SINGGUARD_URL`) for darkroom and
+   `ARGUS_CURATOR_SINGGUARD_URL` for curator. Each
+   is the origin only: the clients add `/api/guard/check` themselves.
+
+**The guard routes have no authentication.** The port binds to `127.0.0.1` by
+default (`RAG_CHAT_BIND_IP`, `RAG_CHAT_PORT`). Widen it only to a trusted
+network, or put it behind an access proxy.
+
+### Server settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GUARD_MODEL` | `hf.co/inclusionAI/SingGuard-4b-GGUF:Q4_K_M` | The Ollama model tag. A request's own `model` field overrides it. |
+| `GUARD_THINKING` | `fast-slow` | Mode used when a request leaves `thinking` blank. An invalid value falls back to `fast-slow`. |
+| `GUARD_WORKER_CONCURRENCY` | `1` | Guard passes run one at a time across all callers. |
+| `OLLAMA_URL` | `http://ollama:11434` | The Ollama the guard calls. |
+| `OLLAMA_KEEP_ALIVE` | `15m` | How long Ollama keeps the model loaded. |
+| `OLLAMA_TIMEOUT` | `300` | Seconds before a guard call to Ollama gives up. |
+
+For text checks the server renders SingGuard's chat template itself and calls
+Ollama's `/api/generate` in raw mode, because Ollama doesn't pass the
+template's policy argument through. Image checks go through `/api/chat`.
+Sampling is fixed at temperature 0.
+
+## The check endpoint
+
+`POST /api/guard/check`, JSON body:
+
+| Field | Meaning |
+|---|---|
+| `input` | The text to judge. With an image, the prompt that produced it. |
+| `image_base64` | Optional. Raw base64 or a data URL. It is downscaled to at most 1536 px and 4 MiB. |
+| `conversation` | Optional list of `{role, content}` turns, for chat context. |
+| `input_role` | `user` (default) or `assistant`. |
+| `policy` | Markdown rules. Blank means SingGuard's default rules. Each rule is a `###` heading under `## Risk Categories`, which the server adds if it's missing. |
+| `thinking` | `fast`, `fast-slow`, `slow` or `cascade`. Blank means `GUARD_THINKING`. |
+| `model` | Optional model override. |
+
+Response:
+
+| Field | Meaning |
+|---|---|
+| `safe` | `true` or `false`. |
+| `verdict` | The model's verdict line. |
+| `rule`, `rule_text` | The title and text of the rule that fired. |
+| `explanation` | The model's reason. |
+| `categories` | `[{code, label, why}]`, empty when safe. Cortex reads the fired rules from `code`. |
+| `thinking` | The mode actually used. A `cascade` check reports `fast` or `slow`. |
+| `model`, `elapsed_ms`, `raw` | Diagnostics. |
+
+Errors: 400 for an unknown mode or a bad image, 503 when Ollama is unreachable,
+and Ollama's own status otherwise. Every client treats an error or a missing
+verdict as **unchecked**, never as safe (see
+[the limits](/docs/setup/moderation#the-limits)).
+
+`GET /api/guard/categories` lists the default rules, and `GET /api/guard/policy`
+returns the default policy, the default mode and the list of modes.
+
+## Policies
+
+The server keeps only SingGuard's defaults. The named policies (`default`,
+`adult`, `adult-granular`, `adult-cautious`, `adult-cinematic`) are texts in
+[cortex's `policies.py`](https://github.com/smk762/argus-cortex/blob/dev/src/argus_cortex/moderation/policies.py),
+and each client sends the full text with every request. Curator can also read
+one from a file (`ARGUS_CURATOR_SINGGUARD_POLICY_FILE`). See
+[Moderation](/docs/setup/moderation#darkrooms-adult-policies) for what the
+adult policies change.

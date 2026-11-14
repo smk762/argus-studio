@@ -1,0 +1,27 @@
+import { pageMetadata } from "@/lib/pageMeta";
+import { ServiceFacts } from "@/components/docs/ServiceFacts";
+
+export const metadata = pageMetadata({
+  title: "IPFS (Kubo), Foundry and Base · Docs",
+  path: "/docs/setup/services/ipfs-foundry-base/",
+  description: "Set up Kubo, Foundry and a Base RPC for argus-mint's pinning, signing and publishing.",
+});
+
+# IPFS (Kubo), Foundry and Base
+
+<ServiceFacts id="ipfs-foundry-base" />
+
+## Minimal setup
+
+1. **IPFS**: mint's compose runs `ipfs/kubo` on loopback `:5001`. For your own
+   node, set `ARGUS_MINT_IPFS_API` to its RPC origin. Keep the RPC port off
+   public networks, because it has admin rights over the node.
+2. **Foundry**: install it with `foundryup`, then create a keystore account with
+   `cast wallet import`. Mint signs with `ARGUS_MINT_ACCOUNT` from
+   `ARGUS_MINT_KEYSTORE_DIR` (Foundry's own keystore folder by default). The
+   password is read from `ARGUS_MINT_KEYSTORE_PASSWORD_FILE`.
+3. **Base**: `ARGUS_MINT_NETWORK` defaults to `base-sepolia`, the testnet.
+   `ARGUS_MINT_RPC_URL` overrides the network's public RPC. Deploying the
+   contract uses `BASE_SEPOLIA_RPC_URL` or `BASE_RPC_URL`.
+
+Assay's mock needs none of this.

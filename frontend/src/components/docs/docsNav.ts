@@ -3,6 +3,8 @@
  * sidebar and (later) search read from this list. Grows as concept and guide
  * pages are authored (epic: interactive-docs).
  */
+import { SERVICES, serviceHref } from "@/content/services";
+
 export interface DocsNavItem {
   href: string;
   label: string;
@@ -27,6 +29,18 @@ export const DOCS_NAV: DocsNavSection[] = [
       { href: "/docs/captioning/target-backend", label: "Target backend" },
       { href: "/docs/captioning/target-category", label: "Target category" },
       { href: "/docs/captioning/prose-enrichment", label: "Prose enrichment" },
+    ],
+  },
+  {
+    // Cross-package topics (argus-studio#172): other UIs link here rather than
+    // copying it. The per-service pages come from the registry, so a new
+    // service needs only its entry and its page.
+    title: "Setup and services",
+    items: [
+      { href: "/docs/setup", label: "Overview" },
+      { href: "/docs/setup/moderation", label: "Moderation" },
+      { href: "/docs/setup/which-services", label: "What to run for which UI" },
+      ...SERVICES.map((s) => ({ href: serviceHref(s.id), label: s.title })),
     ],
   },
 ];
