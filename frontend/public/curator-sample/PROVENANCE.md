@@ -78,6 +78,12 @@ armpits) and SingGuard judged every frame safe, so no passing frame is blurred f
 are always veiled. The blurred reject is a darker frame: curator 0.15.0's sharpness measure also counts the
 frame's outer edge, so a heavily blurred bright frame still scores above the threshold.
 
+This sample is still a **0.15.0 recording**. argus-curator 0.15.1 measures sharpness on the frame's
+interior instead ([argus-curator#147](https://github.com/smk762/argus-curator/issues/147)), so a
+naturally blurred bright frame would now be rejected. The scan was not re-recorded with 0.15.1 because
+the full-size originals were not kept and only the 384 px thumbnails are bundled; re-recording means
+regenerating the set from the seeds above first.
+
 ## Licences
 
 - **CyberRealistic XL Desire v2.0:** CreativeML Open RAIL-M (as declared on the author's Hugging Face
