@@ -12,6 +12,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Fixed
 
+- **Compose passes lens its hosted-backend keys** (`HF_TOKEN`, `NVIDIA_API_KEY`, `OPENAI_API_KEY`, `REPLICATE_API_TOKEN`), so `ARGUS_BACKEND=hf-inference` or `nvidia-nim` works from `.env` with the published image. `openai` and `replicate` also need a source build with their extras. Compose no longer passes `ARGUS_API_KEY`, which lens stopped reading.
 - **Compose passes the `minor-exposed` rule** to curator and darkroom: `ARGUS_CURATOR_MINOR_EXPOSED` and `DARKROOM_MINOR_EXPOSED` (both `frame` by default; `overlap` restores curator's box-overlap rule). Images older than smk762/argus-curator#153 and smk762/argus-darkroom#49 ignore it.
 - `.env.example` no longer shows a private LAN address in the `ARGUS_OPENAI_COMPAT_BASE_URL` example; it uses `<LAN_HOST>`.
 
