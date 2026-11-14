@@ -6,6 +6,7 @@ import {
   compositeScore,
   editsToUpdates,
   imageState,
+  needsReviewFrames,
   METRIC_LABELS,
   normalizeEdits,
   policyLabel,
@@ -66,9 +67,9 @@ function MetricBar({ label, value, hint }: { label: string; value: number | null
 }
 
 const STATE_STYLES = {
-  pass: "border-accent-green/50 bg-accent-green/15 text-accent-green",
-  fail: "border-accent-red/50 bg-accent-red/15 text-accent-red",
-  needs_hitl: "border-accent-amber/50 bg-accent-amber/15 text-accent-amber",
+  pass: "border-accent-green/50 bg-accent-green/15 text-accent-green-ink",
+  fail: "border-accent-red/50 bg-accent-red/15 text-accent-red-ink",
+  needs_hitl: "border-accent-amber/50 bg-accent-amber/15 text-accent-amber-ink",
 } as const;
 
 const STATE_LABEL = { pass: "Pass", fail: "Fail", needs_hitl: "Needs review" } as const;
@@ -106,7 +107,7 @@ function SampleImage({
   const [failed, setFailed] = useState(false);
   if (!live || failed) {
     return (
-      <div className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-border bg-surface-hover/40 text-center text-[11px] text-muted/60">
+      <div className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-border bg-surface-hover/40 text-center text-[11px] text-muted">
         {hidden ? "blind sample" : `seed ${img.seed}`}
       </div>
     );
@@ -139,7 +140,7 @@ function UnsafeBreakdownPanel({ images }: { images: ImageScores[] }) {
           <li
             key={s.category ?? "uncategorised"}
             className={`rounded-md border px-2 py-0.5 ${
-              s.category === null ? "border-border text-muted" : "border-accent-red/40 text-accent-red"
+              s.category === null ? "border-border text-muted" : "border-accent-red/40 text-accent-red-ink"
             }`}
           >
             {s.category === null ? "Uncategorised" : policyLabel(s.category)}{" "}
@@ -234,6 +235,11 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
     if (needsOnly) idx = idx.filter((i) => imageState(imgs[i]) === "needs_hitl");
     return idx;
   }, [report, blind, needsOnly]);
+
+  // Frames the needs-review filter shows, on the same basis as `order` (the
+  // report as last applied). The header counts near-dup *groups*, so a pair that
+  // both need review is one there and two here; both labels say which they count.
+  const needsFrames = useMemo(() => needsReviewFrames(report.images), [report]);
 
   // image_id -> position in the stored report, for the seed-free blind image URL.
   const reportIndexById = useMemo(
@@ -380,7 +386,7 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
             </div>
             <div>
               <div className="text-2xl font-semibold text-foreground">{agg.n_needs_hitl}</div>
-              <div className="text-[10px] uppercase tracking-wide text-muted">need review</div>
+              <div className="text-[10px] uppercase tracking-wide text-muted">groups to review</div>
             </div>
             <div>
               <div className="text-2xl font-semibold text-foreground">
@@ -406,7 +412,7 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
               <ul className="space-y-0.5">
                 {report.scorers.map((s) => (
                   <li key={`${s.name}-${s.metric}`} className="font-mono">
-                    {s.name} <span className="text-muted/60">({s.metric})</span>
+                    {s.name} <span className="text-muted">({s.metric})</span>
                     {s.model ? ` · ${s.model}` : ""}
                     {s.version ? ` v${s.version}` : ""}
                   </li>
@@ -435,6 +441,9 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
         <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
           <input type="checkbox" checked={needsOnly} onChange={(e) => setNeedsOnly(e.target.checked)} className="accent-accent-purple" />
           Needs-review only
+          <span className="text-xs">
+            ({needsFrames} {needsFrames === 1 ? "image" : "images"})
+          </span>
         </label>
         {blind && (
           <button
@@ -446,7 +455,7 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
           </button>
         )}
         <div className="ml-auto flex items-center gap-3">
-          {saveError && <span className="text-xs text-accent-red">{saveError}</span>}
+          {saveError && <span className="text-xs text-accent-red-ink">{saveError}</span>}
           {dirty && (
             <span className="text-xs text-muted">
               {edits.size} {writeRefused ? "not saved" : "unsaved"}
@@ -456,7 +465,7 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
             type="button"
             onClick={save}
             disabled={!dirty || saving || !canSave}
-            className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {saving ? "Saving…" : localApply ? "Apply review" : writeUnknown ? "Checking…" : "Save review"}
           </button>
@@ -478,7 +487,7 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
           }
         />
       )}
-      <p className="-mt-3 text-[11px] text-muted/70">
+      <p className="-mt-3 text-[11px] text-muted">
         Keyboard: <kbd className="rounded bg-surface-hover px-1">1</kbd>–<kbd className="rounded bg-surface-hover px-1">5</kbd> rate ·{" "}
         <kbd className="rounded bg-surface-hover px-1">0</kbd> clear · <kbd className="rounded bg-surface-hover px-1">←</kbd>
         <kbd className="rounded bg-surface-hover px-1">→</kbd> move focus
@@ -540,7 +549,7 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
                   />
                 )}
                 {edit.reject_reasons.length > 0 && (
-                  <p className="text-[10px] text-accent-red/80">{edit.reject_reasons.map(reasonLabel).join(", ")}</p>
+                  <p className="text-[10px] text-accent-red-ink">{edit.reject_reasons.map(reasonLabel).join(", ")}</p>
                 )}
               </div>
             </div>

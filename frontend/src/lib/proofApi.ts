@@ -265,6 +265,15 @@ export function imageState(img: ImageScores): ImageState {
   return "needs_hitl";
 }
 
+/**
+ * Frames still awaiting review: what /proof's "Needs-review only" filter shows.
+ * Not the aggregate's `n_needs_hitl`, which counts near-dup *groups*: a pair that
+ * both need review is one group and two frames.
+ */
+export function needsReviewFrames(images: readonly ImageScores[]): number {
+  return images.filter((img) => imageState(img) === "needs_hitl").length;
+}
+
 // --- client-side review preview --------------------------------------------
 // Mirrors argus_proof.scoring.summary so the /proof header can reflect a
 // reviewer's edits instantly; a Save persists them and the server returns the
