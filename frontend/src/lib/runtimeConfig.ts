@@ -58,6 +58,8 @@ export interface RuntimeConfig {
   safelightUrl: string;
   /** Link to argus-sightline (the argus-survey workspace), or empty for no link. */
   sightlineUrl: string;
+  /** Link to argus-mask's viewer (the talking face), or empty for no link. */
+  maskUrl: string;
   /** `demo` = bundled read-only sample, `live` = real backends. */
   curatorUiMode: CuratorUiMode;
   /** Scan input directory as seen by argus-curator (container path under Docker). */
@@ -205,6 +207,7 @@ export function resolveRuntimeConfig(
     cullUrl: resolveLink(source, "ARGUS_CULL_URL"),
     safelightUrl: resolveLink(source, "ARGUS_SAFELIGHT_URL"),
     sightlineUrl: resolveLink(source, "ARGUS_SIGHTLINE_URL"),
+    maskUrl: resolveLink(source, "ARGUS_MASK_URL"),
     curatorUiMode: resolveUiMode(
       firstNonEmpty(source, ["ARGUS_CURATOR_UI_MODE", "NEXT_PUBLIC_CURATOR_UI_MODE"]),
     ),
@@ -234,6 +237,7 @@ const STATIC_DEMO_CONFIG: RuntimeConfig = {
   cullUrl: "",
   safelightUrl: "",
   sightlineUrl: "",
+  maskUrl: "",
   curatorUiMode: "demo",
   curatorSourcePath: "/data/images",
   curatorOutputPath: "/data/out",

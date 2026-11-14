@@ -97,3 +97,8 @@ export function localOutputPath(): string {
 export function sightlineUrl(): string {
   return runtimeConfig().sightlineUrl;
 }
+
+/** Link to argus-mask's viewer (the talking face), or empty when none is configured. */
+export function maskUrl(): string {
+  return runtimeConfig().maskUrl;
+}
