@@ -19,18 +19,20 @@ import { STATIC_DEMO, demoAsset } from "@/lib/staticDemo";
  * Static demo (lib/staticDemo.ts): the read side — job list, job sidecars,
  * previews, the PMTiles archive — is served from recorded argus-atlas jobs
  * bundled under public/demo/atlas/ by scripts/bundle_atlas_demo.py (what the
- * real GET /jobs and GET /jobs/{id} returned for them). The write side
+ * real GET /jobs, GET /jobs/{id} and GET /jobs/{id}/labels returned for them,
+ * with host paths made relative). The write side
  * (controls, OSM, bake, tiles) is never offered by the page.
  */
 
-/** The full Cook Strait map the bundled jobs are two chunks of. */
+/** The live map of the island bake the bundled jobs are chunks of. */
 export const REALMS_URL = "https://realms.dragonhound.dev";
 
 /**
- * Jobs whose PMTiles archive is bundled in the static demo. The others are
- * linked to {@link REALMS_URL} instead, to keep the export small.
+ * Jobs whose PMTiles archive is bundled in the static demo. None are, to keep
+ * the export small (each is 1.6-3 MB): every job links to {@link REALMS_URL},
+ * which serves the same archives as a live map.
  */
-export const DEMO_BUNDLED_ARCHIVES: ReadonlySet<string> = new Set(["antique-10-1007-640"]);
+export const DEMO_BUNDLED_ARCHIVES: ReadonlySet<string> = new Set<string>();
 
 // --- wire types (mirror argus_atlas.models) --------------------------------
 
@@ -128,8 +130,29 @@ export interface ChunkRecord {
 
 /** The recipe a chunk was baked with, and the digest of its canonical JSON. */
 export interface RecipeRecord {
-  recipe: { name: string; preset: string | null; checkpoint: string; lora: string | null };
+  recipe: {
+    name: string;
+    preset: string | null;
+    checkpoint: string;
+    lora: string | null;
+    /** 0.3: `"auto"` (latitude-corrected) or a fixed factor; absent before 0.3. */
+    z_factor?: "auto" | number;
+    vertical_exaggeration?: number;
+  };
   sha256: string;
+}
+
+/**
+ * 0.3: how the DEM's heights were scaled for hillshade and slope. Web Mercator
+ * flattens relief by cos(latitude); `auto` restores it with `base` = that factor
+ * at the canvas centre, and `z_factor = base * vertical_exaggeration`.
+ */
+export interface ReliefRecord {
+  mode: "auto" | "fixed";
+  latitude: number;
+  base: number;
+  vertical_exaggeration: number;
+  z_factor: number;
 }
 
 export type LabelScheme = "naturalearth" | "osm" | null;
@@ -174,10 +197,11 @@ export interface JobSidecar {
   commands: GdalCommand[];
   bake: BakeRecord | null;
   tiles: TilesRecord | null;
-  // Optional: sidecar 0.2 added chunk, recipe and timings; 0.3 added labels.
+  // Optional: sidecar 0.2 added chunk, recipe and timings; 0.3 added labels and relief.
   chunk?: ChunkRecord | null;
   recipe?: RecipeRecord | null;
   labels?: LabelsRecord | null;
+  relief?: ReliefRecord | null;
   /** Wall-clock seconds per stage. */
   timings?: Record<string, number>;
 }
@@ -354,7 +378,12 @@ export async function getDoctor(signal?: AbortSignal): Promise<AtlasDoctor> {
 
 /** A job's place names. 404s when `job.json` records none or the file has gone. */
 export async function getLabels(jobId: string, signal?: AbortSignal): Promise<LabelCollection> {
-  const resp = await fetch(`${atlasUrl()}/jobs/${encodeURIComponent(jobId)}/labels`, { signal });
+  const resp = await fetch(
+    STATIC_DEMO
+      ? demoAsset(`atlas/${encodeURIComponent(jobId)}/labels.geojson`)
+      : `${atlasUrl()}/jobs/${encodeURIComponent(jobId)}/labels`,
+    { signal },
+  );
   if (!resp.ok) return asError(resp);
   return resp.json();
 }

@@ -14,7 +14,7 @@ import {
   type JobStatus,
   type LabelCollection,
 } from "@/lib/atlasApi";
-import { labelsCredit, MAX_LABELS, notTileableReason, placeLabels, stageTimings } from "@/lib/atlasView";
+import { labelsCredit, MAX_LABELS, notTileableReason, placeLabels, reliefSummary, stageTimings } from "@/lib/atlasView";
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { BakePanel } from "@/components/atlas/BakePanel";
@@ -92,6 +92,7 @@ export function JobView({
   const tiles = s.tiles;
   const painted = bake ? previewUrl(s.job_id, "fantasy", bake.completed_at) : null;
   const timings = stageTimings(s.timings);
+  const relief = reliefSummary(s.relief);
   const blocked = notTileableReason(s);
   const gdalReason = capabilityReason(canGdal, "GDAL is missing on this host, so it cannot cut tiles.");
 
@@ -151,7 +152,7 @@ export function JobView({
         />
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className={`grid gap-2 sm:grid-cols-3 ${relief ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
         <Stat label="Canvas" value={`${s.grid.width} × ${s.grid.height} px`} />
         <Stat label="Ground resolution" value={`${s.resolution.toFixed(1)} m/px`} />
         <Stat label="Native zoom" value={`z${s.native_zoom} (tiles z${s.zoom_range[0]}–${s.zoom_range[1]})`} />
@@ -160,6 +161,18 @@ export function JobView({
           label="AOI (W,S,E,N)"
           value={<span title={`${west},${south},${east},${north}`}>{[west, south, east, north].map((v) => v.toFixed(3)).join(", ")}</span>}
         />
+        {relief && (
+          // The height factor hillshade and slope were built with (0.3): Mercator flattens relief away from the equator.
+          <Stat
+            label="Relief"
+            value={
+              <span title={relief.detail}>
+                {relief.value}
+                <span className="block text-[10px] text-muted">{relief.short}</span>
+              </span>
+            }
+          />
+        )}
       </div>
 
       {/* Control / painted overlay on the shared pixel grid */}

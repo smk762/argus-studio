@@ -73,4 +73,21 @@ describe("reads", () => {
 
     await expect(getLabels("j")).rejects.toThrow(/argus-atlas labels/);
   });
+
+  it("reads a recorded job's labels from the bundle in the static demo", async () => {
+    vi.doMock("@/lib/staticDemo", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("@/lib/staticDemo")>()),
+      STATIC_DEMO: true,
+    }));
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      seen.push(url);
+      return json({ type: "FeatureCollection", features: [] });
+    });
+    const { getLabels } = await import("@/lib/atlasApi");
+
+    await expect(getLabels("antique-7-56-34")).resolves.toEqual({ type: "FeatureCollection", features: [] });
+    expect(seen).toEqual(["/demo/atlas/antique-7-56-34/labels.geojson"]);
+    vi.doUnmock("@/lib/staticDemo");
+  });
 });

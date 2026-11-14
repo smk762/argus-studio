@@ -84,7 +84,9 @@ function DarkroomStage() {
                 {tab.label}
               </Button>
             ))}
-            {sample ? null : (
+            {/* Server-only: the static demo has no darkroom to zip, and its prerendered HTML
+                can't wait for `sample` to settle, so it never offers the link at all. */}
+            {sample || STATIC_DEMO ? null : (
               <a
                 href={archiveUrl()}
                 className="ml-auto text-xs text-muted underline decoration-border underline-offset-2 hover:text-foreground"
