@@ -120,7 +120,7 @@ function Card({
         onClick={onToggle}
         disabled={!exportable}
         title={exportable ? (selected ? "Deselect" : "Select for export") : (blocked ?? "Not exported")}
-        className={`absolute left-1.5 top-1.5 z-30 flex h-5 w-5 items-center justify-center rounded border text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        className={`absolute left-1.5 top-1.5 z-30 flex h-6 w-6 items-center justify-center rounded border text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
           exportable ? "cursor-pointer" : ""
         } ${
           selected

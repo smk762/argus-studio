@@ -100,6 +100,18 @@ body {
   font-family: var(--dh-font);
 }
 
+/*
+ * Phones: the dense tool UI's 9-11 px labels read at the family's smallest size
+ * (--dh-text-2xs, 12 px) instead. Unlayered, so it wins over the utilities.
+ */
+@media (max-width: 639px) {
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[11px\] {
+    font-size: var(--dh-text-2xs);
+  }
+}
+
 /* The family focus ring wherever a component doesn't draw its own. */
 :focus-visible {
   outline: var(--dh-focus-ring);
