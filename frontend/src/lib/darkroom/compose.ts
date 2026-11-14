@@ -154,6 +154,10 @@ export function randomSeed(): number {
 /** One wording, shared with the client's refusal. */
 export const READ_ONLY_BLOCK = DARKROOM_READ_ONLY_REASON;
 
+/** Why Check and Generate are off in the static demo, which has no darkroom behind it. */
+export const DEMO_GENERATE_BLOCK =
+  "Generating needs a running argus-darkroom with its backends. This demo only replays recorded history.";
+
 /** Generate is offered only when darkroom answers and SingGuard is reachable. The reason otherwise. */
 export function generateBlock(health: Health | null, error: string | null, state: ComposeState, policies: Policies | null): string | null {
   if (error) return `Darkroom is not reachable: ${error}`;

@@ -14,7 +14,7 @@ import { RecordView } from "@/components/darkroom/RecordView";
 import { Button, Card } from "@/components/darkroom/ui";
 import { archiveUrl, DARKROOM_READ_ONLY_REASON } from "@/lib/darkroomApi";
 import { ExternalLink } from "@/components/ExternalLink";
-import { RecordedDemoNote } from "@/components/DemoChrome";
+import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 
 export default function DarkroomPage() {
@@ -45,7 +45,13 @@ function DarkroomStage() {
         logo={{ letter: "D" }}
         title="Argus Darkroom"
         subtitle="Guarded image generation, with a record of every attempt"
-        badge={<ApiVersionBadge label="argus-darkroom" version={version} prefix={sample ? "" : "v"} />}
+        badge={
+          STATIC_DEMO ? (
+            <RecordedBadge label="Sample" title="No argus-darkroom in this build: a bundled, read-only history." />
+          ) : (
+            <ApiVersionBadge label="argus-darkroom" version={version} prefix={sample ? "" : "v"} />
+          )
+        }
       />
 
       <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)]">

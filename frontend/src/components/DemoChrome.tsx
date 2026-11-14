@@ -11,7 +11,8 @@ export function DemoBanner() {
     <div className="border-b border-border bg-surface/80 text-[11px] text-muted">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1.5 sm:px-6">
         <span>
-          <span className="font-medium text-foreground/80">Static demo</span> — recorded outputs, no live backends.
+          <span className="font-medium text-foreground/80">Static demo</span>
+          <span className="hidden sm:inline"> — recorded outputs, no live backends.</span>
         </span>
         <span className="flex items-center gap-3">
           <ExternalLink href={REPO_URL} className="text-accent-teal hover:underline">

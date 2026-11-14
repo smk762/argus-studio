@@ -172,9 +172,16 @@ interface ProofBoardProps {
    * permission, and must not read as refusal either.
    */
   canWrite: Capability;
+  /**
+   * Called with the recomputed report after a review is applied (saved to the
+   * server, or folded in locally in demo mode), so the page can bring its run
+   * list in step. The board keeps its own copy; the page must not feed this back
+   * as `initialReport`, which would reset the review session.
+   */
+  onReportChange?: (report: EvalReport) => void;
 }
 
-export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
+export function ProofBoard({ initialReport, live, canWrite, onReportChange }: ProofBoardProps) {
   const [report, setReport] = useState<EvalReport>(initialReport);
   const [edits, setEdits] = useState<Map<string, HitlEdit>>(new Map());
   const [rater, setRater] = useState("");
@@ -328,6 +335,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
         ? await submitHitl(report.run_id, { rater: rater || null, updates: editsToUpdates(sent) })
         : applyEdits(report, normalizeEdits(sent), rater || null);
       setReport(updated);
+      onReportChange?.(updated);
       setEdits((cur) => {
         if (cur === sent) return new Map();
         const next = new Map(cur);

@@ -285,7 +285,7 @@ export function JobView({
             </p>
           )}
           {bake.aligned && bake.error && <p className="text-xs text-accent-red">{bake.error}</p>}
-          <dl className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-xs [overflow-wrap:anywhere] sm:grid-cols-2">
             <div><dt className="inline text-muted">Preset </dt><dd className="inline font-mono">{bake.params.preset ?? "—"}</dd></div>
             {bake.params.recipe && (
               <div><dt className="inline text-muted">Recipe </dt><dd className="inline font-mono">{bake.params.recipe}</dd></div>

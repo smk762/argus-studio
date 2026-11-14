@@ -166,7 +166,9 @@ export default function AtlasPage() {
                 />
               </>
             )}
-            <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+            {/* minmax(0, …) tracks: an `auto` track grows to its min-content, and a long
+                canvas name (one nowrap line, even when truncated) pushed it past the viewport. */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
               {/* Scrolls on its own beside the job view: a working host holds dozens of canvases. */}
               <aside className="space-y-1 lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
                 <div className="mb-2 text-[10px] uppercase tracking-wide text-muted">Canvases</div>

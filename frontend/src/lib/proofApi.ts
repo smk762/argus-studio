@@ -66,6 +66,38 @@ export interface ReportSummary {
   created_at: string | null;
 }
 
+/**
+ * The run-browser line for a report, from its aggregate and verdict. Used to
+ * keep the run list in step with a report recomputed by a HITL review, so the
+ * list and the open report never show two different pass rates.
+ */
+export function summaryFromReport(report: EvalReport): ReportSummary {
+  return {
+    run_id: report.run_id,
+    passed: report.verdict.passed,
+    pending: report.verdict.pending,
+    pass_rate: report.aggregate.pass_rate,
+    n_images: report.aggregate.n_images,
+    n_groups: report.aggregate.n_groups,
+    n_needs_hitl: report.aggregate.n_needs_hitl,
+    created_at: report.created_at,
+  };
+}
+
+/**
+ * `summaries` with the entry for `report.run_id` refreshed from the report.
+ * Other runs and the list order are kept, as are the entry's `created_at` and
+ * `n_refined` (a review doesn't touch either). A run not in the list is not
+ * appended: the list is the server's.
+ */
+export function withReportSummary(summaries: ReportSummary[], report: EvalReport): ReportSummary[] {
+  return summaries.map((s) =>
+    s.run_id === report.run_id
+      ? { ...s, ...summaryFromReport(report), n_refined: s.n_refined, created_at: s.created_at }
+      : s,
+  );
+}
+
 // --- HITL request shapes (POST /report/{id}/hitl) --------------------------
 
 export interface HitlImageUpdate {
