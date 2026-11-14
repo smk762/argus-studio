@@ -1,22 +1,29 @@
 #!/usr/bin/env node
 // Generates src/lib/generated/<service>.ts from the wire schemas pinned in
 // schema/pins.json. Each service publishes its own schema at
-// schema/<service>-wire.schema.json in its repo (built with argus_cortex.wire),
-// so a pin is that service's release tag plus the file's sha256. A pin whose
-// file lives elsewhere names it in `path` (argus-cortex's taxonomy-schema.json);
-// the local copy keeps that file's basename.
+// schema/<service>-wire.schema.json in its repo (built with argus_cortex.wire).
+// A pin is the service's `dev` commit, its version there and the file's sha256:
+// Studio follows each package's dev HEAD, not a release (argus-studio#170). A
+// pin whose file lives elsewhere names it in `path` (argus-cortex's
+// taxonomy-schema.json); the local copy keeps that file's basename.
 //
-//   node scripts/wire-types.mjs           regenerate from the committed schemas
-//   node scripts/wire-types.mjs --check   fail on drift; reads no network or sibling repo
-//   node scripts/wire-types.mjs --pull    fetch each pin's tag, update the sha256, regenerate
+//   node scripts/wire-types.mjs                 regenerate from the committed schemas
+//   node scripts/wire-types.mjs --check         fail on drift; reads no network or sibling repo
+//   node scripts/wire-types.mjs --pull [svc…]   fetch each pin (or the named ones) at its branch HEAD,
+//                                               record commit, version and sha256, regenerate
 //
-// To bump a service: edit its tag in pins.json, run --pull, then fix what typecheck reports.
+// After a --pull, fix what typecheck reports. .github/workflows/wire-drift.yml
+// runs it daily and opens a PR when a package's dev has moved on.
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compile } from "json-schema-to-typescript";
+
+import { gitIn, versionAt } from "./release-version.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pinsPath = join(root, "schema", "pins.json");
@@ -26,6 +33,8 @@ const schemaPath = (service, pin) => join(root, "schema", basename(remotePath(se
 const outputPath = (service) => join(root, "src", "lib", "generated", `${service}.ts`);
 
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
+/** How a pin names its source: `smk762/argus-curator@97021d6 (0.15.2.dev2+g97021d6)`. */
+export const pinLabel = (pin) => `${pin.repo}@${pin.commit.slice(0, 7)} (${pin.version})`;
 
 /**
  * Pydantic titles every property ("Rel Path"), which the compiler would turn
@@ -64,7 +73,7 @@ function rootedSchema(service, schema) {
 
 async function generate(service, pin, text) {
   const banner = [
-    `// Generated from ${pin.repo}@${pin.tag} ${remotePath(service, pin)}.`,
+    `// Generated from ${pinLabel(pin)} ${remotePath(service, pin)}.`,
     "// Do not edit: change schema/pins.json and run `npm run wire:pull`.",
     "",
   ].join("\n");
@@ -77,28 +86,38 @@ async function generate(service, pin, text) {
 }
 
 async function pull(service, pin) {
-  const url = `https://raw.githubusercontent.com/${pin.repo}/${pin.tag}/${remotePath(service, pin)}`;
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`${url}: HTTP ${resp.status}`);
-  const text = await resp.text();
-  await writeFile(schemaPath(service, pin), text);
-  return { ...pin, sha256: sha256(text) };
+  const work = await mkdtemp(join(tmpdir(), `wire-${service}-`));
+  try {
+    execFileSync("git", ["clone", "--quiet", "--filter=blob:none", "--no-checkout", "--branch", pin.branch, `https://github.com/${pin.repo}.git`, work], {
+      stdio: "inherit",
+    });
+    const git = gitIn(work);
+    const commit = git("rev-parse", "HEAD").toString().trim();
+    const text = git("show", `${commit}:${remotePath(service, pin)}`).toString();
+    await writeFile(schemaPath(service, pin), text);
+    return { ...pin, commit, version: versionAt(git, commit), sha256: sha256(text) };
+  } finally {
+    // maxRetries: git may still be writing in .git (auto maintenance) as the clone is removed (ENOTEMPTY).
+    await rm(work, { recursive: true, force: true, maxRetries: 5 });
+  }
 }
 
 async function main() {
-  const mode = process.argv[2];
+  const [mode, ...only] = process.argv.slice(2);
   if (mode !== undefined && mode !== "--check" && mode !== "--pull") {
     throw new Error(`unknown option ${mode}`);
   }
   const pins = JSON.parse(await readFile(pinsPath, "utf8"));
+  for (const name of only) if (!(name in pins)) throw new Error(`no pin named ${name}`);
   const problems = [];
 
   for (const [service, listed] of Object.entries(pins)) {
-    const pin = mode === "--pull" ? await pull(service, listed) : listed;
+    const pulling = mode === "--pull" && (only.length === 0 || only.includes(service));
+    const pin = pulling ? await pull(service, listed) : listed;
     pins[service] = pin;
     const text = await readFile(schemaPath(service, pin), "utf8");
     if (sha256(text) !== pin.sha256) {
-      problems.push(`schema/${basename(remotePath(service, pin))} is not the file pinned at ${pin.repo}@${pin.tag}`);
+      problems.push(`schema/${basename(remotePath(service, pin))} is not the file pinned at ${pinLabel(pin)}`);
       continue;
     }
     const generated = await generate(service, pin, text);
@@ -109,7 +128,7 @@ async function main() {
     }
     const committed = await readFile(outputPath(service), "utf8").catch(() => null);
     if (committed !== generated) {
-      problems.push(`src/lib/generated/${service}.ts does not match ${pin.repo}@${pin.tag}`);
+      problems.push(`src/lib/generated/${service}.ts does not match ${pinLabel(pin)}`);
     }
   }
 
@@ -122,4 +141,4 @@ async function main() {
   console.log(mode === "--check" ? "Generated wire types match the pinned schemas." : "Wire types written.");
 }
 
-await main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) await main();
