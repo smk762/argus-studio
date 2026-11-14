@@ -4,6 +4,10 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- **argus-sightline is on GHCR.** The `survey` profile now pulls `ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.1}` (was `0.1.0`, which was never published), so it no longer needs `compose.build.yaml`.
+
 ## [0.4.0] - 2026-11-14
 
 ### Added

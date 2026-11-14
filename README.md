@@ -58,7 +58,7 @@ Override one with its `*_TAG` var in `.env` (see `.env.example`):
 | argus-atlas | `ATLAS_TAG` | `0.3.1` |
 | argus-darkroom | `DARKROOM_TAG` | `0.2.0` |
 | argus-survey | `SURVEY_TAG` | `0.1.1` |
-| argus-sightline | `SIGHTLINE_TAG` | `0.1.0` (no published image yet: build it with `compose.build.yaml`) |
+| argus-sightline | `SIGHTLINE_TAG` | `0.1.1` |
 | argus-mask | `MASK_TAG` | `0.2.0` |
 | Ollama | `OLLAMA_TAG` | `0.40.16` |
 
