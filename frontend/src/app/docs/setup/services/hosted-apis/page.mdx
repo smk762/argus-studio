@@ -26,5 +26,7 @@ export const metadata = pageMetadata({
 Every image you caption this way is uploaded to that provider. Read their
 data-retention terms before captioning anything private.
 
-Studio's compose doesn't pass these keys to the lens container. Add them to the
-`argus-lens` service's `environment` if you want cloud backends there.
+In Studio's compose, set the key in the repo-root `.env`, and compose passes it to
+lens. The published lens image includes the Hugging Face and NIM backends.
+`openai` and `replicate` also need their extras, so build lens from source with
+`LENS_EXTRAS=server,local,openai,replicate` and `-f compose.build.yaml`.

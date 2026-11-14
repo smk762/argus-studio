@@ -101,7 +101,14 @@ services:
       - "${LENS_PORT:-8100}:8100"
     environment:
       - ARGUS_BACKEND=${ARGUS_BACKEND:-hybrid}
-      - ARGUS_API_KEY=${ARGUS_API_KEY:-}
+      # Hosted caption backends (ARGUS_BACKEND=hf-inference | nvidia-nim | openai |
+      # replicate); each sends the image to that provider. hf-inference and
+      # nvidia-nim work with the published image. openai and replicate also need
+      # their extra: a source build with LENS_EXTRAS=server,local,openai,replicate.
+      - HF_TOKEN=${HF_TOKEN:-}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - REPLICATE_API_TOKEN=${REPLICATE_API_TOKEN:-}
       # Browser origins allowed to call lens. Empty means localhost:3000 only
       # (lens 0.11+), and a write from any other origin gets a 403.
       - LENS_CORS_ORIGINS=${LENS_CORS_ORIGINS:-}
