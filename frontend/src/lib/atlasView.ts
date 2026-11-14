@@ -1,10 +1,19 @@
 /**
  * Pure logic behind the /atlas page: where a place name lands on the canvas, how
- * stage timings read, which OSM layers may become controls, and what `/doctor`
- * means for a bake. Mirrors `argus_atlas.mercator`, `.labels` and `.tiles`.
+ * stage timings read, how the relief was scaled, which OSM layers may become
+ * controls, and what `/doctor` means for a bake. Mirrors `argus_atlas.mercator`,
+ * `.labels` and `.tiles`.
  */
 
-import type { AtlasDoctor, Grid, JobSidecar, LabelCollection, LabelScheme, OsmExtract } from "@/lib/atlasApi";
+import type {
+  AtlasDoctor,
+  Grid,
+  JobSidecar,
+  LabelCollection,
+  LabelScheme,
+  OsmExtract,
+  ReliefRecord,
+} from "@/lib/atlasApi";
 
 // --- place names ---------------------------------------------------------------
 
@@ -67,6 +76,33 @@ export function labelsCredit(scheme: LabelScheme): string | null {
   if (scheme === "osm") return "Names © OpenStreetMap contributors (ODbL 1.0)";
   if (scheme === "naturalearth") return "Names from Natural Earth (public domain)";
   return null;
+}
+
+// --- relief --------------------------------------------------------------------
+
+/**
+ * The 0.3 relief record in one line: the height factor hillshade and slope used,
+ * then where it came from. Null for a job older than 0.3 (no correction, z 1).
+ */
+export function reliefSummary(
+  relief: ReliefRecord | null | undefined,
+): { value: string; short: string; detail: string } | null {
+  if (!relief) return null;
+  const ve = trim(relief.vertical_exaggeration);
+  const veText = relief.vertical_exaggeration === 1 ? "no exaggeration" : `${ve}× exaggeration`;
+  if (relief.mode === "fixed") {
+    return { value: `z ${relief.z_factor.toFixed(2)}`, short: `fixed · VE ${ve}×`, detail: `fixed, ${veText}` };
+  }
+  const lat = `${Math.abs(relief.latitude).toFixed(1)}°${relief.latitude < 0 ? "S" : "N"}`;
+  return {
+    value: `z ${relief.z_factor.toFixed(2)}`,
+    short: `auto · ${lat} · VE ${ve}×`,
+    detail: `auto: Mercator correction ${relief.base.toFixed(2)} at ${lat}, ${veText}`,
+  };
+}
+
+function trim(n: number): string {
+  return Number(n.toFixed(2)).toString();
 }
 
 // --- stage timings -------------------------------------------------------------

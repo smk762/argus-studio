@@ -250,14 +250,17 @@ const ATLAS_DEMO_SUMMARY = "real argus-atlas jobs, replayed from their recorded 
 function AtlasDemoProvenance() {
   return (
     <>
-      Two real argus-atlas jobs from the Cook Strait bake behind{" "}
+      Seven real jobs from the argus-atlas 0.3.0 island bake behind{" "}
       <ExternalLink href={REALMS_URL} className="underline hover:text-foreground">
         realms.dragonhound.dev
       </ExternalLink>
-      : one z10 chunk over the Marlborough Sounds, New Zealand, with its GDAL controls, painted in the antique and
-      tolkien styles. Sidecars are as the server returned them; previews are re-encoded to WebP; the antique PMTiles
-      archive is bundled, and the full 30-chunk map is on realms. Building controls and baking need a running
-      argus-atlas (and a GPU for the bake).
+      , one chunk in each of its seven styles: antique, imhof, watercolor and pixel over Iceland (z7), tolkien,
+      cyberpunk and minecraft over Réunion (z11). Each records 0.3&apos;s relief correction: hillshade and slope
+      take a height factor from the chunk&apos;s latitude, about 2.2 to 2.5 in Iceland and 1.07 in Réunion, with
+      no added exaggeration. The antique chunk also carries its OSM place names. Sidecars are as the server
+      returned them, with host paths made relative; previews are re-encoded to WebP; the PMTiles archives are
+      not bundled, and the whole map is live on realms. Building controls and baking need a running argus-atlas
+      (and a GPU for the bake).
     </>
   );
 }

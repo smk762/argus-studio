@@ -10,6 +10,7 @@ import {
   isSafeId,
   isVrt,
   labelsCredit,
+  reliefSummary,
   lonLatToMercator,
   notTileableReason,
   osmExtractName,
@@ -99,6 +100,31 @@ describe("label placement", () => {
     expect(labelsCredit("osm")).toContain("OpenStreetMap");
     expect(labelsCredit("naturalearth")).toContain("Natural Earth");
     expect(labelsCredit(null)).toBeNull();
+  });
+});
+
+describe("reliefSummary", () => {
+  it("reads an auto record as the factor and the latitude it corrects for", () => {
+    const r = reliefSummary({ mode: "auto", latitude: 63.548552, base: 2.2449748, vertical_exaggeration: 1, z_factor: 2.2449748 });
+    expect(r).toEqual({
+      value: "z 2.24",
+      short: "auto · 63.5°N · VE 1×",
+      detail: "auto: Mercator correction 2.24 at 63.5°N, no exaggeration",
+    });
+  });
+
+  it("names the hemisphere and any exaggeration", () => {
+    const r = reliefSummary({ mode: "auto", latitude: -21.1, base: 1.0715, vertical_exaggeration: 1.5, z_factor: 1.60725 });
+    expect(r?.value).toBe("z 1.61");
+    expect(r?.detail).toBe("auto: Mercator correction 1.07 at 21.1°S, 1.5× exaggeration");
+  });
+
+  it("reads a fixed factor, and nothing for a job older than 0.3", () => {
+    expect(reliefSummary({ mode: "fixed", latitude: 10, base: 1, vertical_exaggeration: 2, z_factor: 2 })?.detail).toBe(
+      "fixed, 2× exaggeration",
+    );
+    expect(reliefSummary(undefined)).toBeNull();
+    expect(reliefSummary(null)).toBeNull();
   });
 });
 
