@@ -4,7 +4,10 @@
 // concept registry in src/content/), fetches each one following redirects, and
 // fails if any final response is not 2xx. Run on a schedule by
 // .github/workflows/docs-links.yml, not on every PR, so CI never depends on a
-// third party's uptime.
+// third party's uptime. A link into the handbook (docs.dragonhound.dev) must
+// also land on its #anchor: the page has to carry that element id. The
+// handbook's own CI checks the same anchors (its schema/inbound.json); this
+// catches a Studio link that was never added there.
 //
 //   node scripts/check-links.mjs [--list]   (npm run docs:links)
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -47,12 +50,21 @@ function collect() {
   return urls;
 }
 
+// Only the handbook's anchors are checked: other sites often set ids from script.
+const ANCHORED_HOST = "docs.dragonhound.dev";
+
 async function check(url) {
+  const { hostname, hash } = new URL(url);
+  const anchor = hostname === ANCHORED_HOST && hash.length > 1 ? decodeURIComponent(hash.slice(1)) : null;
   const ua = { "user-agent": "argus-studio-docs-link-check (+https://github.com/smk762/argus-studio)" };
   let last = "";
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(url, { redirect: "follow", headers: ua, signal: AbortSignal.timeout(20_000) });
+      if (res.ok && anchor) {
+        const html = await res.text();
+        return html.includes(` id="${anchor}"`) ? null : `no #${anchor} on the page`;
+      }
       await res.body?.cancel();
       if (res.ok) return null;
       last = `HTTP ${res.status}`;
