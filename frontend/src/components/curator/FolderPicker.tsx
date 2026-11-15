@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listFolders } from "@/lib/curatorApi";
 import type { FolderListing } from "./types";
 
@@ -21,23 +21,36 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
   const [listing, setListing] = useState<FolderListing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The path whose fetch failed, so the inline error can offer a retry.
+  const [failedPath, setFailedPath] = useState<string | null>(null);
+  // Only the latest navigation may land: each fetch aborts the one before it,
+  // so a slow, older listing can never replace the folder the user is in.
+  const inFlight = useRef<AbortController | null>(null);
 
   // Fetch + apply results only in async callbacks (safe to call from an effect).
   const fetchListing = useCallback(
-    (path: string, signal?: AbortSignal) => {
+    (path: string) => {
+      inFlight.current?.abort();
+      const ctrl = new AbortController();
+      inFlight.current = ctrl;
+      const { signal } = ctrl;
       fetcher(path, signal)
         .then((data) => {
+          if (signal.aborted) return;
           setListing(data);
           setRel(data.path);
           setError(null);
+          setFailedPath(null);
         })
         .catch((err) => {
-          if (signal?.aborted) return;
+          if (signal.aborted) return;
           setError(err instanceof Error ? err.message : "Could not list folders");
+          setFailedPath(path);
         })
         .finally(() => {
-          if (!signal?.aborted) setLoading(false);
+          if (!signal.aborted) setLoading(false);
         });
+      return ctrl;
     },
     [fetcher],
   );
@@ -52,17 +65,25 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
   );
 
   useEffect(() => {
-    const ctrl = new AbortController();
-    fetchListing("", ctrl.signal);
+    const ctrl = fetchListing("");
     return () => ctrl.abort();
   }, [fetchListing]);
 
   const crumbs = rel ? rel.split("/") : [];
 
-  if (error) {
+  // Nothing listed yet: the server has no browsable root, so fall back to the
+  // manual path. A later navigation error keeps the last good listing instead.
+  if (error && !listing) {
     return (
-      <div className="rounded-lg border border-accent-amber/30 bg-accent-amber/5 p-3 text-[11px] leading-relaxed text-accent-amber">
-        Folder browsing unavailable: {error}. Configure a source root on the server, or enter a path manually below.
+      <div className="rounded-lg border border-accent-amber/30 bg-warn-tint p-3 text-[11px] leading-relaxed text-warn-ink">
+        Folder browsing unavailable: {error}. Configure a source root on the server, or enter a path manually below.{" "}
+        <button
+          type="button"
+          onClick={() => load(failedPath ?? "")}
+          className="cursor-pointer font-medium underline"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -74,7 +95,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
         <button
           type="button"
           onClick={() => load("")}
-          className="cursor-pointer rounded px-1.5 py-0.5 font-mono text-accent-teal hover:bg-surface-hover"
+          className="cursor-pointer rounded px-1.5 py-0.5 font-mono text-accent-teal-ink hover:bg-surface-hover"
           title={listing?.root}
         >
           root
@@ -95,6 +116,19 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
           );
         })}
       </div>
+
+      {error && (
+        <div className="flex items-center justify-between gap-2 rounded border border-accent-amber/30 bg-warn-tint px-2 py-1.5 text-[11px] text-warn-ink">
+          <span>Could not open that folder: {error}</span>
+          <button
+            type="button"
+            onClick={() => load(failedPath ?? rel)}
+            className="shrink-0 cursor-pointer font-medium underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Listing */}
       <div className="scrollbar-thin max-h-52 space-y-1 overflow-y-auto">
@@ -124,7 +158,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
                   className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                   title={f.abs_path}
                 >
-                  <span className="text-accent-amber">{f.subfolder_count > 0 ? "▸" : "•"}</span>
+                  <span className="text-accent-amber-ink">{f.subfolder_count > 0 ? "▸" : "•"}</span>
                   <span className="truncate text-xs text-foreground">{f.name}</span>
                   <span className="shrink-0 font-mono text-[10px] text-muted">
                     {f.image_count} img{f.subfolder_count > 0 ? ` · ${f.subfolder_count} sub` : ""}
@@ -135,7 +169,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
                   onClick={() => onSelect(f.abs_path)}
                   className={`shrink-0 cursor-pointer rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
                     isSel
-                      ? "bg-accent-teal/20 text-accent-teal"
+                      ? "bg-accent-teal/20 text-accent-teal-ink"
                       : "border border-border text-muted hover:text-foreground"
                   }`}
                 >
@@ -159,7 +193,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
           onClick={() => onSelect(listing.abs_path)}
           className={`w-full cursor-pointer rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
             selectedAbs === listing.abs_path
-              ? "bg-accent-teal/20 text-accent-teal"
+              ? "bg-accent-teal/20 text-accent-teal-ink"
               : "border border-border text-muted hover:text-foreground"
           }`}
         >

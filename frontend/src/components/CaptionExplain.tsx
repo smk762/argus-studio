@@ -11,10 +11,10 @@ const label = (name: string) => name.replace(/_/g, " ");
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
     <li className="space-y-2">
-      <h4 className="text-xs font-semibold text-foreground/90">
+      <h3 className="text-xs font-semibold text-foreground/90">
         <span className="mr-2 font-mono text-muted">{n}</span>
         {title}
-      </h4>
+      </h3>
       {children}
     </li>
   );
@@ -128,7 +128,7 @@ export function CaptionExplain({ result }: { result: CaptionResult }) {
               ))}
             </div>
             {rewritten && (
-              <p className="text-[11px] text-accent-amber">
+              <p className="text-[11px] text-accent-amber-ink">
                 An LLM rewrote this variant, so a struck-through fragment may have been reworded rather than dropped.
               </p>
             )}

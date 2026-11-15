@@ -3,12 +3,42 @@
 import { darkroomUrl } from "@/lib/curatorEnv";
 
 import { BACKENDS } from "@/lib/darkroom/health";
+import { STATIC_DEMO } from "@/lib/staticDemo";
+import { DemoBadge } from "@/components/DemoChrome";
 
 import { useDarkroom } from "./DarkroomProvider";
 import { Button, Card, SectionTitle, Spinner } from "./ui";
+import { Info } from "@/components/Tooltip";
 
 /** What `/health` says about darkroom and the servers behind it. */
 export function HealthCard() {
+  // The static demo has no darkroom and no backends by design. Listing each as
+  // "unreachable" with a red dot reads as an outage, so it says what the demo is
+  // instead, the way /gallery, /forge and /proof do.
+  if (STATIC_DEMO) return <DemoHealthCard />;
+  return <LiveHealthCard />;
+}
+
+function DemoHealthCard() {
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-2">
+        <SectionTitle>Darkroom</SectionTitle>
+        <DemoBadge state="off" title="Generation needs the self-hosted darkroom and its backends; see the README" />
+      </div>
+      <p className="mt-2 text-sm leading-relaxed text-foreground/70">
+        Backends are not part of this demo. A running darkroom checks every prompt with SingGuard, renders with
+        ComfyUI and scans the result with NudeNet and an age check; this static build has none of them, so it
+        cannot generate.
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        The history is a recorded sample: open a record to see its verdicts.
+      </p>
+    </Card>
+  );
+}
+
+function LiveHealthCard() {
   const { health, error, loading, reload } = useDarkroom();
   return (
     <Card>
@@ -18,7 +48,7 @@ export function HealthCard() {
       </div>
       <p className="mt-1 break-all font-mono text-xs text-muted">{darkroomUrl()}</p>
       {error ? (
-        <p role="alert" className="mt-2 text-sm text-accent-red">
+        <p role="alert" className="mt-2 text-sm text-accent-red-ink">
           Not reachable: {error}
         </p>
       ) : health ? (
@@ -31,9 +61,10 @@ export function HealthCard() {
             {BACKENDS.map(({ key, label, note }) => {
               const up = health.backends[key];
               return (
-                <li key={key} className="flex items-center gap-2" title={note}>
+                <li key={key} className="flex items-center gap-2">
                   <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${up ? "bg-accent-green" : "bg-accent-red"}`} />
                   <span className="text-foreground">{label}</span>
+                  <Info text={note} />
                   <span className="text-xs text-muted">{up ? "reachable" : "unreachable"}</span>
                 </li>
               );
@@ -42,8 +73,8 @@ export function HealthCard() {
           <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
             <li>{health.nsfw_allowed ? "NSFW policies may enforce (--allow-nsfw)" : "NSFW policies are advisory only"}</li>
             <li>{health.sfw_available ? "SFW generation available" : "SFW generation refused: no NudeNet"}</li>
-            {health.read_only ? <li className="text-accent-amber">read-only</li> : null}
-            {health.devmode ? <li className="text-accent-amber">devmode</li> : null}
+            {health.read_only ? <li className="text-accent-amber-ink">read-only</li> : null}
+            {health.devmode ? <li className="text-accent-amber-ink">devmode</li> : null}
           </ul>
         </>
       ) : null}

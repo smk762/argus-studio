@@ -72,12 +72,25 @@ export function capProblem(cap: CapOptions, fresh: boolean, kept: number, usable
   return null;
 }
 
-/** Facets on now that the curator has no field for, so a preview leaves them out. */
-export function facetsNotSent(filters: CuratorFilters): string[] {
+/**
+ * Facets on now that a preview leaves out: ones the curator has no field for,
+ * and ones {@link selectBody} drops because the scan didn't run their check
+ * (pass the same `summary` it gets), so the keep set can't apply them.
+ */
+export function facetsNotSent(
+  filters: CuratorFilters,
+  summary: Partial<Pick<ScanSummary, "guard_config" | "nsfw_config">> | null = null,
+): string[] {
   const out: string[] = [];
   if (filters.singleFaceOnly) out.push("Single-face only");
   if (filters.requireKnownFace) out.push("Require a known face");
   if (filters.guardView !== "all") out.push("the verdict view");
+  if (filters.contentRatings.length > 0 && summary?.nsfw_config?.enabled !== true) {
+    out.push("Content rating (this scan didn't run NudeNet)");
+  }
+  if ((filters.guardUnsafe || filters.guardRules.length > 0) && summary?.guard_config?.enabled !== true) {
+    out.push("SingGuard filters (this scan didn't run SingGuard)");
+  }
   return out;
 }
 

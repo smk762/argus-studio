@@ -72,7 +72,7 @@ export function SafeThumb({ scanId, img, nsfwRan, pending = [], fit = "cover", r
                 e.stopPropagation();
                 setRevealedPath(img.rel_path);
               }}
-              className="pointer-events-auto cursor-pointer rounded border border-white/40 bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-black/80"
+              className="pointer-events-auto min-h-6 cursor-pointer rounded border border-white/40 bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-black/80"
             >
               Reveal
             </button>
@@ -88,7 +88,7 @@ export function SafeThumb({ scanId, img, nsfwRan, pending = [], fit = "cover", r
             setRevealedPath(null);
           }}
           title="Blur again"
-          className="absolute left-1/2 top-1 z-20 -translate-x-1/2 cursor-pointer rounded border border-white/40 bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-black/80"
+          className="absolute left-1/2 top-1 z-20 min-h-6 -translate-x-1/2 cursor-pointer rounded border border-white/40 bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-black/80"
         >
           Blur
         </button>

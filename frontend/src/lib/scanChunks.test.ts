@@ -92,6 +92,19 @@ describe("mergeChunk", () => {
     expect(mergeChunk(first, chunk({ pending_checks: [] })).nsfw_config?.enabled).toBe(true);
   });
 
+  it("reads nudity from scored frames when the check finished before the first chunk", () => {
+    const scored = image("a.jpg", { nsfw: { exposed_score: 0.1, labels: {} } });
+    expect(mergeChunk(null, chunk({ pending_checks: [], results: [scored] })).nsfw_config?.enabled).toBe(true);
+    const failed = image("b.jpg", { nudenet_failed: true });
+    expect(mergeChunk(null, chunk({ pending_checks: [], results: [failed] })).nsfw_config?.enabled).toBe(true);
+  });
+
+  it("does not count rows still waiting on checks as rejected", () => {
+    const undecided = image("a.jpg", { passed: undefined as unknown as boolean });
+    const merged = mergeChunk(null, chunk({ results: [undecided, image("b.jpg", { passed: false })] }));
+    expect(merged.rejected).toBe(1);
+  });
+
   it("reads no nudity on a scan that never listed it, and assumes it when the curator sends no list", () => {
     expect(mergeChunk(null, chunk({ pending_checks: ["faces"] })).nsfw_config?.enabled).toBe(false);
     expect(mergeChunk(null, chunk({ pending_checks: undefined })).nsfw_config?.enabled).toBe(true);
@@ -137,5 +150,15 @@ describe("mergeChunk preserves a previous summary's scan fields", () => {
     const merged = mergeChunk(current, chunk({ scan_id: "", folder: "", results: [image("a.jpg")] }));
     expect(merged.scan_id).toBe("kept");
     expect(merged.folder).toBe("/kept");
+  });
+});
+
+// Audit pack-argus-studio-ae86e5a49d: a chunk from another scan never merges into the one on screen.
+describe("mergeChunk across scans", () => {
+  it("starts over for a different scan_id instead of unioning rows", () => {
+    const first = mergeChunk(null, chunk({ scan_id: "s1", results: [image("a.jpg")] }));
+    const other = mergeChunk(first, chunk({ scan_id: "s2", results: [image("b.jpg")] }));
+    expect(other.scan_id).toBe("s2");
+    expect(other.results.map((r) => r.rel_path)).toEqual(["b.jpg"]);
   });
 });

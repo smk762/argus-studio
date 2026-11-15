@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildScanBody, clampShortSide, defaultCuratorConfig, type ImageResult } from "@/components/curator/types";
 import {
   canExport,
+  exportBlockReason,
   isDeletableReject,
   exposedReading,
   framesLeftOut,
@@ -149,6 +150,31 @@ describe("thumbSafety", () => {
   });
 });
 
+describe("under-18 frames with no nudity score", () => {
+  it("holds an under-18 frame whose NudeNet check failed, unrevealably", () => {
+    const failed = image({ nudenet_failed: true, primary_face_attributes: years(15) });
+    expect(thumbSafety(failed, true)).toMatchObject({ blurred: true, revealable: false, label: "Stays blurred" });
+    const adult = image({ nudenet_failed: true, primary_face_attributes: years(30) });
+    expect(thumbSafety(adult, true)).toMatchObject({ revealable: true, label: "NudeNet failed" });
+  });
+
+  it("does not export what display holds", () => {
+    const unscored = image({ primary_face_attributes: years(15) });
+    expect(thumbSafety(unscored, true).revealable).toBe(false);
+    expect(canExport(unscored)).toBe(false);
+    expect(exportBlockReason(unscored)).toContain("not scored");
+
+    const failed = image({ nudenet_failed: true, nsfw: exposed(0.05), primary_face_attributes: years(15) });
+    expect(canExport(failed)).toBe(false);
+    expect(exportBlockReason(failed)).toContain("not scored");
+  });
+
+  it("still exports scored under-18 frames with no exposure, and unscored adults", () => {
+    expect(canExport(image({ nsfw: exposed(0.05), primary_face_attributes: years(15) }))).toBe(true);
+    expect(canExport(image({ primary_face_attributes: years(30) }))).toBe(true);
+  });
+});
+
 describe("scanCheckedNsfw", () => {
   it("is true only when the finished scan says NudeNet ran", () => {
     expect(scanCheckedNsfw({})).toBe(false);
@@ -201,5 +227,13 @@ describe("isDeletableReject", () => {
   it("leaves under-18 exposed frames to their own action", () => {
     expect(isMinorExposed(image(minor))).toBe(true);
     expect(isDeletableReject(image(minor))).toBe(false);
+  });
+});
+
+// Audit pack-argus-studio-055b4d4382: the two never disagree, whatever `passed` holds.
+describe("canExport and exportBlockReason agree", () => {
+  it.each([true, false, null, undefined])("passed = %s", (passed) => {
+    const img = { rel_path: "a.jpg", passed } as unknown as Parameters<typeof canExport>[0];
+    expect(exportBlockReason(img) === null).toBe(canExport(img));
   });
 });

@@ -30,7 +30,7 @@ import type * as Cortex from "@/lib/generated/cortex";
 import type * as Curator from "@/lib/generated/curator";
 import type * as Forge from "@/lib/generated/forge";
 import type * as Proof from "@/lib/generated/proof";
-import type { EvalReport } from "@/lib/proofApi";
+import type { EvalReport, ReportSummary, RunEvalProgress } from "@/lib/proofApi";
 
 /**
  * `T` with the fields `K` always present. A service's schema marks every field
@@ -75,6 +75,9 @@ export type WireChecks = [
   Expect<Fits<Curator.GarmentDetection, GarmentDetection>>,
   // Built from nothing but aliases, so an Omit would only restate them.
   Expect<Fits<Proof.EvalReport, EvalReport>>,
+  // n_refined is optional by hand: older proofs omit it (#230).
+  Expect<Fits<Proof.ReportSummary, ReportSummary>>,
+  Expect<Same<RunEvalProgress, Proof.RunStreamFrame>>,
 
   // The suite's TargetProfile is cortex's, and every pinned service now takes
   // its copy from cortex (curator from v0.15.0, forge from v0.2.0).

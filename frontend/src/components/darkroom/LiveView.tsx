@@ -26,7 +26,7 @@ export function LiveView({ live, onStop, onClear }: { live: LiveState; onStop: (
         <div className="flex flex-wrap items-center gap-3">
           <SectionTitle>Generation</SectionTitle>
           {running ? <Spinner /> : null}
-          <span className="text-sm text-foreground">{live.phase === "error" ? "Stopped" : PHASE_LABEL[live.phase]}</span>
+          <span className="text-sm text-foreground">{refused ? "Refused" : live.phase === "error" ? "Stopped" : PHASE_LABEL[live.phase]}</span>
           <div className="ml-auto flex gap-2">
             {running ? (
               <Button small onClick={onStop} title="Close the stream. Darkroom finishes on its own and keeps the record.">

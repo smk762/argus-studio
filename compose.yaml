@@ -84,7 +84,13 @@ services:
       - ARGUS_SIGHTLINE_URL=${ARGUS_SIGHTLINE_URL-}
       # Footer link to argus-mask's viewer. The `mask` profile runs it on :8109; set this to show the link.
       - ARGUS_MASK_URL=${ARGUS_MASK_URL-}
+      # Footer link, and a link from /darkroom, to argus-assay: argus-mint's own
+      # UI for card drafts, review and publishing (it runs from the argus-mint repo, :3108).
+      - ARGUS_ASSAY_URL=${ARGUS_ASSAY_URL-}
       - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE-${NEXT_PUBLIC_CURATOR_UI_MODE-demo}}
+      # /forge and /proof follow the curator mode unless these are set (#59).
+      - ARGUS_FORGE_UI_MODE=${ARGUS_FORGE_UI_MODE:-}
+      - ARGUS_PROOF_UI_MODE=${ARGUS_PROOF_UI_MODE:-}
       - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH-${NEXT_PUBLIC_CURATOR_SOURCE_PATH-/data/images}}
       - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH-/data/out}}
       - ARGUS_DEVMODE=${ARGUS_DEVMODE-${DEVMODE:-}}
@@ -96,12 +102,24 @@ services:
     profiles: ["lens", "full"]
     # Default: pull the published standalone image (baked EXTRAS=server,local).
     # For a source build (or a different LENS_EXTRAS) add compose.build.yaml.
-    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.11.0}
+    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.12.0}
     ports:
       - "${LENS_PORT:-8100}:8100"
     environment:
       - ARGUS_BACKEND=${ARGUS_BACKEND:-hybrid}
-      - ARGUS_API_KEY=${ARGUS_API_KEY:-}
+      # Backends a caption request may switch to (comma-separated; the default is
+      # always allowed). Empty = any registered backend. A public or shared-GPU
+      # host should set it to ARGUS_BACKEND alone, so no visitor loads a second
+      # model. Lens images before per-request selection (lens#107) ignore it.
+      - ARGUS_ALLOWED_BACKENDS=${ARGUS_ALLOWED_BACKENDS:-}
+      # Hosted caption backends (ARGUS_BACKEND=hf-inference | nvidia-nim | openai |
+      # replicate); each sends the image to that provider. hf-inference and
+      # nvidia-nim work with the published image. openai and replicate also need
+      # their extra: a source build with LENS_EXTRAS=server,local,openai,replicate.
+      - HF_TOKEN=${HF_TOKEN:-}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - REPLICATE_API_TOKEN=${REPLICATE_API_TOKEN:-}
       # Browser origins allowed to call lens. Empty means localhost:3000 only
       # (lens 0.11+), and a write from any other origin gets a 403.
       - LENS_CORS_ORIGINS=${LENS_CORS_ORIGINS:-}
@@ -109,8 +127,17 @@ services:
       # Leave unset to disable; lens's /immich/* endpoints then return 503.
       - IMMICH_URL=${IMMICH_URL:-}
       - IMMICH_API_KEY=${IMMICH_API_KEY:-}
-      # Root the caption page's folder picker browses (GET /folders).
-      - LENS_SOURCE_PATH=/data/images
+      # Root the caption page's folder picker browses (GET /folders), and the
+      # fence for folder and manifest captioning. Lens 0.12+ refuses a manifest
+      # row outside it, and curator exports land in /data/out, so the default is
+      # /data: the parent of every dataset mount below. Narrow it to
+      # /data/images to keep captioning off the exports.
+      - LENS_SOURCE_PATH=${LENS_SOURCE_PATH:-/data}
+      # Lens 0.12+ refuses /caption/url for private, loopback and LAN addresses
+      # (SSRF). Name trusted LAN hosts here, comma-separated; LENS_URL_FETCH=off
+      # refuses every URL.
+      - LENS_URL_ALLOWED_HOSTS=${LENS_URL_ALLOWED_HOSTS:-}
+      - LENS_URL_FETCH=${LENS_URL_FETCH:-}
       - HF_HOME=/root/.cache/huggingface
       - HF_TRUST_REMOTE_CODE=${HF_TRUST_REMOTE_CODE:-false}
       # Prose from an OpenAI-compatible server (Ollama, vLLM, LM Studio), used by
@@ -191,7 +218,7 @@ services:
     # export flow hands off to it. /forge itself works without the curator —
     # point it at any export dir under the shared root.
     profiles: ["curator", "forge", "full"]
-    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.15.0}
+    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.15.1}
     ports:
       - "${CURATOR_PORT:-8101}:8101"
     environment:
@@ -234,6 +261,9 @@ services:
       - ARGUS_CURATOR_NUDENET_WORKERS=${ARGUS_CURATOR_NUDENET_WORKERS:-}
       # EraX second detector, off unless .env sets a URL (no published image).
       - ARGUS_CURATOR_ERAX_URL=${ARGUS_CURATOR_ERAX_URL-}
+      # minor-exposed rule: frame (default) or overlap. Images before the one
+      # that adds it ignore this and keep the overlap rule.
+      - ARGUS_CURATOR_MINOR_EXPOSED=${ARGUS_CURATOR_MINOR_EXPOSED:-frame}
       # Watermark detector for crops, off unless .env sets a URL (no server is
       # bundled). A scan asking for it gets a 503 while the detector is down.
       - ARGUS_CURATOR_WATERMARK_URL=${ARGUS_CURATOR_WATERMARK_URL-}
@@ -311,7 +341,7 @@ services:
     # Default: pull the published image (baked EXTRAS=server,cli). For the full
     # scorer stack (PROOF_EXTRAS=server,cli,score) build via compose.build.yaml.
     # Demo-safe: live GPU eval (POST /run/stream) 403s by default (argus-halo#7).
-    image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-0.2.2}
+    image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-0.3.0}
     ports:
       - "${PROOF_PORT:-8104}:8104"
     environment:
@@ -324,6 +354,9 @@ services:
       # Curator exports; GET /exports lists dirs with a manifest.jsonl here and
       # POST /run/stream name-resolves its `export` field under this root.
       ARGUS_PROOF_EXPORTS_DIR: /data/out
+      # Dev mode (proof 0.3.0+) registers POST /purge… so /proof can delete runs.
+      # Follows DEVMODE like curator and darkroom; PROOF_DEVMODE=0 keeps it off.
+      ARGUS_PROOF_DEVMODE: ${PROOF_DEVMODE-${ARGUS_DEVMODE-${DEVMODE:-}}}
       # Generation backend: a ComfyUI reachable FROM THE CONTAINER. The default
       # targets a ComfyUI on the compose host (see extra_hosts below).
       PROOF_BACKEND: ${PROOF_BACKEND:-comfyui}
@@ -413,9 +446,7 @@ services:
 
   argus-sightline:
     profiles: ["survey"]
-    # Not on GHCR: argus-sightline publishes no image yet, so run this profile
-    # with compose.build.yaml (builds ../argus-sightline, tagged with this name).
-    image: ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.0}
+    image: ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.1}
     ports:
       - "${SIGHTLINE_PORT:-3107}:3000"
     environment:
@@ -445,6 +476,10 @@ services:
       ARGUS_DARKROOM_NUDENET_URL: ${DARKROOM_NUDENET_URL-http://nudenet:8080}
       # Curator's POST /faces?body=true. Empty: records carry no age check.
       ARGUS_DARKROOM_AGE_URL: ${DARKROOM_AGE_URL:-}
+      # minor-exposed rule: frame (any age under 18 + any exposure) or overlap
+      # (the exposure must touch a young person's box). Images before the one
+      # that adds it ignore this.
+      ARGUS_DARKROOM_MINOR_EXPOSED: ${DARKROOM_MINOR_EXPOSED:-frame}
       ARGUS_DARKROOM_OLLAMA_URL: ${DARKROOM_OLLAMA_URL:-}
       ARGUS_DARKROOM_OLLAMA_MODEL: ${DARKROOM_OLLAMA_MODEL:-}
       ARGUS_DARKROOM_THINKING: ${DARKROOM_THINKING:-cascade}

@@ -60,8 +60,18 @@ export interface RuntimeConfig {
   sightlineUrl: string;
   /** Link to argus-mask's viewer (the talking face), or empty for no link. */
   maskUrl: string;
+  /** Link to argus-assay, argus-mint's review UI, or empty for no link. */
+  assayUrl: string;
   /** `demo` = bundled read-only sample, `live` = real backends. */
   curatorUiMode: CuratorUiMode;
+  /**
+   * Whether /forge talks to argus-forge (`live`) or renders the bundled demo.
+   * `ARGUS_FORGE_UI_MODE`, defaulting to {@link curatorUiMode}: a public demo
+   * can keep curator on its sample while forge renders real exports (#59).
+   */
+  forgeUiMode: CuratorUiMode;
+  /** The same for /proof (`ARGUS_PROOF_UI_MODE`): a replay-mode proof serves stored reports. */
+  proofUiMode: CuratorUiMode;
   /** Scan input directory as seen by argus-curator (container path under Docker). */
   curatorSourcePath: string;
   /** Export target directory on the curator host. */
@@ -175,12 +185,22 @@ function resolveLink(source: Record<string, string | undefined>, name: string): 
 }
 
 /** `local` is accepted as a legacy alias for `live`. */
-function resolveUiMode(raw: string | undefined): CuratorUiMode {
+function resolveUiMode(raw: string | undefined, name = "ARGUS_CURATOR_UI_MODE"): CuratorUiMode {
   const mode = (raw ?? "demo").toLowerCase();
   if (mode !== "live" && mode !== "local" && mode !== "demo") {
-    console.warn(`[argus] ARGUS_CURATOR_UI_MODE="${raw}" is not recognised; falling back to demo.`);
+    console.warn(`[argus] ${name}="${raw}" is not recognised; falling back to demo.`);
   }
   return mode === "live" || mode === "local" ? "live" : "demo";
+}
+
+/** A stage's own UI mode when `name` is set, else the curator mode it has always followed. */
+function resolveStageMode(
+  source: Record<string, string | undefined>,
+  name: string,
+  curator: CuratorUiMode,
+): CuratorUiMode {
+  const raw = firstNonEmpty(source, [name]);
+  return raw === undefined ? curator : resolveUiMode(raw, name);
 }
 
 /** `1`, `true`, `yes` or `on`, in any case. Anything else is off. */
@@ -195,6 +215,9 @@ function resolveFlag(raw: string | undefined): boolean {
 export function resolveRuntimeConfig(
   source: Record<string, string | undefined>,
 ): RuntimeConfig {
+  const curatorUiMode = resolveUiMode(
+    firstNonEmpty(source, ["ARGUS_CURATOR_UI_MODE", "NEXT_PUBLIC_CURATOR_UI_MODE"]),
+  );
   return {
     lensUrl: resolveBase(source, ["ARGUS_LENS_URL", "NEXT_PUBLIC_API_URL"], "http://localhost:8100"),
     curatorUrl: resolveBase(source, ["ARGUS_CURATOR_URL", "NEXT_PUBLIC_CURATOR_URL"], "http://localhost:8101"),
@@ -208,9 +231,10 @@ export function resolveRuntimeConfig(
     safelightUrl: resolveLink(source, "ARGUS_SAFELIGHT_URL"),
     sightlineUrl: resolveLink(source, "ARGUS_SIGHTLINE_URL"),
     maskUrl: resolveLink(source, "ARGUS_MASK_URL"),
-    curatorUiMode: resolveUiMode(
-      firstNonEmpty(source, ["ARGUS_CURATOR_UI_MODE", "NEXT_PUBLIC_CURATOR_UI_MODE"]),
-    ),
+    assayUrl: resolveLink(source, "ARGUS_ASSAY_URL"),
+    curatorUiMode,
+    forgeUiMode: resolveStageMode(source, "ARGUS_FORGE_UI_MODE", curatorUiMode),
+    proofUiMode: resolveStageMode(source, "ARGUS_PROOF_UI_MODE", curatorUiMode),
     curatorSourcePath:
       firstNonEmpty(source, ["ARGUS_CURATOR_SOURCE_PATH", "NEXT_PUBLIC_CURATOR_SOURCE_PATH"]) ?? "",
     curatorOutputPath:
@@ -238,7 +262,10 @@ const STATIC_DEMO_CONFIG: RuntimeConfig = {
   safelightUrl: "",
   sightlineUrl: "",
   maskUrl: "",
+  assayUrl: "",
   curatorUiMode: "demo",
+  forgeUiMode: "demo",
+  proofUiMode: "demo",
   curatorSourcePath: "/data/images",
   curatorOutputPath: "/data/out",
   devMode: false,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BatchCaptionResult, CaptionResult, CaptionRequest } from "@/types";
+import type { BatchCaptionResult, BatchCaptionRow, CaptionResult, CaptionRequest } from "@/types";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
@@ -28,25 +28,32 @@ import {
   type HybridBalanceValue,
 } from "@/components/HybridBalance";
 import {
+  backendsLabel,
   captionFilesStream,
   captionFolder,
   captionManifestStream,
+  captionUrl,
   categoryOptions,
+  backendField,
+  getLensBackends,
   getLensHealth,
   getLensProfiles,
   immichCaptionStream,
   listImmichAlbums,
   listLensFolders,
   type ImmichAlbum,
+  type LensBackendInfo,
 } from "@/lib/lensApi";
+import { LensBackends } from "@/components/LensBackends";
 import { finalChoice } from "@/lib/captionFinal";
+import { bucketsOf } from "@/lib/captionFacets";
 import { sizedForBackend, tokenBudget, tokenBudgetsOf } from "@/lib/captionTokens";
-import { asError } from "@/lib/apiError";
-import { lensUrl } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { RECORDED_CAPTION, RECORDED_CAPTION_IMAGE } from "@/lib/lensSample";
-import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { ExternalLink } from "@/components/ExternalLink";
+import { MadeWith } from "@/components/MadeWith";
+import { lensCaptionCommand } from "@/lib/madeWith";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
 
@@ -115,6 +122,13 @@ export default function Home() {
     { kind: "url"; url: string } | { kind: "upload"; file: File } | null
   >(null);
   const [lensVersion, setLensVersion] = useState<string | null>(null);
+  // The bare /health version, for the "Made with" line (lensVersion also carries the backend count).
+  const [lensRelease, setLensRelease] = useState<string | null>(null);
+  // What /backends reported (#69); null until it answers, and in the static demo.
+  const [backendInfo, setBackendInfo] = useState<LensBackendInfo | null>(null);
+  // The caption backend picked for requests; "" = the server default. Not targetBackend,
+  // which sizes captions for the model being trained.
+  const [captionBackend, setCaptionBackend] = useState("");
   // The live blob URL for an uploaded preview (revoked before it's replaced).
   const objectUrlRef = useRef<string | null>(null);
   // True once the user picks a preset/slider, so a late /profiles response
@@ -154,21 +168,19 @@ export default function Home() {
         // Version from /health (newer lens), backend readiness from /backends;
         // tolerate either being missing so older servers still show status.
         // getLensHealth also primes the memo lens's write fetchers gate on (#105).
-        const [healthResp, backendsResp] = await Promise.allSettled([
-          getLensHealth(),
-          fetch(`${lensUrl()}/backends`),
-        ]);
+        const [healthResp, backendsResp] = await Promise.allSettled([getLensHealth(), getLensBackends()]);
         let version = "";
-        if (healthResp.status === "fulfilled" && healthResp.value.version) version = `v${healthResp.value.version}`;
-        let backendsLabel = "";
-        if (backendsResp.status === "fulfilled" && backendsResp.value.ok) {
-          const data: { backends?: Record<string, { available?: boolean }> } = await backendsResp.value.json();
-          const backends = Object.values(data.backends ?? {});
-          const available = backends.filter((b) => b?.available).length;
-          backendsLabel = backends.length > 0 ? `${available}/${backends.length} backends` : "connected";
+        if (healthResp.status === "fulfilled" && healthResp.value.version) {
+          version = `v${healthResp.value.version}`;
+          if (!cancelled) setLensRelease(healthResp.value.version);
+        }
+        let label = "";
+        if (backendsResp.status === "fulfilled") {
+          label = backendsLabel(backendsResp.value.backends) || "connected";
+          if (!cancelled) setBackendInfo(backendsResp.value);
         }
         // Empty string = unreachable (renders the red banner).
-        if (!cancelled) setLensVersion([version, backendsLabel].filter(Boolean).join(" · "));
+        if (!cancelled) setLensVersion([version, label].filter(Boolean).join(" · "));
       } catch {
         if (!cancelled) setLensVersion("");
       }
@@ -228,17 +240,10 @@ export default function Home() {
         target_backend: targetBackend,
         prose_enrichment: proseEnrichment,
         ...hybridRequestFields(hybrid),
+        ...backendField(captionBackend, backendInfo),
       };
 
-      const resp = await fetch(`${lensUrl()}/caption/url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!resp.ok) await asError(resp);
-
-      const data: CaptionResult = await resp.json();
+      const data = await captionUrl(body);
       showResult(data, targetBackend);
       setAnalyzedUrl(url);
       setLastSingle({ kind: "url", url });
@@ -254,6 +259,14 @@ export default function Home() {
     void runUrl(imageUrl.trim());
   };
 
+  // The tab on screen now, and the newest folder run, for a run that finishes
+  // after the user moved on: its result and hand-off must not land in another tab.
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  const folderRun = useRef(0);
+
   const runFolder = async () => {
     // Snapshot the path for this run: the input stays editable while captioning
     // streams, so reading state again after the await could label the results
@@ -264,6 +277,7 @@ export default function Home() {
     setError(null);
     setBatchResult(null);
     setCaptionedFolder(null);
+    const run = ++folderRun.current;
     try {
       const data = await captionFolder({
         folder,
@@ -275,14 +289,20 @@ export default function Home() {
         target_category: targetCategory,
         target_backend: targetBackend,
         prose_enrichment: proseEnrichment,
+        include_buckets: true,
         ...hybridRequestFields(hybrid),
+        ...backendField(captionBackend, backendInfo),
       });
+      // The sidecars are written either way; only what this page shows is skipped.
+      if (run !== folderRun.current || modeRef.current !== "folder") return;
       setBatchResult(data);
       setBatchSource(folder);
       // Sidecars are what forge sizes a dataset from: without them the folder
       // has images and no captions, and the next stage has nothing to read.
       if (writeSidecar && data.captioned > 0) setCaptionedFolder(folder);
     } catch (err) {
+      // Like a result, a stale run's failure must not land in another tab.
+      if (run !== folderRun.current || modeRef.current !== "folder") return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
@@ -298,7 +318,7 @@ export default function Home() {
     setCaptionedFolder(null);
     setBatchSource(manifestFile.name);
 
-    const rows: { rel_path: string; final_caption: string }[] = [];
+    const rows: BatchCaptionRow[] = [];
     const errors: { rel_path: string; error: string }[] = [];
     try {
       const manifestText = await manifestFile.text();
@@ -312,7 +332,7 @@ export default function Home() {
         (p) => {
           setProgress({ done: p.done, total: p.total });
           if (p.error) errors.push({ rel_path: p.rel_path, error: p.error });
-          else rows.push({ rel_path: p.rel_path, final_caption: p.final_caption ?? "" });
+          else rows.push({ rel_path: p.rel_path, final_caption: p.final_caption ?? "", metadata: p.metadata });
           // Publish a growing snapshot so captions stream into the results table.
           setBatchResult({
             total: p.total,
@@ -327,6 +347,8 @@ export default function Home() {
           write_xmp: writeXmp,
           xmp_overwrite: writeXmp && xmpOverwrite,
           export_root: manifestExportRoot,
+          include_buckets: true,
+          ...backendField(captionBackend, backendInfo),
         },
       );
       setBatchResult({ ...summary, results: rows, errors });
@@ -354,6 +376,7 @@ export default function Home() {
           target_category: targetCategory,
           target_backend: targetBackend,
           ...hybridRequestFields(hybrid),
+          ...backendField(captionBackend, backendInfo),
         },
         (_row, done) => setProgress({ done, total: files.length }),
       );
@@ -374,7 +397,11 @@ export default function Home() {
           total: files.length,
           captioned: rows.length,
           failed: skipped + errors.length,
-          results: rows.map((r) => ({ rel_path: r.name, final_caption: r.final_caption })),
+          results: rows.map((r) => ({
+            rel_path: r.name,
+            final_caption: r.final_caption,
+            metadata: { buckets: bucketsOf(r.metadata) },
+          })),
           errors: [
             ...errors.map((e) => ({ rel_path: e.name, error: e.error })),
             ...(skipped > 0
@@ -400,7 +427,7 @@ export default function Home() {
     setBatchResult(null);
     setCaptionedFolder(null);
     setProgress(null);
-    const rows: { rel_path: string; final_caption: string }[] = [];
+    const rows: BatchCaptionRow[] = [];
     const errors: { rel_path: string; error: string }[] = [];
     try {
       const summary = await immichCaptionStream(
@@ -412,6 +439,7 @@ export default function Home() {
           prose_enrichment: proseEnrichment,
           write_back: writeBack,
           ...hybridRequestFields(hybrid),
+          ...backendField(captionBackend, backendInfo),
         },
         (p) => {
           setProgress({ done: p.done, total: p.total });
@@ -484,16 +512,31 @@ export default function Home() {
         logo={{ letter: "A" }}
         title="Argus Lens"
         subtitle="Structured image captioning for training & generation"
-        badge={STATIC_DEMO ? <RecordedBadge /> : <ApiVersionBadge label="argus-lens" version={lensVersion} />}
+        badge={STATIC_DEMO ? <DemoBadge state="recorded" /> : <ApiVersionBadge label="argus-lens" version={lensVersion} />}
       />
 
       {/* Main content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
+      <main id="main" tabIndex={-1} className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
+        <MadeWith
+          pkg="lens"
+          verb="Captioned by"
+          version={STATIC_DEMO ? (RECORDED_CAPTION.metadata.lens_version as string | undefined) : lensRelease}
+          command={
+            result
+              ? lensCaptionCommand({
+                  backend: result.backend_name,
+                  category: result.selected_category,
+                  targetBackend: resultBackend,
+                })
+              : lensCaptionCommand({ backend: backendInfo?.default })
+          }
+          className="mb-4"
+        />
         {/* Input form */}
         <div className="mb-8">
           {STATIC_DEMO && (
             <div className="mb-6">
-              <RecordedDemoNote summary="one real argus-lens caption run, replayed below.">
+              <RecordedDemoNote summary="One real argus-lens caption run, replayed below.">
                 The parameters show what each knob does; changing them needs a running argus-lens.
               </RecordedDemoNote>
             </div>
@@ -517,7 +560,7 @@ export default function Home() {
                   setCaptionedFolder(null);
                 }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-                  mode === m ? "bg-accent-purple text-white" : "text-muted hover:text-foreground"
+                  mode === m ? "bg-accent-purple text-on-accent" : "text-muted hover:text-foreground"
                 }`}
               >
                 {MODE_LABELS[m]}
@@ -540,7 +583,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={loading || !imageUrl.trim()}
-                className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
               >
                 {loading ? <Spinner label="Analyzing..." /> : "Analyze"}
               </button>
@@ -579,7 +622,7 @@ export default function Home() {
                   type="button"
                   onClick={() => void runUpload()}
                   disabled={loading || uploadFiles.length === 0}
-                  className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {loading ? (
                     <Spinner label="Captioning..." />
@@ -596,12 +639,12 @@ export default function Home() {
           {mode === "immich" && (
             <div className="mb-6 space-y-3">
               <p className="text-xs text-muted">
-                Caption an <ExternalLink className="text-accent-purple hover:text-accent-purple/80" href="https://immich.app">Immich</ExternalLink>{" "}
+                Caption an <ExternalLink className="text-accent-purple-ink hover:text-accent-purple-ink" href="https://immich.app">Immich</ExternalLink>{" "}
                 album straight from your photo server — nothing is copied into the dataset. With write-back enabled,
                 each caption is pushed to the asset&apos;s description in Immich.
               </p>
               {immichError ? (
-                <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-accent-red">
+                <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-accent-red-ink">
                   {immichError}
                   <span className="block mt-1 text-muted">
                     Set <span className="font-mono">IMMICH_URL</span> and{" "}
@@ -630,7 +673,7 @@ export default function Home() {
                     type="button"
                     onClick={() => void runImmich()}
                     disabled={loading || !albumId}
-                    className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                    className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                   >
                     {loading ? <Spinner label="Captioning..." /> : "Caption album"}
                   </button>
@@ -663,7 +706,7 @@ export default function Home() {
                   type="button"
                   onClick={() => void runFolder()}
                   disabled={loading || !folderPath.trim()}
-                  className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {loading ? <Spinner label="Captioning..." /> : "Caption folder"}
                 </button>
@@ -689,13 +732,13 @@ export default function Home() {
                   type="file"
                   accept=".jsonl,.json,application/x-ndjson"
                   onChange={(e) => setManifestFile(e.target.files?.[0] ?? null)}
-                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-accent-purple/20 file:px-3 file:py-1.5 file:text-accent-purple"
+                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-accent-purple/20 file:px-3 file:py-1.5 file:text-accent-purple-ink"
                 />
                 <button
                   type="button"
                   onClick={() => void runManifest()}
                   disabled={loading || !manifestFile}
-                  className="px-6 py-3 rounded-lg bg-accent-purple text-white font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                  className="px-6 py-3 rounded-lg bg-accent-purple text-on-accent font-medium text-sm hover:bg-accent-purple/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {loading ? <Spinner label="Captioning..." /> : "Caption manifest"}
                 </button>
@@ -736,7 +779,7 @@ export default function Home() {
                     onClick={() => setTargetStyle(style)}
                     className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                       targetStyle === style
-                        ? "bg-accent-purple text-white"
+                        ? "bg-accent-purple text-on-accent"
                         : "bg-surface border border-border text-foreground hover:bg-surface-hover"
                     }`}
                   >
@@ -813,11 +856,13 @@ export default function Home() {
               <HybridBalance presets={hybridPresets} value={hybrid} onChange={onHybridChange} />
             </div>
           )}
+
+          <LensBackends info={backendInfo} choice={captionBackend} onChoose={setCaptionBackend} />
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-6 p-4 rounded-lg border border-accent-red/30 bg-accent-red/5 text-accent-red text-sm">
+          <div className="mb-6 p-4 rounded-lg border border-accent-red/30 bg-accent-red/5 text-accent-red-ink text-sm">
             {error}
           </div>
         )}
@@ -873,7 +918,7 @@ export default function Home() {
               )}
               <div className="px-1 flex items-center gap-2">
                 <span className="text-xs text-muted">Backend:</span>
-                <span className="text-xs text-accent-purple font-medium">
+                <span className="text-xs text-accent-purple-ink font-medium">
                   {result.backend_name}
                 </span>
               </div>
@@ -883,14 +928,14 @@ export default function Home() {
                   type="button"
                   onClick={recaptionLast}
                   disabled={loading}
-                  className="w-full px-4 py-2.5 rounded-lg border border-accent-purple/40 bg-accent-purple/10 text-accent-purple text-sm font-medium hover:bg-accent-purple/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  className="w-full px-4 py-2.5 rounded-lg border border-accent-purple/40 bg-accent-purple/10 text-accent-purple-ink text-sm font-medium hover:bg-accent-purple/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 >
                   {loading ? (
                     <Spinner label="Re-captioning..." />
                   ) : (
                     <>
                       Re-caption with this balance
-                      <span className="ml-1.5 font-mono text-xs text-accent-purple/70">
+                      <span className="ml-1.5 font-mono text-xs text-accent-purple-ink">
                         {hybrid.proseBias != null
                           ? `prose_bias ${hybrid.proseBias.toFixed(2)}`
                           : hybrid.preset}
@@ -937,7 +982,7 @@ export default function Home() {
                 />
               </svg>
             </div>
-            <h2 className="text-lg font-medium text-foreground/60 mb-1">
+            <h2 className="text-lg font-medium text-muted mb-1">
               {mode === "url"
                 ? "Paste an image URL to get started"
                 : mode === "upload"
@@ -991,7 +1036,7 @@ export default function Home() {
         poweredBy={
           <ExternalLink
             href="https://github.com/smk762/argus-lens"
-            className="text-accent-purple hover:text-accent-purple/80 transition-colors"
+            className="text-accent-purple-ink hover:text-accent-purple-ink transition-colors"
           >
             argus-lens
           </ExternalLink>
@@ -1012,7 +1057,7 @@ function ProgressLine({ done, total }: { done: number; total: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="shrink-0 font-mono text-xs tabular-nums text-accent-purple">
+      <span className="shrink-0 font-mono text-xs tabular-nums text-accent-purple-ink">
         {done} / {total}
       </span>
     </div>
@@ -1100,7 +1145,7 @@ function PipelineStep({
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex items-center gap-2 mb-2">
-        <span className="w-6 h-6 rounded-full bg-accent-purple/20 border border-accent-purple/40 flex items-center justify-center text-xs font-bold text-accent-purple">
+        <span className="w-6 h-6 rounded-full bg-accent-purple/20 border border-accent-purple/40 flex items-center justify-center text-xs font-bold text-accent-purple-ink">
           {number}
         </span>
         <span className="text-sm font-medium text-foreground">{title}</span>

@@ -25,11 +25,11 @@ import { STATIC_DEMO, demoAsset } from "@/lib/staticDemo";
  */
 
 /** The live map of the island bake the bundled jobs are chunks of. */
-export const REALMS_URL = "https://realms.dragonhound.dev";
+export { ATLAS_URL } from "@/lib/staticDemo";
 
 /**
  * Jobs whose PMTiles archive is bundled in the static demo. None are, to keep
- * the export small (each is 1.6-3 MB): every job links to {@link REALMS_URL},
+ * the export small (each is 1.6-3 MB): every job links to {@link ATLAS_URL},
  * which serves the same archives as a live map.
  */
 export const DEMO_BUNDLED_ARCHIVES: ReadonlySet<string> = new Set<string>();

@@ -154,6 +154,10 @@ export function randomSeed(): number {
 /** One wording, shared with the client's refusal. */
 export const READ_ONLY_BLOCK = DARKROOM_READ_ONLY_REASON;
 
+/** Why Check and Generate are off in the static demo, which has no darkroom behind it. */
+export const DEMO_GENERATE_BLOCK =
+  "Generating needs a running argus-darkroom with its backends. This demo only replays recorded history.";
+
 /** Generate is offered only when darkroom answers and SingGuard is reachable. The reason otherwise. */
 export function generateBlock(health: Health | null, error: string | null, state: ComposeState, policies: Policies | null): string | null {
   if (error) return `Darkroom is not reachable: ${error}`;
@@ -161,6 +165,11 @@ export function generateBlock(health: Health | null, error: string | null, state
   if (health.read_only) return READ_ONLY_BLOCK;
   if (!health.backends.singguard) return "SingGuard is unreachable. Darkroom never runs unguarded.";
   if (!health.backends.comfyui) return "ComfyUI is unreachable.";
+  // Any enforcing policy this server can't enforce (an NSFW one without --allow-nsfw, an
+  // SFW one without NudeNet), e.g. one restored from an old record.
+  const own = policyByName(policies, state.enforcingPolicy);
+  const blocked = own ? enforceBlock(own) : null;
+  if (blocked) return blocked;
   if (policyMode(policies, state.enforcingPolicy) === "sfw" && !health.sfw_available) return "SFW generation needs NudeNet, which this server does not have.";
   if (!state.userPrompt.trim()) return "Write a prompt first.";
   return null;

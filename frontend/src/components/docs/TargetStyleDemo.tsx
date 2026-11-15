@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DemoCard, DemoFact, DemoFacts, SegmentedButtons } from "@/components/docs/DemoPrimitives";
 import { TARGET_STYLES } from "@/types";
 
 /**
@@ -37,60 +38,33 @@ export function TargetStyleDemo() {
   const demo = STYLE_DEMO[style];
 
   return (
-    <div className="not-prose my-6 rounded-xl border border-border bg-surface p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted">Try it</span>
-        <span className="text-xs text-muted">styles from the Caption tool</span>
-      </div>
+    <DemoCard aside="styles from the Caption tool">
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {TARGET_STYLES.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setStyle(s)}
-            aria-pressed={style === s}
-            className={
-              style === s
-                ? "cursor-pointer rounded-lg bg-accent-purple px-3 py-1.5 text-sm font-medium text-white"
-                : "cursor-pointer rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-surface-hover"
-            }
-          >
-            {STYLE_LABELS[s] ?? s}
-          </button>
-        ))}
-      </div>
+      <SegmentedButtons
+        label="Target style"
+        options={TARGET_STYLES.map((s) => ({ value: s as string, label: STYLE_LABELS[s] ?? s }))}
+        value={style}
+        onChange={setStyle}
+      />
 
       {demo ? (
-        <dl className="space-y-3 text-sm">
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
-              What it does
-            </dt>
-            <dd className="mt-1 text-foreground/80">{demo.blurb}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Caption shape (example)
-            </dt>
-            <dd className="mt-1 rounded-lg border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground/90">
-              {demo.caption}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Base checkpoints it suits
-            </dt>
-            <dd className="mt-1 text-foreground/80">{demo.suits}</dd>
-          </div>
-        </dl>
+        <DemoFacts>
+          <DemoFact term="What it does">{demo.blurb}</DemoFact>
+          <DemoFact
+            term="Caption shape (example)"
+            className="rounded-lg border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground/90"
+          >
+            {demo.caption}
+          </DemoFact>
+          <DemoFact term="Base checkpoints it suits">{demo.suits}</DemoFact>
+        </DemoFacts>
       ) : (
         // A style the server offers that this page has no worked example for.
         <p className="text-sm text-muted">
-          This server offers <span className="font-mono text-accent-teal/90">{style}</span>. See the
+          This server offers <span className="font-mono text-accent-teal-ink">{style}</span>. See the
           Caption tool for its output.
         </p>
       )}
-    </div>
+    </DemoCard>
   );
 }

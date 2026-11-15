@@ -12,6 +12,8 @@ export interface CaptionResult {
 
 export interface CaptionRequest {
   image_url: string;
+  /** Caption backend for this request (lens#107); omitted = the server default. Not `target_backend`. */
+  backend?: string;
   target_style?: string;
   target_category?: string;
   target_backend?: string;
@@ -24,6 +26,8 @@ export interface CaptionRequest {
 
 export interface CaptionFolderRequest {
   folder: string;
+  /** Caption backend for this request (lens#107); omitted = the server default. Not `target_backend`. */
+  backend?: string;
   recursive?: boolean;
   write_sidecar?: boolean;
   /**
@@ -44,6 +48,17 @@ export interface CaptionFolderRequest {
   hybrid_preset?: string;
   /** Continuous tag↔prose balance, 0.0 = pure tags .. 1.0 = full prose. Overrides hybrid_preset. */
   prose_bias?: number;
+  /** Add `metadata.buckets` to each row, for facets over the results (lens ≥ 0.11; older lens ignores it). */
+  include_buckets?: boolean;
+}
+
+/**
+ * Lens's category buckets for one caption: each tag and prose fragment filed
+ * under the caption category it describes (`unclassified` when none claims it).
+ */
+export interface CaptionBuckets {
+  tags?: Record<string, string[]>;
+  prose?: Record<string, string[]>;
 }
 
 /** Per-image row returned by /caption/folder and /caption/manifest. */
@@ -52,6 +67,8 @@ export interface BatchCaptionRow {
   final_caption: string;
   /** Where the .xmp sidecar was written, when write_xmp wrote one (lens ≥ 0.7). */
   xmp_path?: string;
+  /** Present when the request set `include_buckets` (lens ≥ 0.11), and on upload rows. */
+  metadata?: { buckets?: CaptionBuckets };
 }
 
 export interface BatchCaptionError {

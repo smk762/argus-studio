@@ -1,16 +1,29 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Tooltip } from "@/components/Tooltip";
 
 type Tone = "primary" | "neutral" | "danger";
 
 const BUTTON_TONE: Record<Tone, string> = {
-  primary: "bg-accent-purple text-white hover:bg-accent-purple/80 disabled:hover:bg-accent-purple",
+  primary: "bg-accent-purple text-on-accent hover:bg-accent-purple/80 disabled:hover:bg-accent-purple",
   neutral: "bg-surface-hover text-foreground hover:bg-border disabled:hover:bg-surface-hover",
-  danger: "bg-accent-red/15 text-accent-red border border-accent-red/40 hover:bg-accent-red/25 disabled:hover:bg-accent-red/15",
+  danger: "bg-accent-red/15 text-accent-red-ink border border-accent-red/40 hover:bg-accent-red/25 disabled:hover:bg-accent-red/15",
 };
 
-export function Button({ tone = "neutral", small = false, className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: Tone; small?: boolean }) {
+/**
+ * A darkroom button. A `title` is shown with the shared Tooltip instead of the
+ * native one (#197): it opens on keyboard focus, shows on a disabled button,
+ * and reaches screen readers as the button's description.
+ */
+export function Button({ tone = "neutral", small = false, className = "", title, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: Tone; small?: boolean }) {
   const size = small ? "px-2.5 py-1 text-xs" : "px-3.5 py-2 text-sm";
-  return <button type="button" {...props} className={`inline-flex items-center gap-1.5 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${size} ${BUTTON_TONE[tone]} ${className}`} />;
+  const button = <button type="button" {...props} className={`inline-flex items-center gap-1.5 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${size} ${BUTTON_TONE[tone]} ${className}`} />;
+  return title ? (
+    <Tooltip text={title} describe>
+      {button}
+    </Tooltip>
+  ) : (
+    button
+  );
 }
 
 export function Badge({ children, className = "", title }: { children: ReactNode; className?: string; title?: string }) {
@@ -34,7 +47,7 @@ export function Notice({ tone = "info", children, className = "" }: { tone?: "in
   const word = { info: "Note", warning: "Warning", error: "Error" };
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`rounded-md border bg-surface-hover/60 px-3 py-2 text-sm ${tones[tone]} ${className}`}>
-      <span className={`mr-2 font-semibold ${tone === "warning" ? "text-accent-amber" : tone === "error" ? "text-accent-red" : "text-accent-blue"}`}>{word[tone]}:</span>
+      <span className={`mr-2 font-semibold ${tone === "warning" ? "text-accent-amber-ink" : tone === "error" ? "text-accent-red-ink" : "text-accent-blue-ink"}`}>{word[tone]}:</span>
       {children}
     </div>
   );

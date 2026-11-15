@@ -1,74 +1,45 @@
 /**
- * The light/dark choice, ported from argus-safelight. It is `data-theme` on
- * <html>: "light" or "dark", or absent for the system preference, which
- * globals.css follows with a media query and so needs no script at all.
+ * Light/dark is the Dragonhound shared script, public/dh-theme.js (a copy of
+ * vendor/dh/dh-theme.js; see dhShared.test.ts). It runs blocking in <head>, sets
+ * `data-theme` on <html> before the first paint from a `dh-theme` cookie (Domain
+ * .dragonhound.dev on the live hosts, so the choice follows you between the
+ * family's sites), handles clicks on any `[data-dh-theme-toggle]` button and keeps
+ * their `aria-pressed` in step, also for buttons mounted later.
+ *
+ * React only reads the effective scheme through the script's API (`dhTheme`),
+ * for labels; it never writes the theme or `aria-pressed` itself.
  */
 
-export type Theme = "system" | "light" | "dark";
+type Scheme = "light" | "dark";
 
-export const THEME_KEY = "argus-studio-theme";
-export const THEME_ORDER: readonly Theme[] = ["system", "light", "dark"];
-
-/**
- * Inlined at the top of <head>, so a saved choice is on <html> before the first
- * paint and before hydration. It can only ever add `data-theme`, which is why
- * <html> carries `suppressHydrationWarning`. Like the runtime-config script it
- * carries the request's CSP nonce (src/proxy.ts); if a policy ever blocks it
- * the page follows the system preference and the toggle still works until the
- * next load.
- */
-export const THEME_BOOT = `try{var t=localStorage.getItem(${JSON.stringify(THEME_KEY)});if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
-
-const listeners = new Set<() => void>();
-
-function parseTheme(saved: string | null): Theme {
-  return saved === "light" || saved === "dark" ? saved : "system";
+interface DhTheme {
+  get(): Scheme | null;
+  effective(): Scheme;
+  set(theme: Scheme | null): void;
+  subscribe(listener: (detail: { theme: Scheme; stored: Scheme | null; source: string }) => void): () => void;
 }
 
-export function readTheme(): Theme {
-  try {
-    return parseTheme(localStorage.getItem(THEME_KEY));
-  } catch {
-    return "system";
+declare global {
+  interface Window {
+    dhTheme?: DhTheme;
   }
 }
 
-/** What the server renders. It can't see the choice, so the toggle's own markup must not depend on it. */
-export const serverTheme = (): Theme => "system";
-
-function setRoot(theme: Theme): void {
-  const root = document.documentElement;
-  if (theme === "system") delete root.dataset.theme;
-  else root.dataset.theme = theme;
+/** The scheme on screen now. Falls back to the system's if dh-theme.js did not run. */
+export function effectiveScheme(): Scheme {
+  if (window.dhTheme) return window.dhTheme.effective();
+  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-/** Applies the choice and remembers it. */
-export function applyTheme(theme: Theme): void {
-  setRoot(theme);
-  try {
-    if (theme === "system") localStorage.removeItem(THEME_KEY);
-    else localStorage.setItem(THEME_KEY, theme);
-  } catch {
-    // Private mode: the choice lasts for this page only.
-  }
-  for (const listener of listeners) listener();
-}
+/** Server snapshot: unknown, rendered as light until hydration reads the real one. */
+export const serverScheme = (): Scheme => "light";
 
-/** Calls `listener` on a change here or in another tab, which also repaints this one. */
-export function subscribeTheme(listener: () => void): () => void {
-  listeners.add(listener);
-  const onStorage = (event: StorageEvent) => {
-    if (event.key !== THEME_KEY && event.key !== null) return;
-    setRoot(readTheme());
-    listener();
-  };
-  window.addEventListener("storage", onStorage);
-  return () => {
-    listeners.delete(listener);
-    window.removeEventListener("storage", onStorage);
-  };
-}
-
-export function nextTheme(theme: Theme): Theme {
-  return THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
+/** Calls `listener` when the effective scheme changes (toggle, system, another subdomain). */
+export function subscribeScheme(listener: () => void): () => void {
+  if (window.dhTheme) return window.dhTheme.subscribe(listener);
+  // No dh-theme.js (blocked or not loaded): follow the same media query the
+  // snapshot reads, so labels track an OS scheme change.
+  const mq = matchMedia("(prefers-color-scheme: dark)");
+  mq.addEventListener("change", listener);
+  return () => mq.removeEventListener("change", listener);
 }

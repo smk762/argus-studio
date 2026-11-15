@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   archiveUrl,
   DEMO_BUNDLED_ARCHIVES,
-  REALMS_URL,
+  ATLAS_URL,
   cutTiles,
   getLabels,
   NotTileableError,
@@ -21,6 +21,7 @@ import { BakePanel } from "@/components/atlas/BakePanel";
 import { JobBadges } from "@/components/atlas/JobBadges";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { ExternalLink } from "@/components/ExternalLink";
+import { Tooltip } from "@/components/Tooltip";
 
 export const STATUS_DOT: Record<JobStatus, string> = {
   controls: "bg-muted",
@@ -85,15 +86,18 @@ export function JobView({
   const [tilesRefused, setTilesRefused] = useState<string | null>(null);
   const [showCommands, setShowCommands] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
-  const [collection, setCollection] = useState<LabelCollection | null>(null);
-  const [labelsError, setLabelsError] = useState<string | null>(null);
+  // Each load is tagged with the job and labels file it came from, so a job
+  // without labels (or a refresh that drops them) never shows the last map's names.
+  const [labelsLoad, setLabelsLoad] = useState<
+    { key: string; collection: LabelCollection | null; error: string | null } | null
+  >(null);
 
   const bake = s.bake;
   const tiles = s.tiles;
   const painted = bake ? previewUrl(s.job_id, "fantasy", bake.completed_at) : null;
   const timings = stageTimings(s.timings);
   const relief = reliefSummary(s.relief);
-  // The static demo bundles no archive unless listed; it links to realms instead.
+  // The static demo bundles no archive unless listed; it links to Atlas instead.
   const archiveLinked = !STATIC_DEMO || DEMO_BUNDLED_ARCHIVES.has(s.job_id);
   const blocked = notTileableReason(s);
   const gdalReason = capabilityReason(canGdal, "GDAL is missing on this host, so it cannot cut tiles.");
@@ -101,22 +105,25 @@ export function JobView({
   // Names are drawn by the page, never painted: nothing here touches the raster.
   const labelsRecord = s.labels ?? null;
   const labelsVersion = labelsRecord && labelsRecord.count > 0 ? labelsRecord.file.sha256 : null;
+  const labelsKey = labelsVersion ? `${s.job_id}:${labelsVersion}` : null;
   useEffect(() => {
-    if (!labelsVersion || !showLabels) return;
+    if (!labelsKey || !showLabels) return;
     const ctrl = new AbortController();
     (async () => {
       try {
         const loaded = await getLabels(s.job_id, ctrl.signal);
-        setCollection(loaded);
-        setLabelsError(null);
+        setLabelsLoad({ key: labelsKey, collection: loaded, error: null });
       } catch (err) {
         if (ctrl.signal.aborted) return;
-        setCollection(null);
-        setLabelsError(err instanceof Error ? err.message : "Could not load the labels");
+        const error = err instanceof Error ? err.message : "Could not load the labels";
+        setLabelsLoad({ key: labelsKey, collection: null, error });
       }
     })();
     return () => ctrl.abort();
-  }, [s.job_id, labelsVersion, showLabels]);
+  }, [s.job_id, labelsKey, showLabels]);
+  const current = labelsKey && labelsLoad?.key === labelsKey ? labelsLoad : null;
+  const collection = current?.collection ?? null;
+  const labelsError = current?.error ?? null;
   const placed = useMemo(() => (collection ? placeLabels(collection, s.grid) : null), [collection, s.grid]);
 
   const tile = async () => {
@@ -186,7 +193,7 @@ export function JobView({
               type="button"
               onClick={() => setBase(k)}
               className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
-                base === k ? "border-accent-blue/60 bg-accent-blue/10 text-accent-blue" : "border-border text-muted hover:bg-surface-hover"
+                base === k ? "border-accent-blue/60 bg-accent-blue/10 text-accent-blue-ink" : "border-border text-muted hover:bg-surface-hover"
               }`}
             >
               {k}
@@ -201,7 +208,7 @@ export function JobView({
               title={labelsRecord.count === 0 ? `No names survive at z${labelsRecord.zoom}` : labelsRecord.cutoff}
               className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
                 showLabels && labelsRecord.count > 0
-                  ? "border-accent-amber/60 bg-accent-amber/10 text-accent-amber"
+                  ? "border-accent-amber/60 bg-accent-amber/10 text-accent-amber-ink"
                   : "border-border text-muted hover:bg-surface-hover"
               }`}
             >
@@ -262,7 +269,7 @@ export function JobView({
               </span>
             ))}
         </div>
-        {showLabels && labelsError && <p className="text-center text-[11px] text-accent-red">{labelsError}</p>}
+        {showLabels && labelsError && <p className="text-center text-[11px] text-accent-red-ink">{labelsError}</p>}
         {showLabels && placed && (
           <p className="text-center text-[11px] text-muted">
             {placed.total > MAX_LABELS ? `Showing the top ${MAX_LABELS} of ${placed.total} names. ` : ""}
@@ -280,12 +287,12 @@ export function JobView({
         <section className="space-y-2 rounded-xl border border-border bg-surface/50 px-5 py-4">
           <h3 className="text-xs font-semibold tracking-widest text-muted uppercase">Last bake</h3>
           {!bake.aligned && (
-            <p className="text-xs text-accent-red">
+            <p className="text-xs text-accent-red-ink">
               Alignment gate failed{bake.error ? `: ${bake.error}` : ""}. The PNG is kept for inspection; no GeoTIFF was written.
             </p>
           )}
-          {bake.aligned && bake.error && <p className="text-xs text-accent-red">{bake.error}</p>}
-          <dl className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
+          {bake.aligned && bake.error && <p className="text-xs text-accent-red-ink">{bake.error}</p>}
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-xs [overflow-wrap:anywhere] sm:grid-cols-2">
             <div><dt className="inline text-muted">Preset </dt><dd className="inline font-mono">{bake.params.preset ?? "—"}</dd></div>
             {bake.params.recipe && (
               <div><dt className="inline text-muted">Recipe </dt><dd className="inline font-mono">{bake.params.recipe}</dd></div>
@@ -326,7 +333,7 @@ export function JobView({
                 <>
                   <a
                     href={archiveUrl(s.job_id)}
-                    className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
+                    className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue-ink hover:bg-accent-blue/20"
                   >
                     Download fantasy.pmtiles
                   </a>
@@ -335,29 +342,30 @@ export function JobView({
                   </span>
                 </>
               ) : (
-                // Not bundled in the static demo (size); the whole map is browsable on realms.
+                // Not bundled in the static demo (size); the whole map is browsable on Atlas.
                 <ExternalLink
-                  href={REALMS_URL}
-                  className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue hover:bg-accent-blue/20"
+                  href={ATLAS_URL}
+                  className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue-ink hover:bg-accent-blue/20"
                 >
-                  View the full map on realms.dragonhound.dev
+                  View the full map on atlas.dragonhound.dev
                 </ExternalLink>
               )}
             </>
           ) : STATIC_DEMO ? (
             <span className="text-xs text-muted">Not tiled in this recording.</span>
           ) : (
+            <Tooltip text={blocked ?? gdalReason ?? ""} describe>
             <button
               type="button"
               onClick={tile}
               disabled={tiling || blocked !== null || !permits(canGdal)}
-              title={blocked ?? gdalReason ?? undefined}
-              className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {tiling ? "Cutting tiles…" : "Cut PMTiles archive"}
             </button>
+            </Tooltip>
           )}
-          {tilesError && <span className="text-xs text-accent-red">{tilesError}</span>}
+          {tilesError && <span className="text-xs text-accent-red-ink">{tilesError}</span>}
           {!tiles && (tilesRefused ?? blocked) && (
             <div className="w-full">
               <CapabilityNotice reason={tilesRefused ?? blocked} />

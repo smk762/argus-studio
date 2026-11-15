@@ -11,9 +11,9 @@ export function ComposePane() {
   if (live.phase !== "idle") {
     return (
       <section className="space-y-4" aria-labelledby="compose-title">
-        <h1 id="compose-title" className="text-2xl font-semibold text-foreground">
+        <h2 id="compose-title" className="text-2xl font-semibold text-foreground">
           Generate
-        </h1>
+        </h2>
         <LiveView live={live} onStop={stop} onClear={clearLive} />
       </section>
     );
@@ -21,9 +21,9 @@ export function ComposePane() {
   return (
     <section className="space-y-4" aria-labelledby="compose-title">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 id="compose-title" className="text-2xl font-semibold text-foreground">
+        <h2 id="compose-title" className="text-2xl font-semibold text-foreground">
           Generate
-        </h1>
+        </h2>
       </div>
       {preflight.state === "idle" ? (
         <p className="max-w-prose text-sm text-foreground/70">

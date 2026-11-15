@@ -28,7 +28,7 @@ export function StarRating({ value, onChange, size = "md", disabled = false }: S
             aria-label={`${star} star${star > 1 ? "s" : ""}`}
             aria-pressed={filled}
             className={`transition-colors disabled:opacity-40 ${
-              filled ? "text-accent-amber" : "text-muted/40 hover:text-accent-amber/60"
+              filled ? "text-accent-amber-ink" : "text-muted/40 hover:text-accent-amber-ink"
             }`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className={dim}>

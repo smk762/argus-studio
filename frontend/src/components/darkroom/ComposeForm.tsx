@@ -2,15 +2,16 @@
 
 import { useState, type InputHTMLAttributes, type ReactNode } from "react";
 
-import { NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, parseTriggerWords, randomSeed } from "@/lib/darkroom/compose";
+import { DEMO_GENERATE_BLOCK, NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, parseTriggerWords, randomSeed } from "@/lib/darkroom/compose";
 import { THINKING_MODES, type ThinkingMode } from "@/lib/darkroomApi";
+import { STATIC_DEMO } from "@/lib/staticDemo";
 
 import { Tooltip } from "@/components/Tooltip";
 
 import { useCompose } from "./ComposeProvider";
 import { useDarkroom } from "./DarkroomProvider";
 import { PolicyPicker } from "./PolicyPicker";
-import { Button, SectionTitle, Spinner } from "./ui";
+import { Button, Notice, SectionTitle, Spinner } from "./ui";
 
 const FIELD = "w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted disabled:opacity-60";
 const LABEL = "block text-xs uppercase tracking-wide text-muted";
@@ -77,13 +78,15 @@ function TriggerWordsInput({ name, words, onWords }: { name: string; words: stri
 /** The compose form: prompt, models, sampling, policies, thinking mode and the NudeNet blur threshold. Lives in `ComposeDialog`. */
 export function ComposeForm() {
   const { health, policies, models, error } = useDarkroom();
-  const { compose, ready, update, check, preflight, start, stop, running } = useCompose();
+  const { compose, ready, update, check, preflight, start, stop, running, handoff, dismissHandoff } = useCompose();
   const ollamaDown = !canExpand(health);
   const checking = preflight.state === "checking";
-  const block = generateBlock(health, error, compose, policies);
+  // The static demo has nothing to generate with; say so plainly rather than
+  // surfacing the sample's read-only flag or a list of unreachable backends.
+  const block = STATIC_DEMO ? DEMO_GENERATE_BLOCK : generateBlock(health, error, compose, policies);
   const generateTip = block ?? "POST /generate/stream: pre-flight, then render, then the scans";
   const readOnly = health?.read_only === true;
-  const checkTip = readOnly ? READ_ONLY_BLOCK : !compose.userPrompt.trim() ? "Write a prompt first." : "POST /preflight: the text-only check, before anything is generated";
+  const checkTip = STATIC_DEMO ? DEMO_GENERATE_BLOCK : readOnly ? READ_ONLY_BLOCK : !compose.userPrompt.trim() ? "Write a prompt first." : "POST /preflight: the text-only check, before anything is generated";
 
   return (
     <div className="space-y-5">
@@ -91,6 +94,26 @@ export function ComposeForm() {
         <p className="flex items-center gap-2 text-xs text-muted">
           <Spinner /> Loading darkroom&apos;s catalogue…
         </p>
+      ) : null}
+
+      {handoff ? (
+        <Notice tone={handoff.missing.length > 0 ? "warning" : "info"}>
+          {handoff.applied.length > 0 ? (
+            <>
+              From proof run {handoff.from ? <span className="font-mono">{handoff.from}</span> : "a report"}:{" "}
+              <span className="font-mono">{handoff.applied.join(", ")}</span> selected.{" "}
+            </>
+          ) : null}
+          {handoff.missing.length > 0 ? (
+            <>
+              Not in darkroom&apos;s model list, so not selected: <span className="font-mono">{handoff.missing.join(", ")}</span>.
+              The form kept its own choice instead.{" "}
+            </>
+          ) : null}
+          <button type="button" onClick={dismissHandoff} className="text-xs underline underline-offset-2 hover:text-foreground">
+            Dismiss
+          </button>
+        </Notice>
       ) : null}
 
       <Field label="Prompt" htmlFor="prompt">
@@ -103,7 +126,7 @@ export function ComposeForm() {
         <input type="checkbox" id="expand" checked={compose.expand && !ollamaDown} disabled={ollamaDown} onChange={(event) => update({ expand: event.target.checked })} className="mt-1 accent-accent-purple" />
         <label htmlFor="expand" className={`text-sm ${ollamaDown ? "text-muted" : "text-foreground"}`}>
           Expand the prompt with Ollama
-          <span className="block text-xs text-muted">{ollamaDown ? "Disabled: /health reports Ollama unreachable." : "The expanded prompt is shown after Check, and it is the text that gets checked."}</span>
+          <span className="block text-xs text-muted">{STATIC_DEMO ? "Disabled: no Ollama in this demo." : ollamaDown ? "Disabled: /health reports Ollama unreachable." : "The expanded prompt is shown after Check, and it is the text that gets checked."}</span>
         </label>
       </div>
 
@@ -193,7 +216,8 @@ export function ComposeForm() {
             <DraftNumber id="steps" min={1} max={150} value={compose.sampling.steps} onValue={(steps) => update((c) => ({ ...c, sampling: { ...c.sampling, steps: Math.floor(steps) } }))} className={FIELD} />
           </Field>
           <Field label="CFG" htmlFor="cfg">
-            <input id="cfg" type="number" min={0} max={30} step={0.5} value={compose.sampling.cfg} onChange={(event) => update((c) => ({ ...c, sampling: { ...c.sampling, cfg: Number(event.target.value) } }))} className={FIELD} />
+            {/* DraftNumber like the other numeric fields: only an in-range value reaches compose state, never a cleared 0. */}
+            <DraftNumber id="cfg" min={0} max={30} step="0.5" value={compose.sampling.cfg} onValue={(cfg) => update((c) => ({ ...c, sampling: { ...c.sampling, cfg } }))} className={FIELD} />
           </Field>
           <Field label="Width" htmlFor="width">
             <select id="width" value={compose.sampling.width} onChange={(event) => update((c) => ({ ...c, sampling: { ...c.sampling, width: Number(event.target.value) } }))} className={FIELD}>

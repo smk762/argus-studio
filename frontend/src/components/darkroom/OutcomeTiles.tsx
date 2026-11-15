@@ -51,8 +51,8 @@ export function DeletedTile({ record }: { record: GenerationRecord }) {
   return (
     <div role="group" aria-label="Deleted image" className={`flex flex-col justify-center gap-3 border-2 border-accent-red/60 bg-accent-red/5 p-6 ${TILE}`}>
       <div className="flex items-center gap-2">
-        <Badge className="border-accent-red/60 text-accent-red">deleted</Badge>
-        {record.critical ? <Badge className="border-accent-red/60 text-accent-red">critical</Badge> : null}
+        <Badge className="border-accent-red/60 text-accent-red-ink">deleted</Badge>
+        {record.critical ? <Badge className="border-accent-red/60 text-accent-red-ink">critical</Badge> : null}
       </div>
       <p className="text-subheading font-semibold text-foreground">{summary.headline}</p>
       {summary.lines.map((line, index) => (
@@ -110,8 +110,8 @@ export function RefusedPanel({ record }: { record: GenerationRecord }) {
   return (
     <div role="group" aria-label="Refused at pre-flight" className="space-y-4 rounded-lg border-2 border-accent-red/60 bg-accent-red/5 p-5">
       <div className="flex items-center gap-2">
-        <Badge className="border-accent-red/60 text-accent-red">refused</Badge>
-        {record.critical ? <Badge className="border-accent-red/60 text-accent-red">critical</Badge> : null}
+        <Badge className="border-accent-red/60 text-accent-red-ink">refused</Badge>
+        {record.critical ? <Badge className="border-accent-red/60 text-accent-red-ink">critical</Badge> : null}
         <span className="text-sm text-foreground/70">Nothing was generated.</span>
       </div>
       {refusing ? (

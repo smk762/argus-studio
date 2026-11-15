@@ -49,7 +49,8 @@ export function pendingCaption(checks: readonly string[]): string {
 export function rowCounts(rows: readonly ImageResult[]): Pick<ScanSummary, "passed" | "rejected" | "duplicates"> {
   return {
     passed: rows.filter((img) => img.passed).length,
-    rejected: rows.filter((img) => !img.passed).length,
+    // Only a decided reject counts: a row still waiting on checks is neither.
+    rejected: rows.filter((img) => img.passed === false).length,
     duplicates: rows.filter((img) => img.is_duplicate).length,
   };
 }
@@ -59,7 +60,9 @@ export function rowCounts(rows: readonly ImageResult[]): Pick<ScanSummary, "pass
  * batch replaces the same `rel_path`, and a chunk that carries clusters
  * (even `[]`) replaces the ones on screen.
  */
-export function mergeChunk(current: ScanSummary | null, chunk: ScanChunk, requested?: CuratorConfig): ScanSummary {
+export function mergeChunk(previous: ScanSummary | null, chunk: ScanChunk, requested?: CuratorConfig): ScanSummary {
+  // A chunk from another scan starts over: never union two scans' rows.
+  const current = previous && chunk.scan_id && previous.scan_id && previous.scan_id !== chunk.scan_id ? null : previous;
   const byPath = new Map<string, ImageResult>();
   const order: string[] = [];
   for (const img of current?.results ?? []) {
@@ -72,6 +75,17 @@ export function mergeChunk(current: ScanSummary | null, chunk: ScanChunk, reques
   }
   const results = order.map((path) => byPath.get(path)!);
   const base = current ?? emptySummary(chunk, requested);
+  // Chunks carry no `nsfw_config`. A row left unscored must not read as clear
+  // while the scan is asking for nudity, or when an older curator cannot say.
+  // The pending list alone misses a scan whose nudity check had already
+  // finished by the first chunk on screen (one-chunk folders, a reconnect), so
+  // a scored or failed frame, or a requested nudity drop, says so too.
+  const nudityRan =
+    base.nsfw_config?.enabled === true ||
+    chunk.pending_checks === undefined ||
+    chunk.pending_checks.includes("nsfw") ||
+    requested?.prefilter?.drop_nsfw === true ||
+    results.some((img) => img.nsfw != null || img.nudenet_failed === true);
   return {
     ...base,
     scan_id: chunk.scan_id || base.scan_id,
@@ -79,9 +93,7 @@ export function mergeChunk(current: ScanSummary | null, chunk: ScanChunk, reques
     total: Math.max(chunk.total || 0, results.length, base.total || 0),
     ...rowCounts(results),
     face_clusters: chunk.face_clusters !== undefined ? chunk.face_clusters : base.face_clusters,
-    // Chunks carry no `nsfw_config`. A row left unscored must not read as clear
-    // while the scan is asking for nudity, or when an older curator cannot say.
-    nsfw_config: base.nsfw_config?.enabled ? base.nsfw_config : { enabled: chunk.pending_checks?.includes("nsfw") ?? true },
+    nsfw_config: { ...base.nsfw_config, enabled: nudityRan },
     results,
     returned: results.length,
   };

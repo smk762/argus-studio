@@ -1,13 +1,14 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { headers } from "next/headers";
 import { connection } from "next/server";
 import "./globals.css";
 import { runtimeConfig, runtimeConfigScript } from "@/lib/runtimeConfig";
-import { THEME_BOOT } from "@/lib/theme";
 import { DEMO_SITE_URL, STATIC_DEMO } from "@/lib/staticDemo";
-import { DemoBanner } from "@/components/DemoChrome";
+import { DemoStrip } from "@/components/DemoStrip";
+import { CSP_ENV, cspMode, trustedTypesFor } from "@/lib/csp";
+import { trustedTypesPolicyScript } from "@/lib/trustedTypes";
+import { LearnProvider } from "@/components/LearnPanel";
 
 /*
  * LOAD-BEARING: the layout must render per request, not at build time. The API
@@ -32,46 +33,44 @@ import { DemoBanner } from "@/components/DemoChrome";
  * `npm run build` still lists every route as dynamic.
  */
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 const DESCRIPTION = "Structured captioning and dataset curation for LoRA training";
 const DEMO_DESCRIPTION =
   "Argus Studio, the web UI of the Argus suite: acquire, curate, caption, configure, evaluate and bake. " +
   "A static demo with recorded outputs.";
 
+// Per-page titles come from each route's layout.tsx (`<Page> · Argus Studio demo`);
+// this template and default cover the rest. Each route sets its own canonical.
 export const metadata: Metadata = STATIC_DEMO
   ? {
       metadataBase: new URL(DEMO_SITE_URL),
-      title: "Argus Studio — demo",
+      title: { default: "Argus Studio demo · Dragonhound Labs", template: "%s · Argus Studio demo" },
       description: DEMO_DESCRIPTION,
-      alternates: { canonical: "/" },
       openGraph: {
         type: "website",
-        url: DEMO_SITE_URL,
         siteName: "Argus Studio",
-        title: "Argus Studio — demo",
         description: DEMO_DESCRIPTION,
         images: [{ url: "/og.png", width: 1200, height: 630, alt: "Argus Studio caption view" }],
       },
       twitter: {
         card: "summary_large_image",
-        title: "Argus Studio — demo",
         description: DEMO_DESCRIPTION,
         images: ["/og.png"],
       },
     }
   : {
-      title: "Argus Vision",
+      title: { default: "Argus Studio", template: "%s · Argus Studio" },
       description: DESCRIPTION,
     };
+
+// The browser chrome follows the page (S13). These are the family's --dh-bg values;
+// a <meta> can't read a CSS variable.
+export const viewport: Viewport = {
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fbfbf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#121416" },
+  ],
+};
 
 export default async function RootLayout({
   children,
@@ -85,15 +84,34 @@ export default async function RootLayout({
   // The static export has no request (headers() would fail the prerender) and no
   // proxy; scripts/csp.mjs hashes its inline scripts into a <meta> CSP instead.
   const nonce = STATIC_DEMO ? undefined : ((await headers()).get("x-nonce") ?? undefined);
+  // Computed key, as in runtimeConfig.ts and proxy.ts, so the mode stays a runtime setting.
+  const trustedTypes = !STATIC_DEMO && nonce !== undefined && trustedTypesFor(cspMode((process.env as Record<string, string | undefined>)[CSP_ENV]));
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
       suppressHydrationWarning
     >
       <head>
-        {/* First in <head>, and it blocks parsing: a saved theme lands before anything paints. */}
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        {/*
+          Trusted Types dry run (ARGUS_CSP=report-only, #198): a `default` policy
+          that lets only this origin's /_next/static/chunks/*.js through the
+          script-URL sinks Next and React write to. First in <head> so it exists
+          before the framework loads a chunk. Off in every other mode.
+        */}
+        {trustedTypes && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: trustedTypesPolicyScript() }} />}
+        {/*
+          The family theme script (public/dh-theme.js, a copy of vendor/dh/dh-theme.js).
+          A plain blocking <script src>, first in <head>, so the saved choice (the
+          `dh-theme` cookie, shared across *.dragonhound.dev) is on <html> before the
+          first paint. Not next/script: that would load it after hydration and flash.
+          External, so the static export's CSP covers it with 'self' and no hash; the
+          server build's nonce + 'strict-dynamic' policy needs the nonce on it.
+        */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts -- blocking on purpose: it must set the theme before first paint */}
+        <script src="/dh-theme.js" nonce={nonce} />
+        {/* favicon.ico, icon.svg and apple-icon.png sit in src/app/ (argus-cortex brand/mark/favicon/); Next emits their <link> tags. */}
+        <link rel="manifest" href="/site.webmanifest" />
         {/*
           Sets the global `runtimeConfig()` reads, so the client sees the same
           values the server just rendered with.
@@ -105,15 +123,18 @@ export default async function RootLayout({
           `const BASE = curatorUrl()`) — that would race the async chunks and
           bind localhost on some loads and the real value on others.
 
-          Both inline scripts carry the request's CSP nonce from src/proxy.ts;
+          The inline script and dh-theme.js carry the request's CSP nonce from src/proxy.ts;
           Next nonces only its own scripts. If a policy ever blocks this one,
           `runtimeConfig()` logs an error rather than failing quietly.
         */}
         {!STATIC_DEMO && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: runtimeConfigScript(config) }} />}
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {STATIC_DEMO && <DemoBanner />}
-        {children}
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
+        {STATIC_DEMO && <DemoStrip />}
+        <LearnProvider>{children}</LearnProvider>
         {/* Static demo only: a devtools console greeting (public/dragonhound-console.js,
             guarded by window.__dragonhound so it logs once per full page load).
             The live build never loads it. The static CSP (scripts/csp.mjs) allows it as 'self'. */}

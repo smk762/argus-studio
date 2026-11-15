@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,7 +12,8 @@
     "test": "vitest run",
     "wire:types": "node scripts/wire-types.mjs",
     "wire:check": "node scripts/wire-types.mjs --check",
-    "wire:pull": "node scripts/wire-types.mjs --pull"
+    "wire:pull": "node scripts/wire-types.mjs --pull",
+    "docs:links": "node scripts/check-links.mjs"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.1",
@@ -26,6 +27,7 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@antithesishq/bombadil": "0.7.10",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

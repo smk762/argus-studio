@@ -94,6 +94,9 @@ function toQuery(f: Form): ArchiveQuery {
  * does it and streams progress; otherwise (the demo-safe default) the page
  * hands over the `slice.json` and the CLI command that lands it.
  */
+
+/** Most rows one match-set slice asks for: target() clamps the limit to it, and the count shown uses it too. */
+const SLICE_MAX = 5000;
 export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
   const [listing, setListing] = useState<ArchiveListing | null>(null);
   const [archive, setArchive] = useState<string>("");
@@ -166,19 +169,29 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
     return () => ctrl.abort();
   }, [archive, ready]);
 
+  // One search in flight at a time: a fresh search (filter, sort, archive) or
+  // another "Load more" aborts the last, so a stale page is never appended to
+  // a new result set and its `finally` never clears the newer spinner.
+  const searchCtrl = useRef<AbortController | null>(null);
   const load = useCallback(
-    async (offset: number, append: boolean, signal?: AbortSignal) => {
+    async (offset: number, append: boolean) => {
+      searchCtrl.current?.abort();
+      const ctrl = new AbortController();
+      searchCtrl.current = ctrl;
+      const { signal } = ctrl;
       setLoading(true);
       setError(null);
       try {
         const page = await searchArchive(archive, query, { limit: PAGE_SIZE, offset }, signal);
+        if (signal.aborted) return;
         setTotal(page.total);
         setItems((cur) => (append ? [...cur, ...page.items] : page.items));
       } catch (err) {
-        if (signal?.aborted) return;
+        if (signal.aborted) return;
         setError(err instanceof Error ? err.message : "Search failed");
       } finally {
-        if (!signal?.aborted) setLoading(false);
+        if (!signal.aborted) setLoading(false);
+        if (searchCtrl.current === ctrl) searchCtrl.current = null;
       }
     },
     [archive, query],
@@ -186,11 +199,10 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
 
   useEffect(() => {
     if (!ready) return;
-    const ctrl = new AbortController();
     (async () => {
-      await load(0, false, ctrl.signal);
+      await load(0, false);
     })();
-    return () => ctrl.abort();
+    return () => searchCtrl.current?.abort();
   }, [load, ready]);
 
   const apply = (next: Partial<Form>, immediate = true) => {
@@ -265,7 +277,7 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
             />
             <button
               type="submit"
-              className="cursor-pointer rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-3 py-2 text-xs font-medium text-accent-amber hover:bg-accent-amber/20"
+              className="cursor-pointer rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-3 py-2 text-xs font-medium text-accent-amber-ink hover:bg-accent-amber/20"
             >
               Search
             </button>
@@ -367,7 +379,7 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
                   aria-label="year to"
                   className={`${inputClass} w-20`}
                 />
-                <span className="text-[10px] text-muted/70">({compact(facets.dated)} dated)</span>
+                <span className="text-[10px] text-muted">({compact(facets.dated)} dated)</span>
               </span>
             ) : null}
             <select value={form.sort} onChange={(e) => apply({ sort: e.target.value as Form["sort"] })} className={selectClass}>
@@ -483,13 +495,14 @@ function SliceBar({
 
   const useSelection = selected.length > 0;
   const sliceQuery = useMemo<ArchiveQuery>(() => (useSelection ? { ...query, ids: selected } : query), [query, selected, useSelection]);
-  const n = useSelection ? selected.length : Math.min(total, Number(limit) || 0);
+  // The count shown is the count fetched: the same 5000 cap target() sends.
+  const n = useSelection ? selected.length : Math.min(total, Number(limit) || 0, SLICE_MAX);
   const ready = subject.trim() !== "" && n > 0;
 
   const target = () => ({
     category,
     subject: subject.trim(),
-    limit: useSelection ? selected.length : Math.max(1, Math.min(Number(limit) || 100, 5000)),
+    limit: useSelection ? selected.length : Math.max(1, Math.min(Number(limit) || 100, SLICE_MAX)),
   });
 
   const save = async () => {
@@ -591,7 +604,7 @@ function SliceBar({
             type="button"
             onClick={save}
             disabled={!ready}
-            className="cursor-pointer rounded-lg border border-accent-amber/50 bg-accent-amber/10 px-4 py-2 text-sm font-medium text-accent-amber hover:bg-accent-amber/20 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-lg border border-accent-amber/50 bg-accent-amber/10 px-4 py-2 text-sm font-medium text-accent-amber-ink hover:bg-accent-amber/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Download slice.json
           </button>
@@ -632,8 +645,8 @@ function SliceBar({
           </span>
         </div>
       )}
-      {result && <p className="text-xs text-accent-green">{result}</p>}
-      {error && <p className="text-xs text-accent-red">{error}</p>}
+      {result && <p className="text-xs text-accent-green-ink">{result}</p>}
+      {error && <p className="text-xs text-accent-red-ink">{error}</p>}
     </section>
   );
 }
@@ -685,7 +698,7 @@ function ItemDetail({
           </div>
         )}
         <div className="space-y-3 p-4 text-xs">
-          {error && <p className="text-accent-red">{item ? `Showing the grid's copy. Couldn't reload this item: ${error}` : error}</p>}
+          {error && <p className="text-accent-red-ink">{item ? `Showing the grid's copy. Couldn't reload this item: ${error}` : error}</p>}
           {item && (
             <>
               <p className="leading-relaxed text-foreground/90">{item.caption ?? "No caption."}</p>
@@ -709,12 +722,12 @@ function ItemDetail({
                 <Row label="ID" value={item.id} mono />
               </dl>
               {sourceUrl && (
-                <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-accent-amber hover:text-accent-amber/80">
+                <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-accent-amber-ink hover:text-accent-amber-ink">
                   View source ↗
                 </a>
               )}
               {imageUrl && imageUrl !== sourceUrl && (
-                <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-accent-amber hover:text-accent-amber/80">
+                <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-accent-amber-ink hover:text-accent-amber-ink">
                   Full-size image ↗
                 </a>
               )}
@@ -762,7 +775,7 @@ function NotReady({ archive, configured, present }: { archive: string; configure
 }
 
 function ErrorBox({ message }: { message: string }) {
-  return <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 text-sm text-accent-red">{message}</div>;
+  return <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 text-sm text-accent-red-ink">{message}</div>;
 }
 
 function compact(n: number): string {

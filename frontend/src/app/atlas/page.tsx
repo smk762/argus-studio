@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   allowsBake,
   allowsGdal,
@@ -15,10 +15,10 @@ import {
   type AtlasJob,
   type AtlasPreset,
   type JobDigest,
-  REALMS_URL,
+  ATLAS_URL,
 } from "@/lib/atlasApi";
 import { STATIC_DEMO } from "@/lib/staticDemo";
-import { AtlasDataCredits, RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { AtlasDataCredits, DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
@@ -27,6 +27,7 @@ import { JobView, STATUS_DOT } from "@/components/atlas/JobView";
 import { JobBadges } from "@/components/atlas/JobBadges";
 import { DoctorPanel } from "@/components/atlas/DoctorPanel";
 import { ExternalLink } from "@/components/ExternalLink";
+import { MadeWith } from "@/components/MadeWith";
 
 export default function AtlasPage() {
   // version: null = loading, "" = unreachable, else the server version.
@@ -78,13 +79,21 @@ export default function AtlasPage() {
     return () => ctrl.abort();
   }, []);
 
+  // The selection as of now, for loads that finish after the user moved on.
+  const selectedRef = useRef(selected);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
   const loadJob = useCallback(async (jobId: string, signal?: AbortSignal) => {
     try {
       const loaded = await getJob(jobId, signal);
+      // A canvas switched to meanwhile wins: never show A under B's selection.
+      if (selectedRef.current !== jobId) return;
       setJob(loaded);
       setError(null);
     } catch (err) {
-      if (signal?.aborted) return;
+      if (signal?.aborted || selectedRef.current !== jobId) return;
       setError(err instanceof Error ? err.message : "Failed to load job");
       setJob(null);
     }
@@ -102,15 +111,21 @@ export default function AtlasPage() {
   // After controls, a bake or tiles: refresh the list (status dots) and the job.
   const refresh = useCallback(
     async (jobId: string) => {
+      const wasSelected = selectedRef.current === jobId;
       try {
         setJobs(await listJobs());
       } catch {
         // best-effort; the job itself still reloads below
       }
-      if (jobId === selected) await loadJob(jobId);
-      else setSelected(jobId);
+      if (wasSelected) {
+        // Reload only if it is still the one on screen; a switch meanwhile stands.
+        if (selectedRef.current === jobId) await loadJob(jobId);
+      } else {
+        // A new job (e.g. controls just built): select it.
+        setSelected(jobId);
+      }
     },
-    [selected, loadJob],
+    [loadJob],
   );
 
   // After POST /osm: the new extract is only named by /inputs.
@@ -129,10 +144,11 @@ export default function AtlasPage() {
         logo={{ letter: "A" }}
         title="Argus Atlas"
         subtitle="Georeferenced fantasy maps from real terrain"
-        badge={STATIC_DEMO ? <RecordedBadge /> : <ApiVersionBadge label="argus-atlas" version={version} prefix="v" />}
+        badge={STATIC_DEMO ? <DemoBadge state="recorded" /> : <ApiVersionBadge label="argus-atlas" version={version} prefix="v" />}
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+        <MadeWith pkg="atlas" verb="Baked by" version={version} command="argus-atlas controls → bake → tiles" className="mb-4" />
         {unreachable ? (
           <div className="mx-auto max-w-xl space-y-4 py-24 text-center">
             <h2 className="text-lg font-medium text-foreground/70">The argus-atlas server is not running.</h2>
@@ -146,7 +162,7 @@ export default function AtlasPage() {
         ) : (
           <div className="space-y-6">
             {health && health.gdal === null && (
-              <p className="rounded-lg border border-accent-red/30 bg-accent-red/5 px-3 py-2 text-xs text-accent-red">
+              <p className="rounded-lg border border-accent-red/30 bg-accent-red/5 px-3 py-2 text-xs text-accent-red-ink">
                 GDAL is missing on the atlas host, so it cannot build controls or tiles. Use the Docker image, which ships GDAL 3.11.
               </p>
             )}
@@ -166,7 +182,9 @@ export default function AtlasPage() {
                 />
               </>
             )}
-            <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+            {/* minmax(0, …) tracks: an `auto` track grows to its min-content, and a long
+                canvas name (one nowrap line, even when truncated) pushed it past the viewport. */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
               {/* Scrolls on its own beside the job view: a working host holds dozens of canvases. */}
               <aside className="space-y-1 lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
                 <div className="mb-2 text-[10px] uppercase tracking-wide text-muted">Canvases</div>
@@ -175,8 +193,8 @@ export default function AtlasPage() {
                     {STATIC_DEMO ? (
                       <>
                         No recorded jobs in this build. The full map is on{" "}
-                        <ExternalLink href={REALMS_URL} className="text-accent-teal hover:underline">
-                          realms.dragonhound.dev
+                        <ExternalLink href={ATLAS_URL} className="text-accent-teal-ink hover:underline">
+                          atlas.dragonhound.dev
                         </ExternalLink>
                         .
                       </>
@@ -208,7 +226,7 @@ export default function AtlasPage() {
               </aside>
 
               <div>
-                {error && <p className="py-12 text-center text-sm text-accent-red">{error}</p>}
+                {error && <p className="py-12 text-center text-sm text-accent-red-ink">{error}</p>}
                 {!error && job && (
                   <JobView
                     key={job.job_id}
@@ -232,7 +250,7 @@ export default function AtlasPage() {
         poweredBy={
           <ExternalLink
             href="https://github.com/smk762/argus-atlas"
-            className="text-accent-blue transition-colors hover:text-accent-blue/80"
+            className="text-accent-blue-ink transition-colors hover:text-accent-blue-ink"
           >
             argus-atlas
           </ExternalLink>
@@ -244,22 +262,22 @@ export default function AtlasPage() {
 }
 
 /** One line under the title; the rest folds into "Details". */
-const ATLAS_DEMO_SUMMARY = "real argus-atlas jobs, replayed from their recorded output.";
+const ATLAS_DEMO_SUMMARY = "Real argus-atlas jobs, replayed from their recorded output.";
 
 /** Where the recorded atlas jobs came from. Data credits live in the footer. */
 function AtlasDemoProvenance() {
   return (
     <>
       Seven real jobs from the argus-atlas 0.3.0 island bake behind{" "}
-      <ExternalLink href={REALMS_URL} className="underline hover:text-foreground">
-        realms.dragonhound.dev
+      <ExternalLink href={ATLAS_URL} className="underline hover:text-foreground">
+        atlas.dragonhound.dev
       </ExternalLink>
       , one chunk in each of its seven styles: antique, imhof, watercolor and pixel over Iceland (z7), tolkien,
       cyberpunk and minecraft over Réunion (z11). Each records 0.3&apos;s relief correction: hillshade and slope
       take a height factor from the chunk&apos;s latitude, about 2.2 to 2.5 in Iceland and 1.07 in Réunion, with
       no added exaggeration. The antique chunk also carries its OSM place names. Sidecars are as the server
       returned them, with host paths made relative; previews are re-encoded to WebP; the PMTiles archives are
-      not bundled, and the whole map is live on realms. Building controls and baking need a running argus-atlas
+      not bundled, and the whole map is live on Atlas. Building controls and baking need a running argus-atlas
       (and a GPU for the bake).
     </>
   );

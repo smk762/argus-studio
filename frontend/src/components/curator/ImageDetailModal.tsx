@@ -8,6 +8,7 @@ import { ModerationPanel } from "./ModerationPanel";
 import { SafeThumb } from "./SafeThumb";
 import { breakdownTooltip, cropRows, statusExplanation } from "./imageExplain";
 import { POSE_LABELS, type ImageResult } from "./types";
+import { Tooltip } from "@/components/Tooltip";
 
 interface Props {
   scanId: string;
@@ -77,21 +78,22 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
               </NavButton>
             </div>
           )}
+          <Tooltip text={blocked ?? ""} describe>
           <button
             type="button"
             onClick={() => onToggle(img.rel_path)}
             disabled={!exportable}
-            title={blocked ?? undefined}
             className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               exportable ? "cursor-pointer" : ""
             } ${
               selected
-                ? "border-accent-green/50 bg-accent-green/20 text-accent-green"
+                ? "border-accent-green/50 bg-accent-green/20 text-accent-green-ink"
                 : "border-border text-muted hover:bg-surface-hover hover:text-foreground"
             }`}
           >
             {selected ? "Selected" : "Select"}
           </button>
+          </Tooltip>
           <button
             type="button"
             onClick={closeModal}
@@ -118,7 +120,7 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
                   Composite score
                 </span>
-                <span className="font-mono text-2xl tabular-nums text-accent-teal/90">{img.score.toFixed(3)}</span>
+                <span className="font-mono text-2xl tabular-nums text-accent-teal-ink">{img.score.toFixed(3)}</span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-hover">
                 <div className="h-full rounded-full bg-accent-teal" style={{ width: `${Math.round(img.score * 100)}%` }} />
@@ -190,8 +192,8 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
                     >
                       <span className="font-mono text-foreground">{f.cluster_id ?? "unclustered"}</span>
                       <span className="ml-2 text-muted">det {f.det_score.toFixed(2)}</span>
-                      {f.pose && <span className="ml-2 text-accent-purple">{POSE_LABELS[f.pose]}</span>}
-                      {f.primary && <span className="ml-2 text-accent-teal">primary</span>}
+                      {f.pose && <span className="ml-2 text-accent-purple-ink">{POSE_LABELS[f.pose]}</span>}
+                      {f.primary && <span className="ml-2 text-accent-teal-ink">primary</span>}
                       {attributeLine(f.attributes) && (
                         <span className="mt-0.5 block text-muted">{attributeLine(f.attributes)}</span>
                       )}
@@ -211,7 +213,7 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
               />
             )}
             {warnings.length > 0 && (
-              <div className="rounded-xl border border-accent-orange/30 bg-accent-orange/5 p-4 text-xs leading-relaxed text-accent-orange">
+              <div className="rounded-xl border border-accent-orange/30 bg-accent-orange/5 p-4 text-xs leading-relaxed text-accent-orange-ink">
                 {warnings.map((line) => (
                   <p key={line}>{line}</p>
                 ))}
@@ -223,7 +225,7 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
             <ScoreBreakdown img={img} />
 
             <div className="rounded-xl border border-accent-teal/30 bg-accent-teal/5 p-4">
-              <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent-teal">Host path</h3>
+              <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent-teal-ink">Host path</h3>
               <code className="break-all font-mono text-xs text-foreground/90">{img.abs_path}</code>
             </div>
           </div>
@@ -307,8 +309,8 @@ function ScoreBreakdown({ img }: { img: ImageResult }) {
           className="mt-3 flex cursor-help items-baseline justify-between border-t border-border pt-2.5 text-xs"
           title={breakdownTooltip("face_penalty")}
         >
-          <span className="text-accent-orange/90">{prettyKey("face_penalty")}</span>
-          <span className="font-mono text-accent-orange/90 tabular-nums">×{Number(penalty[1]).toFixed(2)}</span>
+          <span className="text-accent-orange-ink">{prettyKey("face_penalty")}</span>
+          <span className="font-mono text-accent-orange-ink tabular-nums">×{Number(penalty[1]).toFixed(2)}</span>
         </div>
       )}
 

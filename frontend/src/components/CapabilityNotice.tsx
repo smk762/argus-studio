@@ -18,7 +18,7 @@ export function CapabilityNotice({ reason }: { reason: ReactNode }) {
   return (
     <p
       role="note"
-      className="rounded-lg border border-accent-orange/30 bg-accent-orange/5 px-3 py-2 text-[11px] leading-relaxed text-accent-orange"
+      className="rounded-lg border border-accent-orange/30 bg-accent-orange/5 px-3 py-2 text-[11px] leading-relaxed text-accent-orange-ink"
     >
       {reason}
     </p>

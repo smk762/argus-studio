@@ -5,6 +5,7 @@ import { bakeStream, type AtlasPreset, type BakeProgress } from "@/lib/atlasApi"
 import { permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { Field, inputClass } from "@/components/atlas/fields";
+import { Tooltip } from "@/components/Tooltip";
 
 /**
  * Bake one job through the host's diffusion backend (`POST /bake/stream`),
@@ -166,21 +167,22 @@ export function BakePanel({
         />
       </Field>
       <div className="flex flex-wrap items-center gap-4">
+        <Tooltip text={canBake === null ? "Checking what this server allows…" : ""} describe>
         <button
           type="button"
           onClick={start}
           disabled={!checkpoint.trim() || running || !permits(canBake)}
-          title={canBake === null ? "Checking what this server allows…" : undefined}
-          className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {running ? "Baking…" : "Bake"}
         </button>
-        {error && <span className="text-xs text-accent-red">{error}</span>}
+        </Tooltip>
+        {error && <span className="text-xs text-accent-red-ink">{error}</span>}
       </div>
       {frames.length > 0 && (
         <ol className="space-y-0.5 rounded-lg border border-border bg-surface px-3 py-2 font-mono text-[11px]">
           {frames.map((f, i) => (
-            <li key={i} className={f.type === "error" ? "text-accent-red" : f.type === "done" ? "text-accent-green" : "text-muted"}>
+            <li key={i} className={f.type === "error" ? "text-accent-red-ink" : f.type === "done" ? "text-accent-green-ink" : "text-muted"}>
               <span className="mr-2 inline-block w-24 text-foreground/70">{f.type}</span>
               {f.message}
             </li>

@@ -337,8 +337,11 @@ export function speaksSupportedManifest(health: Health | null): Capability {
   return capabilityOf(
     health,
     (h) => {
-      const major = manifestMajor(h.manifest_version);
-      return major === null ? undefined : major === SUPPORTED_MANIFEST_MAJOR;
+      // Only a server that omits the field is a legacy one to let through. One
+      // that declares a version forge would refuse ("garbage", "v2", "") must
+      // not pass a destructive export: its manifest would be unusable.
+      if (h.manifest_version == null) return undefined;
+      return manifestMajor(h.manifest_version) === SUPPORTED_MANIFEST_MAJOR;
     },
     true,
   );

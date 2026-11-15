@@ -6,6 +6,7 @@ import {
   CSP_ENV,
   cspHeaderName,
   cspMode,
+  trustedTypesFor,
   cspModeRecognised,
   newNonce,
 } from "@/lib/csp";
@@ -29,7 +30,8 @@ export function proxy(request: NextRequest) {
     warnedUnknownMode = true;
     console.warn(`[argus] ${CSP_ENV}=${JSON.stringify(raw)} is not enforce, report-only or off; enforcing.`);
   }
-  const header = cspHeaderName(cspMode(raw));
+  const mode = cspMode(raw);
+  const header = cspHeaderName(mode);
 
   const requestHeaders = new Headers(request.headers);
   // Only this proxy may hand the layout a nonce: never pass a client's through.
@@ -37,7 +39,10 @@ export function proxy(request: NextRequest) {
   let policy: string | null = null;
   if (header) {
     const nonce = newNonce();
-    policy = contentSecurityPolicy(nonce, { dev: process.env.NODE_ENV === "development" });
+    policy = contentSecurityPolicy(nonce, {
+      dev: process.env.NODE_ENV === "development",
+      trustedTypes: trustedTypesFor(mode),
+    });
     requestHeaders.set("x-nonce", nonce);
     requestHeaders.set("Content-Security-Policy", policy);
   }

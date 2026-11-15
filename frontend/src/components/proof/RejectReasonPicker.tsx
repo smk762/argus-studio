@@ -9,6 +9,7 @@ import {
   type RejectReason,
   type RejectReasonCode,
 } from "@/lib/proofApi";
+import { Tooltip } from "@/components/Tooltip";
 
 /**
  * The structured, multi-label reject taxonomy — the closed vocabulary from the
@@ -28,21 +29,21 @@ export function RejectReasonPicker({ selected, onToggle, disabled = false }: Rej
       {REJECT_TAXONOMY.map((r) => {
         const on = active.has(r.code);
         return (
+          <Tooltip key={r.code} text={r.hint} describe>
           <button
-            key={r.code}
             type="button"
             disabled={disabled}
-            title={r.hint}
             aria-pressed={on}
             onClick={() => onToggle(r.code)}
             className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors disabled:opacity-40 ${
               on
-                ? "border-accent-red/50 bg-accent-red/15 text-accent-red"
+                ? "border-accent-red/50 bg-accent-red/15 text-accent-red-ink"
                 : "border-border bg-surface text-muted hover:border-accent-red/30 hover:text-foreground"
             }`}
           >
             {r.label}
           </button>
+          </Tooltip>
         );
       })}
     </div>
@@ -67,20 +68,24 @@ export function UnsafeCategoryPicker({
       {categoryChoices(reasons).map((slug) => {
         const on = active.has(slug);
         return (
-          <button
+          <Tooltip
             key={slug}
+            text={POLICY_CATEGORIES.find((c) => c.slug === slug)?.hint ?? "Category outside this client's taxonomy"}
+            describe
+          >
+          <button
             type="button"
-            title={POLICY_CATEGORIES.find((c) => c.slug === slug)?.hint ?? "Category outside this client's taxonomy"}
             aria-pressed={on}
             onClick={() => onToggle(slug)}
             className={`rounded-md border px-1.5 py-0.5 text-[10px] transition-colors ${
               on
-                ? "border-accent-red/50 bg-accent-red/15 text-accent-red"
+                ? "border-accent-red/50 bg-accent-red/15 text-accent-red-ink"
                 : "border-border bg-surface text-muted hover:border-accent-red/30 hover:text-foreground"
             }`}
           >
             {policyLabel(slug)}
           </button>
+          </Tooltip>
         );
       })}
     </div>

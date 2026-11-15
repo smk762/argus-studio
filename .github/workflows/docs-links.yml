@@ -1,0 +1,46 @@
+name: Docs links
+
+# Weekly check that every external link in Studio's /docs pages still answers
+# (argus-studio#172). The setup guides and package docs, and their links, moved
+# to argus-handbook (docs.dragonhound.dev). Scheduled rather than run on each
+# PR, so a third party's outage never blocks a merge. A failure opens (or
+# comments on) one tracking issue instead of only failing quietly.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.4"
+
+      - id: check
+        run: |
+          set -o pipefail
+          node scripts/check-links.mjs | tee "$RUNNER_TEMP/links.txt"
+
+      - if: failure() && steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="docs: broken external links"
+          body="$(printf 'The scheduled link check found broken links (%s):\n\n```\n%s\n```\n' \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            "$(grep BROKEN "$RUNNER_TEMP/links.txt")")"
+          n="$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')"
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$body"; else gh issue create --title "$title" --body "$body"; fi

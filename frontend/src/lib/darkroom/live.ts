@@ -51,13 +51,19 @@ export function liveReducer(state: LiveState, event: LiveEvent): LiveState {
     }
     case "preflight": {
       const policies = [event.preflight.enforcing_policy, ...event.preflight.advisory_policies.filter((name) => name !== event.preflight.enforcing_policy)];
-      return { ...state, preflight: event.preflight, enforcing: event.preflight.enforcing_policy, policies, cells: emptyCells(policies), phase: event.preflight.outcome === "refused" ? state.phase : "queued" };
+      // A refusal ends the run: nothing is queued after it, so don't stay "running"
+      // waiting for a follow-up event (the `complete` that may follow still lands).
+      return { ...state, preflight: event.preflight, enforcing: event.preflight.enforcing_policy, policies, cells: emptyCells(policies), phase: event.preflight.outcome === "refused" ? "complete" : "queued" };
     }
     case "queued":
+      if (FINISHED.includes(state.phase)) return state;
       return { ...state, phase: "queued" };
     case "progress":
+      if (FINISHED.includes(state.phase)) return state;
       return { ...state, phase: "rendering", progress: event.progress };
     case "scan": {
+      // A late event from a finished, failed or cleared run must not revive it.
+      if (FINISHED.includes(state.phase)) return state;
       const { policy, context, cell } = event.scan;
       const pair = state.cells[policy] ?? { isolated: null, with_prompt: null };
       const policies = state.policies.includes(policy) ? state.policies : [...state.policies, policy];
@@ -82,4 +88,6 @@ export function scannedCount(state: LiveState): { done: number; total: number } 
 }
 
 export const RUNNING: readonly LivePhase[] = ["preflight", "queued", "rendering", "scanning"];
+/** Phases a run doesn't leave on a stray progress event: only `start` begins another. */
+const FINISHED: readonly LivePhase[] = ["idle", "complete", "error"];
 export const isRunning = (state: LiveState): boolean => RUNNING.includes(state.phase);

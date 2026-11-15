@@ -4,6 +4,98 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-15
+
+### Added
+
+- **Branch hand-offs** (#236, option 1). The numbered pipeline (1–7) stays the nav, and a stage that branches now says where it leads. `/darkroom` shows a "From here" row: **Train a new LoRA in Forge**, plus **Rig a face in Mask** and **Mint a provenance card in Assay** when `ARGUS_MASK_URL` / `ARGUS_ASSAY_URL` are set. Mask and Assay are standalone UIs, and Studio links to them rather than duplicating their pages. The branches are listed once, in `BRANCHES` in `lib/pipeline.ts`. The row replaces `/darkroom`'s single Assay sentence.
+- **Live training on /forge** (#122). With argus-forge 0.2's run API, the Training section of `/forge`:
+  - starts the config **Generate + write** put into the export (kohya or diffusers), after asking first in the page;
+  - streams the run's log live, and follows its tail unless you scroll up;
+  - cancels a run, again after asking;
+  - lists the runs forge remembers, newest first, with status and elapsed time.
+
+  The run list is readable on any reachable forge. Start and Cancel need `/health.training` to be `enabled`, and the client refuses them otherwise (#75). It also refuses a second run while one is training, because forge itself would start both on the same GPU.
+
+  Training is opt-in through a new override, `compose.train.yaml`. It runs the `-train` image on the GPU with `ARGUS_FORGE_READONLY=0`, plus `init`, an 8 GB `/dev/shm` and a Hugging Face cache volume. It is separate from `compose.gpu.yaml`, so adding GPUs never arms training. The static demo and read-only deployments are unchanged.
+- **Nightly Bombadil and leak checks** (#242). A new workflow, `bombadil-nightly.yml`, runs daily and on demand, with two jobs:
+  - **Bombadil:** a 45-minute run of the PR spec that doesn't stop at the first violation. It tries to shrink the first violation to a shorter trace (experimental, allowed to fail) and uploads the trace.
+  - **Leak check:** `scripts/check-leaks.mjs` follows every nav link with a few interactions on each page, 30 times over, and measures nodes, listeners, documents and heap after a forced garbage collection. Growth over its limits fails the job. On the current demo all four stay flat, and a deliberately planted listener leak fails within 5 rounds. It replaces Bombadil's own leak checks, which read the counts without a garbage collection and so flagged healthy pages.
+
+  A failure opens one `bombadil` issue per violated property (or one for the leak check), or comments on the open one, so a repeat failure doesn't open a new issue each night.
+- **Bombadil property-based UI tests** (#241, epic #240). A new CI job, `bombadil`, builds the static demo and runs [Bombadil](https://antithesishq.github.io/bombadil/) against it for 3 minutes. Bombadil clicks, types, scrolls, goes back, reloads and resizes the viewport at random, and checks `frontend/bombadil/spec.ts` in every state it reaches:
+  - Bombadil's defaults: no uncaught exceptions, unhandled rejections, console errors or HTTP errors;
+  - one `<main>` and at most one `h1` per page;
+  - one demo badge in the header;
+  - no sideways scroll at any width;
+  - the theme is always light or dark, with the toggle in step;
+  - the demo never says a backend is unreachable, and never sits on a spinner.
+
+  A violation uploads a trace that can be replayed, and the job summary gives the replay command. The job doesn't block merging yet. `scripts/static-server.mjs` is the export server, now shared with `check-overflow.mjs`.
+- **Link to argus-assay** (#157). `ARGUS_ASSAY_URL` adds Assay, argus-mint's own UI for card drafts, review and publishing, to the footer's suite links. It also adds a line on `/darkroom` ("Turn a released image into a provenance card: mint it in argus-assay"). Mint is a branch off Darkroom, not a pipeline stage, and Studio links to Assay instead of duplicating its pages. Empty means no link.
+- **Delete runs on /proof in dev mode** (#229). With argus-proof 0.3.0 in dev mode (compose passes `DEVMODE` as `ARGUS_PROOF_DEVMODE`; `PROOF_DEVMODE=0` opts out), the run list offers "Delete this run" and "Delete all runs". Each asks first, in the page, and says that a report's review and refinement go with it. The controls appear only when proof lists the `purge` capability, and the client refuses the request otherwise.
+- **Flux guidance on New evaluation** (#228). With a Flux base checkpoint (proof's rule: one under `flux/`), `/proof`'s New evaluation offers a Guidance field, empty for proof's default of 3.5, and notes the Flux sampling proof applies. Guidance is sent only for Flux, because proof 0.3.0 refuses it on the SDXL template.
+- **Learn panel** (#39, with #34 and #42). The ⓘ beside a caption control or a proof report metric opens a side panel with that concept's explanation, an example, related concepts and a link to its full docs page. You stay in the tool, and the page stays usable while the panel is open. The text comes from the shared concept registry, which now also covers the tag ↔ prose balance and the six proof metrics. The proof metric labels and hints read from it too. A test fails if the code points at a concept the registry lacks, or a docs page stops rendering its own concept.
+- **Sitemap and robots.txt** (#41). The static demo publishes `/sitemap.xml` (every tool page and Studio's docs pages, from the nav lists) and a `robots.txt` that points at it. A self-hosted server build can't know its public origin, so its sitemap is empty. The `/docs` description now says what's there: the captioning concepts, with suite docs on docs.dragonhound.dev.
+- **Trusted Types dry run** (#198). `ARGUS_CSP=report-only` now adds `require-trusted-types-for 'script'`. A `default` policy, first in `<head>`, lets through only this origin's `/_next/static/chunks/*.js` script URLs, which are the two sinks Next's runtime and React use to load chunks. With it, a crawl of every page reports nothing. Anything else is reported, and enforce mode is unchanged.
+- **Proof hands its models to Darkroom** (#199). From a passed proof report, "Open in Darkroom" carries the evaluated checkpoint and LoRAs (with weights) from the run manifest argus-proof serves (smk762/argus-proof#57). Darkroom selects them, matching by sha256 first and then by exact name. Anything not in its model list is named in a warning and left out, and the form keeps its own choice instead of falling back silently. An older proof without the manifest route, or a run whose directory is gone, still links to a plain `/darkroom`.
+- **"Made with" line on every tool page** (#171). Each of the seven tool pages names the package behind its view, the version the page already knows (`/health` live, the recording in the demo), and the command that makes it. It links to the package's handbook page, PyPI project and GitHub repo. A page with no real version (demo samples, nothing reachable yet) names the package alone.
+- **`ARGUS_FORGE_UI_MODE` and `ARGUS_PROOF_UI_MODE`** (#59). `/forge` and `/proof` took their live-or-sample mode from the curator's `ARGUS_CURATOR_UI_MODE`. A public demo that keeps curator on its sample (as argus-halo does) therefore showed bundled samples on both pages and never called its read-only forge and proof servers. Each page now has its own mode, defaulting to the curator's, so existing deployments are unchanged.
+- **Filter batch captions by tag** (#118). Folder and manifest runs ask lens for its category buckets (`include_buckets`, lens 0.11), and upload runs already return them. When rows carry buckets, a sidebar beside the results lists each category's tags with counts. Ticking terms filters the table: any term within a category, every category with a selection. Copy and Download still export every row in the same JSONL format. An older lens ignores the flag and the results look as before.
+- **Pick the caption backend per request** (#69). The caption page lists every backend lens has registered, its kind and whether it needs a GPU. Unavailable ones keep lens's reason, and ones the server won't switch to say so. On a lens with per-request selection (smk762/argus-lens#107), a "Caption backend" menu offers the server default plus the backends that are available and allowed, and every caption mode sends the pick. An older lens gets the list only. Compose passes `ARGUS_ALLOWED_BACKENDS`. Set it to `ARGUS_BACKEND` alone on a public or shared-GPU host, so visitors can't load another model.
+- **Proof refinement on `/proof`** (#68). A collapsible Refinement panel under the review board lists the images that passed, best first, and lets a reviewer rank each 1–5 with a note, or retract a ranking. It saves through `POST /report/{id}/refine`, gated like the HITL save, and applies locally in the demo. The verdict and pass rate don't change, and the run list shows how many images are refined. A review that fails a refined image drops its refinement, as argus-proof does.
+- **A docs opsec gate.** `npm test` fails if a `/docs` page names a private or link-local address, a home or host-mount path, an email address, or a term on the private denylist (the `DOCS_OPSEC_DENYLIST` secret).
+- **The static demo deploys from CI** (`.github/workflows/deploy-demo.yml`). Every `dev` commit that passes CI is built with `build:static` and published to the Cloudflare Pages project `argus-studio` as production (`--branch main`), then smoke-checked. It needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets. Without them it builds and skips the upload.
+- **A weekly external link check** (`npm run docs:links`, `.github/workflows/docs-links.yml`). Every external URL in the docs is checked weekly, and a link into the handbook must also land on its `#anchor`. A broken one opens or updates a tracking issue. It never runs on PRs, so a third party's outage can't block a merge.
+
+### Fixed
+
+- **Every page scrolled sideways at 600–879 px when the Dragonhound strip was a little wider than the screen** (dh-shared 1.2.6, smk762/dragonhound-site#15; Studio vendors 1.2.7, which also adds Mask to the strip). The strip's visually hidden name and label escaped its scroll box. How wide the strip gets depends on fonts: CI's Chrome hit it at 604 px. Bombadil found it on #249.
+- **Review fixes from the release sync (#248):**
+  - `/proof`: a reloaded report clears the last applied review, so a stale copy no longer decides the verdict or the Darkroom hand-off.
+  - `/forge` training runs: log lines are batched and rendered every 100 ms instead of once per line, and a newly started run is listed straight away without first reopening another run's log.
+  - The Darkroom hand-off reads a blank LoRA weight as the default 1, not 0.
+  - The Tooltip adds to an existing `aria-describedby` instead of replacing it.
+  - On the caption page, an earlier folder run's error no longer appears after you switch to another tab.
+- **ai-code-auditor batch (2026-11-15): 53 findings, 45 fixed, 8 already fixed or not a Studio bug.** Highlights:
+  - CSV export neutralises formula-leading cells and quotes bare CRs.
+  - The NDJSON reader cancels the stream on a bad line and flushes the UTF-8 decoder.
+  - Darkroom: a refused pre-flight no longer stays "running", late stream events can't revive a finished run, Generate is blocked for a policy the server can't enforce, the CFG field only takes in-range values, the stream is aborted on unmount, and stale health is dropped when darkroom stops answering.
+  - Curator: refused scan options show unchecked and aren't sent, attribute facet counts honour the confidence floor, filters the keep set drops are named, race shows its source (FairFace), a blocked tile can still be deselected, and the export hand-off uses the settings the run used.
+  - Stale-request guards on `/atlas`, `/proof` and the caption folder run.
+  - Clipboard copy reports failure.
+  - Safari's modal click-outside fallback hit-tests the backdrop.
+  - The demo scorer name is now `buffalo_l`.
+  - Atlas bundling no longer leaks host paths when the inputs root is empty.
+- **A malformed proof run manifest no longer crashes /proof.** The Darkroom handoff falls back to a plain `/darkroom` when a manifest has no checkpoint name, and skips nameless LoRAs.
+- **Tooltips meet WCAG 1.4.13** (#197). The pointer can now rest on a tooltip without it closing, it stays open while the pointer is on the trigger or the bubble, and Escape still dismisses it. On `/curate`, the disabled-reason and action hints (scan, delete, stop, purge, export mode, policy picks, the select checkbox) moved off native `title` onto the shared Tooltip, so they show on keyboard focus and reach screen readers as descriptions. The export options' explanations are now focusable "i" hints. A second pass covers darkroom, proof and atlas:
+  - darkroom's `Button` shows its `title` through the Tooltip;
+  - policy summaries and backend notes become focusable "i" hints;
+  - the age-estimate caveat reaches screen readers;
+  - reject-reason and unsafe-category chips are described;
+  - atlas's Fetch OSM / Bake / Cut PMTiles / Build controls say why they're disabled on focus;
+  - curator's Face clustering and Crops toggles get accessible names.
+- **The dataset size hint no longer calls every workable size the sweet spot.** 41 images for an identity LoRA read "in the ~15–30 sweet spot". Sizes inside the workable range but outside the ideal band now say "workable … the sweet spot is ~15–30".
+- **The opsec check lets reserved example domains through** (`example.com`/`.net`/`.org`, `*.example`, `*.test`, `*.invalid`, `*.localhost`). Every other address is still refused.
+- **Compose passes lens its hosted-backend keys** (`HF_TOKEN`, `NVIDIA_API_KEY`, `OPENAI_API_KEY`, `REPLICATE_API_TOKEN`), so `ARGUS_BACKEND=hf-inference` or `nvidia-nim` works from `.env` with the published image. `openai` and `replicate` also need a source build with their extras. Compose no longer passes `ARGUS_API_KEY`, which lens stopped reading.
+- **Compose passes the `minor-exposed` rule** to curator and darkroom: `ARGUS_CURATOR_MINOR_EXPOSED` and `DARKROOM_MINOR_EXPOSED` (both `frame` by default; `overlap` restores curator's box-overlap rule). Images older than smk762/argus-curator#153 and smk762/argus-darkroom#49 ignore it.
+- `.env.example` no longer shows a private LAN address in the `ARGUS_OPENAI_COMPAT_BASE_URL` example; it uses `<LAN_HOST>`.
+
+### Changed
+
+- **argus-lens 0.12.0.** Compose pins `LENS_TAG=0.12.0`. Its per-request backend selection turns on the caption page's "Caption backend" menu (#216).
+  - Lens now fences folder and manifest captioning to its source root. Curator exports land in `/data/out`, so compose's `LENS_SOURCE_PATH` default moves from `/data/images` to `/data`, keeping the curate → caption handoff working. Set it back to `/data/images` to keep captioning off the exports.
+  - Single URL captions from private/LAN addresses are now refused by lens. Compose passes `LENS_URL_ALLOWED_HOSTS` (trusted hosts) and `LENS_URL_FETCH`.
+- **argus-proof 0.3.0.** Compose pins `PROOF_TAG=0.3.0`, which serves `GET /report/{id}/manifest`, so the proof → darkroom handoff (#199) works out of the box. The proof wire pin moves to proof's `dev` at the v0.3.0 commit (wire 1.4). The generated types now require fields proof always sends, such as `refinement`, and the bundled sample report carries them.
+- **The map-demo links point at Atlas** (https://atlas.dragonhound.dev/). The painted-map demo moved there from realms.dragonhound.dev, which is kept for the Realms minigame. The footer link reads "Atlas" (was "Realms"), and `/atlas` and the job view link and name atlas.dragonhound.dev. `REALMS_URL` is now `ATLAS_URL`.
+- **The static demo's recordings come from each package's `dev` HEAD** (part of [#170](https://github.com/smk762/argus-studio/issues/170)). `/` replays an argus-lens 0.11.1.dev4 caption (was 0.10.0) of the same Knötel plate with the same models (`hybrid:ram+openai-compat`, qwen3-vl:2b-instruct prose, qwen3:4b-instruct refine). `/curate` replays an argus-curator 0.15.2.dev2 scan (was 0.15.0) of a regenerated synthetic set: `scripts/make_curator_sample.py` now holds the whole recipe (SDXL text renders, the InstantID identity pass, the group-shot face blend and the rejects), with its output in `public/curator-sample/generation.json`. The blurred reject now fails on blur, as 0.15.1 intended, and each person's frames form one face cluster. `frontend/schema/demo.json` records the `dev` commit and version behind each recording; `src/lib/demoRecordings.test.ts` fails when a recording, the record or curator's wire pin disagree, and `/curate`'s demo note reads the version from the recording. The daily `wire-drift` workflow now also keeps one *Demo recordings behind dev* issue, and holds curator's wire pin on its recorded commit until its schema changes. The `/proof` sample stays hand-shaped sample data, and the `/atlas` jobs stay a 0.3.0 recording.
+- **Wire types follow each package's `dev` HEAD, not a release** (part of [#170](https://github.com/smk762/argus-studio/issues/170)). `frontend/schema/pins.json` records each schema's `dev` commit and the package version at that commit (cortex `0.5.1.dev26`, curator `0.15.2.dev2`, forge `0.2.1.dev7`, proof `0.2.3.dev14`) instead of a tag. The four schemas are byte-identical to the tags they replace (cortex v0.4.7, curator v0.15.0, forge v0.2.0, proof v0.2.2), so no generated type changed beyond its header. `npm run wire:pull` fetches at `dev` HEAD and takes service names (`-- curator`). A daily `wire-drift` workflow opens a `chore/wire-sync` PR when a package's `dev` moves on, or an issue when the pulled schema breaks the checks.
+- **Setup and services and the package docs moved to the [Argus handbook](https://docs.dragonhound.dev/)** ([argus-handbook](https://github.com/smk762/argus-handbook), [#203](https://github.com/smk762/argus-studio/pull/203)) before release. Both were built here: the cross-package "Setup and services" section ([#172](https://github.com/smk762/argus-studio/issues/172): moderation, what to run for which UI, one page per external service) and each package's docs imported from its `dev` HEAD ([#170](https://github.com/smk762/argus-studio/issues/170)). Studio's old `/docs/setup/…` and `/docs/packages/…` paths redirect there (301), in the server build (`next.config.ts`) and the static demo (`public/_redirects`). Studio's `/docs` keeps the captioning concepts, whose lens references link the handbook, and its sidebar links the handbook under "Suite docs". The package-docs import (`docs:pull`, `docs:check`, `schema/docs.json`, the `docs-drift` workflow) and the service registry went with them.
+- **Compose defaults to argus-curator 0.15.1** (`0.15.1-gpu` under `compose.gpu.yaml`; `CURATOR_TAG` still overrides). 0.15.1 measures blur on the image interior rather than its 1 px border. Its wire schema is byte-identical to v0.15.0, so the curator wire pin and generated types stay at v0.15.0. The `/curate` demo sample remains a 0.15.0 recording (see its PROVENANCE.md).
+- **The `/curate` demo sample is a real argus-curator 0.15.0 scan of synthetic images.** The hand-written 14-image fixture with coloured placeholder tiles is replaced by a recording (`scripts/record_curator_demo.py`) of the curator scanning 14 SDXL images of two fictional people, a group shot and three deliberate rejects (blur, low resolution, 5:1 banner). The scan JSON and the curator's own WebP thumbnails are bundled under `public/curator-sample/`, and demo-mode thumbnails load them with explicit sizes. `public/curator-sample/PROVENANCE.md` lists the checkpoint, prompts, seeds and licences.
+- **argus-sightline is on GHCR.** The `survey` profile now pulls `ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.1}` (was `0.1.0`, which was never published), so it no longer needs `compose.build.yaml`.
+- **The release builds arm64 on a native arm runner instead of under QEMU.** Each architecture builds on its own runner (`ubuntu-24.04`, `ubuntu-24.04-arm`) and pushes by digest, and a final job tags the two as one multi-platform image. The v0.4.0 release died in the emulated arm64 `npm ci` (`qemu: uncaught target signal 4`) and hung to the job timeout. The build jobs now time out after 20 minutes.
+
 ## [0.4.0] - 2026-11-14
 
 ### Added
@@ -144,6 +236,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 First published image. It covers the caption page (`/`), curation (`/curate`), the provenance gallery (`/gallery`), training configs (`/forge`) and LoRA evaluation with HITL review (`/proof`), plus the `/docs` handbook. The suite `compose.yaml` runs the backends from published GHCR images, and API config is resolved at runtime rather than baked into the bundle (#71).
 
+[Unreleased]: https://github.com/smk762/argus-studio/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/smk762/argus-studio/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/smk762/argus-studio/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/smk762/argus-studio/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/smk762/argus-studio/compare/v0.1.0...v0.2.0

@@ -1,0 +1,18 @@
+{
+  "lens": {
+    "repo": "smk762/argus-lens",
+    "branch": "dev",
+    "commit": "4804154cc51f27df711c3101b91f56e0740da32e",
+    "version": "0.11.1.dev4+g4804154",
+    "recorded_at": "2026-11-14",
+    "recording": "src/lib/lensSample.ts"
+  },
+  "curator": {
+    "repo": "smk762/argus-curator",
+    "branch": "dev",
+    "commit": "97021d6c0d1b790d82c3a77ad66904450b18d065",
+    "version": "0.15.2.dev2+g97021d6",
+    "recorded_at": "2026-11-14",
+    "recording": "public/curator-sample/"
+  }
+}

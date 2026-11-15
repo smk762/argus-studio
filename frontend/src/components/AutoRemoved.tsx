@@ -33,9 +33,9 @@ export function AutoRemoved({ result }: AutoRemovedProps) {
         <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
           {result.removed_phrases.length > 0 && (
             <div>
-              <h4 className="text-xs font-bold tracking-wider text-foreground/70 mb-3">
+              <h3 className="text-xs font-bold tracking-wider text-foreground/70 mb-3">
                 Removed phrases
-              </h4>
+              </h3>
               <div className="flex flex-wrap gap-1.5">
                 {result.removed_phrases.map((phrase, i) => (
                   <span
@@ -51,9 +51,9 @@ export function AutoRemoved({ result }: AutoRemovedProps) {
 
           {result.compaction_notes.length > 0 && (
             <div>
-              <h4 className="text-xs font-bold tracking-wider text-foreground/70 mb-2">
+              <h3 className="text-xs font-bold tracking-wider text-foreground/70 mb-2">
                 Compaction notes
-              </h4>
+              </h3>
               <ul className="space-y-1">
                 {result.compaction_notes.map((note, i) => (
                   <li

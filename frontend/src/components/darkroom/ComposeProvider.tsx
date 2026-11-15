@@ -7,6 +7,15 @@ import { canExpand, defaultCompose, normaliseCompose, toRequest, type ComposeSta
 import { IDLE, isRunning, liveReducer, type LiveState } from "@/lib/darkroom/live";
 
 import { useDarkroom } from "./DarkroomProvider";
+import { useDeepLink } from "@/lib/deepLink";
+import { applyHandoff, parseHandoff, type DarkroomHandoff } from "@/lib/darkroom/handoff";
+
+/** What a proof handoff (#199) selected, and what darkroom's model list lacked. */
+export interface HandoffNotice {
+  from: string | null;
+  applied: string[];
+  missing: string[];
+}
 
 export interface PreflightStatus {
   state: "idle" | "checking" | "done" | "error";
@@ -18,6 +27,9 @@ export interface PreflightStatus {
 
 export interface Compose {
   compose: ComposeState;
+  /** Set once a `/darkroom?checkpoint=…&lora=…` handoff has been applied; null otherwise or once dismissed. */
+  handoff: HandoffNotice | null;
+  dismissHandoff: () => void;
   /** False until the server's catalogue has set the defaults. */
   ready: boolean;
   update: (patch: Partial<ComposeState> | ((current: ComposeState) => ComposeState)) => void;
@@ -59,16 +71,36 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
   const [recordId, setRecordId] = useState<string | null>(null);
   const touched = useRef(false);
   const controller = useRef<AbortController | null>(null);
+  // The latest pre-flight; a newer check or a generation aborts it, so a slow
+  // older verdict can never overwrite the one the form now stands for.
+  const checkCtrl = useRef<AbortController | null>(null);
+
+  // A proof handoff (#199) in the URL, read once and applied when the model list arrives.
+  // Declared before the catalogue effect, so on a mount where both run it lands first.
+  const pendingHandoff = useRef<DarkroomHandoff | null>(null);
+  const [handoff, setHandoff] = useState<HandoffNotice | null>(null);
+  useDeepLink((params) => {
+    pendingHandoff.current = parseHandoff(params);
+  });
 
   // Server defaults the first time the catalogue arrives; afterwards only keep the form consistent with it.
+  // A pending handoff is applied over those defaults, once: models darkroom lacks are named, never swapped.
   useEffect(() => {
     if (!policies || !models) return;
+    const incoming = pendingHandoff.current;
+    pendingHandoff.current = null;
     setCompose((current) => {
       const base = touched.current ? current : defaultCompose(health, policies, models);
-      return normaliseCompose(base, policies, models);
+      return normaliseCompose(incoming ? applyHandoff(base, incoming, models).state : base, policies, models);
     });
+    if (incoming) {
+      touched.current = true;
+      const { applied, missing } = applyHandoff(defaultCompose(health, policies, models), incoming, models);
+      setHandoff({ from: incoming.from, applied, missing });
+    }
     setReady(true);
   }, [health, policies, models]);
+  const dismissHandoff = useCallback(() => setHandoff(null), []);
 
   const update = useCallback<Compose["update"]>((patch) => {
     touched.current = true;
@@ -89,18 +121,25 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
   const check = useCallback(async () => {
     const request = toRequest(compose, expandable);
     const key = JSON.stringify(request);
+    checkCtrl.current?.abort();
+    const abort = new AbortController();
+    checkCtrl.current = abort;
     setPreflight({ state: "checking", result: null, error: null, forRequest: key });
     // The verdict shows in the Generate pane, and only with no finished generation in it.
     if (!controller.current) dispatch({ type: "reset" });
     setRecordId(null);
     setView("generate");
     try {
-      const result = await runPreflight(request);
+      const result = await runPreflight(request, abort.signal);
+      if (abort.signal.aborted) return null;
       setPreflight({ state: "done", result, error: null, forRequest: key });
       return result;
     } catch (caught) {
+      if (abort.signal.aborted) return null;
       setPreflight({ state: "error", result: null, error: caught instanceof Error ? caught.message : String(caught), forRequest: key });
       return null;
+    } finally {
+      if (checkCtrl.current === abort) checkCtrl.current = null;
     }
   }, [compose, expandable]);
 
@@ -108,6 +147,7 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(() => {
     if (controller.current) return;
+    checkCtrl.current?.abort();
     const request = toRequest(compose, expandable);
     const abort = new AbortController();
     controller.current = abort;
@@ -130,7 +170,8 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
     )
       .then((record) => {
         dispatch({ type: "complete", record });
-        setRecordId(record.id);
+        // Open the new record unless the user opened another one while it ran.
+        setRecordId((current) => current ?? record.id);
       })
       .catch((caught: unknown) => {
         if (abort.signal.aborted) dispatch({ type: "error", error: "Stopped. Darkroom finishes the generation on its own; its record will appear in the history." });
@@ -142,6 +183,15 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
   }, [compose, expandable]);
 
   const stop = useCallback(() => controller.current?.abort(), []);
+  // Leaving the page closes the stream and any pending pre-flight, rather than
+  // leaving them open and dispatching into an unmounted tree.
+  useEffect(
+    () => () => {
+      controller.current?.abort();
+      checkCtrl.current?.abort();
+    },
+    [],
+  );
   const clearLive = useCallback(() => {
     if (!controller.current) dispatch({ type: "reset" });
   }, []);
@@ -154,8 +204,8 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
   const preflightCurrent = preflight.forRequest === JSON.stringify(toRequest(compose, expandable));
 
   const value = useMemo<Compose>(
-    () => ({ compose, ready, update, replace, preflight, check, preflightCurrent, live, running, start, stop, clearLive, recordChanged, view, setView, recordId, openRecord, closeRecord }),
-    [compose, ready, update, replace, preflight, check, preflightCurrent, live, running, start, stop, clearLive, recordChanged, view, recordId, openRecord, closeRecord],
+    () => ({ compose, handoff, dismissHandoff, ready, update, replace, preflight, check, preflightCurrent, live, running, start, stop, clearLive, recordChanged, view, setView, recordId, openRecord, closeRecord }),
+    [compose, handoff, dismissHandoff, ready, update, replace, preflight, check, preflightCurrent, live, running, start, stop, clearLive, recordChanged, view, recordId, openRecord, closeRecord],
   );
   return <ComposeContext.Provider value={value}>{children}</ComposeContext.Provider>;
 }

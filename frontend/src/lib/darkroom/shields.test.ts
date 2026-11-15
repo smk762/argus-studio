@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { fixtureRecord, fixtureRecords } from "./fixture.test-util";
-import { firedCell, matchesRule, overallState, policyRows, promptChangedVerdict, promptTurned, reasonParts, recordRules, rowDisagrees, rowVerdict, ruleLetter, ruleLetters, shieldLabel, shieldMark, uncheckedCell, worstState } from "./shields";
+import { allCells, firedCell, matchesRule, overallState, policyRows, promptChangedVerdict, promptTurned, reasonParts, recordRules, rowDisagrees, rowVerdict, ruleLetter, ruleLetters, shieldLabel, shieldMark, uncheckedCell, worstState } from "./shields";
 import type { Cell, ScanPair } from "@/lib/darkroomApi";
 
 const cell = (state: Cell["state"], rules: string[] = []): Cell => ({
@@ -87,6 +87,13 @@ describe("overall state", () => {
     expect(overallState(fixtureRecord("fx-review-disagree").guard)).toBe("flagged");
     expect(overallState(fixtureRecord("fx-deleted-illegal").guard)).toBe("illegal");
     expect(overallState(fixtureRecord("fx-refused").guard)).toBeNull();
+  });
+  it("reads a half-scanned pair while a generation is in flight", () => {
+    const flagged: Cell = { state: "flagged", result: null, error: null };
+    const half = { isolated: flagged, with_prompt: null } as unknown as ScanPair;
+    const guard = { scans: { default: half } };
+    expect(allCells(guard)).toEqual([flagged]);
+    expect(overallState(guard)).toBe("flagged");
   });
 });
 

@@ -1,11 +1,13 @@
+import { pageMetadata } from "@/lib/pageMeta";
 import { ConceptBody } from "@/components/docs/ConceptBody";
 import { TokenBudgetDemo } from "@/components/docs/TokenBudgetDemo";
 
-export const metadata = {
-  title: "Target backend · Argus Studio Docs",
+export const metadata = pageMetadata({
+  title: "Target backend · Docs",
+  path: "/docs/captioning/target-backend/",
   description:
     "The diffusion architecture that will consume the caption, and the token budget it imposes.",
-};
+});
 
 # Target backend
 
@@ -58,3 +60,5 @@ not a tokenizer's, so read them as approximate.
 - Open the [Caption tool](/) and expand the **Target Backend** info panel — it reads
   from the same source as this page.
 - Caption one image at ~60 tokens, then again at ~200, and diff the `final_caption`.
+- In argus-lens's own docs: the `--target-backend` option of [`argus-lens caption`](https://docs.dragonhound.dev/packages/lens/cli/#argus-lens-caption),
+  and the budgeted [caption variants](https://docs.dragonhound.dev/packages/lens/caption-result/#variants) it shapes.

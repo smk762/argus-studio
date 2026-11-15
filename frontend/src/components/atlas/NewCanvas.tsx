@@ -7,6 +7,7 @@ import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { Field, inputClass } from "@/components/atlas/fields";
 import { OsmFetch } from "@/components/atlas/OsmFetch";
+import { Tooltip } from "@/components/Tooltip";
 
 /**
  * Plan a canvas and write its GDAL controls (`POST /controls`). CPU only, so
@@ -192,16 +193,17 @@ export function NewCanvas({
           </div>
           {canGdal === false && gdalReason && <CapabilityNotice reason={gdalReason} />}
           <div className="flex flex-wrap items-center gap-4">
+            <Tooltip text={gdalReason ?? ""} describe>
             <button
               type="button"
               onClick={submit}
               disabled={!ready || busy || !permits(canGdal)}
-              title={gdalReason ?? undefined}
-              className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {busy ? "Running GDAL…" : "Build controls"}
             </button>
-            {error && <span className="text-xs text-accent-red">{error}</span>}
+            </Tooltip>
+            {error && <span className="text-xs text-accent-red-ink">{error}</span>}
           </div>
         </div>
       )}

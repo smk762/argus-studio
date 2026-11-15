@@ -55,7 +55,7 @@ export function DoctorPanel() {
 
       {open && (
         <div className="space-y-3 border-t border-border px-5 py-4">
-          {error && <p className="text-xs text-accent-red">{error}</p>}
+          {error && <p className="text-xs text-accent-red-ink">{error}</p>}
           {doctor && (
             <>
               <ul className="space-y-1">

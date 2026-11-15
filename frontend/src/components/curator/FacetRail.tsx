@@ -19,6 +19,7 @@ import {
   type FacePose,
   type ScanSummary,
 } from "./types";
+import { Info, Tooltip } from "@/components/Tooltip";
 
 interface Props {
   summary: ScanSummary;
@@ -55,8 +56,8 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
   const hasPoses = Object.keys(poseCounts).length > 0;
 
   const counts = useMemo(
-    () => facetCounts(summary.results, filters.minSceneConf, filters.minGarmentConf),
-    [summary.results, filters.minSceneConf, filters.minGarmentConf],
+    () => facetCounts(summary.results, filters.minSceneConf, filters.minGarmentConf, filters.minAttributeConf),
+    [summary.results, filters.minSceneConf, filters.minGarmentConf, filters.minAttributeConf],
   );
   const recorded = useMemo(() => facetCounts(summary.results, 0, 0), [summary.results]);
   const hasAttributes = recorded.races.size + recorded.genders.size + recorded.ages.size + recorded.yearsKnown > 0;
@@ -80,7 +81,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
   return (
     <div className="space-y-5 rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">Facets</h3>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Facets</h2>
         <span className="text-[11px] text-muted">{visibleCount} shown</span>
       </div>
 
@@ -93,7 +94,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
               <button
                 type="button"
                 onClick={() => set({ faceClusters: [] })}
-                className="cursor-pointer text-[10px] text-accent-teal hover:underline"
+                className="cursor-pointer text-[10px] text-accent-teal-ink hover:underline"
               >
                 clear
               </button>
@@ -152,7 +153,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
               <button
                 type="button"
                 onClick={() => set({ poses: [] })}
-                className="cursor-pointer text-[10px] text-accent-teal hover:underline"
+                className="cursor-pointer text-[10px] text-accent-teal-ink hover:underline"
               >
                 clear
               </button>
@@ -341,25 +342,26 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
           )}
           {policies.length > 1 && (
             <>
-              <span className="block text-[10px] text-muted" title="Empty reads the official policy. A frame drops when any listed policy fails it.">
+              <span className="flex items-center gap-1 text-[10px] text-muted">
                 Read verdicts from
+                <Info text="Empty reads the official policy. A frame drops when any listed policy fails it." />
               </span>
               <div className="flex flex-wrap gap-1">
                 {policies.map((policy, i) => {
                   const on = filters.guardPolicies.includes(policy);
                   return (
+                    <Tooltip key={policy} text={i === 0 ? "The official policy" : "A variant"} describe>
                     <button
-                      key={policy}
                       type="button"
                       aria-pressed={on}
                       onClick={() => set({ guardPolicies: flip(filters.guardPolicies, policy) })}
-                      title={i === 0 ? "The official policy" : "A variant"}
                       className={`cursor-pointer rounded-md border px-1.5 py-0.5 font-mono text-[10px] ${
-                        on ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal" : "border-border bg-background text-foreground/85"
+                        on ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal-ink" : "border-border bg-background text-foreground/85"
                       }`}
                     >
                       {policy} {flags.get(policy) ?? 0}
                     </button>
+                    </Tooltip>
                   );
                 })}
               </div>
@@ -372,7 +374,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
       <div>
         <div className="mb-1 flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">Min score</span>
-          <span className="font-mono text-xs text-accent-teal">{filters.minScore.toFixed(2)}</span>
+          <span className="font-mono text-xs text-accent-teal-ink">{filters.minScore.toFixed(2)}</span>
         </div>
         <input
           type="range"
@@ -415,7 +417,7 @@ function FacetGroup({ title, note, active, onClear, children }: {
           {title}
         </span>
         {active && (
-          <button type="button" onClick={onClear} className="cursor-pointer text-[10px] text-accent-teal hover:underline">
+          <button type="button" onClick={onClear} className="cursor-pointer text-[10px] text-accent-teal-ink hover:underline">
             clear
           </button>
         )}
@@ -447,7 +449,7 @@ function Chips<T extends string>({ options, selected, count, onToggle }: {
             onClick={() => onToggle(option)}
             className={`cursor-pointer rounded-md border px-1.5 py-0.5 text-[11px] transition-colors ${
               active
-                ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal"
+                ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal-ink"
                 : "border-border bg-background text-foreground/85 hover:bg-surface-hover"
             }`}
           >
@@ -469,7 +471,7 @@ function ConfSlider({ label, value, min = 0, onChange }: {
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[10px] text-muted">{label}</span>
-        <span className="font-mono text-xs text-accent-teal">{value.toFixed(2)}</span>
+        <span className="font-mono text-xs text-accent-teal-ink">{value.toFixed(2)}</span>
       </div>
       <input
         type="range"

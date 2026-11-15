@@ -10,9 +10,12 @@ import { Children, isValidElement, type ReactNode } from "react";
  */
 export function slugify(text: string): string {
   return text
+    .normalize("NFC")
     .trim()
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    // \p{M} keeps combining marks: Devanagari vowel signs, Thai and Arabic
+    // diacritics, accents (as GitHub's slugger does).
+    .replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");

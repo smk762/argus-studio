@@ -13,6 +13,7 @@ import type * as Wire from "@/lib/generated/forge";
 import type { Filled } from "@/lib/wire";
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
+import { readNdjson } from "@/lib/lensApi";
 
 export type TrainerId = Wire.ForgeRequest["trainer"];
 
@@ -160,4 +161,102 @@ export async function forgeConfig(req: ForgeRequest, signal?: AbortSignal): Prom
   });
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+// ── Training runs (argus-forge 0.2 run API, argus-studio#122) ──────────────
+//
+// `POST /run` executes `<export>/forge/<trainer>/train.sh` (written by a
+// non-dry-run `POST /config`) as a background job; the registry lives in the
+// server's memory, so a restart forgets every run. Reads stay open on a
+// demo-safe host; only starting and cancelling are refused there (403).
+
+export type ForgeRunState = Filled<Wire.RunState, "command" | "cwd" | "ended_at" | "message" | "returncode">;
+export type ForgeRunStatus = ForgeRunState["status"];
+export type ForgeRunEvent = Wire.RunEvent;
+export type ForgeRunRequest = Pick<Wire.RunRequest, "export_dir" | "trainer">;
+
+const DEMO_SAFE_RUN = "This argus-forge server is demo-safe: it renders configs but won't train.";
+
+function isRunState(value: unknown): value is ForgeRunState {
+  const run = value as ForgeRunState | null;
+  return typeof run === "object" && run !== null && typeof run.run_id === "string" && typeof run.status === "string";
+}
+
+function normalizeRun(run: Wire.RunState): ForgeRunState {
+  return {
+    ...run,
+    command: Array.isArray(run.command) ? run.command : [],
+    cwd: run.cwd ?? null,
+    ended_at: run.ended_at ?? null,
+    message: run.message ?? null,
+    returncode: run.returncode ?? null,
+  };
+}
+
+/** Every run this forge process remembers (GET /runs), as the server orders them: oldest first. */
+export async function listRuns(signal?: AbortSignal): Promise<ForgeRunState[]> {
+  const resp = await fetch(`${forgeUrl()}/runs`, { signal });
+  if (!resp.ok) return asError(resp);
+  const body: unknown = await resp.json();
+  return Array.isArray(body) ? body.filter(isRunState).map(normalizeRun) : [];
+}
+
+export async function getRun(runId: string, signal?: AbortSignal): Promise<ForgeRunState> {
+  const resp = await fetch(`${forgeUrl()}/run/${encodeURIComponent(runId)}`, { signal });
+  if (!resp.ok) return asError(resp);
+  return normalizeRun(await resp.json());
+}
+
+/** Raised by {@link startRun} when this forge is already training. */
+export class RunInProgress extends Error {
+  constructor(readonly runId: string) {
+    super(`A training run is already in progress (${runId.slice(0, 8)}). Wait for it to finish or cancel it first.`);
+    this.name = "RunInProgress";
+  }
+}
+
+/**
+ * Start training on a written config (POST /run). Gated on `/health.training`
+ * like a writing {@link forgeConfig}, and refused while another run is going:
+ * forge itself starts every request it gets, and two trainings on one GPU
+ * would fight for its memory.
+ */
+export async function startRun(req: ForgeRunRequest, signal?: AbortSignal): Promise<ForgeRunState> {
+  await requireCapability(forgeHealth, allowsTraining, DEMO_SAFE_RUN, signal);
+  const running = (await listRuns(signal)).find((run) => run.status === "running");
+  if (running) throw new RunInProgress(running.run_id);
+  const resp = await fetch(`${forgeUrl()}/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ export_dir: req.export_dir, trainer: req.trainer }),
+    signal,
+  });
+  if (!resp.ok) return asError(resp);
+  return normalizeRun(await resp.json());
+}
+
+/** Cancel a run (POST /run/{id}/cancel); forge kills its process group and answers once it is gone. */
+export async function cancelRun(runId: string, signal?: AbortSignal): Promise<ForgeRunState> {
+  await requireCapability(forgeHealth, allowsTraining, DEMO_SAFE_RUN, signal);
+  const resp = await fetch(`${forgeUrl()}/run/${encodeURIComponent(runId)}/cancel`, { method: "POST", signal });
+  if (!resp.ok) return asError(resp);
+  return normalizeRun(await resp.json());
+}
+
+/**
+ * Follow a run's log (GET /run/{id}/stream, NDJSON). Forge replays what it has
+ * buffered first (the `start` event always), then live events, and closes the
+ * stream when the run ends, so this resolves once the run is over or the
+ * signal aborts. Disconnecting never stops the run.
+ */
+export async function streamRun(
+  runId: string,
+  onEvent: (event: ForgeRunEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const resp = await fetch(`${forgeUrl()}/run/${encodeURIComponent(runId)}/stream`, { signal });
+  if (!resp.ok) return asError(resp);
+  await readNdjson(resp, (obj) => {
+    if (typeof obj.type === "string") onEvent(obj as unknown as ForgeRunEvent);
+  });
 }

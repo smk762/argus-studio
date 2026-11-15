@@ -4,6 +4,7 @@ import { useState } from "react";
 import { isLive } from "@/lib/curatorEnv";
 import { thumbUrl } from "@/lib/curatorApi";
 import { basename } from "@/lib/path";
+import { sampleThumb } from "@/lib/curatorSample";
 
 /** Deterministic hue from a string (stable per face cluster / path). */
 function hueFor(seed: string): number {
@@ -31,9 +32,9 @@ interface Props {
 
 /**
  * Thumbnail tile. In `live` mode it loads the curator's WEBP thumb from /thumb;
- * in `demo` mode (or if the image fails to load) it renders a deterministic
- * coloured placeholder keyed by face cluster so identities stay visually
- * distinct without bundling binaries.
+ * in `demo` mode it loads the bundled sample's recorded thumb. If neither is
+ * available (or the image fails to load) it renders a deterministic coloured
+ * placeholder keyed by face cluster so identities stay visually distinct.
  */
 export function ThumbImage({
   scanId,
@@ -45,8 +46,14 @@ export function ThumbImage({
   objectPosition,
   eager = false,
 }: Props) {
-  const [failed, setFailed] = useState(false);
-  const showImg = isLive() && !failed;
+  // Remember which image failed, so the next one (prev/next in the detail view) still tries.
+  const src = `${scanId}:${relPath}`;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = failedSrc === src;
+  const bundled = isLive() ? null : sampleThumb(relPath);
+  // No path (an identity whose representative moved and whose next frame is on
+  // a page not loaded yet): draw the placeholder, never request a thumb.
+  const showImg = relPath !== "" && (isLive() || bundled !== null) && !failed;
   const seed = faceCluster ?? relPath;
   const hue = hueFor(seed);
   const base = basename(relPath);
@@ -56,10 +63,12 @@ export function ThumbImage({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={thumbUrl(scanId, relPath)}
+        src={bundled ? bundled.src : thumbUrl(scanId, relPath)}
+        width={bundled?.width}
+        height={bundled?.height}
         alt={relPath}
         loading={eager ? undefined : "lazy"}
-        onError={() => setFailed(true)}
+        onError={() => setFailedSrc(src)}
         style={fit === "cover" && objectPosition ? { objectPosition } : undefined}
         className={`h-full w-full ${fitClass} ${rounded} ${className}`}
       />

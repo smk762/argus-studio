@@ -20,6 +20,11 @@ describe("suiteLinks", () => {
     expect(links).toEqual([{ label: "Sightline", service: "argus-survey", href: "http://localhost:3107" }]);
   });
 
+  it("links argus-assay (argus-mint's UI) when configured", () => {
+    const links = suiteLinks({ lightbox: "", cull: "", safelight: "", assay: "http://localhost:3108" });
+    expect(links).toEqual([{ label: "Assay", service: "argus-mint", href: "http://localhost:3108" }]);
+  });
+
   it("links argus-mask's viewer when configured", () => {
     const links = suiteLinks({ lightbox: "", cull: "", safelight: "", mask: "http://localhost:8109" });
     expect(links).toEqual([{ label: "Mask", service: "argus-mask", href: "http://localhost:8109" }]);

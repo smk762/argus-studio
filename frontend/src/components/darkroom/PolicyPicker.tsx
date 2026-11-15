@@ -10,6 +10,7 @@ import type { Policies, PolicyInfo } from "@/lib/darkroomApi";
 import { closeModal, Modal } from "../Modal";
 
 import { Badge, Button, Notice } from "./ui";
+import { Info } from "@/components/Tooltip";
 
 export function ModeBadge({ mode }: { mode: "sfw" | "nsfw" }) {
   return <Badge className={mode === "nsfw" ? "border-warm-primary/60 text-warm-primary" : "border-border text-foreground/70"}>{mode}</Badge>;
@@ -60,13 +61,13 @@ export function PolicyPicker({
                   disabled={block != null}
                   onChange={() => onEnforcing(policy.name)}
                   className="mt-1 accent-accent-purple"
-                  title={block ?? undefined}
                 />
-                <label htmlFor={`enforcing-${policy.name}`} className={`flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-sm ${block ? "text-muted" : "text-foreground"}`} title={block ?? policy.summary}>
+                <label htmlFor={`enforcing-${policy.name}`} className={`flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-sm ${block ? "text-muted" : "text-foreground"}`}>
                   <span className="font-mono">{policy.name}</span>
                   <ModeBadge mode={policy.mode} />
                   {block ? <span className="text-xs">advisory only</span> : null}
-                  <button type="button" onClick={() => setWording(policy)} className="text-xs text-accent-teal underline-offset-2 hover:underline">
+                  <Info text={block ?? policy.summary} />
+                  <button type="button" onClick={() => setWording(policy)} className="text-xs text-accent-teal-ink underline-offset-2 hover:underline">
                     wording
                   </button>
                 </label>
@@ -98,9 +99,10 @@ export function PolicyPicker({
                     onChange={(event) => onAdvisory(event.target.checked ? [...advisory, policy.name] : advisory.filter((name) => name !== policy.name))}
                     className="accent-accent-purple"
                   />
-                  <label htmlFor={`advisory-${policy.name}`} className="flex flex-1 flex-wrap items-center gap-x-2 text-sm text-foreground" title={policy.summary}>
+                  <label htmlFor={`advisory-${policy.name}`} className="flex flex-1 flex-wrap items-center gap-x-2 text-sm text-foreground">
                     <span className="font-mono">{policy.name}</span>
                     <ModeBadge mode={policy.mode} />
+                    <Info text={policy.summary} />
                   </label>
                 </li>
               );
@@ -135,7 +137,7 @@ export function PolicyDialog({ policy, onClose }: { policy: PolicyInfo; onClose:
             <ul className="mt-1 space-y-0.5">
               {policy.illegal_rules.map((rule) => (
                 <li key={rule.code}>
-                  <span className="font-mono font-semibold text-accent-red">{rule.code}</span> {rule.name}
+                  <span className="font-mono font-semibold text-accent-red-ink">{rule.code}</span> {rule.name}
                 </li>
               ))}
             </ul>

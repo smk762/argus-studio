@@ -1,4 +1,9 @@
-# Argus Studio
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/smk762/argus-cortex/dev/brand/packages/studio/argus-studio-lockup-dark.svg">
+    <img alt="Argus Studio" src="https://raw.githubusercontent.com/smk762/argus-cortex/dev/brand/packages/studio/argus-studio-lockup-light.svg" height="52">
+  </picture>
+</h1>
 
 The Argus suite's web UI and compose orchestration. The main page demonstrates [argus-lens](https://github.com/smk762/argus-lens) structured image captioning — paste a URL, drag in images, pick a server-side folder, or caption straight from an [Immich](https://immich.app) album — and inspects training-optimised caption variants, raw model outputs, and auto-removed tag analysis. A **curator** view at [`/curate`](http://localhost:3000/curate) talks to [argus-curator](https://github.com/smk762/argus-curator) for dataset ingestion, folder scans, and exports. Upstream acquisition ([argus-quarry](https://github.com/smk762/argus-quarry)) runs as a compose profile.
 
@@ -15,6 +20,13 @@ Designed as a living onboarding document -- every parameter includes an inline e
 <sub>Screenshots are from the static demo, captioning a public-domain plate: [Richard Knötel, Norway 1863 (Uniformenkunde), via Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Norwegen_1863_J%C3%A4ger_Kavallerist_Musketier_Garde-Scharfsch%C3%BCtz_Artillerist._Uniformenkunde_military_uniform_plate_print_by_Richard_Kn%C3%B6tel_(1857-1914)_publ_in_1890s%3F_Norwegian_army_cavalry_guards_artillery_PD-old.jpg).</sub>
 
 ## Quick Start
+
+What each UI needs live, and how to run it with no GPU:
+[What to run for which UI](https://docs.dragonhound.dev/setup/which-services/#studio).
+The external services (ComfyUI, Ollama, NudeNet, SingGuard, the GPU host and the
+rest) each have a setup page under
+[Setup and services](https://docs.dragonhound.dev/setup/), in the suite
+handbook ([argus-handbook](https://github.com/smk762/argus-handbook)).
 
 ### Whole suite in one stack (recommended)
 
@@ -50,15 +62,15 @@ Override one with its `*_TAG` var in `.env` (see `.env.example`):
 
 | Service | Var | Default |
 |---|---|---|
-| argus-curator | `CURATOR_TAG` | `0.15.0` (`0.15.0-gpu` under `compose.gpu.yaml`) |
-| argus-lens | `LENS_TAG` | `0.11.0` |
+| argus-curator | `CURATOR_TAG` | `0.15.1` (`0.15.1-gpu` under `compose.gpu.yaml`) |
+| argus-lens | `LENS_TAG` | `0.12.0` |
 | argus-quarry | `QUARRY_TAG` | `0.4.0` |
-| argus-forge | `FORGE_TAG` | `0.2.0` (`0.2.0-train` adds the trainer stack) |
-| argus-proof | `PROOF_TAG` | `0.2.2` |
+| argus-forge | `FORGE_TAG` | `0.2.0` (`0.2.0-train` under `compose.train.yaml`) |
+| argus-proof | `PROOF_TAG` | `0.3.0` |
 | argus-atlas | `ATLAS_TAG` | `0.3.1` |
 | argus-darkroom | `DARKROOM_TAG` | `0.2.0` |
 | argus-survey | `SURVEY_TAG` | `0.1.1` |
-| argus-sightline | `SIGHTLINE_TAG` | `0.1.0` (no published image yet: build it with `compose.build.yaml`) |
+| argus-sightline | `SIGHTLINE_TAG` | `0.1.1` |
 | argus-mask | `MASK_TAG` | `0.2.0` |
 | Ollama | `OLLAMA_TAG` | `0.40.16` |
 
@@ -105,6 +117,17 @@ the base stack still runs on CPU-only machines.
 
 ```bash
 docker compose -f compose.yaml -f compose.gpu.yaml --profile full up
+```
+
+**Live training from `/forge`** (optional, a trusted GPU host only): layer
+`compose.train.yaml`. It runs argus-forge's `-train` image (torch + kohya
+sd-scripts) on the GPU and switches its demo-safe default off. `/forge` then
+trains the config **Generate + write** put into the export, streams the run's
+log, and can cancel it. It starts one run at a time. Never layer this on a
+public demo.
+
+```bash
+ARGUS_CURATOR_UI_MODE=live docker compose -f compose.yaml -f compose.train.yaml --profile forge up
 ```
 
 The only cross-service coupling is the **curate → caption handoff**: curator and lens
@@ -297,19 +320,25 @@ npx serve out               # or any static file server, to preview
 ```
 
 Every page renders from bundled recorded output and says so: `/` replays one
-real argus-lens caption run, `/curate` uses the bundled sample scan, `/forge`
+real argus-lens caption run, `/curate` replays a recorded argus-curator 0.15.0
+scan of 14 synthetic images of two fictional people (`public/curator-sample/`,
+written by `scripts/record_curator_demo.py`; see its `PROVENANCE.md`), `/forge`
 builds kohya configs in the browser, `/atlas` browses seven recorded argus-atlas
 0.3.0 jobs (Iceland and Réunion, one per style) from the island bake behind
-https://realms.dragonhound.dev
+https://atlas.dragonhound.dev
 (`public/demo/atlas/`, written by `scripts/bundle_atlas_demo.py` through
 argus-atlas's own job store), `/darkroom` shows its bundled sample, `/proof`
 shows a "coming soon" state (no real evaluation recorded yet) with an opt-in,
 clearly labelled synthetic preview, and `/gallery` explains what it needs. A
 thin banner links back to the repo.
 
-Cloudflare Pages: root directory `frontend`, build command `npm run build:static`,
-output directory `out`. The flag selects a different *build*; it is never set
-for the published image, which keeps resolving its config per request (#56).
+Deploys are automatic: `.github/workflows/deploy-demo.yml` builds every `dev`
+commit that passes CI and publishes `frontend/out` to the Cloudflare Pages
+project `argus-studio` as production (`--branch main`; any other branch name is
+only a preview). It needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
+repo secrets. By hand, from `dev`'s tip: `npm run build:static`, then
+`npx wrangler pages deploy out --project-name argus-studio --branch main`.
+The static flag selects a different *build*; it is never set for the published image, which keeps resolving its config per request (#56).
 
 ## Architecture
 
@@ -343,7 +372,11 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 
 ### Wire types
 
-`frontend/src/lib/generated/` holds TypeScript generated from the curator, forge and proof wire schemas. The schemas are committed under `frontend/schema/` and pinned to a release in `pins.json`. To move to a new release, change the tag in `pins.json`, run `npm run wire:pull`, and fix whatever `npm run typecheck` reports. `npm run wire:check` is the CI step that fails on drift, and needs no network or sibling checkout.
+`frontend/src/lib/generated/` holds TypeScript generated from the cortex, curator, forge and proof wire schemas. The schemas are committed under `frontend/schema/`, and `pins.json` records each one's `dev` commit, the package version at that commit and the file's sha256: Studio follows each package's `dev` HEAD, not a release. `npm run wire:pull` (or `npm run wire:pull -- curator` for one) fetches them at the current `dev` HEAD; then fix whatever `npm run typecheck` reports. A daily workflow (`.github/workflows/wire-drift.yml`) does the same and opens a `chore/wire-sync` PR when a package's `dev` has moved on, or an issue when the checks fail. `npm run wire:check` is the CI step that fails on drift, and needs no network or sibling checkout.
+
+### Package docs
+
+Each package's own README and `docs/*.md` pages, and the suite's setup guides, are published by [argus-handbook](https://github.com/smk762/argus-handbook) at [docs.dragonhound.dev](https://docs.dragonhound.dev/packages/). Studio's `/docs` keeps only the captioning concepts; its old `/docs/setup/…` and `/docs/packages/…` paths redirect there (301), in both the server build (`next.config.ts`) and the static demo (`frontend/public/_redirects`).
 
 ## Configuration
 
@@ -359,11 +392,13 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 | `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
 | `ARGUS_DARKROOM_URL` | `http://localhost:8106` | URL the **browser** uses to reach argus-darkroom (the `/darkroom` generation view) |
 | `ARGUS_ATLAS_URL` | `http://localhost:8105` | URL the **browser** uses to reach argus-atlas (the `/atlas` map-bake view) |
-| `ARGUS_LIGHTBOX_URL`, `ARGUS_CULL_URL`, `ARGUS_SAFELIGHT_URL`, `ARGUS_SIGHTLINE_URL`, `ARGUS_MASK_URL` | _(empty)_ | Footer links to the standalone demo UIs, to argus-sightline (the `survey` profile, `:3107`) and to argus-mask's viewer (the `mask` profile, `:8109`). A UI left empty gets no link |
+| `ARGUS_LIGHTBOX_URL`, `ARGUS_CULL_URL`, `ARGUS_SAFELIGHT_URL`, `ARGUS_SIGHTLINE_URL`, `ARGUS_MASK_URL`, `ARGUS_ASSAY_URL` | _(empty)_ | Footer links to the standalone demo UIs, to argus-sightline (the `survey` profile, `:3107`), to argus-mask's viewer (the `mask` profile, `:8109`) and to argus-assay, argus-mint's UI (`:3108`, also linked from `/darkroom`). A UI left empty gets no link |
 | `ARGUS_CSP` | `enforce` | The nonce-based Content-Security-Policy on every page: `enforce`, `report-only` (logs violations to the console) or `off`. X-Frame-Options, nosniff and Referrer-Policy are sent in every mode |
 | `DEVMODE` (or `ARGUS_DEVMODE`, which wins) | _(unset)_ | Offers SingGuard's `adult-*` policies on `/curate` and `/darkroom`, and lets curator and darkroom delete anything (darkroom's Delete record / Delete everything). Every delete still asks first. `CURATOR_DEVMODE=0` / `DARKROOM_DEVMODE=0` keep the policies without that service's deletes |
 | `CURATOR_ALLOW_MOVE` / `CURATOR_ALLOW_DELETE` | _(commented out)_ | Let the curator `move` source images on export / delete any selected image. Uncomment them in `compose.yaml` |
 | `ARGUS_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
+| `ARGUS_FORGE_UI_MODE` | curator mode | `/forge`'s own mode: `live` renders configs from real exports via argus-forge |
+| `ARGUS_PROOF_UI_MODE` | curator mode | `/proof`'s own mode: `live` lists and replays stored reports from argus-proof |
 | `ARGUS_CURATOR_SOURCE_PATH` | *(empty)* | Default source path shown in the folder picker (path inside the curator container). `compose.yaml` sets `/data/images` |
 | `ARGUS_CURATOR_OUTPUT_PATH` | *(empty)* | Default export destination (path inside the curator container). `compose.yaml` sets `/data/out` |
 | `DATASET_DIR` | `./data` | Host dir mounted at `/data/images` on **both** curator and lens |

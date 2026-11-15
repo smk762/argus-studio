@@ -78,11 +78,7 @@ export function HybridBalance({ presets, value, onChange }: HybridBalanceProps) 
   // The card, label, and info toggle are the shared ParamInfo affordance used by
   // every other control on the page; only the segmented control + slider are ours.
   return (
-    <ParamInfo
-      label="Tag ↔ Prose Balance"
-      description="Balances how much the final caption leans on booru-style tags versus natural-language prose. Lower = denser tags; higher = flowing description. Presets are named stops; the Advanced slider sends a raw prose_bias (0.0–1.0) that overrides the preset."
-      example={overriding ? `prose_bias=${effectiveBias.toFixed(2)}` : `hybrid_preset="${value.preset}"`}
-    >
+    <ParamInfo conceptId="hybrid_balance">
       <div className="w-full space-y-3">
         {/* Preset segmented control */}
         <div role="radiogroup" aria-label="Tag to prose balance preset" className="flex flex-wrap gap-1.5">
@@ -97,7 +93,7 @@ export function HybridBalance({ presets, value, onChange }: HybridBalanceProps) 
                 onClick={() => pickPreset(key)}
                 className={`flex-1 min-w-[4.5rem] px-2.5 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                   active
-                    ? "bg-accent-purple text-white"
+                    ? "bg-accent-purple text-on-accent"
                     : "bg-background border border-border text-foreground hover:bg-surface-hover"
                 }`}
               >
@@ -118,7 +114,7 @@ export function HybridBalance({ presets, value, onChange }: HybridBalanceProps) 
             <span>{expanded ? "▾" : "▸"}</span>
             Advanced
             {overriding && (
-              <span className="ml-1 rounded bg-accent-purple/20 px-1.5 py-0.5 font-mono text-accent-purple">
+              <span className="ml-1 rounded bg-accent-purple/20 px-1.5 py-0.5 font-mono text-accent-purple-ink">
                 prose_bias {effectiveBias.toFixed(2)}
               </span>
             )}
@@ -139,7 +135,7 @@ export function HybridBalance({ presets, value, onChange }: HybridBalanceProps) 
                   className="flex-1 accent-accent-purple cursor-pointer"
                 />
                 <span className="text-[10px] uppercase tracking-wider text-muted shrink-0">Prose</span>
-                <span className="w-10 shrink-0 text-right font-mono text-xs tabular-nums text-accent-purple">
+                <span className="w-10 shrink-0 text-right font-mono text-xs tabular-nums text-accent-purple-ink">
                   {effectiveBias.toFixed(2)}
                 </span>
               </div>
@@ -150,7 +146,7 @@ export function HybridBalance({ presets, value, onChange }: HybridBalanceProps) 
                     <button
                       type="button"
                       onClick={() => pickPreset(value.preset)}
-                      className="text-accent-purple underline decoration-dotted hover:text-accent-purple/80 cursor-pointer"
+                      className="text-accent-purple-ink underline decoration-dotted hover:text-accent-purple-ink cursor-pointer"
                     >
                       Snap back to “{presetLabel(value.preset)}”
                     </button>

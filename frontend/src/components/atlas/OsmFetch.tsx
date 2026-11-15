@@ -6,6 +6,7 @@ import { osmExtractName, isSafeId } from "@/lib/atlasView";
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { Field, inputClass } from "@/components/atlas/fields";
+import { Tooltip } from "@/components/Tooltip";
 
 /**
  * Ask the atlas host to fetch OSM layers for the AOI (`POST /osm`). The form stays
@@ -115,20 +116,21 @@ export function OsmFetch({
         ))}
       </fieldset>
       {name.trim() !== "" && !nameOk && (
-        <p className="text-xs text-accent-red">Use letters, digits, &quot;.&quot;, &quot;_&quot; or &quot;-&quot;, starting with a letter or digit.</p>
+        <p className="text-xs text-accent-red-ink">Use letters, digits, &quot;.&quot;, &quot;_&quot; or &quot;-&quot;, starting with a letter or digit.</p>
       )}
-      {replacing && <p className="text-xs text-accent-orange">This replaces the extract {osmExtractName(name.trim())}.</p>}
+      {replacing && <p className="text-xs text-accent-orange-ink">This replaces the extract {osmExtractName(name.trim())}.</p>}
       <div className="flex flex-wrap items-center gap-4">
+        <Tooltip text={reason ?? ""} describe>
         <button
           type="button"
           onClick={submit}
           disabled={!ready || busy || !permits(canOsm) || !permits(canGdal)}
-          title={reason ?? undefined}
-          className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue transition-opacity hover:bg-accent-blue/20 disabled:opacity-40"
+          className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue-ink transition-opacity hover:bg-accent-blue/20 disabled:opacity-40"
         >
           {busy ? "Asking Overpass…" : "Fetch OSM"}
         </button>
-        {error && <span className="text-xs text-accent-red">{error}</span>}
+        </Tooltip>
+        {error && <span className="text-xs text-accent-red-ink">{error}</span>}
         {result && (
           <span className="text-xs text-muted">
             Fetched {Object.keys(result.layers).join(", ") || "no layers"} into {osmExtractName(result.name)}

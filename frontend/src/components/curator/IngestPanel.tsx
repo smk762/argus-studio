@@ -6,6 +6,7 @@ import { uploadImages } from "@/lib/curatorApi";
 import { immichPullStream, listImmichAlbums, type ImmichAlbum } from "@/lib/lensApi";
 import { localSourcePath } from "@/lib/curatorEnv";
 import { joinPath } from "@/lib/path";
+import { albumSlug } from "@/lib/albumSlug";
 
 /** Join a dataset-relative folder onto the curator container's source path. */
 function absSourcePath(rel: string): string {
@@ -14,11 +15,6 @@ function absSourcePath(rel: string): string {
 }
 
 const isImageFile = (f: File) => f.type.startsWith("image/");
-
-/** Turn an album name into a safe dataset folder name. */
-function slugify(name: string): string {
-  return name.trim().replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "immich";
-}
 
 interface Props {
   /** Called with the folder (as the curator sees it) that just received images. */
@@ -66,12 +62,14 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
     setError(null);
     setNote(null);
     try {
-      const res = await uploadImages(files, folder.trim());
+      // Files dropped while this upload runs are not part of it: keep them staged.
+      const sent = files;
+      const res = await uploadImages(sent, folder.trim());
       setNote(
         `Saved ${res.saved} image${res.saved === 1 ? "" : "s"} to ${res.folder || "the dataset root"}` +
           (res.skipped.length > 0 ? ` (${res.skipped.length} skipped)` : ""),
       );
-      setFiles([]);
+      setFiles((cur) => cur.filter((f) => !sent.includes(f)));
       if (res.saved > 0) onIngested(absSourcePath(res.folder));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -89,7 +87,7 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
     setPull(null);
     try {
       const res = await immichPullStream(
-        { album_id: album.id, dest_folder: `immich/${slugify(album.name)}` },
+        { album_id: album.id, dest_folder: `immich/${albumSlug(album.name, album.id)}` },
         (p) => setPull({ done: p.done, total: p.total }),
       );
       setNote(
@@ -142,7 +140,7 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
           type="button"
           onClick={() => void runUpload()}
           disabled={disabled || busy || files.length === 0 || !folder.trim()}
-          className="cursor-pointer whitespace-nowrap rounded-lg bg-accent-teal/20 px-3 py-2 text-xs font-semibold text-accent-teal transition-colors hover:bg-accent-teal/30 disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer whitespace-nowrap rounded-lg bg-accent-teal/20 px-3 py-2 text-xs font-semibold text-accent-teal-ink transition-colors hover:bg-accent-teal/30 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy && files.length > 0 ? "Uploading…" : "Upload"}
         </button>
@@ -175,7 +173,7 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
             type="button"
             onClick={() => void runPull()}
             disabled={disabled || busy || !albumId}
-            className="cursor-pointer whitespace-nowrap rounded-lg bg-accent-teal/20 px-3 py-2 text-xs font-semibold text-accent-teal transition-colors hover:bg-accent-teal/30 disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer whitespace-nowrap rounded-lg bg-accent-teal/20 px-3 py-2 text-xs font-semibold text-accent-teal-ink transition-colors hover:bg-accent-teal/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {pull ? `${pull.done}/${pull.total}` : "Pull album"}
           </button>
@@ -190,8 +188,8 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
           />
         </div>
       )}
-      {note && <p className="text-[11px] leading-relaxed text-accent-green">{note}</p>}
-      {error && <p className="text-[11px] leading-relaxed text-accent-red">{error}</p>}
+      {note && <p className="text-[11px] leading-relaxed text-accent-green-ink">{note}</p>}
+      {error && <p className="text-[11px] leading-relaxed text-accent-red-ink">{error}</p>}
     </div>
   );
 }

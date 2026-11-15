@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  clearSentEdits,
   applyEdits,
   compositeScore,
   editsToUpdates,
   imageState,
+  needsReviewFrames,
   METRIC_LABELS,
   normalizeEdits,
   policyLabel,
@@ -25,6 +27,8 @@ import {
 import { permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { StarRating } from "@/components/proof/StarRating";
+import { LearnButton } from "@/components/LearnPanel";
+import { RefinementPanel } from "@/components/proof/RefinementPanel";
 import { RejectReasonPicker, UnsafeCategoryPicker } from "@/components/proof/RejectReasonPicker";
 import { tileLoading } from "@/lib/imageLoading";
 
@@ -51,10 +55,13 @@ function barColor(v: number): string {
   return "bg-accent-red";
 }
 
-function MetricBar({ label, value, hint }: { label: string; value: number | null; hint: string }) {
+function MetricBar({ label, value, hint, conceptId }: { label: string; value: number | null; hint: string; conceptId?: string }) {
   return (
     <div className="flex items-center gap-2" title={hint}>
-      <span className="w-16 shrink-0 text-[11px] text-muted">{label}</span>
+      <span className="flex w-20 shrink-0 items-center gap-1 text-[11px] text-muted">
+        {label}
+        {conceptId ? <LearnButton conceptId={conceptId} className="h-3.5 w-3.5" /> : null}
+      </span>
       <div className="h-1.5 flex-1 overflow-hidden rounded bg-surface-hover">
         {value != null && <div className={`h-full ${barColor(value)}`} style={{ width: `${value * 100}%` }} />}
       </div>
@@ -66,9 +73,9 @@ function MetricBar({ label, value, hint }: { label: string; value: number | null
 }
 
 const STATE_STYLES = {
-  pass: "border-accent-green/50 bg-accent-green/15 text-accent-green",
-  fail: "border-accent-red/50 bg-accent-red/15 text-accent-red",
-  needs_hitl: "border-accent-amber/50 bg-accent-amber/15 text-accent-amber",
+  pass: "border-accent-green/50 bg-accent-green/15 text-accent-green-ink",
+  fail: "border-accent-red/50 bg-accent-red/15 text-accent-red-ink",
+  needs_hitl: "border-accent-amber/50 bg-warn-tint text-warn-ink",
 } as const;
 
 const STATE_LABEL = { pass: "Pass", fail: "Fail", needs_hitl: "Needs review" } as const;
@@ -106,7 +113,7 @@ function SampleImage({
   const [failed, setFailed] = useState(false);
   if (!live || failed) {
     return (
-      <div className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-border bg-surface-hover/40 text-center text-[11px] text-muted/60">
+      <div className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-border bg-surface-hover/40 text-center text-[11px] text-muted">
         {hidden ? "blind sample" : `seed ${img.seed}`}
       </div>
     );
@@ -139,7 +146,7 @@ function UnsafeBreakdownPanel({ images }: { images: ImageScores[] }) {
           <li
             key={s.category ?? "uncategorised"}
             className={`rounded-md border px-2 py-0.5 ${
-              s.category === null ? "border-border text-muted" : "border-accent-red/40 text-accent-red"
+              s.category === null ? "border-border text-muted" : "border-accent-red/40 text-accent-red-ink"
             }`}
           >
             {s.category === null ? "Uncategorised" : policyLabel(s.category)}{" "}
@@ -172,9 +179,16 @@ interface ProofBoardProps {
    * permission, and must not read as refusal either.
    */
   canWrite: Capability;
+  /**
+   * Called with the recomputed report after a review is applied (saved to the
+   * server, or folded in locally in demo mode), so the page can bring its run
+   * list in step. The board keeps its own copy; the page must not feed this back
+   * as `initialReport`, which would reset the review session.
+   */
+  onReportChange?: (report: EvalReport) => void;
 }
 
-export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
+export function ProofBoard({ initialReport, live, canWrite, onReportChange }: ProofBoardProps) {
   const [report, setReport] = useState<EvalReport>(initialReport);
   const [edits, setEdits] = useState<Map<string, HitlEdit>>(new Map());
   const [rater, setRater] = useState("");
@@ -196,7 +210,13 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
     setRevealed(new Set());
     setFocus(0);
     setSaveError(null);
+    setSaving(false);
   }
+  // The run on screen, for a save that resolves after the board has moved on.
+  const currentRun = useRef(initialReport);
+  useEffect(() => {
+    currentRun.current = initialReport;
+  }, [initialReport]);
 
   // The report as the reviewer's unsaved edits make it look right now. With no
   // edits it IS the report, so the header shows the server's authoritative
@@ -227,6 +247,11 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
     if (needsOnly) idx = idx.filter((i) => imageState(imgs[i]) === "needs_hitl");
     return idx;
   }, [report, blind, needsOnly]);
+
+  // Frames the needs-review filter shows, on the same basis as `order` (the
+  // report as last applied). The header counts near-dup *groups*, so a pair that
+  // both need review is one there and two here; both labels say which they count.
+  const needsFrames = useMemo(() => needsReviewFrames(report.images), [report]);
 
   // image_id -> position in the stored report, for the seed-free blind image URL.
   const reportIndexById = useMemo(
@@ -320,6 +345,8 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
     // is not part of it and must survive, so clear only the keys actually sent
     // rather than dropping the whole map on resolve.
     const sent = edits;
+    const startedFor = initialReport;
+    const stillCurrent = () => currentRun.current === startedFor;
     try {
       // Writable: send the edits and adopt the server's authoritative recompute.
       // Demo: apply the same edits locally, laundered identically (normalizeEdits
@@ -327,23 +354,34 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
       const updated = permits(canWrite)
         ? await submitHitl(report.run_id, { rater: rater || null, updates: editsToUpdates(sent) })
         : applyEdits(report, normalizeEdits(sent), rater || null);
+      // The page's run list still learns what was saved, but a board that has
+      // switched runs keeps the new run's report and edits.
+      onReportChange?.(updated);
+      if (!stillCurrent()) return;
       setReport(updated);
-      setEdits((cur) => {
-        if (cur === sent) return new Map();
-        const next = new Map(cur);
-        for (const id of sent.keys()) next.delete(id);
-        return next;
-      });
+      setEdits((cur) => clearSentEdits(cur, sent));
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save review");
+      if (stillCurrent()) setSaveError(err instanceof Error ? err.message : "Failed to save review");
     } finally {
-      setSaving(false);
+      if (stillCurrent()) setSaving(false);
     }
   };
+
+  // A saved refinement changes only the refinement layer; the board adopts the
+  // returned report so a later review save starts from it.
+  const onRefined = useCallback(
+    (updated: EvalReport) => {
+      if (currentRun.current !== initialReport) return;
+      setReport(updated);
+      onReportChange?.(updated);
+    },
+    [initialReport, onReportChange],
+  );
 
   const agg = view.aggregate;
 
   return (
+    <div className="space-y-6">
     <div ref={boardRef} tabIndex={0} onKeyDown={onKeyDown} className="space-y-6 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-purple">
       {/* Summary header */}
       <section className="rounded-xl border border-border bg-surface/50 p-5">
@@ -372,7 +410,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
             </div>
             <div>
               <div className="text-2xl font-semibold text-foreground">{agg.n_needs_hitl}</div>
-              <div className="text-[10px] uppercase tracking-wide text-muted">need review</div>
+              <div className="text-[10px] uppercase tracking-wide text-muted">groups to review</div>
             </div>
             <div>
               <div className="text-2xl font-semibold text-foreground">
@@ -386,9 +424,9 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             {METRIC_LABELS.map((m) => (
-              <MetricBar key={m.key} label={m.label} value={agg.means[m.key]} hint={`Mean ${m.label} — ${m.hint}`} />
+              <MetricBar key={m.key} label={m.label} value={agg.means[m.key]} hint={`Mean ${m.label} — ${m.hint}`} conceptId={m.conceptId} />
             ))}
-            <MetricBar label="Diversity" value={agg.diversity} hint="Output variety (higher = more varied)" />
+            <MetricBar label="Diversity" value={agg.diversity} hint="Output variety (higher = more varied)" conceptId="metric_diversity" />
           </div>
           <div className="text-[11px] text-muted">
             <div className="mb-1 font-medium text-foreground/70">Scorers</div>
@@ -398,7 +436,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
               <ul className="space-y-0.5">
                 {report.scorers.map((s) => (
                   <li key={`${s.name}-${s.metric}`} className="font-mono">
-                    {s.name} <span className="text-muted/60">({s.metric})</span>
+                    {s.name} <span className="text-muted">({s.metric})</span>
                     {s.model ? ` · ${s.model}` : ""}
                     {s.version ? ` v${s.version}` : ""}
                   </li>
@@ -427,6 +465,9 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
         <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
           <input type="checkbox" checked={needsOnly} onChange={(e) => setNeedsOnly(e.target.checked)} className="accent-accent-purple" />
           Needs-review only
+          <span className="text-xs">
+            ({needsFrames} {needsFrames === 1 ? "image" : "images"})
+          </span>
         </label>
         {blind && (
           <button
@@ -438,7 +479,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
           </button>
         )}
         <div className="ml-auto flex items-center gap-3">
-          {saveError && <span className="text-xs text-accent-red">{saveError}</span>}
+          {saveError && <span className="text-xs text-accent-red-ink">{saveError}</span>}
           {dirty && (
             <span className="text-xs text-muted">
               {edits.size} {writeRefused ? "not saved" : "unsaved"}
@@ -448,7 +489,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
             type="button"
             onClick={save}
             disabled={!dirty || saving || !canSave}
-            className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {saving ? "Saving…" : localApply ? "Apply review" : writeUnknown ? "Checking…" : "Save review"}
           </button>
@@ -470,7 +511,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
           }
         />
       )}
-      <p className="-mt-3 text-[11px] text-muted/70">
+      <p className="-mt-3 text-[11px] text-muted">
         Keyboard: <kbd className="rounded bg-surface-hover px-1">1</kbd>–<kbd className="rounded bg-surface-hover px-1">5</kbd> rate ·{" "}
         <kbd className="rounded bg-surface-hover px-1">0</kbd> clear · <kbd className="rounded bg-surface-hover px-1">←</kbd>
         <kbd className="rounded bg-surface-hover px-1">→</kbd> move focus
@@ -532,7 +573,7 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
                   />
                 )}
                 {edit.reject_reasons.length > 0 && (
-                  <p className="text-[10px] text-accent-red/80">{edit.reject_reasons.map(reasonLabel).join(", ")}</p>
+                  <p className="text-[10px] text-accent-red-ink">{edit.reject_reasons.map(reasonLabel).join(", ")}</p>
                 )}
               </div>
             </div>
@@ -540,6 +581,18 @@ export function ProofBoard({ initialReport, live, canWrite }: ProofBoardProps) {
         })}
       </section>
       {order.length === 0 && <p className="py-12 text-center text-sm text-muted">No samples match the current filter.</p>}
+    </div>
+
+    {/* Outside the keyboard-driven board: its number keys rate the focused sample. */}
+    <RefinementPanel
+      report={report}
+      live={live}
+      canWrite={canWrite}
+      rater={rater || null}
+      reviewDirty={dirty}
+      blind={blind}
+      onRefined={onRefined}
+    />
     </div>
   );
 }

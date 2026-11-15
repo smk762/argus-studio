@@ -1,9 +1,9 @@
 import { shieldLabel, shieldMark, type ShieldState } from "@/lib/darkroom/shields";
 
 const FILL: Record<ShieldState, string> = {
-  safe: "text-accent-green",
-  flagged: "text-accent-amber",
-  illegal: "text-accent-red",
+  safe: "text-accent-green-ink",
+  flagged: "text-accent-amber-ink",
+  illegal: "text-accent-red-ink",
   unchecked: "text-muted",
   pending: "text-muted",
 };

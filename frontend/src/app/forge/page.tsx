@@ -20,9 +20,9 @@ import {
   type TrainerInfo,
 } from "@/lib/forgeApi";
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
-import { isLive, localOutputPath } from "@/lib/curatorEnv";
+import { forgeLive, localOutputPath } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
-import { RecordedBadge, RecordedDemoNote } from "@/components/DemoChrome";
+import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { downloadText } from "@/lib/download";
 import { basename, normalizeRoot } from "@/lib/path";
@@ -36,6 +36,9 @@ import {
 } from "@/components/curator/types";
 import { demoKohyaFiles, forgeSlug } from "@/components/curator/forgeDemo";
 import { ExternalLink } from "@/components/ExternalLink";
+import { MadeWith } from "@/components/MadeWith";
+import { TrainingRuns } from "@/components/forge/TrainingRuns";
+import { forgeConfigCommand } from "@/lib/madeWith";
 
 /** Trainers to offer before `/trainers` answers (and the whole list in demo mode). */
 const FALLBACK_TRAINERS: TrainerInfo[] = (Object.keys(TRAINER_LABELS) as TrainerId[]).map((id) => ({
@@ -47,10 +50,10 @@ const FALLBACK_TRAINERS: TrainerInfo[] = (Object.keys(TRAINER_LABELS) as Trainer
 }));
 
 const TONE_CLASS: Record<DatasetSizeTone, string> = {
-  empty: "border-accent-red/30 bg-accent-red/5 text-accent-red",
-  low: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange",
-  good: "border-accent-green/30 bg-accent-green/5 text-accent-green",
-  high: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange",
+  empty: "border-accent-red/30 bg-accent-red/5 text-accent-red-ink",
+  low: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange-ink",
+  good: "border-accent-green/30 bg-accent-green/5 text-accent-green-ink",
+  high: "border-accent-orange/30 bg-accent-orange/5 text-accent-orange-ink",
 };
 
 const inputClass =
@@ -131,10 +134,10 @@ function TrainerNotes({ trainers, trainer }: { trainers: TrainerInfo[]; trainer:
 }
 
 export default function ForgePage() {
-  // Resolved once per render: isLive() reads the per-request runtime config, and
+  // Resolved once per render: forgeLive() reads the per-request runtime config, and
   // the fallback path when the injected global is missing rebuilds the whole
   // config on every call.
-  const live = isLive();
+  const live = forgeLive();
 
   // version: null = loading, "" = unreachable, or a real version. Demo mode has
   // no server to version, and renders its own Demo pill instead of the badge —
@@ -183,7 +186,17 @@ export default function ForgePage() {
   const atRoot = dirTrimmed !== "" && normalizeRoot(dirTrimmed) === exportRoot;
 
   const inspectKey = JSON.stringify({ dir: dirTrimmed, category });
-  const configKey = JSON.stringify({ dir: dirTrimmed, category, trainer, willWrite });
+  // Every input generate() sends, normalised as it sends them: a changed trigger
+  // or base model must hide the stale preview, or Download saves a config whose
+  // class_tokens or base model the form no longer has (#78).
+  const configKey = JSON.stringify({
+    dir: dirTrimmed,
+    category,
+    trainer,
+    willWrite,
+    trigger: trigger.trim() || null,
+    baseModel: baseModel.trim() || null,
+  });
   const shownDataset = dataset?.key === inspectKey ? dataset.info : null;
   const shownResult = result?.key === configKey ? result.res : null;
 
@@ -354,16 +367,16 @@ export default function ForgePage() {
           live ? (
             <ApiVersionBadge label="argus-forge" version={version} prefix="v" />
           ) : (
-            <RecordedBadge label="Demo" title="No argus-forge answering: configs are generated in your browser." />
+            <DemoBadge state="browser" title="No argus-forge answering: configs are generated in your browser; nothing is sent anywhere." />
           )
         }
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+        <MadeWith pkg="forge" verb="Configs from" version={live ? version : null} command={forgeConfigCommand(trainer)} />
         {STATIC_DEMO && (
           <RecordedDemoNote
-            label="In-browser demo"
-            summary="the kohya config below is generated in your browser by the same sizing heuristics argus-forge uses."
+            summary="The kohya config below is generated in your browser by the same sizing heuristics argus-forge uses."
           >
             Demo mode builds kohya configs only. A running argus-forge inspects a real export and emits all three
             trainers.
@@ -398,7 +411,7 @@ export default function ForgePage() {
                   </>
                 )}
                 Demo mode: configs are built in your browser from the same sizing heuristics, for kohya only.
-                Set <span className="font-mono">ARGUS_CURATOR_UI_MODE=live</span> and run argus-forge to inspect a
+                Set <span className="font-mono">ARGUS_FORGE_UI_MODE=live</span> and run argus-forge to inspect a
                 real export and emit all three trainers.
               </>
             }
@@ -495,7 +508,7 @@ export default function ForgePage() {
         {error && (
           <p
             role="alert"
-            className="rounded-lg border border-accent-red/30 bg-accent-red/5 px-3 py-2 text-sm text-accent-red"
+            className="rounded-lg border border-accent-red/30 bg-accent-red/5 px-3 py-2 text-sm text-accent-red-ink"
           >
             {error}
           </p>
@@ -574,7 +587,7 @@ export default function ForgePage() {
                   title={demoOnly ? "Demo mode builds kohya configs only." : t.notes || undefined}
                   className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                     trainer === t.id
-                      ? "border border-accent-amber/40 bg-accent-amber/20 text-accent-amber"
+                      ? "border border-accent-amber/40 bg-accent-amber/20 text-accent-amber-ink"
                       : "border border-border bg-background text-muted hover:text-foreground"
                   }`}
                 >
@@ -703,13 +716,17 @@ export default function ForgePage() {
         {/* ── Training ───────────────────────────────────────────── */}
         <section className="space-y-3 rounded-xl border border-border bg-surface/50 p-5">
           <h2 className="text-sm font-medium text-foreground">Training</h2>
-          {trainingNote ? (
-            <CapabilityNotice reason={trainingNote} />
-          ) : (
-            <p className="text-xs leading-relaxed text-muted">
-              This host will run training. Launching and monitoring runs from here is not wired up yet — see
-              issue #63.
-            </p>
+          {trainingNote && <CapabilityNotice reason={trainingNote} />}
+          {/* The run list reads on a demo-safe forge too; Start and Cancel follow
+              /health.training (and the client refuses them besides). */}
+          {live && !unreachable && version !== null && (
+            <TrainingRuns
+              exportDir={dirTrimmed}
+              atRoot={atRoot}
+              trainer={trainer}
+              runnable={trainers.find((t) => t.id === trainer)?.entrypoint != null}
+              training={trainingCap}
+            />
           )}
         </section>
       </main>
@@ -719,7 +736,7 @@ export default function ForgePage() {
           <>
             <ExternalLink
               href="https://github.com/smk762/argus-forge"
-              className="text-accent-amber transition-colors hover:text-accent-amber/80"
+              className="text-accent-amber-ink transition-colors hover:text-accent-amber-ink"
             >
               argus-forge
             </ExternalLink>{" "}

@@ -54,15 +54,19 @@ import { matchesFilters } from "@/lib/curatorFacets";
 import { policiesRun } from "@/lib/curatorGuard";
 import { sortResults, type ResultSort } from "@/lib/curatorModeration";
 import { canExport, isDeletableReject, isMinorExposed, scanCheckedNsfw } from "@/lib/curatorSafety";
+import { CURATOR_SAMPLE_VERSION } from "@/lib/curatorSampleThumbs";
 import { scanFormProblem } from "@/lib/curatorScanForm";
 import { deleteConfirmText, deleteReport } from "@/lib/scanDelete";
 import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
 import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
-import { RecordedDemoNote } from "@/components/DemoChrome";
+import { Tooltip } from "@/components/Tooltip";
+import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { ExternalLink } from "@/components/ExternalLink";
+import { MadeWith } from "@/components/MadeWith";
+import { curatorScanCommand } from "@/lib/madeWith";
 
 type View = "grid" | "clusters";
 
@@ -560,35 +564,44 @@ export default function CuratePage() {
         title="Argus Curator"
         subtitle="Curate by quality and by face, then caption with argus-lens"
         badge={
-          <ApiVersionBadge
-            label="argus-curator"
-            version={version}
-            className="flex shrink-0 flex-col items-end gap-1"
-          >
-            <span
-              className={`rounded border px-2 py-0.5 text-[9px] uppercase tracking-wider ${
-                isLive()
-                  ? "border-accent-teal/40 bg-accent-teal/10 text-accent-teal"
-                  : "border-accent-purple/40 bg-accent-purple/10 text-accent-purple"
-              }`}
-              title={
-                isLive()
-                  ? "ARGUS_CURATOR_UI_MODE=live — real scans against the curator host."
-                  : "ARGUS_CURATOR_UI_MODE=demo — read-only bundled sample."
-              }
+          STATIC_DEMO ? (
+            <DemoBadge state="sample" title="A bundled, illustrative scan, not real output; scanning needs argus-curator." />
+          ) : (
+            <ApiVersionBadge
+              label="argus-curator"
+              version={version}
+              className="flex shrink-0 flex-col items-end gap-1"
             >
-              {isLive() ? "Live" : "Demo sample"}
-            </span>
-          </ApiVersionBadge>
+              {isLive() ? (
+                <span
+                  className="rounded border border-accent-teal/40 bg-accent-teal/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-accent-teal-ink"
+                  title="ARGUS_CURATOR_UI_MODE=live — real scans against the curator host."
+                >
+                  Live
+                </span>
+              ) : (
+                <DemoBadge state="sample" title="ARGUS_CURATOR_UI_MODE=demo — a read-only bundled sample." />
+              )}
+            </ApiVersionBadge>
+          )
         }
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+        <MadeWith
+          pkg="curator"
+          verb="Scored by"
+          version={version === "sample" ? CURATOR_SAMPLE_VERSION : version}
+          command={curatorScanCommand()}
+          className="mb-4"
+        />
         {STATIC_DEMO && (
           <div className="mb-6">
-            <RecordedDemoNote label="Sample scan" summary="a bundled, illustrative 14-image curator scan.">
-              Thumbnails are placeholders. Filtering, selection and the export manifest all run in your browser;
-              scanning real folders needs a running argus-curator.
+            <RecordedDemoNote summary={`A recorded argus-curator ${CURATOR_SAMPLE_VERSION} scan of 14 synthetic images.`}>
+              The images were generated for this demo with SDXL (CyberRealistic XL Desire v2.0, with InstantID to
+              keep each face consistent); both people are fictional. Every score, face, pose, scene, garment and
+              moderation verdict here is the curator&apos;s real output, recorded with its own thumbnails. Filtering, selection and the export manifest all run in your
+              browser; scanning real folders needs a running argus-curator.
             </RecordedDemoNote>
           </div>
         )}
@@ -615,15 +628,16 @@ export default function CuratePage() {
                     required
                     className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent-teal/50 focus:outline-none focus:ring-2 focus:ring-accent-teal/50"
                   />
+                  <Tooltip text={formProblem ?? ""} className="w-full" describe>
                   <button
                     type="submit"
                     disabled={loading || purging || !folderPath.trim() || formProblem !== null}
-                    title={formProblem ?? undefined}
                     className="w-full cursor-pointer rounded-lg bg-accent-teal px-4 py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-teal/90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {loading ? "Scanning…" : "Scan folder"}
                   </button>
-                  {formProblem && <p className="text-[11px] leading-relaxed text-accent-orange/90">{formProblem}</p>}
+                  </Tooltip>
+                  {formProblem && <p className="text-[11px] leading-relaxed text-accent-orange-ink">{formProblem}</p>}
                   <ScanControlButtons
                     scanning={scanning}
                     scanId={scanId}
@@ -705,9 +719,10 @@ export default function CuratePage() {
                 </div>
               )}
               </>
-            ) : (
+            ) : STATIC_DEMO ? null : (
+              // The static demo says this in its note and header badge; only the self-hosted demo mode needs it here.
               <div className="space-y-2 rounded-xl border border-accent-purple/30 bg-accent-purple/5 p-4">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-accent-purple">Demo sample</span>
+                <span className="block text-xs font-semibold text-accent-purple-ink">Sample data</span>
                 <p className="text-[11px] leading-relaxed text-muted">
                   A pre-computed scan (2 identities, a near-duplicate pair, some rejects). Explore the facets, cluster
                   review, and manifest export read-only. Set{" "}
@@ -752,7 +767,7 @@ export default function CuratePage() {
             )}
 
             {error && (
-              <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 text-sm text-accent-red">{error}</div>
+              <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-4 text-sm text-accent-red-ink">{error}</div>
             )}
 
             {summary && (
@@ -852,7 +867,7 @@ export default function CuratePage() {
 
             {!summary && !loading && !error && (
               <div className="py-24 text-center text-muted">
-                <p className="text-lg text-foreground/60">Enter a folder path and scan to begin.</p>
+                <p className="text-lg text-muted">Enter a folder path and scan to begin.</p>
               </div>
             )}
           </div>
@@ -864,7 +879,7 @@ export default function CuratePage() {
           <>
             <ExternalLink
               href="https://github.com/smk762/argus-curator"
-              className="text-accent-teal transition-colors hover:text-accent-teal/80"
+              className="text-accent-teal-ink transition-colors hover:text-accent-teal-ink"
             >
               argus-curator
             </ExternalLink>{" "}
@@ -923,39 +938,42 @@ function DeleteActions({
   const selectedReason = waiting ?? capabilityReason(anyImage, DELETE_ANY_DENIED);
   const flaggedReason = waiting ?? capabilityReason(flagged, IMAGE_DELETE_DENIED);
   const style =
-    "rounded-lg border border-accent-red/40 px-2.5 py-1 text-xs text-accent-red transition-colors enabled:cursor-pointer enabled:hover:bg-accent-red/10 disabled:opacity-40";
+    "rounded-lg border border-accent-red/40 px-2.5 py-1 text-xs text-accent-red-ink transition-colors enabled:cursor-pointer enabled:hover:bg-accent-red/10 disabled:opacity-40";
   return (
     <>
-      <button
-        type="button"
-        onClick={onDeleteSelected}
-        disabled={selectedCount === 0 || deleting || selectedReason !== null}
-        title={selectedReason ?? "Delete the selected source files from disk"}
-        className={style}
-      >
-        {deleting ? "Deleting…" : `Delete selected (${selectedCount})`}
-      </button>
-      {flaggedCount > 0 && (
+      <Tooltip text={selectedReason ?? "Delete the selected source files from disk"} describe>
         <button
           type="button"
-          onClick={onDeleteFlagged}
-          disabled={deleting || flaggedReason !== null}
-          title={flaggedReason ?? "Delete every frame held as under 18 with exposure from disk"}
+          onClick={onDeleteSelected}
+          disabled={selectedCount === 0 || deleting || selectedReason !== null}
           className={style}
         >
-          Delete under-18 exposed ({flaggedCount})
+          {deleting ? "Deleting…" : `Delete selected (${selectedCount})`}
         </button>
+      </Tooltip>
+      {flaggedCount > 0 && (
+        <Tooltip text={flaggedReason ?? "Delete every frame held as under 18 with exposure from disk"} describe>
+          <button
+            type="button"
+            onClick={onDeleteFlagged}
+            disabled={deleting || flaggedReason !== null}
+            className={style}
+          >
+            Delete under-18 exposed ({flaggedCount})
+          </button>
+        </Tooltip>
       )}
       {rejectedCount > 0 && (
-        <button
-          type="button"
-          onClick={onDeleteRejected}
-          disabled={deleting || selectedReason !== null}
-          title={selectedReason ?? "Delete every rejected frame from disk, including any the filters hide"}
-          className={style}
-        >
-          Delete rejected ({rejectedCount})
-        </button>
+        <Tooltip text={selectedReason ?? "Delete every rejected frame from disk, including any the filters hide"} describe>
+          <button
+            type="button"
+            onClick={onDeleteRejected}
+            disabled={deleting || selectedReason !== null}
+            className={style}
+          >
+            Delete rejected ({rejectedCount})
+          </button>
+        </Tooltip>
       )}
     </>
   );
@@ -995,7 +1013,7 @@ function CachedScanList({
           <span className="block truncate font-mono text-[11px] text-foreground/90" title={active.folder}>
             {active.folder}
           </span>
-          <span className="block text-[10px] text-accent-teal">
+          <span className="block text-[10px] text-accent-teal-ink">
             {active.cancelling ? "Stopping" : "In progress"} · {scanPhaseLabel(active.phase)}
             {active.total > 0 ? ` · ${active.done}/${active.total}` : ""}
           </span>
@@ -1018,24 +1036,26 @@ function CachedScanList({
                 {scan.total} images · {new Date(scan.updated_at).toLocaleString()}
               </span>
             </button>
-            <button
-              type="button"
-              onClick={() => onAgain(scan.scan_id)}
-              disabled={rerunning != null || busy}
-              title="Fill the form the way this scan ran"
-              className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-muted hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {rerunning === scan.scan_id ? "…" : "Again"}
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(scan.scan_id)}
-              disabled={!canDelete || busy}
-              title={deleteReason ?? "Remove this scan from the cache. Source images stay."}
-              className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-accent-red hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {forgetting === scan.scan_id ? "…" : "Delete"}
-            </button>
+            <Tooltip text="Fill the form the way this scan ran" describe>
+              <button
+                type="button"
+                onClick={() => onAgain(scan.scan_id)}
+                disabled={rerunning != null || busy}
+                className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-muted hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {rerunning === scan.scan_id ? "…" : "Again"}
+              </button>
+            </Tooltip>
+            <Tooltip text={deleteReason ?? "Remove this scan from the cache. Source images stay."} describe>
+              <button
+                type="button"
+                onClick={() => onDelete(scan.scan_id)}
+                disabled={!canDelete || busy}
+                className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-accent-red-ink hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {forgetting === scan.scan_id ? "…" : "Delete"}
+              </button>
+            </Tooltip>
           </li>
         ))}
       </ul>
@@ -1077,7 +1097,7 @@ function ScanProgressView({
         ) : (
           <p className="text-xs text-muted">{compact ? "Reading the folder…" : "This can take a moment for large folders…"}</p>
         )}
-        {waiting && <p className="text-xs text-accent-teal">Still checking {waiting}</p>}
+        {waiting && <p className="text-xs text-accent-teal-ink">Still checking {waiting}</p>}
       </div>
     </div>
   );
@@ -1109,26 +1129,31 @@ function ScanControlButtons({
       : !scanId
         ? "Stop is available once the first images arrive."
         : "Stop the running scan. Checks already in flight finish, and the partial scan is dropped.";
+  const purgeTip = allowed
+    ? "Stop a running scan and delete every cached scan. Source images stay."
+    : (reason ?? SCAN_CONTROL_DENIED);
   return (
     <div className="flex gap-2">
+      <Tooltip text={stopTitle} className="flex-1" describe>
       <button
         type="button"
         disabled={!allowed || !scanning || !scanId || stopping || purging}
-        title={stopTitle}
         onClick={onStop}
-        className="flex-1 cursor-pointer rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full cursor-pointer rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
       >
         {stopping ? "Stopping…" : "Stop"}
       </button>
+      </Tooltip>
+      <Tooltip text={purgeTip} className="flex-1" describe>
       <button
         type="button"
         disabled={!allowed || purging}
-        title={allowed ? "Stop a running scan and delete every cached scan. Source images stay." : (reason ?? SCAN_CONTROL_DENIED)}
         onClick={onPurge}
-        className="flex-1 cursor-pointer rounded-lg border border-accent-red/40 px-3 py-2 text-sm text-accent-red transition-colors hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full cursor-pointer rounded-lg border border-accent-red/40 px-3 py-2 text-sm text-accent-red-ink transition-colors hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {purging ? "Purging…" : "Purge"}
       </button>
+      </Tooltip>
     </div>
   );
 }
@@ -1155,17 +1180,20 @@ function DetectorBadges({ detectors }: { detectors: Detectors }) {
   return (
     <div className="mb-3 flex flex-wrap gap-1.5 border-b border-border pb-3">
       {DETECTOR_INFO.map(({ key, label, hint }) => (
+        <Tooltip key={key} text={`${hint} — ${detectors[key] ? "available" : "not installed on the curator"}`}>
         <span
-          key={key}
-          title={`${hint} — ${detectors[key] ? "available" : "not installed on the curator"}`}
+          tabIndex={0}
+          role="img"
+          aria-label={`${label}: ${hint}, ${detectors[key] ? "available" : "not installed on the curator"}`}
           className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
             detectors[key]
-              ? "border-accent-green/40 bg-accent-green/10 text-accent-green"
+              ? "border-accent-green/40 bg-accent-green/10 text-accent-green-ink"
               : "border-border bg-background text-muted line-through"
           }`}
         >
           {label}
         </span>
+        </Tooltip>
       ))}
     </div>
   );
@@ -1177,7 +1205,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
       type="button"
       onClick={onClick}
       className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-        active ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal" : "border border-border bg-surface text-muted hover:text-foreground"
+        active ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal-ink" : "border border-border bg-surface text-muted hover:text-foreground"
       }`}
     >
       {children}

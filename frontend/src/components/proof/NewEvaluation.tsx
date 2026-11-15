@@ -11,6 +11,9 @@ import {
   type ProofExport,
   type ProofModels,
   type RunEvalProgress,
+  checkpointFamily,
+  FLUX_DEFAULT_GUIDANCE,
+  guidanceField,
 } from "@/lib/proofApi";
 
 /** Generation + scoring phases surfaced while a run streams. */
@@ -93,6 +96,8 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
   const [seeds, setSeeds] = useState("1, 2, 3");
   const [steps, setSteps] = useState("25");
   const [prompt, setPrompt] = useState("");
+  // Flux only (proof 0.3.0): empty sends nothing, so proof uses the family default.
+  const [guidance, setGuidance] = useState("");
 
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState<Phase>("generating");
@@ -155,6 +160,7 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
   // Floor to a positive integer — the server rejects non-ints and <= 0.
   const stepsFloor = Math.floor(Number(steps));
   const stepsVal = Number.isFinite(stepsFloor) && stepsFloor > 0 ? stepsFloor : 25;
+  const isFlux = checkpointFamily(checkpoint) === "flux";
   const ready = checkpoint.trim() && lora.trim() && seedList.length > 0 && (exportName || prompt.trim());
 
   // The run is the one long-lived request here, and it outlives the form: the
@@ -181,6 +187,7 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
           prompt: prompt.trim() || undefined,
           seeds: seedList,
           steps: stepsVal,
+          ...guidanceField(checkpoint, guidance),
         },
         (p: RunEvalProgress) => {
           if (p.type === "start") setProgress({ done: 0, total: p.total ?? seedList.length });
@@ -217,7 +224,6 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
         onClick={() => setOpen((o) => !o)}
         disabled={sealed}
         aria-expanded={open}
-        title={sealed ? deniedReason : undefined}
         className="flex w-full cursor-pointer items-center justify-between px-5 py-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className="text-sm font-medium text-foreground">New evaluation</span>
@@ -255,7 +261,24 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
             <Field label="Steps">
               <input value={steps} onChange={(e) => setSteps(e.target.value)} inputMode="numeric" className={inputClass} />
             </Field>
+            {isFlux && (
+              <Field label="Guidance (Flux)">
+                <input
+                  value={guidance}
+                  onChange={(e) => setGuidance(e.target.value)}
+                  inputMode="decimal"
+                  placeholder={`${FLUX_DEFAULT_GUIDANCE} (proof's default)`}
+                  className={inputClass}
+                />
+              </Field>
+            )}
           </div>
+          {isFlux && (
+            <p className="text-[11px] text-muted">
+              A Flux checkpoint: proof renders it with its Flux template at cfg 1, euler / simple, and distilled guidance
+              ({FLUX_DEFAULT_GUIDANCE} unless set above).
+            </p>
+          )}
           <Field label="Prompt override (optional — otherwise the export's caption is used)">
             <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="a photo of sks person…" className={inputClass} />
           </Field>
@@ -279,8 +302,7 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
               type="button"
               onClick={start}
               disabled={!ready || running || !permits(canRun)}
-              title={checking ? "Checking what this server allows…" : undefined}
-              className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {running ? (phase === "scoring" ? "Scoring…" : "Generating…") : checking ? "Checking…" : "Run evaluation"}
             </button>
@@ -299,9 +321,9 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
                 </span>
               </div>
             )}
-            {error && <span className="text-xs text-accent-red">{error}</span>}
+            {error && <span className="text-xs text-accent-red-ink">{error}</span>}
             {!running && selectedExport && (
-              <span className="text-[11px] text-muted/70">
+              <span className="text-[11px] text-muted">
                 {selectedExport.n_rows} dataset rows
                 {selectedExport.has_references ? " · has identity references" : " · no references/ dir (identity scoring skipped)"}
               </span>

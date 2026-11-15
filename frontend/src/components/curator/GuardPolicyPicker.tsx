@@ -70,7 +70,7 @@ export function GuardPolicyPicker({ available, choice, catalog, disabled, onChan
             Wording · {policySourceLabel(wording.source)}
             {wording.recorded && wording.recorded !== wording.name ? ` · recorded as ${wording.recorded}` : ""}
           </summary>
-          {wording.error && <p className="mt-1.5 text-[11px] text-accent-orange/90">{wording.error}</p>}
+          {wording.error && <p className="mt-1.5 text-[11px] text-accent-orange-ink">{wording.error}</p>}
           {wording.text ? (
             <pre className="scrollbar-thin mt-1.5 max-h-64 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted">
               {wording.text}

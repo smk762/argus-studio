@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DemoCard, DemoFact, DemoFacts, SegmentedButtons } from "@/components/docs/DemoPrimitives";
 import {
   CATEGORY_COMPOSITION_TIPS,
   CATEGORY_DESCRIPTIONS,
@@ -22,54 +23,20 @@ export function TargetCategoryDemo() {
   const guide = DATASET_SIZE_GUIDE[category];
 
   return (
-    <div className="not-prose my-6 rounded-xl border border-border bg-surface p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted">
-          Try it
-        </span>
-        <span className="text-xs text-muted">live from the Curate scorer</span>
-      </div>
+    <DemoCard aside="live from the Curate scorer">
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {TARGET_CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => setCategory(cat)}
-            aria-pressed={category === cat}
-            className={
-              category === cat
-                ? "cursor-pointer rounded-lg bg-accent-purple px-3 py-1.5 text-sm font-medium text-white"
-                : "cursor-pointer rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-surface-hover"
-            }
-          >
-            {CATEGORY_LABELS[cat]}
-          </button>
-        ))}
-      </div>
+      <SegmentedButtons
+        label="Target category"
+        options={TARGET_CATEGORIES.map((cat) => ({ value: cat, label: CATEGORY_LABELS[cat] }))}
+        value={category}
+        onChange={setCategory}
+      />
 
-      <dl className="space-y-3 text-sm">
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
-            What it trains
-          </dt>
-          <dd className="mt-1 text-foreground/80">{CATEGORY_DESCRIPTIONS[category]}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
-            What good input looks like
-          </dt>
-          <dd className="mt-1 text-foreground/80">{CATEGORY_COMPOSITION_TIPS[category]}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
-            Suggested set size
-          </dt>
-          <dd className="mt-1 text-foreground/80">
-            ~{guide.ideal} sharp, varied images
-          </dd>
-        </div>
-      </dl>
-    </div>
+      <DemoFacts>
+        <DemoFact term="What it trains">{CATEGORY_DESCRIPTIONS[category]}</DemoFact>
+        <DemoFact term="What good input looks like">{CATEGORY_COMPOSITION_TIPS[category]}</DemoFact>
+        <DemoFact term="Suggested set size">~{guide.ideal} sharp, varied images</DemoFact>
+      </DemoFacts>
+    </DemoCard>
   );
 }

@@ -14,8 +14,11 @@ import { RecordView } from "@/components/darkroom/RecordView";
 import { Button, Card } from "@/components/darkroom/ui";
 import { archiveUrl, DARKROOM_READ_ONLY_REASON } from "@/lib/darkroomApi";
 import { ExternalLink } from "@/components/ExternalLink";
-import { RecordedDemoNote } from "@/components/DemoChrome";
+import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { STATIC_DEMO } from "@/lib/staticDemo";
+import { MadeWith } from "@/components/MadeWith";
+import { darkroomGenerateCommand } from "@/lib/madeWith";
+import { BranchHandoffs } from "@/components/BranchHandoffs";
 
 export default function DarkroomPage() {
   return (
@@ -34,7 +37,7 @@ const TABS: { view: DarkroomView; label: string }[] = [
 
 function DarkroomStage() {
   const { health, error, sample } = useDarkroom();
-  const { view, setView, recordId, closeRecord } = useCompose();
+  const { view, setView, recordId, closeRecord, compose } = useCompose();
   // null = loading, "" = unreachable, else the server version.
   const version = error ? "" : (health?.version ?? null);
 
@@ -45,15 +48,31 @@ function DarkroomStage() {
         logo={{ letter: "D" }}
         title="Argus Darkroom"
         subtitle="Guarded image generation, with a record of every attempt"
-        badge={<ApiVersionBadge label="argus-darkroom" version={version} prefix={sample ? "" : "v"} />}
+        badge={
+          STATIC_DEMO ? (
+            <DemoBadge state="sample" title="No argus-darkroom in this build: a bundled, read-only sample history." />
+          ) : (
+            <ApiVersionBadge label="argus-darkroom" version={version} prefix={sample ? "" : "v"} />
+          )
+        }
       />
 
-      <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+      <main id="main" tabIndex={-1} className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <MadeWith
+          pkg="darkroom"
+          verb="Guarded by"
+          version={sample ? null : version}
+          command={darkroomGenerateCommand(compose.enforcingPolicy || health?.default_policy)}
+          className="lg:col-span-2"
+        />
+        {/* Darkroom branches rather than handing on to one next stage (#236):
+            back to Forge, or out to Mask and Assay when they are deployed. */}
+        <BranchHandoffs from="/darkroom" className="-mt-4 lg:col-span-2" />
         <aside className="space-y-4">
           <HealthCard />
           {sample ? (
             STATIC_DEMO ? (
-              <RecordedDemoNote label="Sample" summary="a bundled, read-only darkroom history.">
+              <RecordedDemoNote summary="A bundled, read-only darkroom history.">
                 Canned verdicts on flat drawings, to show the record view. Generating needs a running argus-darkroom
                 (the darkroom compose profile).
               </RecordedDemoNote>
@@ -105,7 +124,7 @@ function DarkroomStage() {
         poweredBy={
           <ExternalLink
             href="https://github.com/smk762/argus-darkroom"
-            className="text-accent-purple transition-colors hover:text-accent-purple/80"
+            className="text-accent-purple-ink transition-colors hover:text-accent-purple-ink"
           >
             argus-darkroom
           </ExternalLink>

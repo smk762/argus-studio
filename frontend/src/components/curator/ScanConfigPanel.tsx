@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   CATEGORY_COLORS,
   CATEGORY_DESCRIPTIONS,
@@ -28,13 +29,15 @@ import { capabilityReason, permits } from "@/lib/capabilities";
 import { GuardPolicyPicker } from "./GuardPolicyPicker";
 import { devMode } from "@/lib/curatorEnv";
 import { offeredPolicies } from "@/lib/curatorGuard";
+import { Tooltip } from "@/components/Tooltip";
+import { clearDenied } from "@/lib/scanConfigCaps";
 
 const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; border: string }> = {
-  "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
-  "accent-teal": { ring: "ring-accent-teal", text: "text-accent-teal", bg: "bg-accent-teal/20", border: "border-accent-teal/40" },
-  "accent-green": { ring: "ring-accent-green", text: "text-accent-green", bg: "bg-accent-green/20", border: "border-accent-green/40" },
-  "accent-orange": { ring: "ring-accent-orange", text: "text-accent-orange", bg: "bg-accent-orange/20", border: "border-accent-orange/40" },
-  "accent-pink": { ring: "ring-accent-pink", text: "text-accent-pink", bg: "bg-accent-pink/20", border: "border-accent-pink/40" },
+  "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple-ink", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
+  "accent-teal": { ring: "ring-accent-teal", text: "text-accent-teal-ink", bg: "bg-accent-teal/20", border: "border-accent-teal/40" },
+  "accent-green": { ring: "ring-accent-green", text: "text-accent-green-ink", bg: "bg-accent-green/20", border: "border-accent-green/40" },
+  "accent-orange": { ring: "ring-accent-orange", text: "text-accent-orange-ink", bg: "bg-accent-orange/20", border: "border-accent-orange/40" },
+  "accent-pink": { ring: "ring-accent-pink", text: "text-accent-pink-ink", bg: "bg-accent-pink/20", border: "border-accent-pink/40" },
 };
 
 interface Props {
@@ -74,6 +77,13 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
   const watermarkReason =
     capabilityReason(watermarks, WATERMARK_DENIED) ??
     (detectors && !detectors.watermark ? "Set ARGUS_CURATOR_WATERMARK_URL on the curator to find watermarks." : null);
+
+  // A refused option shows unchecked and is cleared from the config, so a stale
+  // `true` can't sit greyed out and still go out with the scan.
+  const cleared = clearDenied(value, { setAge, prefilter, crops, watermarkDenied: watermarks === false || (detectors != null && !detectors.watermark) });
+  useEffect(() => {
+    if (cleared !== value) onChange(cleared);
+  }, [cleared, value, onChange]);
 
   return (
     <div className="space-y-6">
@@ -121,7 +131,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
               disabled={loading}
               className={`flex-1 cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
                 value.profile.target_style === s
-                  ? "bg-accent-purple text-white"
+                  ? "bg-accent-purple text-on-accent"
                   : "border border-border bg-surface text-foreground hover:bg-surface-hover"
               }`}
             >
@@ -193,6 +203,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
             Face Clustering
           </label>
           <Toggle
+            label="Face clustering"
             value={value.faces.enabled}
             onChange={(v) =>
               setFaces(v ? { enabled: true } : { enabled: false, fairface: false, mivolo: false, set_age: false, mivolo_body: false })
@@ -222,7 +233,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
                     disabled={loading}
                     className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
                       value.faces.device === d
-                        ? "bg-accent-teal/20 border border-accent-teal/40 text-accent-teal"
+                        ? "bg-accent-teal/20 border border-accent-teal/40 text-accent-teal-ink"
                         : "border border-border bg-surface text-muted hover:text-foreground"
                     }`}
                   >
@@ -362,6 +373,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
         <div className="mb-2 flex items-center justify-between">
           <label className="block text-xs font-semibold uppercase tracking-wider text-muted">Crops</label>
           <Toggle
+            label="Crops"
             value={value.crops.enabled}
             onChange={(v) => setCrops({ enabled: v })}
             disabled={loading || !permits(crops)}
@@ -416,7 +428,7 @@ function Check({ label, checked, onChange, disabled, hint }: {
   label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; hint: string;
 }) {
   return (
-    <label className={`flex items-start gap-2 text-sm text-foreground ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`} title={hint}>
+    <label className={`flex items-start gap-2 text-sm text-foreground ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
       <input
         type="checkbox"
         checked={checked}
@@ -450,13 +462,15 @@ function TextField({ label, value, placeholder, onChange, disabled }: {
   );
 }
 
-function Toggle({ value, onChange, disabled, title }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; title?: string }) {
+/** An on/off button. `label` is its accessible name (the heading beside it isn't associated); `title` explains it, e.g. why it's disabled. */
+function Toggle({ value, onChange, disabled, title, label }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; title?: string; label: string }) {
   return (
+    <Tooltip text={title ?? ""} describe>
     <button
       type="button"
       onClick={() => onChange(!value)}
       disabled={disabled}
-      title={title}
+      aria-label={label}
       aria-pressed={value}
       className={`relative inline-flex h-7 w-12 cursor-pointer items-center rounded-full transition-colors disabled:opacity-50 ${
         value ? "bg-accent-teal" : "bg-border"
@@ -464,6 +478,7 @@ function Toggle({ value, onChange, disabled, title }: { value: boolean; onChange
     >
       <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform motion-reduce:transition-none ${value ? "translate-x-6" : "translate-x-1"}`} />
     </button>
+    </Tooltip>
   );
 }
 
@@ -475,7 +490,7 @@ function Slider({ label, value, min, max, step, format, onChange, disabled }: {
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-sm text-foreground">{label}</span>
-        <span className="font-mono text-sm text-accent-teal">{format ? format(value) : value}</span>
+        <span className="font-mono text-sm text-accent-teal-ink">{format ? format(value) : value}</span>
       </div>
       <input
         type="range" min={min} max={max} step={step} value={value} disabled={disabled}

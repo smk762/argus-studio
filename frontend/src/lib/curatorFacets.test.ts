@@ -122,3 +122,20 @@ describe("slugLabel", () => {
     expect(slugLabel("0-2")).toBe("0 2");
   });
 });
+
+// Audit pack-argus-studio-945ba6c58b: the rail counts what the filter keeps.
+describe("facetCounts at the attribute floor", () => {
+  it("leaves out attributes under minAttributeConf, as attributesMatch does, but always counts a null confidence", () => {
+    const results = [
+      row({ primary_face_attributes: { race: "white", race_conf: 0.9, gender: "female", gender_conf: 0.4 } }),
+      row({ primary_face_attributes: { race: "white", race_conf: 0.3, gender: "male", gender_conf: null } }),
+    ];
+    const counts = facetCounts(results, 0, 0, 0.5);
+    expect(counts.races.get("white")).toBe(1);
+    expect(counts.genders.get("female")).toBeUndefined();
+    expect(counts.genders.get("male")).toBe(1);
+    // The rail and the filter agree: ticking "white" at this floor keeps exactly the counted frame.
+    const kept = results.filter((img) => matchesFilters(img, filters({ faceRaces: ["white"], minAttributeConf: 0.5 })));
+    expect(kept).toHaveLength(counts.races.get("white")!);
+  });
+});

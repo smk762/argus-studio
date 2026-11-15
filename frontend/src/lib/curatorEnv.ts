@@ -28,6 +28,16 @@ export function isLive(): boolean {
   return curatorUiMode() === "live";
 }
 
+/** True when /forge should call argus-forge rather than render its demo (`ARGUS_FORGE_UI_MODE`, else the curator mode). */
+export function forgeLive(): boolean {
+  return runtimeConfig().forgeUiMode === "live";
+}
+
+/** True when /proof should call argus-proof rather than show its sample (`ARGUS_PROOF_UI_MODE`, else the curator mode). */
+export function proofLive(): boolean {
+  return runtimeConfig().proofUiMode === "live";
+}
+
 /** True when this deployment offers what's held back from normal use. */
 export function devMode(): boolean {
   return runtimeConfig().devMode;
@@ -101,4 +111,9 @@ export function sightlineUrl(): string {
 /** Link to argus-mask's viewer (the talking face), or empty when none is configured. */
 export function maskUrl(): string {
   return runtimeConfig().maskUrl;
+}
+
+/** Link to argus-assay (argus-mint's review UI), or "" for no link. */
+export function assayUrl(): string {
+  return runtimeConfig().assayUrl;
 }

@@ -68,10 +68,40 @@ describe("resolveRuntimeConfig", () => {
   });
 });
 
+// #59: a public demo keeps curator on its sample while forge and proof call
+// their read-only servers, so each stage can opt out of the curator mode.
+describe("per-stage UI modes", () => {
+  it("follow the curator mode when unset", () => {
+    const c = resolveRuntimeConfig({ ARGUS_CURATOR_UI_MODE: "live" });
+    expect([c.forgeUiMode, c.proofUiMode]).toEqual(["live", "live"]);
+    const d = resolveRuntimeConfig({});
+    expect([d.forgeUiMode, d.proofUiMode]).toEqual(["demo", "demo"]);
+  });
+
+  it("override it per stage, either way", () => {
+    const c = resolveRuntimeConfig({ ARGUS_CURATOR_UI_MODE: "demo", ARGUS_PROOF_UI_MODE: "live", ARGUS_FORGE_UI_MODE: "local" });
+    expect([c.curatorUiMode, c.forgeUiMode, c.proofUiMode]).toEqual(["demo", "live", "live"]);
+    const d = resolveRuntimeConfig({ ARGUS_CURATOR_UI_MODE: "live", ARGUS_FORGE_UI_MODE: "demo" });
+    expect([d.forgeUiMode, d.proofUiMode]).toEqual(["demo", "live"]);
+  });
+
+  it("treat an empty stage mode as unset", () => {
+    expect(resolveRuntimeConfig({ ARGUS_CURATOR_UI_MODE: "live", ARGUS_PROOF_UI_MODE: " " }).proofUiMode).toBe("live");
+  });
+
+  it("warn under the stage's own name for an unknown value", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(resolveRuntimeConfig({ ARGUS_CURATOR_UI_MODE: "live", ARGUS_FORGE_UI_MODE: "prod" }).forgeUiMode).toBe("demo");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("ARGUS_FORGE_UI_MODE"));
+    warn.mockRestore();
+  });
+});
+
 describe("standalone UI links", () => {
   it("are empty unless configured, with no dev default", () => {
     const c = resolveRuntimeConfig({});
-    expect([c.lightboxUrl, c.cullUrl, c.safelightUrl, c.sightlineUrl, c.maskUrl]).toEqual(["", "", "", "", ""]);
+    expect([c.lightboxUrl, c.cullUrl, c.safelightUrl, c.sightlineUrl, c.maskUrl, c.assayUrl]).toEqual(["", "", "", "", "", ""]);
+    expect(resolveRuntimeConfig({ ARGUS_ASSAY_URL: "http://localhost:3108/" }).assayUrl).toBe("http://localhost:3108");
     expect(resolveRuntimeConfig({ ARGUS_CULL_URL: "  " }).cullUrl).toBe("");
   });
 
