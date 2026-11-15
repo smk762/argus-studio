@@ -103,14 +103,62 @@ export interface LensBackend {
   available: boolean;
   /** Why it isn't available: a missing model, package or API key. Null when it is. */
   reason?: string | null;
+  /** Whether a request may pick it on this server (`ARGUS_ALLOWED_BACKENDS`, lens#107). Absent on older lens. */
+  allowed?: boolean;
 }
 
-/** Every backend lens has registered, available or not (GET /backends). */
-export async function getLensBackends(signal?: AbortSignal): Promise<LensBackend[]> {
+/** GET /backends: the registered backends, and (lens#107) which one is the default. */
+export interface LensBackendInfo {
+  /**
+   * The backend a request without `backend` uses. Null on a lens older than
+   * lens#107, which also ignores a `backend` field: no picker then.
+   */
+  default: string | null;
+  /** The names a request may pick, or null when the server doesn't pin them. */
+  allowed: string[] | null;
+  backends: LensBackend[];
+}
+
+/** Every backend lens has registered, available or not, and its default (GET /backends). */
+export async function getLensBackends(signal?: AbortSignal): Promise<LensBackendInfo> {
   const resp = await fetch(`${lensUrl()}/backends`, { signal });
   if (!resp.ok) return asError(resp);
-  const body = (await resp.json()) as { backends?: Record<string, Partial<LensBackend>> };
-  return backendList(body.backends);
+  return backendInfo(await resp.json());
+}
+
+/** Normalise a `/backends` body, old (`{backends}`) or new (`{default, allowed, backends}`). */
+export function backendInfo(body: unknown): LensBackendInfo {
+  const b = (body ?? {}) as { default?: unknown; allowed?: unknown; backends?: Record<string, Partial<LensBackend>> };
+  return {
+    default: typeof b.default === "string" && b.default ? b.default : null,
+    allowed: Array.isArray(b.allowed) ? b.allowed.filter((n): n is string => typeof n === "string") : null,
+    backends: backendList(b.backends),
+  };
+}
+
+/** A backend a request can pick here: available and not refused by the server's pin. */
+export function pickable(b: LensBackend): boolean {
+  return b.available && b.allowed !== false;
+}
+
+/**
+ * The backends to offer in a picker: none on a lens that predates per-request
+ * selection, or when nothing but the default could be picked.
+ */
+export function backendChoices(info: LensBackendInfo | null): LensBackend[] {
+  if (!info?.default) return [];
+  const choices = info.backends.filter((b) => b.name === info.default || pickable(b));
+  return choices.some((b) => b.name !== info.default) ? choices : [];
+}
+
+/**
+ * The `backend` field for a caption request: sent only for a pickable,
+ * non-default choice, so an unset or stale choice falls back to the server
+ * default instead of a 400 or, on an older lens, a silently ignored field.
+ */
+export function backendField(choice: string, info: LensBackendInfo | null): { backend?: string } {
+  if (!choice || !info?.default || choice === info.default) return {};
+  return info.backends.some((b) => b.name === choice && pickable(b)) ? { backend: choice } : {};
 }
 
 /**
@@ -195,9 +243,12 @@ export interface ManifestCaptionOptions {
   export_root?: string;
   /** Add `metadata.buckets` to each row (lens ≥ 0.11; older lens ignores it). */
   include_buckets?: boolean;
+  /** Caption backend for every row (lens#107); omitted = the server default. */
+  backend?: string;
 }
 
 function appendManifestOptions(fd: FormData, opts?: ManifestCaptionOptions): void {
+  if (opts?.backend) fd.append("backend", opts.backend);
   if (opts?.include_buckets) fd.append("include_buckets", "true");
   if (opts?.trigger_word) fd.append("trigger_word", opts.trigger_word);
   fd.append("write_sidecar", String(opts?.write_sidecar ?? true));
@@ -319,6 +370,8 @@ export function isUploadCaptionError(obj: Record<string, unknown>): boolean {
 }
 
 export interface UploadCaptionParams extends HybridBalanceParams {
+  /** Caption backend for this request (lens#107); omitted = the server default. */
+  backend?: string;
   trigger_word?: string;
   target_style?: string;
   target_category?: string;
@@ -344,6 +397,7 @@ export async function captionFilesStream(
   if (params.target_style) fd.append("target_style", params.target_style);
   if (params.target_category) fd.append("target_category", params.target_category);
   if (params.target_backend) fd.append("target_backend", params.target_backend);
+  if (params.backend) fd.append("backend", params.backend);
   appendHybrid(fd, params);
 
   const resp = await fetch(`${lensUrl()}/caption/stream`, { method: "POST", body: fd, signal });
@@ -383,6 +437,8 @@ export async function listImmichAlbums(signal?: AbortSignal): Promise<ImmichAlbu
 
 export interface ImmichCaptionRequest extends HybridBalanceParams {
   album_id: string;
+  /** Caption backend for this request (lens#107); omitted = the server default. */
+  backend?: string;
   asset_ids?: string[] | null;
   trigger_word?: string;
   target_style?: string;

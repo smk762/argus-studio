@@ -34,6 +34,7 @@ import {
   captionManifestStream,
   captionUrl,
   categoryOptions,
+  backendField,
   getLensBackends,
   getLensHealth,
   getLensProfiles,
@@ -41,7 +42,7 @@ import {
   listImmichAlbums,
   listLensFolders,
   type ImmichAlbum,
-  type LensBackend,
+  type LensBackendInfo,
 } from "@/lib/lensApi";
 import { LensBackends } from "@/components/LensBackends";
 import { finalChoice } from "@/lib/captionFinal";
@@ -119,8 +120,11 @@ export default function Home() {
     { kind: "url"; url: string } | { kind: "upload"; file: File } | null
   >(null);
   const [lensVersion, setLensVersion] = useState<string | null>(null);
-  // Every backend lens has registered (#69); empty until /backends answers.
-  const [backends, setBackends] = useState<LensBackend[]>([]);
+  // What /backends reported (#69); null until it answers, and in the static demo.
+  const [backendInfo, setBackendInfo] = useState<LensBackendInfo | null>(null);
+  // The caption backend picked for requests; "" = the server default. Not targetBackend,
+  // which sizes captions for the model being trained.
+  const [captionBackend, setCaptionBackend] = useState("");
   // The live blob URL for an uploaded preview (revoked before it's replaced).
   const objectUrlRef = useRef<string | null>(null);
   // True once the user picks a preset/slider, so a late /profiles response
@@ -165,8 +169,8 @@ export default function Home() {
         if (healthResp.status === "fulfilled" && healthResp.value.version) version = `v${healthResp.value.version}`;
         let label = "";
         if (backendsResp.status === "fulfilled") {
-          label = backendsLabel(backendsResp.value) || "connected";
-          if (!cancelled) setBackends(backendsResp.value);
+          label = backendsLabel(backendsResp.value.backends) || "connected";
+          if (!cancelled) setBackendInfo(backendsResp.value);
         }
         // Empty string = unreachable (renders the red banner).
         if (!cancelled) setLensVersion([version, label].filter(Boolean).join(" · "));
@@ -229,6 +233,7 @@ export default function Home() {
         target_backend: targetBackend,
         prose_enrichment: proseEnrichment,
         ...hybridRequestFields(hybrid),
+        ...backendField(captionBackend, backendInfo),
       };
 
       const data = await captionUrl(body);
@@ -270,6 +275,7 @@ export default function Home() {
         prose_enrichment: proseEnrichment,
         include_buckets: true,
         ...hybridRequestFields(hybrid),
+        ...backendField(captionBackend, backendInfo),
       });
       setBatchResult(data);
       setBatchSource(folder);
@@ -322,6 +328,7 @@ export default function Home() {
           xmp_overwrite: writeXmp && xmpOverwrite,
           export_root: manifestExportRoot,
           include_buckets: true,
+          ...backendField(captionBackend, backendInfo),
         },
       );
       setBatchResult({ ...summary, results: rows, errors });
@@ -349,6 +356,7 @@ export default function Home() {
           target_category: targetCategory,
           target_backend: targetBackend,
           ...hybridRequestFields(hybrid),
+          ...backendField(captionBackend, backendInfo),
         },
         (_row, done) => setProgress({ done, total: files.length }),
       );
@@ -411,6 +419,7 @@ export default function Home() {
           prose_enrichment: proseEnrichment,
           write_back: writeBack,
           ...hybridRequestFields(hybrid),
+          ...backendField(captionBackend, backendInfo),
         },
         (p) => {
           setProgress({ done: p.done, total: p.total });
@@ -813,7 +822,7 @@ export default function Home() {
             </div>
           )}
 
-          <LensBackends backends={backends} />
+          <LensBackends info={backendInfo} choice={captionBackend} onChoose={setCaptionBackend} />
         </div>
 
         {/* Error */}
