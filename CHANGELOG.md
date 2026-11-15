@@ -6,6 +6,15 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Added
 
+- **Bombadil property-based UI tests** (#241, epic #240). A new CI job, `bombadil`, builds the static demo and runs [Bombadil](https://antithesishq.github.io/bombadil/) against it for 3 minutes. Bombadil clicks, types, scrolls, goes back, reloads and resizes the viewport at random, and checks `frontend/bombadil/spec.ts` in every state it reaches:
+  - Bombadil's defaults: no uncaught exceptions, unhandled rejections, console errors or HTTP errors;
+  - one `<main>` and at most one `h1` per page;
+  - one demo badge in the header;
+  - no sideways scroll at any width;
+  - the theme is always light or dark, with the toggle in step;
+  - the demo never says a backend is unreachable, and never sits on a spinner.
+
+  A violation uploads a trace that can be replayed, and the job summary gives the replay command. The job doesn't block merging yet. `scripts/static-server.mjs` is the export server, now shared with `check-overflow.mjs`.
 - **Link to argus-assay** (#157). `ARGUS_ASSAY_URL` adds Assay, argus-mint's own UI for card drafts, review and publishing, to the footer's suite links. It also adds a line on `/darkroom` ("Turn a released image into a provenance card: mint it in argus-assay"). Mint is a branch off Darkroom, not a pipeline stage, and Studio links to Assay instead of duplicating its pages. Empty means no link.
 - **Delete runs on /proof in dev mode** (#229). With argus-proof 0.3.0 in dev mode (compose passes `DEVMODE` as `ARGUS_PROOF_DEVMODE`; `PROOF_DEVMODE=0` opts out), the run list offers "Delete this run" and "Delete all runs". Each asks first, in the page, and says that a report's review and refinement go with it. The controls appear only when proof lists the `purge` capability, and the client refuses the request otherwise.
 - **Flux guidance on New evaluation** (#228). With a Flux base checkpoint (proof's rule: one under `flux/`), `/proof`'s New evaluation offers a Guidance field, empty for proof's default of 3.5, and notes the Flux sampling proof applies. Guidance is sent only for Flux, because proof 0.3.0 refuses it on the SDXL template.
