@@ -6,6 +6,15 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Added
 
+- **Live training on /forge** (#122). With argus-forge 0.2's run API, the Training section of `/forge`:
+  - starts the config **Generate + write** put into the export (kohya or diffusers), after asking first in the page;
+  - streams the run's log live, and follows its tail unless you scroll up;
+  - cancels a run, again after asking;
+  - lists the runs forge remembers, newest first, with status and elapsed time.
+
+  The run list is readable on any reachable forge. Start and Cancel need `/health.training` to be `enabled`, and the client refuses them otherwise (#75). It also refuses a second run while one is training, because forge itself would start both on the same GPU.
+
+  Training is opt-in through a new override, `compose.train.yaml`. It runs the `-train` image on the GPU with `ARGUS_FORGE_READONLY=0`, plus `init`, an 8 GB `/dev/shm` and a Hugging Face cache volume. It is separate from `compose.gpu.yaml`, so adding GPUs never arms training. The static demo and read-only deployments are unchanged.
 - **Nightly Bombadil and leak checks** (#242). A new workflow, `bombadil-nightly.yml`, runs daily and on demand, with two jobs:
   - **Bombadil:** a 45-minute run of the PR spec that doesn't stop at the first violation. It tries to shrink the first violation to a shorter trace (experimental, allowed to fail) and uploads the trace.
   - **Leak check:** `scripts/check-leaks.mjs` follows every nav link with a few interactions on each page, 30 times over, and measures nodes, listeners, documents and heap after a forced garbage collection. Growth over its limits fails the job. On the current demo all four stay flat, and a deliberately planted listener leak fails within 5 rounds. It replaces Bombadil's own leak checks, which read the counts without a garbage collection and so flagged healthy pages.

@@ -1,0 +1,91 @@
+import { describe, expect, it } from "vitest";
+import type { ForgeRunState } from "@/lib/forgeApi";
+import { activeRun, appendLog, defaultRun, eventLine, newestFirst, runDuration, startBlockedReason } from "@/lib/forgeRuns";
+
+const run = (id: string, started_at: string, status: ForgeRunState["status"] = "succeeded"): ForgeRunState => ({
+  run_id: id,
+  trainer: "kohya",
+  export_dir: "/data/out/set",
+  status,
+  started_at,
+  ended_at: status === "running" ? null : started_at,
+  returncode: null,
+  command: [],
+  cwd: null,
+  message: null,
+});
+
+describe("run ordering", () => {
+  const runs = [run("a", "2026-11-15T10:00:00Z"), run("b", "2026-11-15T11:00:00Z", "running"), run("c", "2026-11-15T09:00:00Z")];
+
+  it("finds the live run", () => {
+    expect(activeRun(runs)?.run_id).toBe("b");
+    expect(activeRun([runs[0]])).toBeNull();
+  });
+
+  it("orders newest first, later-listed first on a tie", () => {
+    expect(newestFirst(runs).map((r) => r.run_id)).toEqual(["b", "a", "c"]);
+    const tie = [run("x", "2026-11-15T10:00:00Z"), run("y", "2026-11-15T10:00:00Z")];
+    expect(newestFirst(tie).map((r) => r.run_id)).toEqual(["y", "x"]);
+  });
+
+  it("defaults to the live run, else the newest", () => {
+    expect(defaultRun(runs)?.run_id).toBe("b");
+    expect(defaultRun([runs[0], runs[2]])?.run_id).toBe("a");
+    expect(defaultRun([])).toBeNull();
+  });
+});
+
+describe("run log", () => {
+  it("renders each event type", () => {
+    expect(eventLine({ run_id: "r", type: "start", command: ["bash", "train.sh"] })).toBe("$ bash train.sh");
+    expect(eventLine({ run_id: "r", type: "log", message: "step 10/100" })).toBe("step 10/100");
+    expect(eventLine({ run_id: "r", type: "log" })).toBe("");
+    expect(eventLine({ run_id: "r", type: "exit", returncode: 1 })).toBe("Exited with code 1");
+    expect(eventLine({ run_id: "r", type: "error", message: "boom" })).toBe("Error: boom");
+    expect(eventLine({ run_id: "r", type: "cancelled" })).toBe("Cancelled");
+    expect(eventLine({ run_id: "r", type: "future" } as never)).toBeNull();
+  });
+
+  it("keeps the last lines only", () => {
+    let lines: string[] = [];
+    for (let i = 0; i < 5; i++) lines = appendLog(lines, { run_id: "r", type: "log", message: `l${i}` }, 3);
+    expect(lines).toEqual(["l2", "l3", "l4"]);
+  });
+
+  it("ignores an unknown event without copying", () => {
+    const lines = ["a"];
+    expect(appendLog(lines, { run_id: "r", type: "future" } as never)).toBe(lines);
+  });
+});
+
+describe("runDuration", () => {
+  const start = "2026-11-15T10:00:00Z";
+  const at = (s: number) => Date.parse(start) + s * 1000;
+
+  it("formats seconds, minutes and hours", () => {
+    expect(runDuration({ started_at: start, ended_at: null }, at(45))).toBe("45s");
+    expect(runDuration({ started_at: start, ended_at: null }, at(192))).toBe("3m 12s");
+    expect(runDuration({ started_at: start, ended_at: null }, at(3840))).toBe("1h 04m");
+  });
+
+  it("uses ended_at once finished, and tolerates bad dates", () => {
+    expect(runDuration({ started_at: start, ended_at: "2026-11-15T10:01:00Z" }, at(9999))).toBe("1m 00s");
+    expect(runDuration({ started_at: "nope", ended_at: null }, at(1))).toBe("");
+  });
+});
+
+describe("startBlockedReason", () => {
+  const ok = { exportDir: "/data/out/set", atRoot: false, runnable: true, trainerLabel: "kohya", active: null };
+
+  it("allows a runnable trainer on an export with nothing running", () => {
+    expect(startBlockedReason(ok)).toBeNull();
+  });
+
+  it("names the first blocker", () => {
+    expect(startBlockedReason({ ...ok, exportDir: "" })).toMatch(/export dir/);
+    expect(startBlockedReason({ ...ok, atRoot: true })).toMatch(/root/);
+    expect(startBlockedReason({ ...ok, runnable: false, trainerLabel: "OneTrainer" })).toMatch(/OneTrainer/);
+    expect(startBlockedReason({ ...ok, active: run("b", "2026-11-15T11:00:00Z", "running") })).toMatch(/in progress/);
+  });
+});

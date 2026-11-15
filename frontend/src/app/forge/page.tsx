@@ -37,6 +37,7 @@ import {
 import { demoKohyaFiles, forgeSlug } from "@/components/curator/forgeDemo";
 import { ExternalLink } from "@/components/ExternalLink";
 import { MadeWith } from "@/components/MadeWith";
+import { TrainingRuns } from "@/components/forge/TrainingRuns";
 import { forgeConfigCommand } from "@/lib/madeWith";
 
 /** Trainers to offer before `/trainers` answers (and the whole list in demo mode). */
@@ -715,13 +716,17 @@ export default function ForgePage() {
         {/* ── Training ───────────────────────────────────────────── */}
         <section className="space-y-3 rounded-xl border border-border bg-surface/50 p-5">
           <h2 className="text-sm font-medium text-foreground">Training</h2>
-          {trainingNote ? (
-            <CapabilityNotice reason={trainingNote} />
-          ) : (
-            <p className="text-xs leading-relaxed text-muted">
-              This host will run training. Launching and monitoring runs from here is not wired up yet — see
-              issue #63.
-            </p>
+          {trainingNote && <CapabilityNotice reason={trainingNote} />}
+          {/* The run list reads on a demo-safe forge too; Start and Cancel follow
+              /health.training (and the client refuses them besides). */}
+          {live && !unreachable && version !== null && (
+            <TrainingRuns
+              exportDir={dirTrimmed}
+              atRoot={atRoot}
+              trainer={trainer}
+              runnable={trainers.find((t) => t.id === trainer)?.entrypoint != null}
+              training={trainingCap}
+            />
           )}
         </section>
       </main>

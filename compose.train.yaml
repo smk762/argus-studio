@@ -1,0 +1,42 @@
+# Opt-in live LoRA training from /forge (argus-studio#122). Requires an NVIDIA
+# GPU and the NVIDIA Container Toolkit, and belongs on a trusted host only:
+# anyone who can reach argus-forge (and is an allowed origin) can start a run.
+#
+#   docker compose -f compose.yaml -f compose.train.yaml --profile forge up
+#   (or with compose.gpu.yaml too, for the other GPU services)
+#
+# What it changes for argus-forge:
+# - the `-train` image (torch + kohya sd-scripts), from FORGE_TAG with `-train`
+#   appended, as compose.gpu.yaml does for the curator's `-gpu` image;
+# - ARGUS_FORGE_READONLY=0: the train image still defaults to demo-safe;
+# - the GPU, a larger /dev/shm for the data loaders, an init process to reap
+#   the trainer's children, and a Hugging Face cache volume, so base models
+#   download once.
+#
+# Kept apart from compose.gpu.yaml, so adding GPUs for lens and curator never
+# arms training as a side effect. Public demos stay read-only: never layer
+# this on one. Forge does not take the lens/curator GPU lease, so one training
+# run holds the card until it ends; /forge refuses to start a second.
+#
+# A run trains the config `POST /config` wrote into <export>/forge/<trainer>/
+# (Generate + write on /forge), and its LoRA lands in
+# <export>/forge/kohya/output/ under OUTPUT_DIR.
+services:
+  argus-forge:
+    image: ghcr.io/smk762/argus-forge:${FORGE_TAG:-0.2.0}-train
+    environment:
+      - ARGUS_FORGE_READONLY=0
+    init: true
+    shm_size: "8g"
+    volumes:
+      - forge-hf-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  forge-hf-cache:
