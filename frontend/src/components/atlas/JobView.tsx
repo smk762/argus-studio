@@ -21,6 +21,7 @@ import { BakePanel } from "@/components/atlas/BakePanel";
 import { JobBadges } from "@/components/atlas/JobBadges";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { ExternalLink } from "@/components/ExternalLink";
+import { Tooltip } from "@/components/Tooltip";
 
 export const STATUS_DOT: Record<JobStatus, string> = {
   controls: "bg-muted",
@@ -353,15 +354,16 @@ export function JobView({
           ) : STATIC_DEMO ? (
             <span className="text-xs text-muted">Not tiled in this recording.</span>
           ) : (
+            <Tooltip text={blocked ?? gdalReason ?? ""} describe>
             <button
               type="button"
               onClick={tile}
               disabled={tiling || blocked !== null || !permits(canGdal)}
-              title={blocked ?? gdalReason ?? undefined}
               className="rounded-lg bg-accent-blue px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {tiling ? "Cutting tiles…" : "Cut PMTiles archive"}
             </button>
+            </Tooltip>
           )}
           {tilesError && <span className="text-xs text-accent-red-ink">{tilesError}</span>}
           {!tiles && (tilesRefused ?? blocked) && (

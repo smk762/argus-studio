@@ -9,7 +9,7 @@ import { allowsDarkroomPurge, OUTCOMES, purgeAll, type GenerationRecord, type Mo
 import { permits } from "@/lib/capabilities";
 import { useLoad } from "@/lib/darkroom/useLoad";
 
-import { Info } from "@/components/Tooltip";
+import { Info, Tooltip } from "@/components/Tooltip";
 
 import { useCompose } from "./ComposeProvider";
 import { useDarkroom } from "./DarkroomProvider";
@@ -213,9 +213,12 @@ function HistoryRow({ record }: { record: GenerationRecord }) {
           </p>
         </div>
         {changed ? (
-          <span title="The prompt changed the verdict: the isolated and with-prompt scans disagree" className="rounded-sm border border-accent-amber/60 px-1 text-xs font-bold text-accent-amber-ink">
-            ≠
-          </span>
+          <Tooltip text="The prompt changed the verdict: the isolated and with-prompt scans disagree">
+            <span className="rounded-sm border border-accent-amber/60 px-1 text-xs font-bold text-accent-amber-ink">
+              <span aria-hidden="true">≠</span>
+              <span className="sr-only">The prompt changed the verdict</span>
+            </span>
+          </Tooltip>
         ) : null}
         {verdict ? <Shield state={verdict.state} letters={verdict.letters} size="h-7 w-7" title={verdict.title} /> : <span className="w-7" />}
       </button>

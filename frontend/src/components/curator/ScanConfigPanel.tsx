@@ -28,6 +28,7 @@ import { capabilityReason, permits } from "@/lib/capabilities";
 import { GuardPolicyPicker } from "./GuardPolicyPicker";
 import { devMode } from "@/lib/curatorEnv";
 import { offeredPolicies } from "@/lib/curatorGuard";
+import { Tooltip } from "@/components/Tooltip";
 
 const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; border: string }> = {
   "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple-ink", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
@@ -193,6 +194,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
             Face Clustering
           </label>
           <Toggle
+            label="Face clustering"
             value={value.faces.enabled}
             onChange={(v) =>
               setFaces(v ? { enabled: true } : { enabled: false, fairface: false, mivolo: false, set_age: false, mivolo_body: false })
@@ -362,6 +364,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
         <div className="mb-2 flex items-center justify-between">
           <label className="block text-xs font-semibold uppercase tracking-wider text-muted">Crops</label>
           <Toggle
+            label="Crops"
             value={value.crops.enabled}
             onChange={(v) => setCrops({ enabled: v })}
             disabled={loading || !permits(crops)}
@@ -416,7 +419,7 @@ function Check({ label, checked, onChange, disabled, hint }: {
   label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; hint: string;
 }) {
   return (
-    <label className={`flex items-start gap-2 text-sm text-foreground ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`} title={hint}>
+    <label className={`flex items-start gap-2 text-sm text-foreground ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
       <input
         type="checkbox"
         checked={checked}
@@ -450,13 +453,15 @@ function TextField({ label, value, placeholder, onChange, disabled }: {
   );
 }
 
-function Toggle({ value, onChange, disabled, title }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; title?: string }) {
+/** An on/off button. `label` is its accessible name (the heading beside it isn't associated); `title` explains it, e.g. why it's disabled. */
+function Toggle({ value, onChange, disabled, title, label }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; title?: string; label: string }) {
   return (
+    <Tooltip text={title ?? ""} describe>
     <button
       type="button"
       onClick={() => onChange(!value)}
       disabled={disabled}
-      title={title}
+      aria-label={label}
       aria-pressed={value}
       className={`relative inline-flex h-7 w-12 cursor-pointer items-center rounded-full transition-colors disabled:opacity-50 ${
         value ? "bg-accent-teal" : "bg-border"
@@ -464,6 +469,7 @@ function Toggle({ value, onChange, disabled, title }: { value: boolean; onChange
     >
       <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform motion-reduce:transition-none ${value ? "translate-x-6" : "translate-x-1"}`} />
     </button>
+    </Tooltip>
   );
 }
 
