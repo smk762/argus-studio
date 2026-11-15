@@ -16,6 +16,8 @@ import { archiveUrl, DARKROOM_READ_ONLY_REASON } from "@/lib/darkroomApi";
 import { ExternalLink } from "@/components/ExternalLink";
 import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { STATIC_DEMO } from "@/lib/staticDemo";
+import { MadeWith } from "@/components/MadeWith";
+import { darkroomGenerateCommand } from "@/lib/madeWith";
 
 export default function DarkroomPage() {
   return (
@@ -34,7 +36,7 @@ const TABS: { view: DarkroomView; label: string }[] = [
 
 function DarkroomStage() {
   const { health, error, sample } = useDarkroom();
-  const { view, setView, recordId, closeRecord } = useCompose();
+  const { view, setView, recordId, closeRecord, compose } = useCompose();
   // null = loading, "" = unreachable, else the server version.
   const version = error ? "" : (health?.version ?? null);
 
@@ -55,6 +57,13 @@ function DarkroomStage() {
       />
 
       <main id="main" tabIndex={-1} className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <MadeWith
+          pkg="darkroom"
+          verb="Guarded by"
+          version={sample ? null : version}
+          command={darkroomGenerateCommand(compose.enforcingPolicy || health?.default_policy)}
+          className="lg:col-span-2"
+        />
         <aside className="space-y-4">
           <HealthCard />
           {sample ? (

@@ -52,6 +52,8 @@ import { STATIC_DEMO } from "@/lib/staticDemo";
 import { RECORDED_CAPTION, RECORDED_CAPTION_IMAGE } from "@/lib/lensSample";
 import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { ExternalLink } from "@/components/ExternalLink";
+import { MadeWith } from "@/components/MadeWith";
+import { lensCaptionCommand } from "@/lib/madeWith";
 
 type InputMode = "url" | "upload" | "folder" | "immich" | "manifest";
 
@@ -120,6 +122,8 @@ export default function Home() {
     { kind: "url"; url: string } | { kind: "upload"; file: File } | null
   >(null);
   const [lensVersion, setLensVersion] = useState<string | null>(null);
+  // The bare /health version, for the "Made with" line (lensVersion also carries the backend count).
+  const [lensRelease, setLensRelease] = useState<string | null>(null);
   // What /backends reported (#69); null until it answers, and in the static demo.
   const [backendInfo, setBackendInfo] = useState<LensBackendInfo | null>(null);
   // The caption backend picked for requests; "" = the server default. Not targetBackend,
@@ -166,7 +170,10 @@ export default function Home() {
         // getLensHealth also primes the memo lens's write fetchers gate on (#105).
         const [healthResp, backendsResp] = await Promise.allSettled([getLensHealth(), getLensBackends()]);
         let version = "";
-        if (healthResp.status === "fulfilled" && healthResp.value.version) version = `v${healthResp.value.version}`;
+        if (healthResp.status === "fulfilled" && healthResp.value.version) {
+          version = `v${healthResp.value.version}`;
+          if (!cancelled) setLensRelease(healthResp.value.version);
+        }
         let label = "";
         if (backendsResp.status === "fulfilled") {
           label = backendsLabel(backendsResp.value.backends) || "connected";
@@ -497,6 +504,21 @@ export default function Home() {
 
       {/* Main content */}
       <main id="main" tabIndex={-1} className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
+        <MadeWith
+          pkg="lens"
+          verb="Captioned by"
+          version={STATIC_DEMO ? (RECORDED_CAPTION.metadata.lens_version as string | undefined) : lensRelease}
+          command={
+            result
+              ? lensCaptionCommand({
+                  backend: result.backend_name,
+                  category: result.selected_category,
+                  targetBackend: resultBackend,
+                })
+              : lensCaptionCommand({ backend: backendInfo?.default })
+          }
+          className="mb-4"
+        />
         {/* Input form */}
         <div className="mb-8">
           {STATIC_DEMO && (

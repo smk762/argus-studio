@@ -29,6 +29,7 @@ import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
 import { DemoBadge } from "@/components/DemoChrome";
 import { ExternalLink } from "@/components/ExternalLink";
 import { tileLoading } from "@/lib/imageLoading";
+import { MadeWith } from "@/components/MadeWith";
 
 const PAGE_SIZE = 60;
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
@@ -189,6 +190,7 @@ export default function GalleryPage() {
       />
 
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+        <MadeWith pkg="quarry" verb="Pool built by" version={version} command="argus-quarry run" className="mb-4" />
         {STATIC_DEMO ? (
           <div className="mx-auto max-w-2xl space-y-5 py-16 text-center">
             <h2 className="text-lg font-medium text-foreground/80">The gallery browses a live acquisition pool.</h2>

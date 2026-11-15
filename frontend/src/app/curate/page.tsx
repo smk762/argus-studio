@@ -65,6 +65,8 @@ import { Tooltip } from "@/components/Tooltip";
 import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { ExternalLink } from "@/components/ExternalLink";
+import { MadeWith } from "@/components/MadeWith";
+import { curatorScanCommand } from "@/lib/madeWith";
 
 type View = "grid" | "clusters";
 
@@ -586,6 +588,13 @@ export default function CuratePage() {
       />
 
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+        <MadeWith
+          pkg="curator"
+          verb="Scored by"
+          version={version === "sample" ? CURATOR_SAMPLE_VERSION : version}
+          command={curatorScanCommand()}
+          className="mb-4"
+        />
         {STATIC_DEMO && (
           <div className="mb-6">
             <RecordedDemoNote summary={`A recorded argus-curator ${CURATOR_SAMPLE_VERSION} scan of 14 synthetic images.`}>
