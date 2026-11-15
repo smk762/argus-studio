@@ -91,6 +91,75 @@ export const CONCEPTS = {
     related: ["target_backend"],
     href: "/docs/captioning/prose-enrichment",
   },
+  hybrid_balance: {
+    id: "hybrid_balance",
+    title: "Tag ↔ Prose Balance",
+    summary: "How much the final caption leans on booru-style tags versus natural-language prose.",
+    body: [
+      "Lower means denser tags; higher means flowing description.",
+      "",
+      "The presets are named stops (`hybrid_preset`). The Advanced slider sends a raw `prose_bias` from 0.0 to 1.0, which overrides the preset.",
+    ].join("\n"),
+    example: 'hybrid_preset="balanced"',
+    related: ["prose_enrichment", "target_backend"],
+  },
+  // --- argus-proof scoring axes (the /proof report). Each is 0–1, higher is
+  // better, and null when its scorer didn't run: a missing scorer is left out
+  // of the composite, never counted as zero.
+  metric_identity: {
+    id: "metric_identity",
+    title: "Identity",
+    summary: "Similarity to the reference subject.",
+    body: [
+      "How closely a generated face matches the reference images held out of training, on a 0–1 scale where higher is closer.",
+      "",
+      "Scored with a face-recognition model (proof records `insightface` as the scorer). It needs references in the export, so it is empty for a LoRA trained without a face, or when the scorer isn't installed.",
+    ].join("\n"),
+    related: ["metric_clip_score", "metric_diversity"],
+  },
+  metric_clip_score: {
+    id: "metric_clip_score",
+    title: "Adherence",
+    summary: "How well the image matches its prompt (CLIPScore).",
+    body: [
+      "How well the image matches the prompt it was generated from, as a CLIPScore on a 0–1 scale.",
+      "",
+      "Low adherence with high identity can be a sign of overfitting: the subject shows up, but the prompt's scene or style doesn't.",
+    ].join("\n"),
+    related: ["metric_identity", "metric_preference"],
+  },
+  metric_aesthetic: {
+    id: "metric_aesthetic",
+    title: "Quality",
+    summary: "Image-quality / aesthetic score (IQA).",
+    body: "A no-reference image-quality score (proof records `pyiqa` as the scorer): blur, noise, compression and artifacts pull it down. 0–1, higher is better.",
+    related: ["metric_preference"],
+  },
+  metric_preference: {
+    id: "metric_preference",
+    title: "Preference",
+    summary: "Learned human-preference score (ImageReward/HPS).",
+    body: "A model trained on human rankings of generated images (ImageReward or HPS) predicts how much people would prefer this one. 0–1, higher is better. It complements quality: an image can be sharp and still unappealing.",
+    related: ["metric_aesthetic", "metric_clip_score"],
+  },
+  metric_safety: {
+    id: "metric_safety",
+    title: "Safety",
+    summary: "Safety score (higher = safer).",
+    body: "How safe the image is, 0–1, where higher is safer. Images under the gate's safety floor count toward the run's unsafe rate. A reviewer can also file an `unsafe` reject under a policy category, which the report then breaks down.",
+    related: ["metric_identity"],
+  },
+  metric_diversity: {
+    id: "metric_diversity",
+    title: "Diversity",
+    summary: "Output variety (higher = more varied).",
+    body: [
+      "How varied the run's images are, across the whole run rather than per image. 0–1, higher is more varied.",
+      "",
+      "Near-duplicates (proof records `phash` for them) are grouped, and the pass rate counts groups, not frames, so repeats of one image count once.",
+    ].join("\n"),
+    related: ["metric_identity", "metric_clip_score"],
+  },
 } satisfies Record<string, Concept>;
 
 export type ConceptId = keyof typeof CONCEPTS;

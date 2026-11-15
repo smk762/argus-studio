@@ -8,6 +8,7 @@ import { DEMO_SITE_URL, STATIC_DEMO } from "@/lib/staticDemo";
 import { DemoStrip } from "@/components/DemoStrip";
 import { CSP_ENV, cspMode, trustedTypesFor } from "@/lib/csp";
 import { trustedTypesPolicyScript } from "@/lib/trustedTypes";
+import { LearnProvider } from "@/components/LearnPanel";
 
 /*
  * LOAD-BEARING: the layout must render per request, not at build time. The API
@@ -133,7 +134,7 @@ export default async function RootLayout({
           Skip to content
         </a>
         {STATIC_DEMO && <DemoStrip />}
-        {children}
+        <LearnProvider>{children}</LearnProvider>
         {/* Static demo only: a devtools console greeting (public/dragonhound-console.js,
             guarded by window.__dragonhound so it logs once per full page load).
             The live build never loads it. The static CSP (scripts/csp.mjs) allows it as 'self'. */}
