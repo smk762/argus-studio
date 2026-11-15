@@ -11,7 +11,7 @@ export const metadata = pageMetadata({
   title: "Docs",
   path: "/docs/",
   section: true,
-  description: "Interactive handbook for the Argus suite — concepts, guides, and live widgets.",
+  description: "How Argus Lens shapes a training caption: target style, backend, category and prose enrichment, with live widgets. Suite and package docs are at docs.dragonhound.dev.",
 });
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
