@@ -46,6 +46,15 @@ describe("handoff URL", () => {
   });
 });
 
+describe("a malformed manifest", () => {
+  it("hands off a plain /darkroom instead of throwing, and skips nameless LoRAs", () => {
+    expect(darkroomHandoffHref({ run_id: "x" } as never)).toBe("/darkroom");
+    expect(darkroomHandoffHref({ run_id: "x", base_checkpoint: {} } as never)).toBe("/darkroom");
+    const h = parseHandoff(params(darkroomHandoffHref({ run_id: "x", base_checkpoint: { name: "a" }, loras: [{} as never, { name: "l" }] })));
+    expect(h?.loras.map((l) => l.name)).toEqual(["l"]);
+  });
+});
+
 describe("matchModel", () => {
   it("prefers sha256, then the exact name, never a near name", () => {
     expect(matchModel({ name: "x", sha256: S("a") }, MODELS.checkpoints)?.name).toBe("juggernaut-xl.safetensors");

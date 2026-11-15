@@ -6,6 +6,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Added
 
+- **Delete runs on /proof in dev mode** (#229). With argus-proof 0.3.0 in dev mode (compose passes `DEVMODE` as `ARGUS_PROOF_DEVMODE`; `PROOF_DEVMODE=0` opts out), the run list offers "Delete this run" and "Delete all runs". Each asks first, in the page, and says that a report's review and refinement go with it. The controls appear only when proof lists the `purge` capability, and the client refuses the request otherwise.
 - **Flux guidance on New evaluation** (#228). With a Flux base checkpoint (proof's rule: one under `flux/`), `/proof`'s New evaluation offers a Guidance field, empty for proof's default of 3.5, and notes the Flux sampling proof applies. Guidance is sent only for Flux, because proof 0.3.0 refuses it on the SDXL template.
 - **Learn panel** (#39, with #34 and #42). The ⓘ beside a caption control or a proof report metric opens a side panel with that concept's explanation, an example, related concepts and a link to its full docs page. You stay in the tool, and the page stays usable while the panel is open. The text comes from the shared concept registry, which now also covers the tag ↔ prose balance and the six proof metrics. The proof metric labels and hints read from it too. A test fails if the code points at a concept the registry lacks, or a docs page stops rendering its own concept.
 - **Sitemap and robots.txt** (#41). The static demo publishes `/sitemap.xml` (every tool page and Studio's docs pages, from the nav lists) and a `robots.txt` that points at it. A self-hosted server build can't know its public origin, so its sitemap is empty. The `/docs` description now says what's there: the captioning concepts, with suite docs on docs.dragonhound.dev.
@@ -22,6 +23,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Fixed
 
+- **A malformed proof run manifest no longer crashes /proof.** The Darkroom handoff falls back to a plain `/darkroom` when a manifest has no checkpoint name, and skips nameless LoRAs.
 - **Tooltips meet WCAG 1.4.13** (#197). The pointer can now rest on a tooltip without it closing, it stays open while the pointer is on the trigger or the bubble, and Escape still dismisses it. On `/curate`, the disabled-reason and action hints (scan, delete, stop, purge, export mode, policy picks, the select checkbox) moved off native `title` onto the shared Tooltip, so they show on keyboard focus and reach screen readers as descriptions. The export options' explanations are now focusable "i" hints. A second pass covers darkroom, proof and atlas:
   - darkroom's `Button` shows its `title` through the Tooltip;
   - policy summaries and backend notes become focusable "i" hints;

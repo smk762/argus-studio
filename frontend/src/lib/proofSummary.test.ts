@@ -83,3 +83,18 @@ describe("needsReviewFrames", () => {
     expect(updated.aggregate.n_needs_hitl).toBe(3);
   });
 });
+
+// #229: devmode purge is offered only when proof lists it (0.3.0, devmode, writable).
+import { allowsPurge } from "@/lib/proofApi";
+
+describe("allowsPurge", () => {
+  const base = { status: "ok", service: "argus-proof", version: "0.3.0" };
+  it("follows the purge capability", () => {
+    expect(allowsPurge({ ...base, capabilities: ["report_manifest", "purge"] })).toBe(true);
+    expect(allowsPurge({ ...base, capabilities: ["report_manifest"] })).toBe(false);
+  });
+  it("is false for a proof without capabilities, and unknown before /health answers", () => {
+    expect(allowsPurge({ ...base })).toBe(false);
+    expect(allowsPurge(null)).toBeNull();
+  });
+});

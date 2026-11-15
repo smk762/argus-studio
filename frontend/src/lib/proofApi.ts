@@ -422,7 +422,20 @@ export interface ProofHealth {
   read_only?: boolean;
   /** Optional routes this server serves (argus-proof#57: `report_manifest`). Older servers omit it. */
   capabilities?: string[];
+  /** Started with ARGUS_PROOF_DEVMODE / `serve --devmode` (proof 0.3.0): registers /purge. */
+  devmode?: boolean;
 }
+
+/**
+ * Whether this server will delete runs (`POST /purge…`, argus-proof#59): only
+ * in devmode on a writable host, which proof signals by listing `purge` in its
+ * capabilities. Legacy `false`: a proof without the field has no purge at all.
+ */
+export function allowsPurge(health: ProofHealth | null): Capability {
+  return capabilityOf(health, (h) => (Array.isArray(h.capabilities) ? h.capabilities.includes("purge") : undefined), false);
+}
+
+export const PURGE_DENIED = "Deleting runs needs ARGUS_PROOF_DEVMODE=1 on a writable argus-proof (0.3.0 or newer).";
 
 /** Whether this server serves `GET /report/{id}/manifest` (argus-proof#57). */
 export function servesReportManifest(health: ProofHealth | null): boolean {
@@ -514,6 +527,42 @@ export async function getReportManifest(runId: string, signal?: AbortSignal): Pr
   if (resp.status === 410) return null;
   if (!resp.ok) return asError(resp);
   return resp.json();
+}
+
+export interface PurgeRunResult {
+  run_id: string;
+  /** A report was deleted (with its HITL review and refinement). */
+  report: boolean;
+  /** A run dir (manifest + images) was deleted. */
+  run_dir: boolean;
+}
+
+export interface PurgeAllResult {
+  reports: number;
+  run_dirs: number;
+}
+
+async function postPurge<T>(path: string, signal?: AbortSignal): Promise<T> {
+  await requireCapability(proofHealth, allowsPurge, PURGE_DENIED, signal);
+  const resp = await fetch(`${proofUrl()}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    // The confirmation proof (like darkroom) requires on every purge.
+    body: JSON.stringify({ confirm: "purge" }),
+    signal,
+  });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** Delete one run's report and run dir (POST /purge/{run_id}). 409 while it is still generating. */
+export function purgeRun(runId: string, signal?: AbortSignal): Promise<PurgeRunResult> {
+  return postPurge(`/purge/${encodeURIComponent(runId)}`, signal);
+}
+
+/** Delete every run (POST /purge). */
+export function purgeAllRuns(signal?: AbortSignal): Promise<PurgeAllResult> {
+  return postPurge("/purge", signal);
 }
 
 // --- evaluation runs ---------------------------------------------------------

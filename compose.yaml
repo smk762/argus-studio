@@ -351,6 +351,9 @@ services:
       # Curator exports; GET /exports lists dirs with a manifest.jsonl here and
       # POST /run/stream name-resolves its `export` field under this root.
       ARGUS_PROOF_EXPORTS_DIR: /data/out
+      # Dev mode (proof 0.3.0+) registers POST /purge… so /proof can delete runs.
+      # Follows DEVMODE like curator and darkroom; PROOF_DEVMODE=0 keeps it off.
+      ARGUS_PROOF_DEVMODE: ${PROOF_DEVMODE-${ARGUS_DEVMODE-${DEVMODE:-}}}
       # Generation backend: a ComfyUI reachable FROM THE CONTAINER. The default
       # targets a ComfyUI on the compose host (see extra_hosts below).
       PROOF_BACKEND: ${PROOF_BACKEND:-comfyui}

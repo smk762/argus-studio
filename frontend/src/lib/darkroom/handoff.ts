@@ -44,12 +44,14 @@ export interface ManifestModels {
 
 /** `/darkroom` prefilled with a proof run's checkpoint and LoRAs. LoRA params repeat, in order. */
 export function darkroomHandoffHref(manifest: ManifestModels): string {
+  // A malformed manifest (no checkpoint) hands off nothing rather than crash the page.
+  if (typeof manifest?.base_checkpoint?.name !== "string" || !manifest.base_checkpoint.name) return "/darkroom";
   const q = new URLSearchParams();
   q.set("from", manifest.run_id);
   q.set("checkpoint", manifest.base_checkpoint.name);
   const ckptSha = sha(manifest.base_checkpoint.sha256);
   if (ckptSha) q.set("checkpoint_sha256", ckptSha);
-  for (const lora of manifest.loras ?? []) {
+  for (const lora of (Array.isArray(manifest.loras) ? manifest.loras : []).filter((l) => typeof l?.name === "string" && l.name)) {
     q.append("lora", lora.name);
     q.append("lora_sha256", sha(lora.sha256) ?? "");
     q.append("lora_weight", String(lora.weight ?? 1));
