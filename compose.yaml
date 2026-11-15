@@ -99,7 +99,7 @@ services:
     profiles: ["lens", "full"]
     # Default: pull the published standalone image (baked EXTRAS=server,local).
     # For a source build (or a different LENS_EXTRAS) add compose.build.yaml.
-    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.11.0}
+    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.12.0}
     ports:
       - "${LENS_PORT:-8100}:8100"
     environment:
@@ -124,8 +124,17 @@ services:
       # Leave unset to disable; lens's /immich/* endpoints then return 503.
       - IMMICH_URL=${IMMICH_URL:-}
       - IMMICH_API_KEY=${IMMICH_API_KEY:-}
-      # Root the caption page's folder picker browses (GET /folders).
-      - LENS_SOURCE_PATH=/data/images
+      # Root the caption page's folder picker browses (GET /folders), and the
+      # fence for folder and manifest captioning. Lens 0.12+ refuses a manifest
+      # row outside it, and curator exports land in /data/out, so the default is
+      # /data: the parent of every dataset mount below. Narrow it to
+      # /data/images to keep captioning off the exports.
+      - LENS_SOURCE_PATH=${LENS_SOURCE_PATH:-/data}
+      # Lens 0.12+ refuses /caption/url for private, loopback and LAN addresses
+      # (SSRF). Name trusted LAN hosts here, comma-separated; LENS_URL_FETCH=off
+      # refuses every URL.
+      - LENS_URL_ALLOWED_HOSTS=${LENS_URL_ALLOWED_HOSTS:-}
+      - LENS_URL_FETCH=${LENS_URL_FETCH:-}
       - HF_HOME=/root/.cache/huggingface
       - HF_TRUST_REMOTE_CODE=${HF_TRUST_REMOTE_CODE:-false}
       # Prose from an OpenAI-compatible server (Ollama, vLLM, LM Studio), used by
