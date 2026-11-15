@@ -573,6 +573,30 @@ export async function listProofModels(signal?: AbortSignal): Promise<ProofModels
   return resp.json();
 }
 
+/**
+ * A checkpoint's family as argus-proof reads it (`backends/workflow.py`
+ * `checkpoint_family`): its top-level folder, lower-cased. `flux/x.safetensors`
+ * is `flux`; a checkpoint at the top level has none, and proof treats it as SDXL.
+ */
+export function checkpointFamily(checkpoint: string): string | null {
+  const parts = checkpoint.trim().replace(/\\/g, "/").split("/");
+  return parts.length > 1 && parts[0] ? parts[0].toLowerCase() : null;
+}
+
+/** Proof's Flux guidance when a request leaves it out (`FAMILY_SAMPLING_DEFAULTS`). */
+export const FLUX_DEFAULT_GUIDANCE = 3.5;
+
+/**
+ * The `guidance` field for a run: only for a Flux checkpoint, and only a
+ * number >= 0. Anything else sends nothing, so proof applies the family's own
+ * default (or, for SDXL, never sees a field its template would refuse).
+ */
+export function guidanceField(checkpoint: string, raw: string): { guidance?: number } {
+  if (checkpointFamily(checkpoint) !== "flux" || raw.trim() === "") return {};
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? { guidance: n } : {};
+}
+
 /** POST /run/stream request — mirrors the server's RunRequest. */
 export interface RunEvalRequest {
   lora: string;
@@ -591,6 +615,8 @@ export interface RunEvalRequest {
   width?: number;
   height?: number;
   clip_skip?: number;
+  /** Flux distilled guidance (proof 0.3.0, wire 1.4). Send only for a Flux checkpoint: proof refuses it elsewhere. */
+  guidance?: number;
   run_id?: string;
 }
 
