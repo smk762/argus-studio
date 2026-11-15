@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { SuiteLinks } from "@/components/SuiteLinks";
 import { ExternalLink } from "@/components/ExternalLink";
-import { HOME_URL, LIGHTBOX_URL, REALMS_URL, REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
+import { HOME_URL, LIGHTBOX_URL, ATLAS_URL, REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
 
 /**
  * The static demo's family row (S11): the landing page, the sibling demos and the
@@ -17,7 +17,7 @@ function FamilyLinks() {
       <span aria-hidden>·</span>
       <ExternalLink href={LIGHTBOX_URL} className="underline underline-offset-2 hover:text-foreground">Lightbox</ExternalLink>
       <span aria-hidden>·</span>
-      <ExternalLink href={REALMS_URL} className="underline underline-offset-2 hover:text-foreground">Realms</ExternalLink>
+      <ExternalLink href={ATLAS_URL} className="underline underline-offset-2 hover:text-foreground">Atlas</ExternalLink>
       <span aria-hidden>·</span>
       <ExternalLink href={REPO_URL} className="underline underline-offset-2 hover:text-foreground">GitHub</ExternalLink>
     </nav>
