@@ -124,11 +124,12 @@ function Card({
       <button
         type="button"
         onClick={onToggle}
-        disabled={!exportable}
+        // A tile selected before a later check blocked it can still be deselected.
+        disabled={!exportable && !selected}
         aria-label={selected ? `Deselect ${img.rel_path}` : `Select ${img.rel_path} for export`}
         aria-pressed={selected}
         className={`flex h-6 w-6 items-center justify-center rounded border text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-          exportable ? "cursor-pointer" : ""
+          exportable || selected ? "cursor-pointer" : ""
         } ${
           selected
             ? "border-accent-green bg-accent-green text-on-accent"

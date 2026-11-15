@@ -42,11 +42,22 @@ export function ShieldCell({
         aria-expanded={show}
         aria-controls={id}
         aria-label={`${heading}: ${label}`}
-        onClick={() => setPinned((value) => !value)}
+        onClick={() => {
+          // Unpinning closes it outright: focus and (on touch) emulated hover would
+          // otherwise keep `open` true and the detail on screen.
+          if (pinned) {
+            setPinned(false);
+            setOpen(false);
+          } else setPinned(true);
+        }}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={(event) => {
-          if (event.key === "Escape") setPinned(false);
+          // Dismissible without moving focus or the pointer (WCAG 1.4.13).
+          if (event.key === "Escape") {
+            setPinned(false);
+            setOpen(false);
+          }
         }}
         className={`rounded-md px-2 py-1 transition-colors hover:bg-surface-hover/70 ${outlined ? "outline-dashed outline-2 outline-offset-1 outline-accent-amber/80" : ""}`}
       >

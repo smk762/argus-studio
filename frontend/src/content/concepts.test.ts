@@ -65,3 +65,10 @@ describe("concept registry", () => {
     },
   );
 });
+
+// Audit pack-argus-studio-c95c5d1c94: inherited keys are not concepts.
+describe("getConcept", () => {
+  it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])("returns undefined for %s", (id) => {
+    expect(getConcept(id)).toBeUndefined();
+  });
+});

@@ -192,6 +192,8 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<NormalizedExportResult | null>(null);
+  // What the run used, so editing the form afterwards can't change where its hand-off points.
+  const [ranWith, setRanWith] = useState<{ toCaption: boolean; trigger: string } | null>(null);
   const [transfer, setTransfer] = useState<ExportProgress | null>(null);
   const [caption, setCaption] = useState<CaptionProgress | null>(null);
   const [captionSummary, setCaptionSummary] = useState<CaptionSummary | null>(null);
@@ -263,6 +265,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
     setBusy(true);
     setError(null);
     setResult(null);
+    setRanWith({ toCaption, trigger: trigger.trim() });
     setTransfer(null);
     setCaption(null);
     setCaptionSummary(null);
@@ -398,7 +401,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
   // aborted captioning run leaves none, and must route to Lens, not Forge.
   const handoffCaptioned = captionSummary
     ? captionSummary.captioned > 0
-    : busy && toCaption && !manifestProblem;
+    : busy && (ranWith?.toCaption ?? false) && !manifestProblem;
   const notes = result ? exportNotes(result) : { notes: [], warning: null };
 
   return (
@@ -700,7 +703,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
           {manifestProblem && (
             <div className="text-accent-orange-ink">
               The files were transferred, but this app could not use the manifest: {manifestProblem}.
-              {toCaption ? " Captioning was skipped." : ""}
+              {ranWith?.toCaption ? " Captioning was skipped." : ""}
             </div>
           )}
           {result.manifest_path && (
@@ -729,7 +732,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
                 // The trigger rides along so forge does not slugify the folder
                 // name into a token that appears in none of the captions.
                 href={`/forge?export=${encodeURIComponent(handoffDest)}${
-                  trigger.trim() ? `&trigger=${encodeURIComponent(trigger.trim())}` : ""
+                  ranWith?.trigger ? `&trigger=${encodeURIComponent(ranWith.trigger)}` : ""
                 }`}
                 disabled={busy}
                 disabledLabel="Configure training in Forge (after captioning)…"

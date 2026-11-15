@@ -170,7 +170,8 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
     )
       .then((record) => {
         dispatch({ type: "complete", record });
-        setRecordId(record.id);
+        // Open the new record unless the user opened another one while it ran.
+        setRecordId((current) => current ?? record.id);
       })
       .catch((caught: unknown) => {
         if (abort.signal.aborted) dispatch({ type: "error", error: "Stopped. Darkroom finishes the generation on its own; its record will appear in the history." });
@@ -182,6 +183,15 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
   }, [compose, expandable]);
 
   const stop = useCallback(() => controller.current?.abort(), []);
+  // Leaving the page closes the stream and any pending pre-flight, rather than
+  // leaving them open and dispatching into an unmounted tree.
+  useEffect(
+    () => () => {
+      controller.current?.abort();
+      checkCtrl.current?.abort();
+    },
+    [],
+  );
   const clearLive = useCallback(() => {
     if (!controller.current) dispatch({ type: "reset" });
   }, []);

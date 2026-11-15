@@ -60,7 +60,9 @@ export function rowCounts(rows: readonly ImageResult[]): Pick<ScanSummary, "pass
  * batch replaces the same `rel_path`, and a chunk that carries clusters
  * (even `[]`) replaces the ones on screen.
  */
-export function mergeChunk(current: ScanSummary | null, chunk: ScanChunk, requested?: CuratorConfig): ScanSummary {
+export function mergeChunk(previous: ScanSummary | null, chunk: ScanChunk, requested?: CuratorConfig): ScanSummary {
+  // A chunk from another scan starts over: never union two scans' rows.
+  const current = previous && chunk.scan_id && previous.scan_id && previous.scan_id !== chunk.scan_id ? null : previous;
   const byPath = new Map<string, ImageResult>();
   const order: string[] = [];
   for (const img of current?.results ?? []) {

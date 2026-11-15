@@ -41,12 +41,16 @@ def scrub_paths(node: Any, job_dir: str, inputs_root: str) -> Any:
         return [scrub_paths(v, job_dir, inputs_root) for v in node]
     if not (isinstance(node, str) and node.startswith("/")):
         return node
+    # A trailing slash must not break the prefix match, and an empty root must
+    # not match every absolute path (that would publish host paths in the bundle).
+    job_dir = job_dir.rstrip("/")
+    inputs_root = inputs_root.rstrip("/")
     if job_dir and node.startswith(job_dir + "/"):
         return node[len(job_dir) + 1 :]
     parent = job_dir.rsplit("/", 1)[0] if job_dir else ""
     if parent and node.startswith(parent + "/"):
         return "../" + node[len(parent) + 1 :]
-    if node.startswith(inputs_root + "/"):
+    if inputs_root and node.startswith(inputs_root + "/"):
         return node[len(inputs_root) + 1 :]
     return Path(node).name
 
@@ -62,7 +66,9 @@ def recorded_dir(sidecar: dict[str, Any]) -> str:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
+    # No abbreviations: --archive is paired with its --job by scanning argv for the
+    # exact tokens below, which `--arch` or `--jo PATH` would silently miss.
+    ap = argparse.ArgumentParser(allow_abbrev=False)
     ap.add_argument("--job", action="append", required=True, help="a job dir (repeatable)")
     ap.add_argument("--archive", action="store_true", help="also bundle the PMTiles of the --job before it")
     ap.add_argument("--out", default="frontend/public/demo/atlas")
@@ -80,7 +86,9 @@ def main() -> None:
             last = Path(raw[i + 1]).name
         elif tok.startswith("--job="):
             last = Path(tok.split("=", 1)[1]).name
-        elif tok == "--archive" and last:
+        elif tok == "--archive":
+            if not last:
+                ap.error("--archive applies to the --job before it; put it after a --job")
             with_archive.add(last)
 
     out = Path(args.out)

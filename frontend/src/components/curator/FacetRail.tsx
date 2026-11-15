@@ -56,8 +56,8 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
   const hasPoses = Object.keys(poseCounts).length > 0;
 
   const counts = useMemo(
-    () => facetCounts(summary.results, filters.minSceneConf, filters.minGarmentConf),
-    [summary.results, filters.minSceneConf, filters.minGarmentConf],
+    () => facetCounts(summary.results, filters.minSceneConf, filters.minGarmentConf, filters.minAttributeConf),
+    [summary.results, filters.minSceneConf, filters.minGarmentConf, filters.minAttributeConf],
   );
   const recorded = useMemo(() => facetCounts(summary.results, 0, 0), [summary.results]);
   const hasAttributes = recorded.races.size + recorded.genders.size + recorded.ages.size + recorded.yearsKnown > 0;

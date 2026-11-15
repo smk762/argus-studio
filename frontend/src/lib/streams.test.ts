@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError, asError, readError } from "@/lib/apiError";
 import { CapabilityRefused } from "@/lib/capabilities";
 import { LENS_CATEGORY } from "@/components/curator/types";
-import { isDeterminatePhase, readSseStream, scanPhaseLabel, StreamCancelled } from "@/lib/curatorApi";
+import { isDeterminatePhase, readSseStream, SCAN_PHASE_LABELS, scanPhaseLabel, StreamCancelled } from "@/lib/curatorApi";
 import { categoryOptions, readNdjson } from "@/lib/lensApi";
 import { TARGET_CATEGORIES } from "@/types";
 import { basename, joinPath } from "@/lib/path";
@@ -197,7 +197,9 @@ describe("curator readSseStream", () => {
 describe("scan phases", () => {
   it("labels every phase curator 0.13 emits", () => {
     for (const p of ["collecting", "scoring", "watermarks", "faces", "erax", "nsfw", "identities", "prefilter", "scenes", "garments", "guard", "clustering"]) {
-      expect(scanPhaseLabel(p)).not.toBe("");
+      // An explicit entry, not the title-cased fallback every string gets.
+      expect(Object.hasOwn(SCAN_PHASE_LABELS, p), p).toBe(true);
+      expect(scanPhaseLabel(p)).toBe(SCAN_PHASE_LABELS[p as keyof typeof SCAN_PHASE_LABELS]);
     }
     expect(scanPhaseLabel("guard")).toBe("Running SingGuard");
     expect(scanPhaseLabel("watermarks")).toBe("Finding watermarks");
@@ -215,5 +217,55 @@ describe("scan phases", () => {
     expect(isDeterminatePhase("crop_boxes")).toBe(true);
     expect(isDeterminatePhase("collecting")).toBe(false);
     expect(isDeterminatePhase("identities")).toBe(false);
+  });
+});
+
+// Audit packs pack-argus-studio-47d64a9a1d (cancel on failure) and -5d336228e0 (flush the decoder).
+describe("readNdjson teardown and decoding", () => {
+  it("cancels the stream when a line is malformed", async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"ok":1}\nnot json\n'));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    await expect(readNdjson(new Response(body), () => {})).rejects.toThrow();
+    expect(cancelled).toBe(true);
+  });
+
+  it("cancels the stream when the callback throws", async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"a":1}\n'));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    await expect(
+      readNdjson(new Response(body), () => {
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+    expect(cancelled).toBe(true);
+  });
+
+  it("decodes a multi-byte character split across chunks, and a final line without a newline", async () => {
+    const bytes = new TextEncoder().encode('{"caption":"café"}');
+    const cut = bytes.indexOf(0xc3) + 1; // inside the two-byte é
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes.slice(0, cut));
+        controller.enqueue(bytes.slice(cut));
+        controller.close();
+      },
+    });
+    const seen: Record<string, unknown>[] = [];
+    await readNdjson(new Response(body), (o) => seen.push(o));
+    expect(seen).toEqual([{ caption: "café" }]);
   });
 });

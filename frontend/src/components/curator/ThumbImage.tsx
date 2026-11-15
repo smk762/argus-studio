@@ -46,7 +46,10 @@ export function ThumbImage({
   objectPosition,
   eager = false,
 }: Props) {
-  const [failed, setFailed] = useState(false);
+  // Remember which image failed, so the next one (prev/next in the detail view) still tries.
+  const src = `${scanId}:${relPath}`;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = failedSrc === src;
   const bundled = isLive() ? null : sampleThumb(relPath);
   // No path (an identity whose representative moved and whose next frame is on
   // a page not loaded yet): draw the placeholder, never request a thumb.
@@ -65,7 +68,7 @@ export function ThumbImage({
         height={bundled?.height}
         alt={relPath}
         loading={eager ? undefined : "lazy"}
-        onError={() => setFailed(true)}
+        onError={() => setFailedSrc(src)}
         style={fit === "cover" && objectPosition ? { objectPosition } : undefined}
         className={`h-full w-full ${fitClass} ${rounded} ${className}`}
       />

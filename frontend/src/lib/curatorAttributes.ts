@@ -13,11 +13,12 @@ function years(value: number): string {
 
 const percent = (conf: number | null | undefined): string => (conf == null ? "" : ` ${Math.round(conf * 100)}%`);
 
-/** One line for a face or an identity: gender and age, each with the model that said so. */
+/** One line for a face or an identity: race, gender and age, each with the model that said so. */
 export function attributeLine(attrs: FaceAttributes | null | undefined): string | null {
   if (!attrs) return null;
   const parts: string[] = [];
-  if (attrs.race) parts.push(`${slugLabel(attrs.race)}${percent(attrs.race_conf)}`);
+  // Race comes only from FairFace (curator's FaceAttributes schema), so its source is fixed.
+  if (attrs.race) parts.push(`${slugLabel(attrs.race)}${percent(attrs.race_conf)} (fairface)`);
   if (attrs.gender) parts.push(`${attrs.gender}${attrs.gender_source ? ` (${attrs.gender_source})` : ""}`);
   if (attrs.age_years != null) {
     parts.push(`${years(attrs.age_years)}${attrs.age_source ? ` (${attrs.age_source}${attrs.age_body ? ", with body" : ""})` : ""}`);

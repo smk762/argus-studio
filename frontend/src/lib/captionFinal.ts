@@ -35,11 +35,18 @@ export function resultToJSON(result: CaptionResult, imageUrl: string, variant: s
   return JSON.stringify({ image_url: imageUrl, ...final, ...choice }, null, 2);
 }
 
-function escapeCSV(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
+/**
+ * One CSV cell. Quoted when it holds a comma, quote, CR or LF (RFC 4180). A
+ * cell that a spreadsheet would read as a formula (leading `=`, `+`, `-`, `@`,
+ * tab or CR) gets a leading `'`, since captions and tags come from a model the
+ * image can steer (CSV/formula injection).
+ */
+export function escapeCSV(value: string): string {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  if (/[",\r\n]/.test(safe) || safe !== value) {
+    return `"${safe.replace(/"/g, '""')}"`;
   }
-  return value;
+  return safe;
 }
 
 export function resultToCSV(result: CaptionResult, imageUrl: string, variant: string | null): string {

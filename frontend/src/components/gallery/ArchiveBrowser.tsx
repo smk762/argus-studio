@@ -94,6 +94,9 @@ function toQuery(f: Form): ArchiveQuery {
  * does it and streams progress; otherwise (the demo-safe default) the page
  * hands over the `slice.json` and the CLI command that lands it.
  */
+
+/** Most rows one match-set slice asks for: target() clamps the limit to it, and the count shown uses it too. */
+const SLICE_MAX = 5000;
 export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
   const [listing, setListing] = useState<ArchiveListing | null>(null);
   const [archive, setArchive] = useState<string>("");
@@ -492,13 +495,14 @@ function SliceBar({
 
   const useSelection = selected.length > 0;
   const sliceQuery = useMemo<ArchiveQuery>(() => (useSelection ? { ...query, ids: selected } : query), [query, selected, useSelection]);
-  const n = useSelection ? selected.length : Math.min(total, Number(limit) || 0);
+  // The count shown is the count fetched: the same 5000 cap target() sends.
+  const n = useSelection ? selected.length : Math.min(total, Number(limit) || 0, SLICE_MAX);
   const ready = subject.trim() !== "" && n > 0;
 
   const target = () => ({
     category,
     subject: subject.trim(),
-    limit: useSelection ? selected.length : Math.max(1, Math.min(Number(limit) || 100, 5000)),
+    limit: useSelection ? selected.length : Math.max(1, Math.min(Number(limit) || 100, SLICE_MAX)),
   });
 
   const save = async () => {

@@ -179,6 +179,8 @@ export function exportBlockReason(img: ImageResult): string | null {
       ? `Not exported: ${img.reject_reason}.`
       : "Rejected frames are not exported.";
   }
+  // Mirrors canExport, which needs passed === true: an undecided frame says why.
+  if (img.passed !== true) return "Not exported until its checks finish.";
   if (isMinorExposed(img)) return "An under-18 image with exposure is not exported.";
   if (isMinorUnscored(img)) return "An under-18 image whose nudity was not scored is not exported.";
   return null;

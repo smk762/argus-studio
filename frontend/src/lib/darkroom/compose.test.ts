@@ -154,6 +154,12 @@ describe("generate gating", () => {
   it("says so when darkroom is read-only", () => {
     expect(generateBlock(health({ read_only: true }), null, ready, policies())).toContain("read-only");
   });
+  // Audit pack-argus-studio-a0a1279bd5: any enforcing policy the server can't enforce blocks Generate.
+  it("refuses an NSFW enforcing policy the server can't enforce", () => {
+    const noNsfw = policies(false);
+    const nsfw = noNsfw.policies.find((p) => p.mode === "nsfw")!;
+    expect(generateBlock(health({ nsfw_allowed: false }), null, { ...ready, enforcingPolicy: nsfw.name }, noNsfw)).toContain("--allow-nsfw");
+  });
   it("refuses SFW generation without NudeNet", () => {
     expect(generateBlock(health({ sfw_available: false }), null, { ...ready, enforcingPolicy: "default" }, policies())).toContain("NudeNet");
     expect(generateBlock(health({ sfw_available: false }), null, ready, policies())).toBeNull();

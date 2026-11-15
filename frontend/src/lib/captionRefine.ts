@@ -29,7 +29,9 @@ export function refineOf(metadata: Record<string, unknown> | null | undefined): 
   const raw = metadata?.refine;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
-  const rejected = record.rejected && typeof record.rejected === "object" ? record.rejected : {};
+  // Same rule as `raw`: an array is malformed, not a map of variant -> problems.
+  const rejected =
+    record.rejected && typeof record.rejected === "object" && !Array.isArray(record.rejected) ? record.rejected : {};
   return {
     rewriter: text(record.rewriter),
     model: text(record.model),

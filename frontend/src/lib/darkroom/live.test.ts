@@ -72,13 +72,24 @@ describe("live reducer", () => {
     expect(liveReducer(state, { type: "record", record: fixtureRecord("fx-failed") })).toBe(state);
   });
 
-  it("stays at pre-flight when the verdict refuses, and records an error", () => {
+  // Audit pack-argus-studio-db1105a0bb: a refusal ends the run rather than leaving it "running".
+  it("finishes when the verdict refuses, and still records a later error", () => {
     let state = liveReducer(IDLE, { type: "start", request });
     state = liveReducer(state, { type: "preflight", preflight: preflight("refused") });
-    expect(state.phase).toBe("preflight");
+    expect(state.phase).toBe("complete");
+    expect(isRunning(state)).toBe(false);
     state = liveReducer(state, { type: "error", error: "boom" });
     expect(state.phase).toBe("error");
     expect(state.error).toBe("boom");
     expect(liveReducer(state, { type: "reset" })).toEqual(IDLE);
+  });
+
+  // Audit pack-argus-studio-e3a04d6055: a straggler event can't revive a finished, failed or cleared run.
+  it.each(["idle", "complete", "error"] as const)("ignores queued/progress/scan once %s", (phase) => {
+    const state: LiveState = { ...IDLE, phase };
+    expect(liveReducer(state, { type: "queued" })).toBe(state);
+    expect(liveReducer(state, { type: "progress", progress: { step: 1, total: 10 } } as never)).toBe(state);
+    expect(liveReducer(state, { type: "scan", scan: { policy: "default", context: "isolated", cell: safe } } as never)).toBe(state);
+    expect(isRunning(liveReducer(state, { type: "queued" }))).toBe(false);
   });
 });

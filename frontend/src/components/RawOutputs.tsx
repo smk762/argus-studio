@@ -48,11 +48,12 @@ export function RawOutputs({ result }: RawOutputsProps) {
                 </span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {tags.map((tag) => {
+                {tags.map((tag, i) => {
                   const isRemoved = removedSet.has(tag.toLowerCase());
                   return (
                     <span
-                      key={tag}
+                      // The tagger can repeat a tag: the index keeps sibling keys unique.
+                      key={`${i}-${tag}`}
                       className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs transition-colors ${
                         isRemoved
                           ? "bg-transparent border border-border text-muted line-through"

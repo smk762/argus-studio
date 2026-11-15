@@ -48,7 +48,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ),
     li: (props: ComponentPropsWithoutRef<"li">) => <li className="pl-1" {...props} />,
     a: ({ href = "", ...props }: ComponentPropsWithoutRef<"a">) => {
-      const isInternal = href.startsWith("/") || href.startsWith("#");
+      // "//host/x" is protocol-relative: another origin, not an internal path.
+      const isInternal = href.startsWith("#") || (href.startsWith("/") && !href.startsWith("//"));
       const className =
         "text-accent-purple-ink underline decoration-dotted underline-offset-2 hover:text-accent-purple-ink transition-colors";
       if (isInternal) {

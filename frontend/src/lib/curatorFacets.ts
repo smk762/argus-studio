@@ -95,7 +95,14 @@ function bump<K>(map: Map<K, number>, key: K | null | undefined): void {
 }
 
 /** Frames per value, at the confidence the facets apply. A frame counts once per label. */
-export function facetCounts(results: readonly ImageResult[], minSceneConf: number, minGarmentConf: number): FacetCounts {
+export function facetCounts(
+  results: readonly ImageResult[],
+  minSceneConf: number,
+  minGarmentConf: number,
+  minAttributeConf = 0,
+): FacetCounts {
+  // The same floor attributesMatch applies; no confidence (a MiVOLO regression age) always counts.
+  const sure = (conf: number | null | undefined) => conf == null || conf >= minAttributeConf;
   const counts: FacetCounts = {
     races: new Map(),
     genders: new Map(),
@@ -107,9 +114,9 @@ export function facetCounts(results: readonly ImageResult[], minSceneConf: numbe
   };
   for (const img of results) {
     const attrs = img.primary_face_attributes;
-    bump(counts.races, attrs?.race);
-    bump(counts.genders, attrs?.gender);
-    bump(counts.ages, attrs?.age);
+    if (sure(attrs?.race_conf)) bump(counts.races, attrs?.race);
+    if (sure(attrs?.gender_conf)) bump(counts.genders, attrs?.gender);
+    if (sure(attrs?.age_conf)) bump(counts.ages, attrs?.age);
     if (attrs?.age_years != null) counts.yearsKnown += 1;
     if (img.scene) {
       const labels = (img.scene.categories ?? []).filter((c) => c.conf >= minSceneConf).map((c) => c.label);

@@ -139,10 +139,17 @@ def main() -> None:
     import cv2
     import numpy as np
     import torch
-    from diffusers import ControlNetModel, DPMSolverMultistepScheduler, StableDiffusionXLPipeline
+    from diffusers import (
+        ControlNetModel,
+        DPMSolverMultistepScheduler,
+        StableDiffusionXLPipeline,
+    )
     from insightface.app import FaceAnalysis
     from PIL import Image, ImageDraw, ImageFilter
-    from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline, draw_kps
+    from pipeline_stable_diffusion_xl_instantid import (
+        StableDiffusionXLInstantIDPipeline,
+        draw_kps,
+    )
 
     faces = FaceAnalysis(name="antelopev2", root=str(args.instantid), providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
     faces.prepare(ctx_id=0, det_size=(640, 640))
