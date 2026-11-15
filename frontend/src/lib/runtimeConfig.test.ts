@@ -100,7 +100,8 @@ describe("per-stage UI modes", () => {
 describe("standalone UI links", () => {
   it("are empty unless configured, with no dev default", () => {
     const c = resolveRuntimeConfig({});
-    expect([c.lightboxUrl, c.cullUrl, c.safelightUrl, c.sightlineUrl, c.maskUrl]).toEqual(["", "", "", "", ""]);
+    expect([c.lightboxUrl, c.cullUrl, c.safelightUrl, c.sightlineUrl, c.maskUrl, c.assayUrl]).toEqual(["", "", "", "", "", ""]);
+    expect(resolveRuntimeConfig({ ARGUS_ASSAY_URL: "http://localhost:3108/" }).assayUrl).toBe("http://localhost:3108");
     expect(resolveRuntimeConfig({ ARGUS_CULL_URL: "  " }).cullUrl).toBe("");
   });
 
