@@ -11,7 +11,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { useCompose } from "./ComposeProvider";
 import { useDarkroom } from "./DarkroomProvider";
 import { PolicyPicker } from "./PolicyPicker";
-import { Button, SectionTitle, Spinner } from "./ui";
+import { Button, Notice, SectionTitle, Spinner } from "./ui";
 
 const FIELD = "w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted disabled:opacity-60";
 const LABEL = "block text-xs uppercase tracking-wide text-muted";
@@ -78,7 +78,7 @@ function TriggerWordsInput({ name, words, onWords }: { name: string; words: stri
 /** The compose form: prompt, models, sampling, policies, thinking mode and the NudeNet blur threshold. Lives in `ComposeDialog`. */
 export function ComposeForm() {
   const { health, policies, models, error } = useDarkroom();
-  const { compose, ready, update, check, preflight, start, stop, running } = useCompose();
+  const { compose, ready, update, check, preflight, start, stop, running, handoff, dismissHandoff } = useCompose();
   const ollamaDown = !canExpand(health);
   const checking = preflight.state === "checking";
   // The static demo has nothing to generate with; say so plainly rather than
@@ -94,6 +94,26 @@ export function ComposeForm() {
         <p className="flex items-center gap-2 text-xs text-muted">
           <Spinner /> Loading darkroom&apos;s catalogue…
         </p>
+      ) : null}
+
+      {handoff ? (
+        <Notice tone={handoff.missing.length > 0 ? "warning" : "info"}>
+          {handoff.applied.length > 0 ? (
+            <>
+              From proof run {handoff.from ? <span className="font-mono">{handoff.from}</span> : "a report"}:{" "}
+              <span className="font-mono">{handoff.applied.join(", ")}</span> selected.{" "}
+            </>
+          ) : null}
+          {handoff.missing.length > 0 ? (
+            <>
+              Not in darkroom&apos;s model list, so not selected: <span className="font-mono">{handoff.missing.join(", ")}</span>.
+              The form kept its own choice instead.{" "}
+            </>
+          ) : null}
+          <button type="button" onClick={dismissHandoff} className="text-xs underline underline-offset-2 hover:text-foreground">
+            Dismiss
+          </button>
+        </Notice>
       ) : null}
 
       <Field label="Prompt" htmlFor="prompt">
