@@ -53,19 +53,12 @@ export interface EvalReport {
   created_at: string | null;
 }
 
-/** One-line digest of a stored report for the run browser (GET /reports). */
-export interface ReportSummary {
-  run_id: string;
-  passed: boolean;
-  pending: boolean;
-  pass_rate: number;
-  n_images: number;
-  n_groups: number | null;
-  n_needs_hitl: number;
-  /** Images carrying a second-pass refinement (0 on older servers). */
-  n_refined?: number;
-  created_at: string | null;
-}
+/**
+ * One-line digest of a stored report for the run browser (GET /reports and the
+ * stream's `complete` frame). The wire type, except that `n_refined` stays
+ * optional: servers older than proof's refinement stage don't send it (#230).
+ */
+export type ReportSummary = Omit<Wire.ReportSummary, "n_refined"> & { n_refined?: number };
 
 /**
  * The run-browser line for a report, from its aggregate and verdict. Used to
@@ -601,20 +594,12 @@ export interface RunEvalRequest {
   run_id?: string;
 }
 
-/** One NDJSON frame from POST /run/stream. Generation frames follow the proof
- * ProgressEvent shape (start/progress/image/done), then `scoring`, then either
- * `complete` (with the stored report's summary) or `error`. */
-export interface RunEvalProgress {
-  type: "start" | "progress" | "image" | "done" | "scoring" | "complete" | "error";
-  run_id: string;
-  message?: string;
-  seed?: number;
-  image_id?: string;
-  completed?: number;
-  total?: number;
-  n_images?: number;
-  report?: ReportSummary;
-}
+/**
+ * One NDJSON frame from POST /run/stream, discriminated by `type`: the
+ * generation frames (start/progress/image/done/error), then `scoring`, then
+ * `complete` carrying the stored report's summary (proof wire 1.4, #230).
+ */
+export type RunEvalProgress = Wire.RunStreamFrame;
 
 /**
  * Trigger a generation+scoring run (POST /run/stream), streaming NDJSON
@@ -640,7 +625,7 @@ export async function runEvalStream(
   await readNdjson(resp, (obj) => {
     const frame = obj as unknown as RunEvalProgress;
     onProgress(frame);
-    if (frame.type === "complete" && frame.report) summary = frame.report;
+    if (frame.type === "complete") summary = frame.report;
     else if (frame.type === "error") streamedError = frame.message ?? "generation failed";
   });
 
