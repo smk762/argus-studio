@@ -54,3 +54,47 @@ export function stageFor(href: string): PipelineStage | undefined {
   const base = path.length > 1 ? path.replace(/\/+$/, "") : path;
   return PIPELINE.find((s) => s.href === base);
 }
+
+/**
+ * Where a stage leads besides the next number (#236). The numbered core stays
+ * the nav; a stage that branches lists its branches here, and its page shows
+ * them as a "From here" row. An external branch is a standalone UI that owns
+ * the work (Mask, Assay): Studio links to it rather than duplicating it, and
+ * only when the deployment configures its URL.
+ */
+export type ExternalUi = "mask" | "assay";
+
+export type Branch =
+  | { kind: "stage"; href: string; label: string }
+  | { kind: "external"; ui: ExternalUi; label: string; service: string };
+
+export const BRANCHES: Readonly<Record<string, readonly Branch[]>> = {
+  "/darkroom": [
+    { kind: "stage", href: "/forge", label: "Train a new LoRA in Forge" },
+    { kind: "external", ui: "mask", label: "Rig a face in Mask", service: "argus-mask" },
+    { kind: "external", ui: "assay", label: "Mint a provenance card in Assay", service: "argus-mint" },
+  ],
+};
+
+export interface ResolvedBranch {
+  href: string;
+  label: string;
+  tone: StageTone;
+  /** A standalone UI off this site, named by the service it fronts. */
+  external: { service: string } | null;
+}
+
+/**
+ * The branches a stage's page shows: its stage branches always, and an external
+ * one only when `urls` names it (an empty or missing URL means not deployed).
+ */
+export function branchesFrom(href: string, urls: Partial<Record<ExternalUi, string>>): ResolvedBranch[] {
+  const from = stageFor(href)?.href ?? href;
+  return (BRANCHES[from] ?? []).flatMap((branch): ResolvedBranch[] => {
+    if (branch.kind === "stage") {
+      return [{ href: branch.href, label: branch.label, tone: stageFor(branch.href)?.tone ?? "purple", external: null }];
+    }
+    const url = urls[branch.ui]?.trim();
+    return url ? [{ href: url, label: branch.label, tone: "purple", external: { service: branch.service } }] : [];
+  });
+}

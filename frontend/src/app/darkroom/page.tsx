@@ -18,7 +18,7 @@ import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { MadeWith } from "@/components/MadeWith";
 import { darkroomGenerateCommand } from "@/lib/madeWith";
-import { assayUrl } from "@/lib/curatorEnv";
+import { BranchHandoffs } from "@/components/BranchHandoffs";
 
 export default function DarkroomPage() {
   return (
@@ -40,7 +40,6 @@ function DarkroomStage() {
   const { view, setView, recordId, closeRecord, compose } = useCompose();
   // null = loading, "" = unreachable, else the server version.
   const version = error ? "" : (health?.version ?? null);
-  const assay = assayUrl();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -66,17 +65,9 @@ function DarkroomStage() {
           command={darkroomGenerateCommand(compose.enforcingPolicy || health?.default_policy)}
           className="lg:col-span-2"
         />
-        {assay ? (
-          // A branch off darkroom, not a pipeline stage: mint's own UI handles
-          // drafts, review and publishing (argus-assay), so Studio links to it.
-          <p className="-mt-4 text-xs text-muted lg:col-span-2">
-            Turn a released image into a provenance card:{" "}
-            <ExternalLink href={assay} className="underline underline-offset-2 hover:text-foreground">
-              mint it in argus-assay
-            </ExternalLink>
-            .
-          </p>
-        ) : null}
+        {/* Darkroom branches rather than handing on to one next stage (#236):
+            back to Forge, or out to Mask and Assay when they are deployed. */}
+        <BranchHandoffs from="/darkroom" className="-mt-4 lg:col-span-2" />
         <aside className="space-y-4">
           <HealthCard />
           {sample ? (

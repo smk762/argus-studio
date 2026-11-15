@@ -6,6 +6,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Added
 
+- **Branch hand-offs** (#236, option 1). The numbered pipeline (1–7) stays the nav, and a stage that branches now says where it leads. `/darkroom` shows a "From here" row: **Train a new LoRA in Forge**, plus **Rig a face in Mask** and **Mint a provenance card in Assay** when `ARGUS_MASK_URL` / `ARGUS_ASSAY_URL` are set. Mask and Assay are standalone UIs, and Studio links to them rather than duplicating their pages. The branches are listed once, in `BRANCHES` in `lib/pipeline.ts`. The row replaces `/darkroom`'s single Assay sentence.
 - **Live training on /forge** (#122). With argus-forge 0.2's run API, the Training section of `/forge`:
   - starts the config **Generate + write** put into the export (kohya or diffusers), after asking first in the page;
   - streams the run's log live, and follows its tail unless you scroll up;
