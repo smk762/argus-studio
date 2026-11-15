@@ -2,7 +2,7 @@ import Link from "next/link";
 import { stageFor, type StageTone } from "@/lib/pipeline";
 
 /** Per-stage accent, so a hand-off is coloured like the page it leads to. */
-const TONE: Record<StageTone, string> = {
+export const STAGE_TONE: Record<StageTone, string> = {
   purple: "border-accent-purple/40 bg-accent-purple/10 text-accent-purple-ink hover:bg-accent-purple/20",
   amber: "border-accent-amber/40 bg-accent-amber/10 text-accent-amber-ink hover:bg-accent-amber/20",
   green: "border-accent-green/40 bg-accent-green/10 text-accent-green-ink hover:bg-accent-green/20",
@@ -77,7 +77,7 @@ export function StageHandoff({
       onClick={(e) => {
         if (disabled) e.preventDefault();
       }}
-      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${TONE[resolvedTone]} ${
+      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${STAGE_TONE[resolvedTone]} ${
         disabled ? "pointer-events-none opacity-40" : ""
       } ${className ?? "inline-block"}`}
     >
