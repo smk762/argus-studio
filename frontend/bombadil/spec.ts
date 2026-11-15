@@ -23,7 +23,8 @@
 //
 // Leave out the resource-leak extras (`noResourceLeak`): Bombadil reads
 // Chrome's node and listener counts without forcing a GC, so React's
-// short-lived garbage trips any useful threshold (findings on #242).
+// short-lived garbage trips any useful threshold (findings on #242). The
+// nightly workflow measures leaks with scripts/check-leaks.mjs instead.
 
 import { always, eventually, now } from "@antithesishq/bombadil";
 import { actions, extract, weighted } from "@antithesishq/bombadil/browser";

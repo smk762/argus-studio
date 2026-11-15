@@ -6,6 +6,11 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Added
 
+- **Nightly Bombadil and leak checks** (#242). A new workflow, `bombadil-nightly.yml`, runs daily and on demand, with two jobs:
+  - **Bombadil:** a 45-minute run of the PR spec that doesn't stop at the first violation. It tries to shrink the first violation to a shorter trace (experimental, allowed to fail) and uploads the trace.
+  - **Leak check:** `scripts/check-leaks.mjs` follows every nav link with a few interactions on each page, 30 times over, and measures nodes, listeners, documents and heap after a forced garbage collection. Growth over its limits fails the job. On the current demo all four stay flat, and a deliberately planted listener leak fails within 5 rounds. It replaces Bombadil's own leak checks, which read the counts without a garbage collection and so flagged healthy pages.
+
+  A failure opens one `bombadil` issue per violated property (or one for the leak check), or comments on the open one, so a repeat failure doesn't open a new issue each night.
 - **Bombadil property-based UI tests** (#241, epic #240). A new CI job, `bombadil`, builds the static demo and runs [Bombadil](https://antithesishq.github.io/bombadil/) against it for 3 minutes. Bombadil clicks, types, scrolls, goes back, reloads and resizes the viewport at random, and checks `frontend/bombadil/spec.ts` in every state it reaches:
   - Bombadil's defaults: no uncaught exceptions, unhandled rejections, console errors or HTTP errors;
   - one `<main>` and at most one `h1` per page;
