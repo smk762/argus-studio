@@ -2,8 +2,8 @@
   "cortex": {
     "repo": "smk762/argus-cortex",
     "branch": "dev",
-    "commit": "73350a2ae11a6ceaf7d8d28a01e8ceaad58f7028",
-    "version": "0.5.1.dev30+g73350a2",
+    "commit": "e74048ba27ed770ffae0bbc24ec7796abf96d08e",
+    "version": "0.5.1.dev44+ge74048b",
     "path": "taxonomy-schema.json",
     "sha256": "41360429bb7542230bb4e64ad3f94043b521a2eebcdb4b2e723e5fdaab861966"
   },
