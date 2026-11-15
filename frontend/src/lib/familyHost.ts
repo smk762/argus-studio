@@ -1,4 +1,4 @@
-/** The Dragonhound Labs family: dragonhound.dev and every subdomain (studio., lightbox., realms., cull.). */
+/** The Dragonhound Labs family: dragonhound.dev and every subdomain (studio., lightbox., atlas., cull., realms.). */
 export const FAMILY_DOMAIN = "dragonhound.dev";
 
 /**
