@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { contentSecurityPolicy, cspHeaderName, cspMode, cspModeRecognised, newNonce } from "./csp";
+import { contentSecurityPolicy, cspHeaderName, cspMode, cspModeRecognised, newNonce, trustedTypesFor } from "./csp";
 
 describe("cspMode", () => {
   it("enforces unless told otherwise", () => {
@@ -54,6 +54,27 @@ describe("contentSecurityPolicy", () => {
   it("does not restrict where the backends live", () => {
     const policy = contentSecurityPolicy("abc");
     expect(policy).not.toMatch(/default-src|connect-src|img-src/);
+  });
+  // #198: Trusted Types is a dry run first. Next still writes plain strings to
+  // script.src / innerHTML, so the directive must never reach an enforced header.
+  it("adds require-trusted-types-for only when asked", () => {
+    expect(contentSecurityPolicy("abc")).not.toContain("trusted-types");
+    expect(contentSecurityPolicy("abc", { trustedTypes: true })).toMatch(/; require-trusted-types-for 'script'$/);
+  });
+});
+
+describe("trustedTypesFor", () => {
+  it("is on for report-only and off for enforce and off", () => {
+    expect(trustedTypesFor("report-only")).toBe(true);
+    expect(trustedTypesFor("enforce")).toBe(false);
+    expect(trustedTypesFor("off")).toBe(false);
+  });
+
+  it("never puts the directive on the enforced header", () => {
+    for (const mode of ["enforce", "report-only", "off"] as const) {
+      const policy = contentSecurityPolicy("abc", { trustedTypes: trustedTypesFor(mode) });
+      if (cspHeaderName(mode) === "Content-Security-Policy") expect(policy).not.toContain("trusted-types");
+    }
   });
 });
 
