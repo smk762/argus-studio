@@ -425,6 +425,13 @@ export interface ProofHealth {
    * `$ARGUS_PROOF_READ_ONLY` on a GPU-less host. Older servers omit it.
    */
   read_only?: boolean;
+  /** Optional routes this server serves (argus-proof#57: `report_manifest`). Older servers omit it. */
+  capabilities?: string[];
+}
+
+/** Whether this server serves `GET /report/{id}/manifest` (argus-proof#57). */
+export function servesReportManifest(health: ProofHealth | null): boolean {
+  return health?.capabilities?.includes("report_manifest") ?? false;
 }
 
 /**
@@ -494,6 +501,22 @@ export async function submitRefinement(runId: string, req: RefinementRequest, si
     body: JSON.stringify(req),
     signal,
   });
+  if (!resp.ok) return asError(resp);
+  return resp.json();
+}
+
+/** The run manifest's model fields (argus-proof `RunManifest`), as the darkroom handoff reads them. */
+export type ReportManifest = Pick<Wire.RunManifest, "run_id" | "base_checkpoint" | "loras">;
+
+/**
+ * The setup a report evaluated (GET /report/{id}/manifest, argus-proof#57).
+ * Null when the run directory is gone (410): the report outlived its run, so
+ * there is nothing to hand on. Other failures throw. Only call it when
+ * {@link servesReportManifest} says the route exists.
+ */
+export async function getReportManifest(runId: string, signal?: AbortSignal): Promise<ReportManifest | null> {
+  const resp = await fetch(`${proofUrl()}/report/${encodeURIComponent(runId)}/manifest`, { signal });
+  if (resp.status === 410) return null;
   if (!resp.ok) return asError(resp);
   return resp.json();
 }

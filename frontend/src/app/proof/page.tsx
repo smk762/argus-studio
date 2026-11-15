@@ -5,10 +5,13 @@ import {
   allowsEval,
   getProofHealth,
   getReport,
+  getReportManifest,
+  servesReportManifest,
   listReports,
   withReportSummary,
   type EvalReport,
   type ProofHealth,
+  type ReportManifest,
   type ReportSummary,
 } from "@/lib/proofApi";
 import { type Capability } from "@/lib/capabilities";
@@ -23,6 +26,7 @@ import { NewEvaluation } from "@/components/proof/NewEvaluation";
 import { StageHandoff } from "@/components/StageHandoff";
 import { ExternalLink } from "@/components/ExternalLink";
 import { MadeWith } from "@/components/MadeWith";
+import { darkroomHandoffHref } from "@/lib/darkroom/handoff";
 
 function verdictDot(s: ReportSummary): string {
   if (s.passed) return "bg-accent-green";
@@ -125,6 +129,25 @@ export default function ProofPage() {
   }, []);
   const current = report && reviewed?.run_id === report.run_id ? reviewed : report;
 
+  // A passed report hands its checkpoint and LoRAs on to /darkroom (#199), from
+  // the run manifest proof serves for it (argus-proof#57). Undefined while
+  // unknown or not asked; null when the run directory is gone.
+  const passedRun = live && current?.verdict.passed && servesReportManifest(health) ? current.run_id : null;
+  const [manifest, setManifest] = useState<{ runId: string; value: ReportManifest | null } | null>(null);
+  useEffect(() => {
+    if (!passedRun) return;
+    const ctrl = new AbortController();
+    getReportManifest(passedRun, ctrl.signal)
+      .then((value) => setManifest({ runId: passedRun, value }))
+      .catch(() => {
+        // Unreadable manifest: hand off without models rather than block the link.
+        if (!ctrl.signal.aborted) setManifest({ runId: passedRun, value: null });
+      });
+    return () => ctrl.abort();
+  }, [passedRun]);
+  const shownManifest = manifest && manifest.runId === passedRun ? manifest : null;
+  const darkroomHref = shownManifest?.value ? darkroomHandoffHref(shownManifest.value) : "/darkroom";
+
   // A finished evaluation run: refresh the run browser and land on the new
   // scored report for HITL review.
   const onRunComplete = useCallback(async (runId: string) => {
@@ -226,9 +249,14 @@ export default function ProofPage() {
                   {/* A LoRA that passed is ready for the next stage: bake a georeferenced map with it. */}
                   {current?.verdict.passed && (
                     <div className="mt-6 flex justify-end gap-2">
-                      <StageHandoff href="/darkroom" />
+                      <StageHandoff href={darkroomHref} />
                       <StageHandoff href="/atlas" />
                     </div>
+                  )}
+                  {current?.verdict.passed && shownManifest && shownManifest.value === null && (
+                    <p className="mt-2 text-right text-xs text-muted">
+                      This run&apos;s directory is gone, so Darkroom opens without its checkpoint and LoRA.
+                    </p>
                   )}
                 </>
               )}
