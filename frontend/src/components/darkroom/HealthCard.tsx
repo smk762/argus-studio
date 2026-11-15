@@ -8,6 +8,7 @@ import { DemoBadge } from "@/components/DemoChrome";
 
 import { useDarkroom } from "./DarkroomProvider";
 import { Button, Card, SectionTitle, Spinner } from "./ui";
+import { Info } from "@/components/Tooltip";
 
 /** What `/health` says about darkroom and the servers behind it. */
 export function HealthCard() {
@@ -60,9 +61,10 @@ function LiveHealthCard() {
             {BACKENDS.map(({ key, label, note }) => {
               const up = health.backends[key];
               return (
-                <li key={key} className="flex items-center gap-2" title={note}>
+                <li key={key} className="flex items-center gap-2">
                   <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${up ? "bg-accent-green" : "bg-accent-red"}`} />
                   <span className="text-foreground">{label}</span>
+                  <Info text={note} />
                   <span className="text-xs text-muted">{up ? "reachable" : "unreachable"}</span>
                 </li>
               );

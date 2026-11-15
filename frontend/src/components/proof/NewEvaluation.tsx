@@ -217,7 +217,6 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
         onClick={() => setOpen((o) => !o)}
         disabled={sealed}
         aria-expanded={open}
-        title={sealed ? deniedReason : undefined}
         className="flex w-full cursor-pointer items-center justify-between px-5 py-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className="text-sm font-medium text-foreground">New evaluation</span>
@@ -279,7 +278,6 @@ export function NewEvaluation({ onComplete, canRun, deniedReason }: NewEvaluatio
               type="button"
               onClick={start}
               disabled={!ready || running || !permits(canRun)}
-              title={checking ? "Checking what this server allows…" : undefined}
               className="rounded-lg bg-accent-purple px-4 py-1.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {running ? (phase === "scoring" ? "Scoring…" : "Generating…") : checking ? "Checking…" : "Run evaluation"}

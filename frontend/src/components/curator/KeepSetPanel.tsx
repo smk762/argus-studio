@@ -173,7 +173,6 @@ export function KeepSetPanel({ summary, filters, disabled, onUse, exportBlocked,
               type="button"
               onClick={() => onExportCapped({ ...body, ...cap })}
               disabled={disabled || capBlocked !== null}
-              title={capBlocked ?? undefined}
               className="w-full cursor-pointer rounded-lg border border-accent-green/40 px-3 py-1.5 text-xs font-medium text-accent-green-ink transition-colors hover:bg-accent-green/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Export capped set + manifest
