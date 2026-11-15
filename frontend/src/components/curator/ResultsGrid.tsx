@@ -9,6 +9,7 @@ import { GuardShield } from "./GuardShield";
 import { SafeThumb } from "./SafeThumb";
 import { statusExplanation } from "./imageExplain";
 import { POSE_LABELS, type ImageResult } from "./types";
+import { Tooltip } from "@/components/Tooltip";
 
 interface Props {
   scanId: string;
@@ -115,12 +116,18 @@ function Card({
   return (
     <div className={`group relative overflow-hidden rounded-lg border bg-surface transition-all ${border}`}>
       {/* Selection checkbox */}
+      <Tooltip
+        text={exportable ? (selected ? "Deselect" : "Select for export") : (blocked ?? "Not exported")}
+        className="absolute left-1.5 top-1.5 z-30"
+        describe={!exportable}
+      >
       <button
         type="button"
         onClick={onToggle}
         disabled={!exportable}
-        title={exportable ? (selected ? "Deselect" : "Select for export") : (blocked ?? "Not exported")}
-        className={`absolute left-1.5 top-1.5 z-30 flex h-6 w-6 items-center justify-center rounded border text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        aria-label={selected ? `Deselect ${img.rel_path}` : `Select ${img.rel_path} for export`}
+        aria-pressed={selected}
+        className={`flex h-6 w-6 items-center justify-center rounded border text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
           exportable ? "cursor-pointer" : ""
         } ${
           selected
@@ -130,6 +137,7 @@ function Card({
       >
         ✓
       </button>
+      </Tooltip>
 
       <div className="relative aspect-square" title={`${img.rel_path}\n\n${statusExplanation(img)}`}>
         <div className={`h-full w-full ${fade}`}>

@@ -61,6 +61,7 @@ import { mergeChunk, pendingCaption, type ScanChunk } from "@/lib/scanChunks";
 import { configFromSummary, knownClusterFilters, withoutRelPaths } from "@/lib/scanHistory";
 import { curatorUiMode, isLive, localSourcePath } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
+import { Tooltip } from "@/components/Tooltip";
 import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
 import { ExternalLink } from "@/components/ExternalLink";
@@ -618,14 +619,15 @@ export default function CuratePage() {
                     required
                     className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent-teal/50 focus:outline-none focus:ring-2 focus:ring-accent-teal/50"
                   />
+                  <Tooltip text={formProblem ?? ""} className="w-full" describe>
                   <button
                     type="submit"
                     disabled={loading || purging || !folderPath.trim() || formProblem !== null}
-                    title={formProblem ?? undefined}
                     className="w-full cursor-pointer rounded-lg bg-accent-teal px-4 py-2.5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-teal/90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {loading ? "Scanning…" : "Scan folder"}
                   </button>
+                  </Tooltip>
                   {formProblem && <p className="text-[11px] leading-relaxed text-accent-orange-ink">{formProblem}</p>}
                   <ScanControlButtons
                     scanning={scanning}
@@ -930,36 +932,39 @@ function DeleteActions({
     "rounded-lg border border-accent-red/40 px-2.5 py-1 text-xs text-accent-red-ink transition-colors enabled:cursor-pointer enabled:hover:bg-accent-red/10 disabled:opacity-40";
   return (
     <>
-      <button
-        type="button"
-        onClick={onDeleteSelected}
-        disabled={selectedCount === 0 || deleting || selectedReason !== null}
-        title={selectedReason ?? "Delete the selected source files from disk"}
-        className={style}
-      >
-        {deleting ? "Deleting…" : `Delete selected (${selectedCount})`}
-      </button>
-      {flaggedCount > 0 && (
+      <Tooltip text={selectedReason ?? "Delete the selected source files from disk"} describe>
         <button
           type="button"
-          onClick={onDeleteFlagged}
-          disabled={deleting || flaggedReason !== null}
-          title={flaggedReason ?? "Delete every frame held as under 18 with exposure from disk"}
+          onClick={onDeleteSelected}
+          disabled={selectedCount === 0 || deleting || selectedReason !== null}
           className={style}
         >
-          Delete under-18 exposed ({flaggedCount})
+          {deleting ? "Deleting…" : `Delete selected (${selectedCount})`}
         </button>
+      </Tooltip>
+      {flaggedCount > 0 && (
+        <Tooltip text={flaggedReason ?? "Delete every frame held as under 18 with exposure from disk"} describe>
+          <button
+            type="button"
+            onClick={onDeleteFlagged}
+            disabled={deleting || flaggedReason !== null}
+            className={style}
+          >
+            Delete under-18 exposed ({flaggedCount})
+          </button>
+        </Tooltip>
       )}
       {rejectedCount > 0 && (
-        <button
-          type="button"
-          onClick={onDeleteRejected}
-          disabled={deleting || selectedReason !== null}
-          title={selectedReason ?? "Delete every rejected frame from disk, including any the filters hide"}
-          className={style}
-        >
-          Delete rejected ({rejectedCount})
-        </button>
+        <Tooltip text={selectedReason ?? "Delete every rejected frame from disk, including any the filters hide"} describe>
+          <button
+            type="button"
+            onClick={onDeleteRejected}
+            disabled={deleting || selectedReason !== null}
+            className={style}
+          >
+            Delete rejected ({rejectedCount})
+          </button>
+        </Tooltip>
       )}
     </>
   );
@@ -1022,24 +1027,26 @@ function CachedScanList({
                 {scan.total} images · {new Date(scan.updated_at).toLocaleString()}
               </span>
             </button>
-            <button
-              type="button"
-              onClick={() => onAgain(scan.scan_id)}
-              disabled={rerunning != null || busy}
-              title="Fill the form the way this scan ran"
-              className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-muted hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {rerunning === scan.scan_id ? "…" : "Again"}
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(scan.scan_id)}
-              disabled={!canDelete || busy}
-              title={deleteReason ?? "Remove this scan from the cache. Source images stay."}
-              className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-accent-red-ink hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {forgetting === scan.scan_id ? "…" : "Delete"}
-            </button>
+            <Tooltip text="Fill the form the way this scan ran" describe>
+              <button
+                type="button"
+                onClick={() => onAgain(scan.scan_id)}
+                disabled={rerunning != null || busy}
+                className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-muted hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {rerunning === scan.scan_id ? "…" : "Again"}
+              </button>
+            </Tooltip>
+            <Tooltip text={deleteReason ?? "Remove this scan from the cache. Source images stay."} describe>
+              <button
+                type="button"
+                onClick={() => onDelete(scan.scan_id)}
+                disabled={!canDelete || busy}
+                className="cursor-pointer rounded-lg border border-border px-2 text-[10px] text-accent-red-ink hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {forgetting === scan.scan_id ? "…" : "Delete"}
+              </button>
+            </Tooltip>
           </li>
         ))}
       </ul>
@@ -1113,26 +1120,31 @@ function ScanControlButtons({
       : !scanId
         ? "Stop is available once the first images arrive."
         : "Stop the running scan. Checks already in flight finish, and the partial scan is dropped.";
+  const purgeTip = allowed
+    ? "Stop a running scan and delete every cached scan. Source images stay."
+    : (reason ?? SCAN_CONTROL_DENIED);
   return (
     <div className="flex gap-2">
+      <Tooltip text={stopTitle} className="flex-1" describe>
       <button
         type="button"
         disabled={!allowed || !scanning || !scanId || stopping || purging}
-        title={stopTitle}
         onClick={onStop}
-        className="flex-1 cursor-pointer rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full cursor-pointer rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
       >
         {stopping ? "Stopping…" : "Stop"}
       </button>
+      </Tooltip>
+      <Tooltip text={purgeTip} className="flex-1" describe>
       <button
         type="button"
         disabled={!allowed || purging}
-        title={allowed ? "Stop a running scan and delete every cached scan. Source images stay." : (reason ?? SCAN_CONTROL_DENIED)}
         onClick={onPurge}
-        className="flex-1 cursor-pointer rounded-lg border border-accent-red/40 px-3 py-2 text-sm text-accent-red-ink transition-colors hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full cursor-pointer rounded-lg border border-accent-red/40 px-3 py-2 text-sm text-accent-red-ink transition-colors hover:bg-accent-red/10 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {purging ? "Purging…" : "Purge"}
       </button>
+      </Tooltip>
     </div>
   );
 }
@@ -1159,9 +1171,11 @@ function DetectorBadges({ detectors }: { detectors: Detectors }) {
   return (
     <div className="mb-3 flex flex-wrap gap-1.5 border-b border-border pb-3">
       {DETECTOR_INFO.map(({ key, label, hint }) => (
+        <Tooltip key={key} text={`${hint} — ${detectors[key] ? "available" : "not installed on the curator"}`}>
         <span
-          key={key}
-          title={`${hint} — ${detectors[key] ? "available" : "not installed on the curator"}`}
+          tabIndex={0}
+          role="img"
+          aria-label={`${label}: ${hint}, ${detectors[key] ? "available" : "not installed on the curator"}`}
           className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
             detectors[key]
               ? "border-accent-green/40 bg-accent-green/10 text-accent-green-ink"
@@ -1170,6 +1184,7 @@ function DetectorBadges({ detectors }: { detectors: Detectors }) {
         >
           {label}
         </span>
+        </Tooltip>
       ))}
     </div>
   );

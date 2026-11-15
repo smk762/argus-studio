@@ -19,6 +19,7 @@ import {
   type FacePose,
   type ScanSummary,
 } from "./types";
+import { Info, Tooltip } from "@/components/Tooltip";
 
 interface Props {
   summary: ScanSummary;
@@ -341,25 +342,26 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
           )}
           {policies.length > 1 && (
             <>
-              <span className="block text-[10px] text-muted" title="Empty reads the official policy. A frame drops when any listed policy fails it.">
+              <span className="flex items-center gap-1 text-[10px] text-muted">
                 Read verdicts from
+                <Info text="Empty reads the official policy. A frame drops when any listed policy fails it." />
               </span>
               <div className="flex flex-wrap gap-1">
                 {policies.map((policy, i) => {
                   const on = filters.guardPolicies.includes(policy);
                   return (
+                    <Tooltip key={policy} text={i === 0 ? "The official policy" : "A variant"} describe>
                     <button
-                      key={policy}
                       type="button"
                       aria-pressed={on}
                       onClick={() => set({ guardPolicies: flip(filters.guardPolicies, policy) })}
-                      title={i === 0 ? "The official policy" : "A variant"}
                       className={`cursor-pointer rounded-md border px-1.5 py-0.5 font-mono text-[10px] ${
                         on ? "border-accent-teal/50 bg-accent-teal/10 text-accent-teal-ink" : "border-border bg-background text-foreground/85"
                       }`}
                     >
                       {policy} {flags.get(policy) ?? 0}
                     </button>
+                    </Tooltip>
                   );
                 })}
               </div>
