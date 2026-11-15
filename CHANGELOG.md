@@ -4,6 +4,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-15
+
 ### Added
 
 - **Branch hand-offs** (#236, option 1). The numbered pipeline (1–7) stays the nav, and a stage that branches now says where it leads. `/darkroom` shows a "From here" row: **Train a new LoRA in Forge**, plus **Rig a face in Mask** and **Mint a provenance card in Assay** when `ARGUS_MASK_URL` / `ARGUS_ASSAY_URL` are set. Mask and Assay are standalone UIs, and Studio links to them rather than duplicating their pages. The branches are listed once, in `BRANCHES` in `lib/pipeline.ts`. The row replaces `/darkroom`'s single Assay sentence.
@@ -48,6 +50,12 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Fixed
 
+- **Review fixes from the release sync (#248):**
+  - `/proof`: a reloaded report clears the last applied review, so a stale copy no longer decides the verdict or the Darkroom hand-off.
+  - `/forge` training runs: log lines are batched and rendered every 100 ms instead of once per line, and a newly started run is listed straight away without first reopening another run's log.
+  - The Darkroom hand-off reads a blank LoRA weight as the default 1, not 0.
+  - The Tooltip adds to an existing `aria-describedby` instead of replacing it.
+  - On the caption page, an earlier folder run's error no longer appears after you switch to another tab.
 - **ai-code-auditor batch (2026-11-15): 53 findings, 45 fixed, 8 already fixed or not a Studio bug.** Highlights:
   - CSV export neutralises formula-leading cells and quotes bare CRs.
   - The NDJSON reader cancels the stream on a bad line and flushes the UTF-8 decoder.
@@ -227,6 +235,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 First published image. It covers the caption page (`/`), curation (`/curate`), the provenance gallery (`/gallery`), training configs (`/forge`) and LoRA evaluation with HITL review (`/proof`), plus the `/docs` handbook. The suite `compose.yaml` runs the backends from published GHCR images, and API config is resolved at runtime rather than baked into the bundle (#71).
 
+[Unreleased]: https://github.com/smk762/argus-studio/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/smk762/argus-studio/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/smk762/argus-studio/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/smk762/argus-studio/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/smk762/argus-studio/compare/v0.1.0...v0.2.0
