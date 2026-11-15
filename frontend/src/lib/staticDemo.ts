@@ -19,7 +19,7 @@ export const REPO_URL = "https://github.com/smk762/argus-studio";
 /** The family's landing page and sibling demos, linked from the footer (same tab: see ExternalLink). */
 export const HOME_URL = "https://dragonhound.dev/";
 export const LIGHTBOX_URL = "https://lightbox.dragonhound.dev/";
-export const REALMS_URL = "https://realms.dragonhound.dev/";
+export const ATLAS_URL = "https://atlas.dragonhound.dev/";
 
 /**
  * Path to a file bundled under `public/demo/`. Relative to the site root, so it

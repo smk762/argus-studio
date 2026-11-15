@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   archiveUrl,
   DEMO_BUNDLED_ARCHIVES,
-  REALMS_URL,
+  ATLAS_URL,
   cutTiles,
   getLabels,
   NotTileableError,
@@ -96,7 +96,7 @@ export function JobView({
   const painted = bake ? previewUrl(s.job_id, "fantasy", bake.completed_at) : null;
   const timings = stageTimings(s.timings);
   const relief = reliefSummary(s.relief);
-  // The static demo bundles no archive unless listed; it links to realms instead.
+  // The static demo bundles no archive unless listed; it links to Atlas instead.
   const archiveLinked = !STATIC_DEMO || DEMO_BUNDLED_ARCHIVES.has(s.job_id);
   const blocked = notTileableReason(s);
   const gdalReason = capabilityReason(canGdal, "GDAL is missing on this host, so it cannot cut tiles.");
@@ -341,12 +341,12 @@ export function JobView({
                   </span>
                 </>
               ) : (
-                // Not bundled in the static demo (size); the whole map is browsable on realms.
+                // Not bundled in the static demo (size); the whole map is browsable on Atlas.
                 <ExternalLink
-                  href={REALMS_URL}
+                  href={ATLAS_URL}
                   className="rounded-lg border border-accent-blue/40 bg-accent-blue/10 px-3 py-1.5 text-xs font-medium text-accent-blue-ink hover:bg-accent-blue/20"
                 >
-                  View the full map on realms.dragonhound.dev
+                  View the full map on atlas.dragonhound.dev
                 </ExternalLink>
               )}
             </>

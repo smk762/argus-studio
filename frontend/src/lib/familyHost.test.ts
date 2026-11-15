@@ -7,6 +7,7 @@ describe("isFamilyHref", () => {
     expect(isFamilyHref("https://dragonhound.dev/")).toBe(true);
     expect(isFamilyHref("https://lightbox.dragonhound.dev/#x")).toBe(true);
     expect(isFamilyHref("https://realms.dragonhound.dev")).toBe(true);
+    expect(isFamilyHref("https://atlas.dragonhound.dev/")).toBe(true);
   });
 
   it("does not match look-alikes, other sites or relative paths", () => {

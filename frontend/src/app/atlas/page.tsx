@@ -15,7 +15,7 @@ import {
   type AtlasJob,
   type AtlasPreset,
   type JobDigest,
-  REALMS_URL,
+  ATLAS_URL,
 } from "@/lib/atlasApi";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { AtlasDataCredits, DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
@@ -177,8 +177,8 @@ export default function AtlasPage() {
                     {STATIC_DEMO ? (
                       <>
                         No recorded jobs in this build. The full map is on{" "}
-                        <ExternalLink href={REALMS_URL} className="text-accent-teal-ink hover:underline">
-                          realms.dragonhound.dev
+                        <ExternalLink href={ATLAS_URL} className="text-accent-teal-ink hover:underline">
+                          atlas.dragonhound.dev
                         </ExternalLink>
                         .
                       </>
@@ -253,15 +253,15 @@ function AtlasDemoProvenance() {
   return (
     <>
       Seven real jobs from the argus-atlas 0.3.0 island bake behind{" "}
-      <ExternalLink href={REALMS_URL} className="underline hover:text-foreground">
-        realms.dragonhound.dev
+      <ExternalLink href={ATLAS_URL} className="underline hover:text-foreground">
+        atlas.dragonhound.dev
       </ExternalLink>
       , one chunk in each of its seven styles: antique, imhof, watercolor and pixel over Iceland (z7), tolkien,
       cyberpunk and minecraft over Réunion (z11). Each records 0.3&apos;s relief correction: hillshade and slope
       take a height factor from the chunk&apos;s latitude, about 2.2 to 2.5 in Iceland and 1.07 in Réunion, with
       no added exaggeration. The antique chunk also carries its OSM place names. Sidecars are as the server
       returned them, with host paths made relative; previews are re-encoded to WebP; the PMTiles archives are
-      not bundled, and the whole map is live on realms. Building controls and baking need a running argus-atlas
+      not bundled, and the whole map is live on Atlas. Building controls and baking need a running argus-atlas
       (and a GPU for the bake).
     </>
   );
