@@ -6,6 +6,8 @@ import "./globals.css";
 import { runtimeConfig, runtimeConfigScript } from "@/lib/runtimeConfig";
 import { DEMO_SITE_URL, STATIC_DEMO } from "@/lib/staticDemo";
 import { DemoStrip } from "@/components/DemoStrip";
+import { CSP_ENV, cspMode, trustedTypesFor } from "@/lib/csp";
+import { trustedTypesPolicyScript } from "@/lib/trustedTypes";
 
 /*
  * LOAD-BEARING: the layout must render per request, not at build time. The API
@@ -81,6 +83,8 @@ export default async function RootLayout({
   // The static export has no request (headers() would fail the prerender) and no
   // proxy; scripts/csp.mjs hashes its inline scripts into a <meta> CSP instead.
   const nonce = STATIC_DEMO ? undefined : ((await headers()).get("x-nonce") ?? undefined);
+  // Computed key, as in runtimeConfig.ts and proxy.ts, so the mode stays a runtime setting.
+  const trustedTypes = !STATIC_DEMO && nonce !== undefined && trustedTypesFor(cspMode((process.env as Record<string, string | undefined>)[CSP_ENV]));
   return (
     <html
       lang="en"
@@ -88,6 +92,13 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/*
+          Trusted Types dry run (ARGUS_CSP=report-only, #198): a `default` policy
+          that lets only this origin's /_next/static/chunks/*.js through the
+          script-URL sinks Next and React write to. First in <head> so it exists
+          before the framework loads a chunk. Off in every other mode.
+        */}
+        {trustedTypes && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: trustedTypesPolicyScript() }} />}
         {/*
           The family theme script (public/dh-theme.js, a copy of vendor/dh/dh-theme.js).
           A plain blocking <script src>, first in <head>, so the saved choice (the

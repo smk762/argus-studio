@@ -8,7 +8,14 @@
  * `x-nonce`) run, and whatever they load. It does not set default-src,
  * connect-src or img-src: the browser calls up to seven backends cross-origin
  * at URLs only known at runtime, and an allow-list here would have to track
- * them. Trusted Types (require-trusted-types-for) is not on yet.
+ * them.
+ *
+ * Trusted Types (`require-trusted-types-for 'script'`) is added only under
+ * `ARGUS_CSP=report-only` (#198), the dry run before it can be enforced: Next's
+ * runtime still assigns plain strings to `script.src` and `innerHTML`, so an
+ * enforced directive would break the app, and a pass-through policy would
+ * protect nothing. Under enforce it stays off until the reported sinks are
+ * refactored or routed through narrow named policies.
  */
 
 /** `ARGUS_CSP`: enforce (default), report-only (logs violations to the console), or off. */
@@ -39,16 +46,31 @@ export function newNonce(): string {
 
 /**
  * The policy string. `dev` adds 'unsafe-eval', which React's development build
- * needs for its error overlays and which production never uses.
+ * needs for its error overlays and which production never uses. `trustedTypes`
+ * adds `require-trusted-types-for 'script'`; pass it only for a report-only
+ * policy (see {@link trustedTypesFor}).
  */
-export function contentSecurityPolicy(nonce: string, { dev = false }: { dev?: boolean } = {}): string {
+export function contentSecurityPolicy(
+  nonce: string,
+  { dev = false, trustedTypes = false }: { dev?: boolean; trustedTypes?: boolean } = {},
+): string {
   return [
     `script-src 'nonce-${nonce}' 'strict-dynamic' 'report-sample'${dev ? " 'unsafe-eval'" : ""}`,
     "object-src 'none'",
     "base-uri 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",
+    ...(trustedTypes ? ["require-trusted-types-for 'script'"] : []),
   ].join("; ");
+}
+
+/**
+ * Whether a mode's policy carries Trusted Types. Only report-only does: there
+ * the whole policy is a dry run, so the directive reports sinks without
+ * blocking them. Enforce leaves it out until those sinks are dealt with.
+ */
+export function trustedTypesFor(mode: CspMode): boolean {
+  return mode === "report-only";
 }
 
 /** The CSP header's name for a mode, or null when the policy is off. */
