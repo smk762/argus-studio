@@ -1,0 +1,161 @@
+name: Bombadil nightly
+
+# The long runs from argus-studio#242 (epic #240), against a static build of the
+# checked-out ref (dev on the schedule). Two jobs:
+#
+# - explore: Bombadil with the PR spec (frontend/bombadil/spec.ts) for 45
+#   minutes, not stopping at the first violation.
+# - leaks: scripts/check-leaks.mjs, a fixed navigation-and-interaction loop
+#   measured after a forced GC. Bombadil's own noResourceLeak reads its counts
+#   without a GC, so React's garbage made it fail healthy pages (#242).
+#
+# A failure opens one issue labelled `bombadil` per violated property (or for
+# the leak check), or comments on the open one, instead of one issue per night.
+
+on:
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+    inputs:
+      time-limit:
+        description: Bombadil run length (e.g. 45m, 2h)
+        default: 45m
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: bombadil-nightly
+  cancel-in-progress: false
+
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.4"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build:static
+
+      - name: Serve the export on :4173
+        run: |
+          node scripts/static-server.mjs out --port=4173 > "$RUNNER_TEMP/static-server.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            curl -sf http://127.0.0.1:4173/ > /dev/null && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/static-server.log"
+          exit 1
+
+      - name: Bombadil
+        id: bombadil
+        uses: antithesishq/bombadil-action@d4f3fa478dfd54605f544d2c0d5f0fcfdeeec893 # v3
+        with:
+          version: 0.7.10
+          origin: http://127.0.0.1:4173/
+          specification: ./frontend/bombadil/spec.ts
+          time-limit: ${{ inputs.time-limit || '45m' }}
+          exit-on-violation: false
+          output-path: ${{ github.workspace }}/bombadil-output
+
+      - name: Violated properties
+        id: violated
+        if: failure() && steps.bombadil.outcome == 'failure'
+        run: |
+          trace="$GITHUB_WORKSPACE/bombadil-output/trace.jsonl"
+          names="$(jq -r '.violations[]?.name' "$trace" 2>/dev/null | sort -u | tr '\n' ' ')"
+          echo "names=$names" >> "$GITHUB_OUTPUT"
+          echo "Violated: ${names:-none found in the trace}"
+
+      # Experimental upstream; a shorter trace is a bonus, never a requirement.
+      - name: Shrink the first violation (experimental)
+        if: failure() && steps.violated.outputs.names != ''
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          first="$(echo "${{ steps.violated.outputs.names }}" | awk '{print $1}')"
+          npx bombadil browser shrink --headless --no-sandbox \
+            --trace "$GITHUB_WORKSPACE/bombadil-output" --property "$first" \
+            --time-limit 15m --output-path "$GITHUB_WORKSPACE/bombadil-output/shrunk" \
+            http://127.0.0.1:4173/ bombadil/spec.ts
+
+      - name: Upload the trace
+        if: failure() && steps.bombadil.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bombadil-output
+          path: ${{ github.workspace }}/bombadil-output
+          retention-days: 30
+
+      - name: Open or update an issue per property
+        if: failure() && steps.violated.outputs.names != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          for name in ${{ steps.violated.outputs.names }}; do
+            title="bombadil: $name violated"
+            body="$(cat <<EOF
+          The nightly Bombadil run ($run_url, \`${GITHUB_SHA::7}\`) violated \`$name\`.
+
+          The actions before it are in the **Bombadil** step's log. To replay, download the \`bombadil-output\` artifact into \`frontend/\` (a \`shrunk/\` trace is inside if shrinking succeeded), then:
+
+          \`\`\`sh
+          npm run build:static && node scripts/static-server.mjs out --port=4173 &
+          npx bombadil browser inspect bombadil-output
+          npx bombadil browser test http://127.0.0.1:4173/ bombadil/spec.ts --headless --no-sandbox --reproduce bombadil-output
+          \`\`\`
+          EOF
+          )"
+            n="$(gh issue list --state open --label bombadil --search "in:title \"$title\"" --json number --jq '.[0].number // empty')"
+            if [ -n "$n" ]; then gh issue comment "$n" --body "$body"; else gh issue create --title "$title" --label bombadil --body "$body"; fi
+          done
+
+  leaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.4"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build:static
+
+      - run: npm install --no-save playwright@1.65.0 && npx playwright install --with-deps chromium
+
+      - id: check
+        run: |
+          set -o pipefail
+          node scripts/check-leaks.mjs out --cycles=30 | tee "$RUNNER_TEMP/leaks.txt"
+
+      - name: Open or update the leak issue
+        if: failure() && steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="bombadil: leak check over the limit"
+          body="$(printf 'The nightly leak check (%s, `%s`) found growth after a forced GC:\n\n```\n%s\n```\n\nRun it locally with `node scripts/check-leaks.mjs out --cycles=30` after `npm run build:static`.\n' \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" "${GITHUB_SHA::7}" "$(cat "$RUNNER_TEMP/leaks.txt")")"
+          n="$(gh issue list --state open --label bombadil --search "in:title \"$title\"" --json number --jq '.[0].number // empty')"
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$body"; else gh issue create --title "$title" --label bombadil --body "$body"; fi
