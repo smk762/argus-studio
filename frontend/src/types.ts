@@ -12,6 +12,8 @@ export interface CaptionResult {
 
 export interface CaptionRequest {
   image_url: string;
+  /** Caption backend for this request (lens#107); omitted = the server default. Not `target_backend`. */
+  backend?: string;
   target_style?: string;
   target_category?: string;
   target_backend?: string;
@@ -24,6 +26,8 @@ export interface CaptionRequest {
 
 export interface CaptionFolderRequest {
   folder: string;
+  /** Caption backend for this request (lens#107); omitted = the server default. Not `target_backend`. */
+  backend?: string;
   recursive?: boolean;
   write_sidecar?: boolean;
   /**
