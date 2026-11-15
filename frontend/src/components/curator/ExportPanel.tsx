@@ -29,6 +29,7 @@ import { toJsonl } from "@/lib/jsonl";
 import { downloadText } from "@/lib/download";
 import { buildKohyaConfigToml, buildKohyaDatasetToml } from "./forgeDemo";
 import { KeepSetPanel } from "./KeepSetPanel";
+import { Info, Tooltip } from "@/components/Tooltip";
 import {
   LENS_CATEGORY,
   MANIFEST_VERSION,
@@ -454,13 +455,17 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
                 "Checking whether this server permits destructive move exports…",
               );
               return (
-                <button
+                <Tooltip
                   key={m}
+                  text={(copyOnly && m !== "copy" ? CROPPED_COPY_ONLY : m === "move" ? moveReason : null) ?? ""}
+                  className="flex-1"
+                  describe
+                >
+                <button
                   type="button"
                   onClick={() => setMode(m)}
                   disabled={busy || gated}
-                  title={copyOnly && m !== "copy" ? CROPPED_COPY_ONLY : m === "move" ? (moveReason ?? undefined) : undefined}
-                  className={`flex-1 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`w-full cursor-pointer rounded-lg px-2 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     mode === m
                       ? "border border-accent-teal/40 bg-accent-teal/20 text-accent-teal-ink"
                       : "border border-border bg-background text-muted hover:text-foreground"
@@ -468,6 +473,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
                 >
                   {m}
                 </button>
+                </Tooltip>
               );
             })}
           </div>
@@ -549,10 +555,7 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
             disabled={busy || !permits(sidecars)}
             title={sidecarsReason ?? "This scan's counts and settings, in the export folder. No paths, ages or scores."}
           />
-          <label
-            className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-            title={`After export, the manifest is streamed to ${lensUrl() || "this origin"}/caption/manifest/stream so you can watch captioning progress image-by-image.`}
-          >
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
               checked={toCaption}
@@ -561,6 +564,9 @@ export function ExportPanel({ summary, selectedResults, health, filters, onUseKe
               className="h-4 w-4 cursor-pointer accent-accent-purple disabled:cursor-not-allowed disabled:opacity-50"
             />
             Then caption with argus-lens
+            <Info
+              text={`After export, the manifest is streamed to ${lensUrl() || "this origin"}/caption/manifest/stream so you can watch captioning progress image-by-image.`}
+            />
           </label>
           {/* The trigger belongs to captioning: argus-lens is what consumes it.
               It rides along to /forge on the hand-off so the training config
@@ -764,7 +770,7 @@ function ExportCheck({ label, checked, onChange, disabled, title }: {
   title: string;
 }) {
   return (
-    <label className={`flex items-center gap-2 text-sm text-foreground ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`} title={title}>
+    <label className={`flex items-center gap-2 text-sm text-foreground ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
       <input
         type="checkbox"
         checked={checked}
@@ -773,6 +779,7 @@ function ExportCheck({ label, checked, onChange, disabled, title }: {
         className="h-4 w-4 cursor-pointer accent-accent-teal disabled:cursor-not-allowed disabled:opacity-50"
       />
       {label}
+      <Info text={title} />
     </label>
   );
 }

@@ -8,6 +8,7 @@ import { ModerationPanel } from "./ModerationPanel";
 import { SafeThumb } from "./SafeThumb";
 import { breakdownTooltip, cropRows, statusExplanation } from "./imageExplain";
 import { POSE_LABELS, type ImageResult } from "./types";
+import { Tooltip } from "@/components/Tooltip";
 
 interface Props {
   scanId: string;
@@ -77,11 +78,11 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
               </NavButton>
             </div>
           )}
+          <Tooltip text={blocked ?? ""} describe>
           <button
             type="button"
             onClick={() => onToggle(img.rel_path)}
             disabled={!exportable}
-            title={blocked ?? undefined}
             className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               exportable ? "cursor-pointer" : ""
             } ${
@@ -92,6 +93,7 @@ export function ImageDetailModal({ scanId, nsfwRan, pending = [], policies = [],
           >
             {selected ? "Selected" : "Select"}
           </button>
+          </Tooltip>
           <button
             type="button"
             onClick={closeModal}

@@ -16,6 +16,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Fixed
 
+- **Tooltips meet WCAG 1.4.13** (#197). The pointer can now rest on a tooltip without it closing, it stays open while the pointer is on the trigger or the bubble, and Escape still dismisses it. On `/curate`, the disabled-reason and action hints (scan, delete, stop, purge, export mode, policy picks, the select checkbox) moved off native `title` onto the shared Tooltip, so they show on keyboard focus and reach screen readers as descriptions. The export options' explanations are now focusable "i" hints.
 - **The dataset size hint no longer calls every workable size the sweet spot.** 41 images for an identity LoRA read "in the ~15–30 sweet spot". Sizes inside the workable range but outside the ideal band now say "workable … the sweet spot is ~15–30".
 - **The opsec check lets reserved example domains through** (`example.com`/`.net`/`.org`, `*.example`, `*.test`, `*.invalid`, `*.localhost`). Every other address is still refused.
 - **Compose passes lens its hosted-backend keys** (`HF_TOKEN`, `NVIDIA_API_KEY`, `OPENAI_API_KEY`, `REPLICATE_API_TOKEN`), so `ARGUS_BACKEND=hf-inference` or `nvidia-nim` works from `.env` with the published image. `openai` and `replicate` also need a source build with their extras. Compose no longer passes `ARGUS_API_KEY`, which lens stopped reading.
