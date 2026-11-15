@@ -112,3 +112,8 @@ export function sightlineUrl(): string {
 export function maskUrl(): string {
   return runtimeConfig().maskUrl;
 }
+
+/** Link to argus-assay (argus-mint's review UI), or "" for no link. */
+export function assayUrl(): string {
+  return runtimeConfig().assayUrl;
+}

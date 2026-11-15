@@ -84,6 +84,9 @@ services:
       - ARGUS_SIGHTLINE_URL=${ARGUS_SIGHTLINE_URL-}
       # Footer link to argus-mask's viewer. The `mask` profile runs it on :8109; set this to show the link.
       - ARGUS_MASK_URL=${ARGUS_MASK_URL-}
+      # Footer link, and a link from /darkroom, to argus-assay: argus-mint's own
+      # UI for card drafts, review and publishing (it runs from the argus-mint repo, :3108).
+      - ARGUS_ASSAY_URL=${ARGUS_ASSAY_URL-}
       - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE-${NEXT_PUBLIC_CURATOR_UI_MODE-demo}}
       # /forge and /proof follow the curator mode unless these are set (#59).
       - ARGUS_FORGE_UI_MODE=${ARGUS_FORGE_UI_MODE:-}
