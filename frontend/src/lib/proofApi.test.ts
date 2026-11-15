@@ -34,6 +34,7 @@ function image(id: string, overrides: Partial<ImageScores> = {}): ImageScores {
     reject_reasons: [],
     passed: null,
     duplicate_group: null,
+    refinement: null,
     ...overrides,
   };
 }

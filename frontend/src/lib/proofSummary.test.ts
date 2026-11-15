@@ -57,7 +57,7 @@ describe("withReportSummary", () => {
 
   it("takes n_refined from the report's refinement layer", () => {
     const [first] = DEMO_REPORT.images;
-    const refined = { ...DEMO_REPORT, images: DEMO_REPORT.images.map((i) => (i === first ? { ...i, refinement: { rank: 4 } } : i)) };
+    const refined = { ...DEMO_REPORT, images: DEMO_REPORT.images.map((i) => (i === first ? { ...i, refinement: { rank: 4, notes: null, rater: null } } : i)) };
     const listed = { ...DEMO_SUMMARY, n_refined: 3 };
     expect(withReportSummary([listed], refined)[0].n_refined).toBe(1);
     expect(withReportSummary([listed], DEMO_REPORT)[0].n_refined).toBe(0);

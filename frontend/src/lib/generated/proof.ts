@@ -1,10 +1,20 @@
-// Generated from smk762/argus-proof@87fe6b4 (0.2.3.dev16+g87fe6b4) schema/proof-wire.schema.json.
+// Generated from smk762/argus-proof@1c00940 (0.3.0) schema/proof-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
+
+/**
+ * One NDJSON line of ``POST /run/stream``, discriminated by ``type``.
+ *
+ * Generation streams :class:`ProgressEvent` frames (``start`` / ``progress`` /
+ * ``image`` / ``done``), then a :class:`ScoringFrame`, then either a
+ * :class:`CompleteFrame` or a ``ProgressEvent`` of type ``error``.
+ */
+export type RunStreamFrame = ProgressEvent | ScoringFrame | CompleteFrame;
 
 export interface ProofWire {
   AcceptanceThresholds?: AcceptanceThresholds;
   AggregateScores?: AggregateScores;
   BackendCapabilities?: BackendCapabilities;
+  CompleteFrame?: CompleteFrame;
   EvalReport?: EvalReport;
   GateCheck?: GateCheck;
   GateConfig?: GateConfig;
@@ -23,10 +33,13 @@ export interface ProofWire {
   RejectArchive?: RejectArchive;
   RejectReason?: RejectReason;
   RejectRecord?: RejectRecord;
+  ReportSummary?: ReportSummary;
   RunManifest?: RunManifest;
   RunSpec?: RunSpec;
+  RunStreamFrame?: RunStreamFrame;
   SamplingParams?: SamplingParams;
   ScorerProvenance?: ScorerProvenance;
+  ScoringFrame?: ScoringFrame;
   Verdict?: Verdict;
 }
 /**
@@ -58,11 +71,11 @@ export interface AcceptanceThresholds {
  * ``n_groups`` equals ``n_images`` when no deduper ran.
  */
 export interface AggregateScores {
-  diversity?: number | null;
-  means?: MetricScores;
-  n_groups?: number | null;
+  diversity: number | null;
+  means: MetricScores;
+  n_groups: number | null;
   n_images: number;
-  n_needs_hitl?: number;
+  n_needs_hitl: number;
   n_passed: number;
   pass_rate: number;
 }
@@ -76,11 +89,11 @@ export interface AggregateScores {
  * ``safety`` a safety score.
  */
 export interface MetricScores {
-  aesthetic?: number | null;
-  clip_score?: number | null;
-  identity?: number | null;
-  preference?: number | null;
-  safety?: number | null;
+  aesthetic: number | null;
+  clip_score: number | null;
+  identity: number | null;
+  preference: number | null;
+  safety: number | null;
 }
 /**
  * What a generation backend can do — its capability descriptor.
@@ -96,6 +109,32 @@ export interface BackendCapabilities {
   supports_seed_set?: boolean;
 }
 /**
+ * The run is scored and its report stored; ``report`` is its digest.
+ */
+export interface CompleteFrame {
+  report: ReportSummary;
+  run_id: string;
+  type: "complete";
+}
+/**
+ * A one-line digest of a stored report for the /proof run browser.
+ *
+ * Everything the list view needs without shipping every per-image row: the
+ * verdict, the group-collapsed pass-rate, and how many groups still await
+ * human review. Sent by ``GET /reports`` and the ``complete`` stream frame.
+ */
+export interface ReportSummary {
+  created_at: string | null;
+  n_groups: number | null;
+  n_images: number;
+  n_needs_hitl: number;
+  n_refined: number;
+  pass_rate: number;
+  passed: boolean;
+  pending: boolean;
+  run_id: string;
+}
+/**
  * Scored evaluation of a generation run: per-image + aggregate + verdict.
  *
  * Links to its :class:`RunManifest` by ``run_id`` rather than embedding it, so
@@ -103,11 +142,11 @@ export interface BackendCapabilities {
  */
 export interface EvalReport {
   aggregate: AggregateScores;
-  created_at?: string | null;
-  images?: ImageScores[];
-  proof_version?: string;
+  created_at: string | null;
+  images: ImageScores[];
+  proof_version: string;
   run_id: string;
-  scorers?: ScorerProvenance[];
+  scorers: ScorerProvenance[];
   verdict: Verdict;
 }
 /**
@@ -121,14 +160,14 @@ export interface EvalReport {
  * second-pass re-rank over the passing subset, kept distinct from the first pass.
  */
 export interface ImageScores {
-  duplicate_group?: number | null;
-  hitl_rater?: string | null;
-  hitl_rating?: number | null;
+  duplicate_group: number | null;
+  hitl_rater: string | null;
+  hitl_rating: number | null;
   image_id: string;
-  metrics?: MetricScores;
-  passed?: boolean | null;
-  refinement?: Refinement | null;
-  reject_reasons?: RejectReason[];
+  metrics: MetricScores;
+  passed: boolean | null;
+  refinement: Refinement | null;
+  reject_reasons: RejectReason[];
   seed: number;
 }
 /**
@@ -141,9 +180,9 @@ export interface ImageScores {
  * refined it.
  */
 export interface Refinement {
-  notes?: string | null;
+  notes: string | null;
   rank: number;
-  rater?: string | null;
+  rater: string | null;
 }
 /**
  * One structured reason an image was rejected or flagged.
@@ -177,9 +216,9 @@ export interface RejectReason {
  */
 export interface ScorerProvenance {
   metric: string;
-  model?: string | null;
+  model: string | null;
   name: string;
-  version?: string | null;
+  version: string | null;
 }
 /**
  * The automated pass/fail decision for a run, with the reasons behind it.
@@ -191,18 +230,18 @@ export interface ScorerProvenance {
  */
 export interface Verdict {
   passed: boolean;
-  pending?: boolean;
-  reasons?: string[];
+  pending: boolean;
+  reasons: string[];
 }
 /**
  * One threshold check's outcome, with the actual value vs the threshold.
  */
 export interface GateCheck {
-  actual?: number | null;
-  detail?: string;
+  actual: number | null;
+  detail: string;
   name: string;
   passed: boolean;
-  threshold?: number | null;
+  threshold: number | null;
 }
 /**
  * Thresholds that route each image to auto-pass / auto-fail / needs-HITL.
@@ -236,7 +275,7 @@ export interface GateConfig {
  * The overall accept/reject decision — ``passed`` iff every check passed.
  */
 export interface GateResult {
-  checks?: GateCheck[];
+  checks: GateCheck[];
   passed: boolean;
 }
 /**
@@ -302,6 +341,7 @@ export interface GridConfig {
 export interface SamplingParams {
   cfg: number;
   clip_skip?: number;
+  guidance?: number | null;
   height: number;
   sampler: string;
   scheduler: string;
@@ -315,7 +355,7 @@ export interface SamplingParams {
  * seeds) so a caller sees why the count is what it is before committing GPU.
  */
 export interface GridEstimate {
-  axes?: {
+  axes: {
     [k: string]: number;
   };
   est_gpu_hours: number;
@@ -330,7 +370,7 @@ export interface GridEstimate {
 export interface GridPlan {
   estimate: GridEstimate;
   run_id_prefix: string;
-  specs?: RunSpec[];
+  specs: RunSpec[];
 }
 /**
  * A generation request: what to generate, before a backend resolves it.
@@ -381,7 +421,7 @@ export interface LoRARef {
    * lowercase hex SHA256 digest
    */
   sha256: string;
-  weight?: number;
+  weight: number;
 }
 /**
  * A model file pinned by content: how the engine names it + its SHA256.
@@ -424,11 +464,11 @@ export interface ProgressEvent {
  * construction, so the archive retains no image or thumbnail paths.
  */
 export interface RejectArchive {
-  manifests?: {
+  manifests: {
     [k: string]: RunManifest;
   };
-  proof_version?: string;
-  records?: RejectRecord[];
+  proof_version: string;
+  records: RejectRecord[];
 }
 /**
  * A fully reproducible generation run: everything needed to recreate it.
@@ -445,23 +485,23 @@ export interface RejectArchive {
  */
 export interface RunManifest {
   base_checkpoint: ModelRef;
-  created_at?: string | null;
+  created_at: string | null;
   engine: string;
   engine_version: string;
-  loras?: LoRARef[];
-  negative_prompt?: string;
+  loras: LoRARef[];
+  negative_prompt: string;
   prompt: string;
-  proof_version?: string;
+  proof_version: string;
   run_id: string;
   sampling: SamplingParams;
   /**
    * @minItems 1
    */
   seeds: [number, ...number[]];
-  source_manifest?: string | null;
-  source_manifest_version?: string | null;
-  training_run_id?: string | null;
-  vae?: ModelRef | null;
+  source_manifest: string | null;
+  source_manifest_version: string | null;
+  training_run_id: string | null;
+  vae: ModelRef | null;
 }
 /**
  * One rejected/flagged output, described without retaining its image.
@@ -472,10 +512,18 @@ export interface RunManifest {
  * that is the whole point of the archive.
  */
 export interface RejectRecord {
-  hitl_rating?: number | null;
-  metrics?: MetricScores;
-  rater_id?: string | null;
-  reasons?: RejectReason[];
+  hitl_rating: number | null;
+  metrics: MetricScores;
+  rater_id: string | null;
+  reasons: RejectReason[];
   run_id: string;
   seed: number;
+}
+/**
+ * Generation finished; scoring ``n_images`` images has started.
+ */
+export interface ScoringFrame {
+  n_images: number;
+  run_id: string;
+  type: "scoring";
 }

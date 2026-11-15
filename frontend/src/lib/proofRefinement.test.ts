@@ -35,11 +35,11 @@ describe("refinedRanking", () => {
   it("puts refined images first, by rank, then first-pass rating, then id", () => {
     const images = [
       img("d", { hitl_rating: 5 }),
-      img("c", { refinement: { rank: 3 } }),
-      img("a", { refinement: { rank: 5 } }),
-      img("b", { refinement: { rank: 3 }, hitl_rating: 4 }),
+      img("c", { refinement: { rank: 3, notes: null, rater: null } }),
+      img("a", { refinement: { rank: 5, notes: null, rater: null } }),
+      img("b", { refinement: { rank: 3, notes: null, rater: null }, hitl_rating: 4 }),
       img("e", { hitl_rating: 5 }),
-      img("x", { passed: false, refinement: { rank: 5 } }),
+      img("x", { passed: false, refinement: { rank: 5, notes: null, rater: null } }),
     ];
     expect(ids(refinedRanking(images))).toEqual(["a", "b", "c", "d", "e"]);
   });
@@ -105,10 +105,10 @@ describe("applyRefinement", () => {
 
 describe("a review that fails a refined image", () => {
   it("drops its refinement, as argus_proof.reports.apply_hitl does", () => {
-    const r = report([img("a", { refinement: { rank: 4 } })]);
+    const r = report([img("a", { refinement: { rank: 4, notes: null, rater: null } })]);
     const fail = new Map<string, HitlEdit>([["a", { hitl_rating: null, reject_reasons: [{ code: "anatomy" }] }]]);
     expect(applyEdits(r, fail, null).images[0].refinement).toBeNull();
     const pass = new Map<string, HitlEdit>([["a", { hitl_rating: 5, reject_reasons: [] }]]);
-    expect(applyEdits(r, pass, null).images[0].refinement).toEqual({ rank: 4 });
+    expect(applyEdits(r, pass, null).images[0].refinement).toEqual({ rank: 4, notes: null, rater: null });
   });
 });
