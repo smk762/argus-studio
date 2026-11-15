@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DemoCard, SegmentedButtons } from "@/components/docs/DemoPrimitives";
 import { TARGET_BACKENDS } from "@/types";
 
 /**
@@ -43,29 +44,9 @@ export function TokenBudgetDemo() {
   const dropped = rows.filter((r) => !r.fits).length;
 
   return (
-    <div className="not-prose my-6 rounded-xl border border-border bg-surface p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted">Try it</span>
-        <span className="text-xs text-muted">budgets from the Caption tool</span>
-      </div>
+    <DemoCard aside="budgets from the Caption tool">
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {TARGET_BACKENDS.map((b) => (
-          <button
-            key={b.value}
-            type="button"
-            onClick={() => setBackend(b.value)}
-            aria-pressed={backend === b.value}
-            className={
-              backend === b.value
-                ? "cursor-pointer rounded-lg bg-accent-purple px-3 py-1.5 text-sm font-medium text-on-accent"
-                : "cursor-pointer rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-surface-hover"
-            }
-          >
-            {b.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedButtons label="Target backend" options={TARGET_BACKENDS} value={backend} onChange={setBackend} />
 
       <p className="mb-3 text-sm text-foreground/80">
         <span className="font-mono text-accent-teal-ink">{selected.value}</span> gives you{" "}
@@ -101,6 +82,6 @@ export function TokenBudgetDemo() {
         Fragment sizes are illustrative; the budgets are real. Ordering is by training priority —
         identity survives, prose is spent last.
       </p>
-    </div>
+    </DemoCard>
   );
 }
