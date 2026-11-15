@@ -26,10 +26,10 @@
 //
 // Usage: node scripts/check-overflow.mjs [outDir] [--width=390]
 
-import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { serveStatic } from "./static-server.mjs";
 
 const args = process.argv.slice(2);
 const outDir = path.resolve(args.find((a) => !a.startsWith("--")) ?? "out");
@@ -37,21 +37,6 @@ const width = Number(args.find((a) => a.startsWith("--width="))?.split("=")[1] ?
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
-
-const TYPES = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".txt": "text/plain",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-};
 
 /** Every exported page: each `index.html` under outDir, as a route path. */
 async function routes(dir, prefix = "/") {
@@ -65,20 +50,6 @@ async function routes(dir, prefix = "/") {
     }
   }
   return found.sort();
-}
-
-async function resolveFile(urlPath) {
-  const clean = decodeURIComponent(urlPath.split("?")[0]);
-  const file = path.join(outDir, clean);
-  if (!file.startsWith(outDir)) return null;
-  for (const candidate of [file, path.join(file, "index.html"), `${file}.html`]) {
-    try {
-      if ((await stat(candidate)).isFile()) return candidate;
-    } catch {
-      // try the next form
-    }
-  }
-  return null;
 }
 
 /** dh-theme.js ran, and its toggle flips the scheme and aria-pressed both ways. */
@@ -151,17 +122,7 @@ async function checkNavigation(page, route) {
   return out;
 }
 
-const server = createServer(async (req, res) => {
-  const file = await resolveFile(req.url ?? "/");
-  if (!file) {
-    res.writeHead(404).end("not found");
-    return;
-  }
-  res.writeHead(200, { "content-type": TYPES[path.extname(file)] ?? "application/octet-stream" });
-  res.end(await readFile(file));
-});
-await new Promise((r) => server.listen(0, "127.0.0.1", r));
-const base = `http://127.0.0.1:${server.address().port}`;
+const { server, base } = await serveStatic(outDir);
 
 // /404/ is the not-found page, not a route; data folders (demo/, *-sample/) hold no index.html.
 const pages = (await routes(outDir)).filter((r) => r !== "/404/");

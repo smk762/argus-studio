@@ -107,4 +107,9 @@ Backends default to **published GHCR images** — no sibling checkouts needed. T
 
 ## CI / release
 
-`ci.yml` gates every PR and every push to `dev` and `main`: `npm ci`, `wire:check`, lint, typecheck, `npm test` in `frontend/`. `suite.yml` (argus-ci's `suite-check`) fails if the argus-suite block above or this repo's SUITE.md row goes missing. `release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag, and update this repo's row in argus-cortex's SUITE.md if the release changed a capability, port or UI pairing. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
+`ci.yml` gates every PR and every push to `dev` and `main`: `npm ci`, `wire:check`, lint, typecheck, `npm test` in `frontend/`. Two of its jobs run against the static demo export:
+
+- `static-overflow` (`scripts/check-overflow.mjs`) loads every route once.
+- `bombadil` runs `frontend/bombadil/spec.ts` for 3 minutes of random interaction. Both serve the export with `scripts/static-server.mjs`.
+
+`bombadil` is `continue-on-error` until it proves stable (#241). Properties added to the spec must hold on the static demo. Never point Bombadil at a live backend: random clicks will press delete, purge and move. `suite.yml` (argus-ci's `suite-check`) fails if the argus-suite block above or this repo's SUITE.md row goes missing. `release.yml` builds `frontend/` and pushes `ghcr.io/smk762/argus-studio` (linux/amd64+arm64) on `v[0-9]*` tags — no build-time config. Before tagging, move the release's entries into a dated section of `CHANGELOG.md` and bump `frontend/package.json` (+ the two root `version` fields in `package-lock.json`) to match the tag, and update this repo's row in argus-cortex's SUITE.md if the release changed a capability, port or UI pairing. See README.md and `compose.yaml` (heavily commented) for the source of truth on wiring and volumes.
