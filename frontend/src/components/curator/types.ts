@@ -656,7 +656,15 @@ export function datasetSizeStatus(
   if (count > g.hi) {
     return { tone: "high", text: `${count} selected — more than needed. Trimming to your best ~${g.ideal} keeps the concept clean.` };
   }
-  return { tone: "good", text: `${count} selected — in the ~${g.ideal} sweet spot for an SDXL ${CATEGORY_LABELS[category]} LoRA.` };
+  // "Good" spans low..hi; only the ideal band inside it is the sweet spot.
+  const [min, max] = g.ideal.split("–").map(Number);
+  if (count >= min && count <= max) {
+    return { tone: "good", text: `${count} selected — in the ~${g.ideal} sweet spot for an SDXL ${CATEGORY_LABELS[category]} LoRA.` };
+  }
+  return {
+    tone: "good",
+    text: `${count} selected — workable for an SDXL ${CATEGORY_LABELS[category]} LoRA; the sweet spot is ~${g.ideal}.`,
+  };
 }
 
 /** The editable slice of the scan request the panel manages. */

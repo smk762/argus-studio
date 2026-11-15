@@ -13,7 +13,7 @@ import {
 } from "@/lib/proofApi";
 import { type Capability } from "@/lib/capabilities";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
-import { isLive } from "@/lib/curatorEnv";
+import { proofLive } from "@/lib/curatorEnv";
 import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
 import { DemoBadge } from "@/components/DemoChrome";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -30,10 +30,10 @@ function verdictDot(s: ReportSummary): string {
 }
 
 export default function ProofPage() {
-  // Resolved once per render: isLive() reads the per-request runtime config, and
+  // Resolved once per render: proofLive() reads the per-request runtime config, and
   // the fallback path when the injected global is missing rebuilds the whole
   // config on every call.
-  const live = isLive();
+  const live = proofLive();
   // version: null = loading, "" = unreachable, "demo", or a real version string.
   const [version, setVersion] = useState<string | null>(live ? null : "demo");
   const [summaries, setSummaries] = useState<ReportSummary[]>(live ? [] : [DEMO_SUMMARY]);
@@ -46,7 +46,7 @@ export default function ProofPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // null until /health answers; drives the run affordance (#66). Deliberately
-  // NOT isLive(): that is the curator SPA's mode and says nothing about whether
+  // NOT proofLive(): that is the page's mode and says nothing about whether
   // argus-proof will accept a run. On the demo host the two disagree.
   const [health, setHealth] = useState<ProofHealth | null>(null);
   const unreachable = version === "";

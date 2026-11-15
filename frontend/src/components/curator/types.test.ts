@@ -31,10 +31,18 @@ describe("concept target category (argus-forge 0.2.0 parity)", () => {
     });
     expect(datasetSizeStatus(19, "concept").tone).toBe("low");
     expect(datasetSizeStatus(20, "concept").tone).toBe("good");
+    // Inside low..hi but outside the ideal band: still good, but not "in the sweet spot".
     expect(datasetSizeStatus(25, "concept")).toEqual({
       tone: "good",
-      text: "25 selected — in the ~30–60 sweet spot for an SDXL Concept / Style LoRA.",
+      text: "25 selected — workable for an SDXL Concept / Style LoRA; the sweet spot is ~30–60.",
     });
+    expect(datasetSizeStatus(45, "concept")).toEqual({
+      tone: "good",
+      text: "45 selected — in the ~30–60 sweet spot for an SDXL Concept / Style LoRA.",
+    });
+    expect(datasetSizeStatus(41, "identity").text).toBe(
+      "41 selected — workable for an SDXL Identity LoRA; the sweet spot is ~15–30.",
+    );
     expect(datasetSizeStatus(100, "concept").tone).toBe("good");
     expect(datasetSizeStatus(101, "concept").tone).toBe("high");
   });

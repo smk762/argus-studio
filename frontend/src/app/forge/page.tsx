@@ -20,7 +20,7 @@ import {
   type TrainerInfo,
 } from "@/lib/forgeApi";
 import { capabilityReason, permits, type Capability } from "@/lib/capabilities";
-import { isLive, localOutputPath } from "@/lib/curatorEnv";
+import { forgeLive, localOutputPath } from "@/lib/curatorEnv";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 import { DemoBadge, RecordedDemoNote } from "@/components/DemoChrome";
 import { useDeepLink } from "@/lib/deepLink";
@@ -131,10 +131,10 @@ function TrainerNotes({ trainers, trainer }: { trainers: TrainerInfo[]; trainer:
 }
 
 export default function ForgePage() {
-  // Resolved once per render: isLive() reads the per-request runtime config, and
+  // Resolved once per render: forgeLive() reads the per-request runtime config, and
   // the fallback path when the injected global is missing rebuilds the whole
   // config on every call.
-  const live = isLive();
+  const live = forgeLive();
 
   // version: null = loading, "" = unreachable, or a real version. Demo mode has
   // no server to version, and renders its own Demo pill instead of the badge —
@@ -407,7 +407,7 @@ export default function ForgePage() {
                   </>
                 )}
                 Demo mode: configs are built in your browser from the same sizing heuristics, for kohya only.
-                Set <span className="font-mono">ARGUS_CURATOR_UI_MODE=live</span> and run argus-forge to inspect a
+                Set <span className="font-mono">ARGUS_FORGE_UI_MODE=live</span> and run argus-forge to inspect a
                 real export and emit all three trainers.
               </>
             }

@@ -85,6 +85,9 @@ services:
       # Footer link to argus-mask's viewer. The `mask` profile runs it on :8109; set this to show the link.
       - ARGUS_MASK_URL=${ARGUS_MASK_URL-}
       - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE-${NEXT_PUBLIC_CURATOR_UI_MODE-demo}}
+      # /forge and /proof follow the curator mode unless these are set (#59).
+      - ARGUS_FORGE_UI_MODE=${ARGUS_FORGE_UI_MODE:-}
+      - ARGUS_PROOF_UI_MODE=${ARGUS_PROOF_UI_MODE:-}
       - ARGUS_CURATOR_SOURCE_PATH=${ARGUS_CURATOR_SOURCE_PATH-${NEXT_PUBLIC_CURATOR_SOURCE_PATH-/data/images}}
       - ARGUS_CURATOR_OUTPUT_PATH=${ARGUS_CURATOR_OUTPUT_PATH-${NEXT_PUBLIC_CURATOR_OUTPUT_PATH-/data/out}}
       - ARGUS_DEVMODE=${ARGUS_DEVMODE-${DEVMODE:-}}
