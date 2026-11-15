@@ -386,6 +386,8 @@ Each package's own README and `docs/*.md` pages, and the suite's setup guides, a
 | `DEVMODE` (or `ARGUS_DEVMODE`, which wins) | _(unset)_ | Offers SingGuard's `adult-*` policies on `/curate` and `/darkroom`, and lets curator and darkroom delete anything (darkroom's Delete record / Delete everything). Every delete still asks first. `CURATOR_DEVMODE=0` / `DARKROOM_DEVMODE=0` keep the policies without that service's deletes |
 | `CURATOR_ALLOW_MOVE` / `CURATOR_ALLOW_DELETE` | _(commented out)_ | Let the curator `move` source images on export / delete any selected image. Uncomment them in `compose.yaml` |
 | `ARGUS_CURATOR_UI_MODE` | `demo` | `demo` (bundled sample, no backend) or `live` (real scans/exports) |
+| `ARGUS_FORGE_UI_MODE` | curator mode | `/forge`'s own mode: `live` renders configs from real exports via argus-forge |
+| `ARGUS_PROOF_UI_MODE` | curator mode | `/proof`'s own mode: `live` lists and replays stored reports from argus-proof |
 | `ARGUS_CURATOR_SOURCE_PATH` | *(empty)* | Default source path shown in the folder picker (path inside the curator container). `compose.yaml` sets `/data/images` |
 | `ARGUS_CURATOR_OUTPUT_PATH` | *(empty)* | Default export destination (path inside the curator container). `compose.yaml` sets `/data/out` |
 | `DATASET_DIR` | `./data` | Host dir mounted at `/data/images` on **both** curator and lens |
