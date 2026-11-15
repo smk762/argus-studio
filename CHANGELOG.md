@@ -50,7 +50,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Fixed
 
-- **Every page scrolled sideways at 600–879 px when the Dragonhound strip was a little wider than the screen** (dh-shared 1.2.6, smk762/dragonhound-site#15). The strip's visually hidden name and label escaped its scroll box. How wide the strip gets depends on fonts: CI's Chrome hit it at 604 px. Bombadil found it on #249.
+- **Every page scrolled sideways at 600–879 px when the Dragonhound strip was a little wider than the screen** (dh-shared 1.2.6, smk762/dragonhound-site#15; Studio vendors 1.2.7, which also adds Mask to the strip). The strip's visually hidden name and label escaped its scroll box. How wide the strip gets depends on fonts: CI's Chrome hit it at 604 px. Bombadil found it on #249.
 - **Review fixes from the release sync (#248):**
   - `/proof`: a reloaded report clears the last applied review, so a stale copy no longer decides the verdict or the Darkroom hand-off.
   - `/forge` training runs: log lines are batched and rendered every 100 ms instead of once per line, and a newly started run is listed straight away without first reopening another run's log.
