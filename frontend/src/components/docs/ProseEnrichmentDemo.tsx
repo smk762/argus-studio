@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DemoCard, DemoFact, DemoFacts, ToggleSwitch } from "@/components/docs/DemoPrimitives";
 
 /**
  * Live, embeddable widget for the Prose Enrichment doc page. `prose_enrichment`
@@ -24,42 +25,22 @@ export function ProseEnrichmentDemo() {
   const caption = enabled ? [...BASE_TAGS, ...NOVEL] : BASE_TAGS;
 
   return (
-    <div className="not-prose my-6 rounded-xl border border-border bg-surface p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted">Try it</span>
-        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
-          <span className="font-mono">prose_enrichment</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            aria-label="Toggle prose enrichment"
-            onClick={() => setEnabled((v) => !v)}
-            className={`relative h-5 w-9 cursor-pointer rounded-full transition-colors ${
-              enabled ? "bg-accent-purple" : "bg-border"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform motion-reduce:transition-none ${
-                enabled ? "translate-x-4" : "translate-x-0.5"
-              }`}
-            />
-          </button>
-        </label>
-      </div>
+    <DemoCard
+      aside={
+        <ToggleSwitch
+          checked={enabled}
+          onChange={setEnabled}
+          label={<span className="font-mono">prose_enrichment</span>}
+          ariaLabel="Toggle prose enrichment"
+        />
+      }
+    >
 
-      <dl className="space-y-3 text-sm">
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
-            Prose output (Florence-2)
-          </dt>
-          <dd className="mt-1 text-muted italic">{PROSE}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
-            Training caption
-          </dt>
-          <dd className="mt-1 flex flex-wrap gap-1.5">
+      <DemoFacts>
+        <DemoFact term="Prose output (Florence-2)" className="text-muted italic">
+          {PROSE}
+        </DemoFact>
+        <DemoFact term="Training caption" className="flex flex-wrap gap-1.5">
             {caption.map((t) => (
               <span
                 key={t}
@@ -72,13 +53,8 @@ export function ProseEnrichmentDemo() {
                 {t}
               </span>
             ))}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-wider text-muted">
-            {enabled ? "Appended, at low priority" : "Held back"}
-          </dt>
-          <dd className="mt-1 text-foreground/80">
+        </DemoFact>
+        <DemoFact term={enabled ? "Appended, at low priority" : "Held back"}>
             {enabled ? (
               <>
                 Only the <span className="text-accent-teal-ink">novel</span> phrases are added —{" "}
@@ -92,9 +68,8 @@ export function ProseEnrichmentDemo() {
                 like <span className="font-mono text-xs">{NOVEL.join(", ")}</span> is lost.
               </>
             )}
-          </dd>
-        </div>
-      </dl>
-    </div>
+        </DemoFact>
+      </DemoFacts>
+    </DemoCard>
   );
 }
