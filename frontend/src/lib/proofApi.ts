@@ -14,6 +14,7 @@ import type { Filled } from "@/lib/wire";
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import { readNdjson } from "@/lib/lensApi";
+import { getConcept } from "@/content/concepts";
 
 // --- wire types -------------------------------------------------------------
 
@@ -136,13 +137,14 @@ export interface RefinementRequest {
 // --- presentation metadata -------------------------------------------------
 
 /** The scoring axes in display order, with human labels. */
-export const METRIC_LABELS: { key: keyof MetricScores; label: string; hint: string }[] = [
-  { key: "identity", label: "Identity", hint: "Similarity to the reference subject" },
-  { key: "clip_score", label: "Adherence", hint: "How well the image matches its prompt (CLIPScore)" },
-  { key: "aesthetic", label: "Quality", hint: "Image-quality / aesthetic score (IQA)" },
-  { key: "preference", label: "Preference", hint: "Learned human-preference score (ImageReward/HPS)" },
-  { key: "safety", label: "Safety", hint: "Safety score (higher = safer)" },
-];
+export const METRIC_LABELS: { key: keyof MetricScores; label: string; hint: string; conceptId: string }[] = (
+  ["identity", "clip_score", "aesthetic", "preference", "safety"] as const
+).map((key) => {
+  // Label and hint come from the concept registry (#34), so the bar, its tooltip
+  // and the Learn panel can't drift apart.
+  const concept = getConcept(`metric_${key}`)!;
+  return { key, label: concept.title, hint: concept.summary.replace(/\.$/, ""), conceptId: concept.id };
+});
 
 /** Reject taxonomy for the HITL picker. The user-facing labels group the closed
  * wire vocabulary into the failure modes reviewers actually call out. */

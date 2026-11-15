@@ -78,11 +78,7 @@ export function HybridBalance({ presets, value, onChange }: HybridBalanceProps) 
   // The card, label, and info toggle are the shared ParamInfo affordance used by
   // every other control on the page; only the segmented control + slider are ours.
   return (
-    <ParamInfo
-      label="Tag ↔ Prose Balance"
-      description="Balances how much the final caption leans on booru-style tags versus natural-language prose. Lower = denser tags; higher = flowing description. Presets are named stops; the Advanced slider sends a raw prose_bias (0.0–1.0) that overrides the preset."
-      example={overriding ? `prose_bias=${effectiveBias.toFixed(2)}` : `hybrid_preset="${value.preset}"`}
-    >
+    <ParamInfo conceptId="hybrid_balance">
       <div className="w-full space-y-3">
         {/* Preset segmented control */}
         <div role="radiogroup" aria-label="Tag to prose balance preset" className="flex flex-wrap gap-1.5">

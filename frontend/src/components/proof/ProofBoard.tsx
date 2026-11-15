@@ -27,6 +27,7 @@ import {
 import { permits, type Capability } from "@/lib/capabilities";
 import { CapabilityNotice } from "@/components/CapabilityNotice";
 import { StarRating } from "@/components/proof/StarRating";
+import { LearnButton } from "@/components/LearnPanel";
 import { RefinementPanel } from "@/components/proof/RefinementPanel";
 import { RejectReasonPicker, UnsafeCategoryPicker } from "@/components/proof/RejectReasonPicker";
 import { tileLoading } from "@/lib/imageLoading";
@@ -54,10 +55,13 @@ function barColor(v: number): string {
   return "bg-accent-red";
 }
 
-function MetricBar({ label, value, hint }: { label: string; value: number | null; hint: string }) {
+function MetricBar({ label, value, hint, conceptId }: { label: string; value: number | null; hint: string; conceptId?: string }) {
   return (
     <div className="flex items-center gap-2" title={hint}>
-      <span className="w-16 shrink-0 text-[11px] text-muted">{label}</span>
+      <span className="flex w-20 shrink-0 items-center gap-1 text-[11px] text-muted">
+        {label}
+        {conceptId ? <LearnButton conceptId={conceptId} className="h-3.5 w-3.5" /> : null}
+      </span>
       <div className="h-1.5 flex-1 overflow-hidden rounded bg-surface-hover">
         {value != null && <div className={`h-full ${barColor(value)}`} style={{ width: `${value * 100}%` }} />}
       </div>
@@ -420,9 +424,9 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             {METRIC_LABELS.map((m) => (
-              <MetricBar key={m.key} label={m.label} value={agg.means[m.key]} hint={`Mean ${m.label} — ${m.hint}`} />
+              <MetricBar key={m.key} label={m.label} value={agg.means[m.key]} hint={`Mean ${m.label} — ${m.hint}`} conceptId={m.conceptId} />
             ))}
-            <MetricBar label="Diversity" value={agg.diversity} hint="Output variety (higher = more varied)" />
+            <MetricBar label="Diversity" value={agg.diversity} hint="Output variety (higher = more varied)" conceptId="metric_diversity" />
           </div>
           <div className="text-[11px] text-muted">
             <div className="mb-1 font-medium text-foreground/70">Scorers</div>
