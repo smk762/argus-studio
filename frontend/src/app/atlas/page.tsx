@@ -27,6 +27,7 @@ import { JobView, STATUS_DOT } from "@/components/atlas/JobView";
 import { JobBadges } from "@/components/atlas/JobBadges";
 import { DoctorPanel } from "@/components/atlas/DoctorPanel";
 import { ExternalLink } from "@/components/ExternalLink";
+import { MadeWith } from "@/components/MadeWith";
 
 export default function AtlasPage() {
   // version: null = loading, "" = unreachable, else the server version.
@@ -133,6 +134,7 @@ export default function AtlasPage() {
       />
 
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+        <MadeWith pkg="atlas" verb="Baked by" version={version} command="argus-atlas controls → bake → tiles" className="mb-4" />
         {unreachable ? (
           <div className="mx-auto max-w-xl space-y-4 py-24 text-center">
             <h2 className="text-lg font-medium text-foreground/70">The argus-atlas server is not running.</h2>

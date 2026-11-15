@@ -22,6 +22,7 @@ import { ProofBoard } from "@/components/proof/ProofBoard";
 import { NewEvaluation } from "@/components/proof/NewEvaluation";
 import { StageHandoff } from "@/components/StageHandoff";
 import { ExternalLink } from "@/components/ExternalLink";
+import { MadeWith } from "@/components/MadeWith";
 
 function verdictDot(s: ReportSummary): string {
   if (s.passed) return "bg-accent-green";
@@ -154,6 +155,7 @@ export default function ProofPage() {
       />
 
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+        <MadeWith pkg="proof" verb="Report from" version={version} command="argus-proof run → score → gate" className="mb-4" />
         {STATIC_DEMO && !previewSample ? (
           <ProofComingSoon onPreview={() => setPreviewSample(true)} />
         ) : unreachable ? (

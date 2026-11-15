@@ -36,6 +36,8 @@ import {
 } from "@/components/curator/types";
 import { demoKohyaFiles, forgeSlug } from "@/components/curator/forgeDemo";
 import { ExternalLink } from "@/components/ExternalLink";
+import { MadeWith } from "@/components/MadeWith";
+import { forgeConfigCommand } from "@/lib/madeWith";
 
 /** Trainers to offer before `/trainers` answers (and the whole list in demo mode). */
 const FALLBACK_TRAINERS: TrainerInfo[] = (Object.keys(TRAINER_LABELS) as TrainerId[]).map((id) => ({
@@ -370,6 +372,7 @@ export default function ForgePage() {
       />
 
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+        <MadeWith pkg="forge" verb="Configs from" version={live ? version : null} command={forgeConfigCommand(trainer)} />
         {STATIC_DEMO && (
           <RecordedDemoNote
             summary="The kohya config below is generated in your browser by the same sizing heuristics argus-forge uses."
