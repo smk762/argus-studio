@@ -65,7 +65,7 @@ Override one with its `*_TAG` var in `.env` (see `.env.example`):
 | argus-curator | `CURATOR_TAG` | `0.15.1` (`0.15.1-gpu` under `compose.gpu.yaml`) |
 | argus-lens | `LENS_TAG` | `0.12.0` |
 | argus-quarry | `QUARRY_TAG` | `0.4.0` |
-| argus-forge | `FORGE_TAG` | `0.2.0` (`0.2.0-train` adds the trainer stack) |
+| argus-forge | `FORGE_TAG` | `0.2.0` (`0.2.0-train` under `compose.train.yaml`) |
 | argus-proof | `PROOF_TAG` | `0.3.0` |
 | argus-atlas | `ATLAS_TAG` | `0.3.1` |
 | argus-darkroom | `DARKROOM_TAG` | `0.2.0` |
@@ -117,6 +117,17 @@ the base stack still runs on CPU-only machines.
 
 ```bash
 docker compose -f compose.yaml -f compose.gpu.yaml --profile full up
+```
+
+**Live training from `/forge`** (optional, a trusted GPU host only): layer
+`compose.train.yaml`. It runs argus-forge's `-train` image (torch + kohya
+sd-scripts) on the GPU and switches its demo-safe default off. `/forge` then
+trains the config **Generate + write** put into the export, streams the run's
+log, and can cancel it. It starts one run at a time. Never layer this on a
+public demo.
+
+```bash
+ARGUS_CURATOR_UI_MODE=live docker compose -f compose.yaml -f compose.train.yaml --profile forge up
 ```
 
 The only cross-service coupling is the **curate → caption handoff**: curator and lens

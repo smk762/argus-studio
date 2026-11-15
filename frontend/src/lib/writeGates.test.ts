@@ -347,6 +347,45 @@ describe("forge, atlas and quarry writes", () => {
     expect(calls).toEqual(["POST /config", "GET /health"]);
   });
 
+  it("forge: starting or cancelling a run is refused on a demo-safe host", async () => {
+    routes["GET /health"] = () => json({ status: "ok", service: "argus-forge", version: "0.2.0", training: "disabled" });
+    routes["POST /run"] = sent;
+    routes["POST /run/r1/cancel"] = sent;
+    const { startRun, cancelRun } = await import("@/lib/forgeApi");
+
+    await expect(startRun({ export_dir: "/data/out/set", trainer: "kohya" })).rejects.toThrow(/demo-safe/);
+    await expect(cancelRun("r1")).rejects.toThrow(/demo-safe/);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("forge: a run is refused while another is training, and sent otherwise", async () => {
+    const running = { run_id: "abcdef123456", trainer: "kohya", export_dir: "/data/out/a", status: "running", started_at: "2026-11-15T10:00:00Z" };
+    let runs: unknown[] = [running];
+    routes["GET /health"] = () => json({ status: "ok", service: "argus-forge", version: "0.2.0", training: "enabled" });
+    routes["GET /runs"] = () => json(runs);
+    routes["POST /run"] = sent;
+    const { startRun, RunInProgress } = await import("@/lib/forgeApi");
+
+    const err = await startRun({ export_dir: "/data/out/set", trainer: "kohya" }).catch((e) => e);
+    expect(err).toBeInstanceOf(RunInProgress);
+    expect(err.message).toContain("abcdef12");
+    expect(calls).toEqual(["GET /health", "GET /runs"]);
+
+    runs = [{ ...running, status: "succeeded" }];
+    await expect(startRun({ export_dir: "/data/out/set", trainer: "kohya" })).rejects.toThrow("reached the server");
+    expect(calls.at(-1)).toBe("POST /run");
+  });
+
+  it("forge: run reads are never gated", async () => {
+    routes["GET /runs"] = () => json([{ run_id: "r1", trainer: "kohya", export_dir: "/x", status: "failed", started_at: "t" }, { bogus: true }]);
+    const { listRuns } = await import("@/lib/forgeApi");
+
+    const runs = await listRuns();
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({ run_id: "r1", command: [], ended_at: null, message: null, returncode: null });
+    expect(calls).toEqual(["GET /runs"]);
+  });
+
   it("atlas: baking is refused unless the host enables it", async () => {
     routes["GET /health"] = () => json({ status: "ok", service: "argus-atlas", version: "0.1.0", read_only: true });
     routes["POST /bake/stream"] = sent;

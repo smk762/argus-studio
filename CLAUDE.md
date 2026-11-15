@@ -37,7 +37,7 @@ Everything is under `frontend/` (Next.js 16 App Router, React 19, Tailwind v4, l
 - `frontend/src/app/` — routes: `page.tsx` (caption), `curate/`, `forge/`, `gallery/`, `proof/`, `atlas/`, `darkroom/`, and `docs/` (MDX; `page.mdx` + the captioning concept pages). `layout.tsx` injects the runtime-config `<script>` before hydration.
 - `frontend/src/lib/` — thin fetch clients, one per backend: `lensApi.ts`, `curatorApi.ts`, `forgeApi.ts`, `galleryApi.ts`, `proofApi.ts`, `atlasApi.ts`, `darkroomApi.ts`. Plus `runtimeConfig.ts` (the env-resolution core) and `curatorEnv.ts` (named accessors).
 - `frontend/src/components/` — shared UI plus `gallery/` (`ArchiveBrowser.tsx`), `curator/` (e.g. `ExportPanel.tsx`, `SelectionInsights.tsx`, `FolderPicker.tsx`, `forgeDemo.ts`), `proof/` (`ProofBoard.tsx`, `NewEvaluation.tsx`), `atlas/` (`NewCanvas.tsx`, `JobView.tsx`, `BakePanel.tsx`), `darkroom/` (ported from argus-safelight), and `docs/`.
-- `compose.yaml` — the whole stack, gated by **profiles**. `compose.gpu.yaml` is an NVIDIA override layered on top.
+- `compose.yaml` — the whole stack, gated by **profiles**. `compose.gpu.yaml` is an NVIDIA override layered on top. `compose.train.yaml` arms live forge training: the `-train` image, the GPU and `ARGUS_FORGE_READONLY=0`. Keep it separate from `compose.gpu.yaml`, so adding GPUs never arms training, and never layer it on a public demo.
 - `.env.example` — every wiring var; copy to `.env`. `.github/workflows/release.yml` — GHCR image publish.
 
 There is **no Next API-proxy layer**: the browser calls each backend directly (cross-origin), so the backends must send CORS headers.
@@ -69,6 +69,7 @@ docker compose --profile darkroom up    # + argus-darkroom (needs DARKROOM_SINGG
 docker compose --profile full    up     # everything but darkroom (pulls any MISSING images, then runs)
 docker compose --profile full    pull   # refresh images to the current *_TAG
 docker compose -f compose.yaml -f compose.gpu.yaml --profile full up            # + GPUs
+docker compose -f compose.yaml -f compose.train.yaml --profile forge up         # + live training on /forge (trusted GPU host)
 
 # Build the backends from local source instead (opt-in): clone the sibling
 # repos next to this one, then layer the build override.
