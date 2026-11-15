@@ -111,7 +111,7 @@ export const DEMO_REPORT: EvalReport = {
     diversity: 0.63,
   },
   scorers: [
-    { name: "insightface", metric: "identity", version: "0.7.3", model: "buffal_l" },
+    { name: "insightface", metric: "identity", version: "0.7.3", model: "buffalo_l" },
     { name: "clipscore", metric: "clip_score", version: "1.0", model: "ViT-L/14" },
     { name: "pyiqa", metric: "aesthetic", version: "0.1.13", model: "topiq_nr" },
     { name: "imagereward", metric: "preference", version: "1.0", model: "ImageReward-v1.0" },

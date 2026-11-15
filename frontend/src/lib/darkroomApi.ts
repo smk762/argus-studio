@@ -346,7 +346,9 @@ export function getRecords(query: RecordQuery = {}, signal?: AbortSignal): Promi
   if (query.mode) params.set("mode", query.mode);
   if (query.page) params.set("page", String(query.page));
   if (query.pageSize) params.set("page_size", String(query.pageSize));
-  const suffix = params.size > 0 ? `?${params}` : "";
+  // From the serialised string: URLSearchParams.size is missing in older browsers.
+  const qs = params.toString();
+  const suffix = qs ? `?${qs}` : "";
   return getJson(`/records${suffix}`, signal);
 }
 

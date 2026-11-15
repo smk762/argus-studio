@@ -63,7 +63,10 @@ describe("readSseFrames", () => {
 
   it("decodes a multi-byte character split across chunks", async () => {
     const bytes = new TextEncoder().encode('data: {"caption":"café"}\n\n');
-    const cut = bytes.length - 6; // inside the two-byte é
+    // Split inside the two-byte é (C3 A9): the first chunk ends on the lead byte.
+    const cut = bytes.indexOf(0xc3) + 1;
+    expect(bytes[cut - 1]).toBe(0xc3);
+    expect(bytes[cut]).toBe(0xa9);
     expect(await collect([bytes.slice(0, cut), bytes.slice(cut)])).toEqual([{ event: "message", data: { caption: "café" } }]);
   });
 

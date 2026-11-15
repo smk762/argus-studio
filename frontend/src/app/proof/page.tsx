@@ -115,13 +115,16 @@ export default function ProofPage() {
     }
   }, [live]);
 
+  // Bumped to load again without a selection change: re-clicking a run whose
+  // load failed, or a finished run that is already the selected one.
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     if (!selected) return;
     const ctrl = new AbortController();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- a fetch that follows the selection; only its spinner is set at once (demo mode adopts the bundled report).
     void loadReport(selected, ctrl.signal);
     return () => ctrl.abort();
-  }, [selected, loadReport]);
+  }, [selected, loadReport, reloadKey]);
 
   // An applied review recomputes the report's pass rate and HITL queue: bring
   // the run list's line for it in step, so the list and the board agree.
@@ -178,6 +181,7 @@ export default function ProofPage() {
       // the list refresh is best-effort; the report itself still loads below
     }
     setSelected(runId);
+    setReloadKey((k) => k + 1);
   }, []);
 
   return (
@@ -237,7 +241,10 @@ export default function ProofPage() {
                 <button
                   key={s.run_id}
                   type="button"
-                  onClick={() => setSelected(s.run_id)}
+                  onClick={() => {
+                    setSelected(s.run_id);
+                    setReloadKey((k) => k + 1);
+                  }}
                   className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
                     selected === s.run_id ? "border-accent-purple/60 bg-surface" : "border-border bg-surface/40 hover:bg-surface-hover"
                   }`}

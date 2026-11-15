@@ -39,7 +39,10 @@ describe("deleteReport", () => {
 
   it("says how far a failed delete got", () => {
     const report = deleteReport(3, { deleted: ["a"], refused: [], error: new Error("disk full") });
-    expect(report).toEqual({ text: "Stopped after deleting 1 of 3: disk full", failed: true });
+    expect(report).toEqual({
+      text: "Stopped after deleting at least 1 of 3: disk full. Some files in the failed batch may also be gone; rescan to confirm.",
+      failed: true,
+    });
   });
 
   it("counts frames the server refused as kept", () => {

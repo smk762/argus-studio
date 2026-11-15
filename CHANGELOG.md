@@ -24,6 +24,16 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Fixed
 
+- **ai-code-auditor batch (2026-11-15): 53 findings, 45 fixed, 8 already fixed or not a Studio bug.** Highlights:
+  - CSV export neutralises formula-leading cells and quotes bare CRs.
+  - The NDJSON reader cancels the stream on a bad line and flushes the UTF-8 decoder.
+  - Darkroom: a refused pre-flight no longer stays "running", late stream events can't revive a finished run, Generate is blocked for a policy the server can't enforce, the CFG field only takes in-range values, the stream is aborted on unmount, and stale health is dropped when darkroom stops answering.
+  - Curator: refused scan options show unchecked and aren't sent, attribute facet counts honour the confidence floor, filters the keep set drops are named, race shows its source (FairFace), a blocked tile can still be deselected, and the export hand-off uses the settings the run used.
+  - Stale-request guards on `/atlas`, `/proof` and the caption folder run.
+  - Clipboard copy reports failure.
+  - Safari's modal click-outside fallback hit-tests the backdrop.
+  - The demo scorer name is now `buffalo_l`.
+  - Atlas bundling no longer leaks host paths when the inputs root is empty.
 - **A malformed proof run manifest no longer crashes /proof.** The Darkroom handoff falls back to a plain `/darkroom` when a manifest has no checkpoint name, and skips nameless LoRAs.
 - **Tooltips meet WCAG 1.4.13** (#197). The pointer can now rest on a tooltip without it closing, it stays open while the pointer is on the trigger or the bubble, and Escape still dismisses it. On `/curate`, the disabled-reason and action hints (scan, delete, stop, purge, export mode, policy picks, the select checkbox) moved off native `title` onto the shared Tooltip, so they show on keyboard focus and reach screen readers as descriptions. The export options' explanations are now focusable "i" hints. A second pass covers darkroom, proof and atlas:
   - darkroom's `Button` shows its `title` through the Tooltip;

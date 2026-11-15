@@ -62,12 +62,14 @@ export function IngestPanel({ onIngested, disabled = false }: Props) {
     setError(null);
     setNote(null);
     try {
-      const res = await uploadImages(files, folder.trim());
+      // Files dropped while this upload runs are not part of it: keep them staged.
+      const sent = files;
+      const res = await uploadImages(sent, folder.trim());
       setNote(
         `Saved ${res.saved} image${res.saved === 1 ? "" : "s"} to ${res.folder || "the dataset root"}` +
           (res.skipped.length > 0 ? ` (${res.skipped.length} skipped)` : ""),
       );
-      setFiles([]);
+      setFiles((cur) => cur.filter((f) => !sent.includes(f)));
       if (res.saved > 0) onIngested(absSourcePath(res.folder));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");

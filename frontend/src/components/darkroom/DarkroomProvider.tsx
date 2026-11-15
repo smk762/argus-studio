@@ -93,18 +93,29 @@ export function DarkroomProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // The sample has no server to poll. Refresh looks for one again.
     if (sample) return;
+    // A poll still in flight when this effect re-runs or unmounts must not write
+    // over fresher state (a sample set meanwhile, a manual reload).
+    let cancelled = false;
     const timer = setInterval(async () => {
       try {
         const next = await getDarkroomHealth();
+        if (cancelled) return;
         setHealth(next);
         // Darkroom answers again, but the form still needs the catalogue the first load missed.
         if (catalogued) setError(null);
         else reload();
       } catch (caught) {
+        if (cancelled) return;
+        // Drop the last good /health: History and RecordActions gate writes on it,
+        // and must not keep offering them to a darkroom that stopped answering.
+        setHealth(null);
         setError(caught instanceof Error ? caught.message : String(caught));
       }
     }, HEALTH_POLL_MS);
-    return () => clearInterval(timer);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [sample, catalogued, reload]);
 
   const value = useMemo<Darkroom>(

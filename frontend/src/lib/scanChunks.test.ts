@@ -152,3 +152,13 @@ describe("mergeChunk preserves a previous summary's scan fields", () => {
     expect(merged.folder).toBe("/kept");
   });
 });
+
+// Audit pack-argus-studio-ae86e5a49d: a chunk from another scan never merges into the one on screen.
+describe("mergeChunk across scans", () => {
+  it("starts over for a different scan_id instead of unioning rows", () => {
+    const first = mergeChunk(null, chunk({ scan_id: "s1", results: [image("a.jpg")] }));
+    const other = mergeChunk(first, chunk({ scan_id: "s2", results: [image("b.jpg")] }));
+    expect(other.scan_id).toBe("s2");
+    expect(other.results.map((r) => r.rel_path)).toEqual(["b.jpg"]);
+  });
+});

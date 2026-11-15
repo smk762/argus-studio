@@ -91,3 +91,22 @@ describe("resultToCSV", () => {
     expect(final).toBe('u,__final,"a woman, red hair",hybrid,identity,"woman, red_hair",A woman on a pier.,blurry,note,identity,"a woman, red hair"');
   });
 });
+
+// Audit: CSV/formula injection and bare CR (pack-argus-studio-37227a5ab0, -6f1550e3cf).
+import { escapeCSV } from "@/lib/captionFinal";
+
+describe("escapeCSV", () => {
+  it.each(["=HYPERLINK(\"x\")", "+1", "-2+3", "@SUM(A1)", "\tx", "\rx"])("neutralises a formula-leading cell %j", (v) => {
+    const out = escapeCSV(v);
+    expect(out.startsWith(`"'`)).toBe(true);
+  });
+
+  it("quotes a value with a bare carriage return", () => {
+    expect(escapeCSV("a\rb")).toBe('"a\rb"');
+  });
+
+  it("leaves a plain value alone and still quotes commas and quotes", () => {
+    expect(escapeCSV("a woman in a coat")).toBe("a woman in a coat");
+    expect(escapeCSV('a, "b"')).toBe('"a, ""b"""');
+  });
+});

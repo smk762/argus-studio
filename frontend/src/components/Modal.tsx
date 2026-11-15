@@ -49,11 +49,14 @@ export function Modal({
     // selection dragged onto the backdrop does not dismiss.
     if ("closedBy" in HTMLDialogElement.prototype) return;
     let pressedOutside = false;
+    // Only the dialog element itself is its backdrop: a descendant drawn past
+    // the box (a portalled Tooltip, a menu) is content, as closedby="any" hit-tests.
+    const onBackdrop = (event: PointerEvent) => event.target === dialog && outside(event, dialog);
     const down = (event: PointerEvent) => {
-      pressedOutside = outside(event, dialog);
+      pressedOutside = onBackdrop(event);
     };
     const up = (event: PointerEvent) => {
-      if (pressedOutside && outside(event, dialog)) dialog.close();
+      if (pressedOutside && onBackdrop(event)) dialog.close();
     };
     dialog.addEventListener("pointerdown", down);
     dialog.addEventListener("pointerup", up);

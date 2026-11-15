@@ -229,3 +229,11 @@ describe("isDeletableReject", () => {
     expect(isDeletableReject(image(minor))).toBe(false);
   });
 });
+
+// Audit pack-argus-studio-055b4d4382: the two never disagree, whatever `passed` holds.
+describe("canExport and exportBlockReason agree", () => {
+  it.each([true, false, null, undefined])("passed = %s", (passed) => {
+    const img = { rel_path: "a.jpg", passed } as unknown as Parameters<typeof canExport>[0];
+    expect(exportBlockReason(img) === null).toBe(canExport(img));
+  });
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   CATEGORY_COLORS,
   CATEGORY_DESCRIPTIONS,
@@ -29,6 +30,7 @@ import { GuardPolicyPicker } from "./GuardPolicyPicker";
 import { devMode } from "@/lib/curatorEnv";
 import { offeredPolicies } from "@/lib/curatorGuard";
 import { Tooltip } from "@/components/Tooltip";
+import { clearDenied } from "@/lib/scanConfigCaps";
 
 const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; border: string }> = {
   "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple-ink", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
@@ -75,6 +77,13 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
   const watermarkReason =
     capabilityReason(watermarks, WATERMARK_DENIED) ??
     (detectors && !detectors.watermark ? "Set ARGUS_CURATOR_WATERMARK_URL on the curator to find watermarks." : null);
+
+  // A refused option shows unchecked and is cleared from the config, so a stale
+  // `true` can't sit greyed out and still go out with the scan.
+  const cleared = clearDenied(value, { setAge, prefilter, crops, watermarkDenied: watermarks === false || (detectors != null && !detectors.watermark) });
+  useEffect(() => {
+    if (cleared !== value) onChange(cleared);
+  }, [cleared, value, onChange]);
 
   return (
     <div className="space-y-6">

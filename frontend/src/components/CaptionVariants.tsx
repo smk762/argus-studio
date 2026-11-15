@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { finalChoice, withFinal } from "@/lib/captionFinal";
 import { refineOf } from "@/lib/captionRefine";
 import { isT5Backend, tokenBudget, tokenUse } from "@/lib/captionTokens";
@@ -129,10 +129,25 @@ export function CaptionVariants({ result, backend, budgets, finalVariant, onChoo
   const refine = refineOf(result.metadata);
   const rewritten = new Set(refine?.accepted ?? []);
 
-  const handleCopy = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 1500);
+  // One feedback timer: a newer copy replaces it, and unmount clears it.
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+  }, []);
+
+  // "Copied!" only once the write succeeded: the Clipboard API is missing over
+  // plain HTTP (a LAN host other than localhost) and can be refused.
+  const handleCopy = async (text: string, key: string) => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    let label: string | null = key;
+    try {
+      if (!navigator.clipboard) throw new Error("no clipboard");
+      await navigator.clipboard.writeText(text);
+    } catch {
+      label = `${key}:failed`;
+    }
+    setCopiedKey(label);
+    copyTimer.current = setTimeout(() => setCopiedKey(null), 1500);
   };
 
   // Known variants in lens's order, then anything newer this client has no style for.
@@ -158,10 +173,10 @@ export function CaptionVariants({ result, backend, budgets, finalVariant, onChoo
             {rewritten.has(final.selected_category) && <RewrittenBadge model={refine?.model ?? ""} />}
           </span>
           <button
-            onClick={() => handleCopy(derived, "__derived")}
+            onClick={() => void handleCopy(derived, "__derived")}
             className="text-xs text-accent-teal-ink hover:text-accent-teal-ink transition-colors cursor-pointer"
           >
-            {copiedKey === "__derived" ? "Copied!" : "Copy to clipboard"}
+            {copiedKey === "__derived" ? "Copied!" : copiedKey === "__derived:failed" ? "Copy failed" : "Copy to clipboard"}
           </button>
         </div>
         <p className="text-sm text-foreground/90 font-mono leading-relaxed">
@@ -213,10 +228,10 @@ export function CaptionVariants({ result, backend, budgets, finalVariant, onChoo
                   )
                 )}
                 <button
-                  onClick={() => handleCopy(caption, key)}
+                  onClick={() => void handleCopy(caption, key)}
                   className="text-xs text-accent-teal-ink hover:text-accent-teal-ink transition-colors cursor-pointer"
                 >
-                  {copiedKey === key ? "Copied!" : "Copy to clipboard"}
+                  {copiedKey === key ? "Copied!" : copiedKey === `${key}:failed` ? "Copy failed" : "Copy to clipboard"}
                 </button>
               </span>
             </div>

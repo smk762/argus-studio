@@ -304,13 +304,23 @@ export async function readNdjson(resp: Response, onLine: (obj: Record<string, un
     if (trimmed) onLine(JSON.parse(trimmed));
   };
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) handleLine(line);
+  let finished = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) handleLine(line);
+    }
+    // Flush a multi-byte sequence the last chunk ended inside.
+    buffer += decoder.decode();
+    finished = true;
+  } finally {
+    // A malformed line or a throwing callback: tear the request down rather
+    // than leave the body locked and the server still streaming.
+    if (!finished) await reader.cancel().catch(() => {});
   }
   if (buffer.trim()) handleLine(buffer);
 }

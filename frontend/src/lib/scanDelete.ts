@@ -36,7 +36,14 @@ export function deleteConfirmText(count: number, hidden = 0): string {
 export function deleteReport(requested: number, outcome: DeleteOutcome): { text: string; failed: boolean } {
   const { deleted, refused, error } = outcome;
   if (error) {
-    return { text: `Stopped after deleting ${deleted.length} of ${requested}: ${error.message}`, failed: true };
+    // Only finished batches are counted: the one that failed may have removed some files too.
+    const kept = refused.length > 0 ? ` The curator kept ${refused.length} it would not delete (that needs CURATOR_ALLOW_DELETE=1).` : "";
+    return {
+      text:
+        `Stopped after deleting at least ${deleted.length} of ${requested}: ${error.message}. ` +
+        `Some files in the failed batch may also be gone; rescan to confirm.${kept}`,
+      failed: true,
+    };
   }
   if (refused.length > 0) {
     return {

@@ -58,3 +58,11 @@ describe("refineOutcome", () => {
     expect(refineOutcome(record())).toBe("unchanged");
   });
 });
+
+// Audit pack-argus-studio-398d88b2f3: an array `rejected` is malformed, not index-keyed rejections.
+describe("refineOf with an array `rejected`", () => {
+  it("reads it as no rejections", () => {
+    const r = refineOf({ refine: { rewriter: "x", accepted: ["identity"], rejected: ["short"] } });
+    expect(r?.rejected).toEqual({});
+  });
+});

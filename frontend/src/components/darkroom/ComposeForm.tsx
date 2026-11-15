@@ -216,7 +216,8 @@ export function ComposeForm() {
             <DraftNumber id="steps" min={1} max={150} value={compose.sampling.steps} onValue={(steps) => update((c) => ({ ...c, sampling: { ...c.sampling, steps: Math.floor(steps) } }))} className={FIELD} />
           </Field>
           <Field label="CFG" htmlFor="cfg">
-            <input id="cfg" type="number" min={0} max={30} step={0.5} value={compose.sampling.cfg} onChange={(event) => update((c) => ({ ...c, sampling: { ...c.sampling, cfg: Number(event.target.value) } }))} className={FIELD} />
+            {/* DraftNumber like the other numeric fields: only an in-range value reaches compose state, never a cleared 0. */}
+            <DraftNumber id="cfg" min={0} max={30} step="0.5" value={compose.sampling.cfg} onValue={(cfg) => update((c) => ({ ...c, sampling: { ...c.sampling, cfg } }))} className={FIELD} />
           </Field>
           <Field label="Width" htmlFor="width">
             <select id="width" value={compose.sampling.width} onChange={(event) => update((c) => ({ ...c, sampling: { ...c.sampling, width: Number(event.target.value) } }))} className={FIELD}>

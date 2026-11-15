@@ -259,6 +259,14 @@ export default function Home() {
     void runUrl(imageUrl.trim());
   };
 
+  // The tab on screen now, and the newest folder run, for a run that finishes
+  // after the user moved on: its result and hand-off must not land in another tab.
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  const folderRun = useRef(0);
+
   const runFolder = async () => {
     // Snapshot the path for this run: the input stays editable while captioning
     // streams, so reading state again after the await could label the results
@@ -269,6 +277,7 @@ export default function Home() {
     setError(null);
     setBatchResult(null);
     setCaptionedFolder(null);
+    const run = ++folderRun.current;
     try {
       const data = await captionFolder({
         folder,
@@ -284,6 +293,8 @@ export default function Home() {
         ...hybridRequestFields(hybrid),
         ...backendField(captionBackend, backendInfo),
       });
+      // The sidecars are written either way; only what this page shows is skipped.
+      if (run !== folderRun.current || modeRef.current !== "folder") return;
       setBatchResult(data);
       setBatchSource(folder);
       // Sidecars are what forge sizes a dataset from: without them the folder

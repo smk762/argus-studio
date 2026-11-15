@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   allowsBake,
   allowsGdal,
@@ -79,13 +79,21 @@ export default function AtlasPage() {
     return () => ctrl.abort();
   }, []);
 
+  // The selection as of now, for loads that finish after the user moved on.
+  const selectedRef = useRef(selected);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
   const loadJob = useCallback(async (jobId: string, signal?: AbortSignal) => {
     try {
       const loaded = await getJob(jobId, signal);
+      // A canvas switched to meanwhile wins: never show A under B's selection.
+      if (selectedRef.current !== jobId) return;
       setJob(loaded);
       setError(null);
     } catch (err) {
-      if (signal?.aborted) return;
+      if (signal?.aborted || selectedRef.current !== jobId) return;
       setError(err instanceof Error ? err.message : "Failed to load job");
       setJob(null);
     }
@@ -103,15 +111,21 @@ export default function AtlasPage() {
   // After controls, a bake or tiles: refresh the list (status dots) and the job.
   const refresh = useCallback(
     async (jobId: string) => {
+      const wasSelected = selectedRef.current === jobId;
       try {
         setJobs(await listJobs());
       } catch {
         // best-effort; the job itself still reloads below
       }
-      if (jobId === selected) await loadJob(jobId);
-      else setSelected(jobId);
+      if (wasSelected) {
+        // Reload only if it is still the one on screen; a switch meanwhile stands.
+        if (selectedRef.current === jobId) await loadJob(jobId);
+      } else {
+        // A new job (e.g. controls just built): select it.
+        setSelected(jobId);
+      }
     },
-    [selected, loadJob],
+    [loadJob],
   );
 
   // After POST /osm: the new extract is only named by /inputs.

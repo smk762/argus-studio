@@ -147,11 +147,16 @@ function RuleSelect({ records, value, onChange }: { records: GenerationRecord[];
     }
   }
   const words = REASON_WORDS.filter((word) => records.some((record) => reasonParts(record.outcome_reason).includes(word)));
+  // A rule picked earlier can drop out of the fetched records (another outcome or
+  // mode, a purge). Keep it listed, so the active filter shows and can be cleared.
+  const listed = (value != null && [...byPolicy.values()].some((hits) => hits.has(value))) || (value != null && (words as readonly string[]).includes(value));
+  const stray = value != null && !listed ? value : null;
   return (
     <label className="flex items-center text-sm">
       <span className="sr-only">Rule</span>
       <select value={value ?? ""} onChange={(event) => onChange(event.target.value || null)} className="max-w-[320px] rounded-md border border-border/60 bg-surface px-2 py-1 text-sm text-foreground">
         <option value="">All rules</option>
+        {stray ? <option value={stray}>{stray} (not in these records)</option> : null}
         {[...byPolicy.entries()]
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([policy, hits]) => (

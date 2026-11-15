@@ -133,6 +133,20 @@ describe("facetsNotSent", () => {
     ]);
     expect(facetsNotSent({ ...defaultFilters(), guardView: "split" })).toEqual(["the verdict view"]);
   });
+
+  // Audit pack-argus-studio-2735300b51: selectBody drops these when the check didn't run, so say so.
+  it("names content-rating and guard filters the scan can't apply", () => {
+    const f = { ...defaultFilters(), contentRatings: ["safe"], guardUnsafe: true } as ReturnType<typeof defaultFilters>;
+    expect(facetsNotSent(f, { nsfw_config: { enabled: false }, guard_config: { enabled: false } } as never)).toEqual([
+      "Content rating (this scan didn't run NudeNet)",
+      "SingGuard filters (this scan didn't run SingGuard)",
+    ]);
+    expect(facetsNotSent(f, { nsfw_config: { enabled: true }, guard_config: { enabled: true } } as never)).toEqual([]);
+    // And they really are dropped from the body in that case.
+    const body = selectBody(f, false, { nsfw_config: { enabled: false }, guard_config: { enabled: false } } as never);
+    expect(body.content_ratings).toBeNull();
+    expect(body.guard_unsafe).toBe(false);
+  });
 });
 
 describe("reasons", () => {

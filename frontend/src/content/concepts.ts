@@ -166,5 +166,6 @@ export type ConceptId = keyof typeof CONCEPTS;
 
 /** Look up a concept by id. Returns `undefined` for unknown ids. */
 export function getConcept(id: string): Concept | undefined {
-  return (CONCEPTS as Record<string, Concept>)[id];
+  // Own keys only: "constructor" or "__proto__" must not resolve through the prototype.
+  return Object.hasOwn(CONCEPTS, id) ? (CONCEPTS as Record<string, Concept>)[id] : undefined;
 }

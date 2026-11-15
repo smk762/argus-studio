@@ -97,9 +97,15 @@ def main() -> None:
         for old in sorted(thumbs.rglob("*"), reverse=True):
             old.unlink() if old.is_file() else old.rmdir()
     dims: dict[str, tuple[int, int]] = {}
+    written: dict[Path, str] = {}
     for row in summary["results"]:
         rel = row["rel_path"]
         dest = thumb_dest(thumbs, rel)
+        # a/foo.jpg and a/foo.png would both become a/foo.webp: refuse rather
+        # than let the second overwrite the first under two manifest keys.
+        if dest in written:
+            raise SystemExit(f"thumbnail collision: {written[dest]!r} and {rel!r} both map to {dest.relative_to(thumbs)}")
+        written[dest] = rel
         q = urllib.parse.urlencode({"path": rel, "scan_id": summary["scan_id"]})
         with urllib.request.urlopen(f"{base}/thumb?{q}", timeout=120) as resp:
             data = resp.read()

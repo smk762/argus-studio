@@ -36,7 +36,7 @@ export function KeepSetPanel({ summary, filters, disabled, onUse, exportBlocked,
   // A delete or a move changes the scan under the same filters.
   const key = `${JSON.stringify(body)}|${summary.total}`;
   const fresh = preview?.key === key;
-  const notSent = facetsNotSent(filters);
+  const notSent = facetsNotSent(filters, summary);
   const reasons = useMemo(() => (preview ? leftOutReasons(preview.result) : []), [preview]);
   const usable = useMemo(
     () => (preview ? keptPaths(preview.result, summary.results) : []),

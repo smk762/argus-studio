@@ -501,8 +501,8 @@ function PhotoDetail({ id, seed, onClose }: { id: number; seed: QuarryPhoto | nu
                 {photo.photographer && <ProvRow label="Photographer" value={photo.photographer} />}
                 {photo.year && <ProvRow label="Year" value={String(photo.year)} />}
                 {photo.attribution && <ProvRow label="Attribution" value={photo.attribution} />}
-                {photo.width && photo.height && <ProvRow label="Dimensions" value={`${photo.width}×${photo.height}`} />}
-                {photo.file_size && <ProvRow label="Size" value={formatBytes(photo.file_size)} />}
+                {photo.width != null && photo.width > 0 && photo.height != null && photo.height > 0 && <ProvRow label="Dimensions" value={`${photo.width}×${photo.height}`} />}
+                {photo.file_size != null && photo.file_size > 0 && <ProvRow label="Size" value={formatBytes(photo.file_size)} />}
                 {photo.filename && <ProvRow label="File" value={photo.filename} mono />}
                 {photo.sha256 && <ProvRow label="SHA256" value={photo.sha256} mono />}
                 {photo.downloaded_at && <ProvRow label="Acquired" value={photo.downloaded_at} />}

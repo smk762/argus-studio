@@ -22,7 +22,7 @@ describe("attributeLine", () => {
 
   it("falls back to the bracket", () => {
     expect(attributeLine({ age: "20-29", age_source: "fairface", race: "east_asian", race_conf: 0.61 })).toBe(
-      "East asian 61% · 20-29 (fairface)",
+      "East asian 61% (fairface) · 20-29 (fairface)",
     );
   });
 
