@@ -85,7 +85,12 @@ export const atMostOneHeaderBadge = always(() => page.current.headerBadges <= 1)
 
 // The page body never scrolls sideways at the current viewport (check-overflow.mjs
 // covers each route once at 390px; this holds across interactions and resizes).
-export const noHorizontalScroll = always(() => page.current.overflowX <= 1);
+// A state captured straight after a resize can catch the layout mid-reflow (the
+// first CI run saw 5px at 362px that no settled layout reproduces), so overflow
+// fails only when it is still there a second later.
+export const noHorizontalScroll = always(
+  now(() => page.current.overflowX > 1).implies(eventually(() => page.current.overflowX <= 1).within(1, "seconds")),
+);
 
 // CLAUDE.md: a page in the static demo renders recorded data, never a
 // backend "unreachable" state...
