@@ -9,13 +9,26 @@ import {
   startRun,
   streamRun,
   TRAINER_LABELS,
+  type ForgeRunEvent,
   type ForgeRunState,
   type TrainerId,
 } from "@/lib/forgeApi";
-import { activeRun, appendLog, defaultRun, newestFirst, RUN_STATUS_LABEL, runDuration, startBlockedReason } from "@/lib/forgeRuns";
+import {
+  activeRun,
+  defaultRun,
+  eventLine,
+  LOG_LIMIT,
+  newestFirst,
+  RUN_STATUS_LABEL,
+  runDuration,
+  startBlockedReason,
+} from "@/lib/forgeRuns";
 
 /** How often the run list refreshes, for runs started from the CLI or another tab. */
 const POLL_MS = 10_000;
+
+/** Log events are batched into one state update per this window: a trainer can print many lines a second. */
+const LOG_FLUSH_MS = 100;
 
 const NO_LINES: string[] = [];
 
@@ -64,7 +77,6 @@ export function TrainingRuns({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [streamKey, setStreamKey] = useState(0);
 
   const canTrain = permits(training);
   const active = runs ? activeRun(runs) : null;
@@ -99,30 +111,49 @@ export function TrainingRuns({
 
   // The selected run's log: forge replays its buffer, then follows the run live
   // and closes the stream when it ends, at which point the list is refreshed for
-  // the final status. `streamKey` reopens it after a start.
+  // the final status. Events are queued and flushed in batches, so a chatty
+  // trainer costs one array copy and one render per flush, not per line.
   useEffect(() => {
     if (!selectedId) return;
     const ctrl = new AbortController();
+    let queue: ForgeRunEvent[] = [];
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = (extra: string[] = []) => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      const added = [...queue.map(eventLine).filter((line): line is string => line !== null), ...extra];
+      queue = [];
+      if (added.length === 0) return;
+      setLog((cur) => {
+        if (!cur || cur.runId !== selectedId) return cur;
+        const next = [...cur.lines, ...added];
+        return { runId: selectedId, lines: next.length > LOG_LIMIT ? next.slice(next.length - LOG_LIMIT) : next };
+      });
+    };
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the log for the stream this effect opens
     setLog({ runId: selectedId, lines: [] });
     streamRun(
       selectedId,
-      (event) => setLog((cur) => (cur && cur.runId === selectedId ? { runId: selectedId, lines: appendLog(cur.lines, event) } : cur)),
+      (event) => {
+        queue.push(event);
+        timer ??= setTimeout(() => flush(), LOG_FLUSH_MS);
+      },
       ctrl.signal,
     )
       .then(() => {
-        if (!ctrl.signal.aborted) void refresh(ctrl.signal);
+        if (ctrl.signal.aborted) return;
+        flush();
+        void refresh(ctrl.signal);
       })
       .catch((caught) => {
         if (ctrl.signal.aborted) return;
-        setLog((cur) =>
-          cur && cur.runId === selectedId
-            ? { runId: selectedId, lines: [...cur.lines, `(log stream lost: ${caught instanceof Error ? caught.message : String(caught)})`] }
-            : cur,
-        );
+        flush([`(log stream lost: ${caught instanceof Error ? caught.message : String(caught)})`]);
       });
-    return () => ctrl.abort();
-  }, [selectedId, streamKey, refresh]);
+    return () => {
+      ctrl.abort();
+      if (timer !== null) clearTimeout(timer);
+    };
+  }, [selectedId, refresh]);
 
   // A ticking clock only while something is running, for its elapsed time.
   const running = active !== null;
@@ -148,9 +179,12 @@ export function TrainingRuns({
     try {
       if (pending.kind === "start") {
         const started = await startRun({ export_dir: exportDir, trainer });
+        // List the new run at once, so the selection (and its log stream) moves
+        // straight to it rather than reopening another run's log until the
+        // refresh below lands.
+        setRuns((cur) => (cur?.some((run) => run.run_id === started.run_id) ? cur : [...(cur ?? []), started]));
         setChosen(started.run_id);
         pinned.current = true;
-        setStreamKey((k) => k + 1);
       } else {
         await cancelRun(pending.runId);
       }

@@ -44,7 +44,10 @@ export function Tooltip({
   const descId = `${id}-desc`;
   const described =
     describe && text && isValidElement<{ "aria-describedby"?: string }>(children)
-      ? cloneElement(children as ReactElement<{ "aria-describedby"?: string }>, { "aria-describedby": descId })
+      ? cloneElement(children as ReactElement<{ "aria-describedby"?: string }>, {
+          // Add to a description the control already has, never replace it.
+          "aria-describedby": [children.props["aria-describedby"], descId].filter(Boolean).join(" "),
+        })
       : children;
   const [pos, setPos] = useState<{ x: number; y: number; below: boolean; host: Element } | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

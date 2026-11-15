@@ -301,6 +301,8 @@ export default function Home() {
       // has images and no captions, and the next stage has nothing to read.
       if (writeSidecar && data.captioned > 0) setCaptionedFolder(folder);
     } catch (err) {
+      // Like a result, a stale run's failure must not land in another tab.
+      if (run !== folderRun.current || modeRef.current !== "folder") return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);

@@ -105,7 +105,10 @@ export default function ProofPage() {
     setLoading(true);
     setError(null);
     try {
-      setReport(await getReport(runId, signal));
+      const fresh = await getReport(runId, signal);
+      setReport(fresh);
+      // A reload is the server's latest word: an older applied review must not shadow it.
+      setReviewed(null);
     } catch (err) {
       if (signal?.aborted) return; // superseded by a newer selection
       setError(err instanceof Error ? err.message : "Failed to load report");

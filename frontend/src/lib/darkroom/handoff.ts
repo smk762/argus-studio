@@ -31,6 +31,8 @@ export interface DarkroomHandoff {
 const SHA = /^[0-9a-f]{64}$/;
 const sha = (v: string | null | undefined): string | null => (v && SHA.test(v.toLowerCase()) ? v.toLowerCase() : null);
 const weightOf = (v: string | null | undefined): number => {
+  // Number("") is 0: a blank weight means the default, not a LoRA switched off.
+  if (v == null || v.trim() === "") return 1;
   const n = Number(v);
   return Number.isFinite(n) ? Math.min(Math.max(n, -4), 4) : 1;
 };

@@ -44,6 +44,11 @@ describe("handoff URL", () => {
     expect(h?.checkpoint).toEqual({ name: "a", sha256: null });
     expect(h?.loras).toEqual([{ name: "l", sha256: null, weight: 1 }]);
   });
+
+  it("reads a blank weight as the default, not 0", () => {
+    const h = parseHandoff(new URLSearchParams("lora=l&lora_weight=&lora=m&lora_weight=%20"));
+    expect(h?.loras.map((l) => l.weight)).toEqual([1, 1]);
+  });
 });
 
 describe("a malformed manifest", () => {
