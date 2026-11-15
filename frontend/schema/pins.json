@@ -24,8 +24,8 @@
   "proof": {
     "repo": "smk762/argus-proof",
     "branch": "dev",
-    "commit": "87fe6b4c75d266b8e4fffff793cc2d93d37b55f2",
-    "version": "0.2.3.dev16+g87fe6b4",
-    "sha256": "10251be19b5a73ecb6fe9abe5fdeee6a999790722a91e0f3fa1d3221774320ee"
+    "commit": "1c009405d1d5bee8a3ba4b3a52f3991c24f12a50",
+    "version": "0.3.0",
+    "sha256": "d42d296467e291215b44dab8eabf9ca8c075cbfa4fd8d5ee4f0c2d255b11a3cc"
   }
 }

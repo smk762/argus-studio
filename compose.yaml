@@ -329,7 +329,7 @@ services:
     # Default: pull the published image (baked EXTRAS=server,cli). For the full
     # scorer stack (PROOF_EXTRAS=server,cli,score) build via compose.build.yaml.
     # Demo-safe: live GPU eval (POST /run/stream) 403s by default (argus-halo#7).
-    image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-0.2.2}
+    image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-0.3.0}
     ports:
       - "${PROOF_PORT:-8104}:8104"
     environment:

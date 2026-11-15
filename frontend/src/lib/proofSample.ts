@@ -21,6 +21,7 @@ export const DEMO_REPORT: EvalReport = {
       reject_reasons: [],
       passed: true,
       duplicate_group: 0,
+      refinement: null,
     },
     {
       image_id: "proof-e10-w0.8-s2",
@@ -31,6 +32,7 @@ export const DEMO_REPORT: EvalReport = {
       reject_reasons: [],
       passed: true,
       duplicate_group: 1,
+      refinement: null,
     },
     {
       image_id: "proof-e10-w1.0-s1",
@@ -41,6 +43,7 @@ export const DEMO_REPORT: EvalReport = {
       reject_reasons: [],
       passed: null,
       duplicate_group: 2,
+      refinement: null,
     },
     {
       image_id: "proof-e10-w1.0-s2",
@@ -51,6 +54,7 @@ export const DEMO_REPORT: EvalReport = {
       reject_reasons: [],
       passed: null,
       duplicate_group: 2,
+      refinement: null,
     },
     {
       image_id: "proof-e6-w0.8-s1",
@@ -61,6 +65,7 @@ export const DEMO_REPORT: EvalReport = {
       reject_reasons: [],
       passed: null,
       duplicate_group: 3,
+      refinement: null,
     },
     {
       image_id: "proof-e6-w1.0-s1",
@@ -71,6 +76,7 @@ export const DEMO_REPORT: EvalReport = {
       reject_reasons: [{ code: "identity_mismatch", note: "auto: identity below floor" }],
       passed: false,
       duplicate_group: 4,
+      refinement: null,
     },
     {
       image_id: "proof-e14-w1.0-s1",
@@ -81,6 +87,7 @@ export const DEMO_REPORT: EvalReport = {
       reject_reasons: [],
       passed: null,
       duplicate_group: 5,
+      refinement: null,
     },
     {
       image_id: "proof-e14-w1.0-s2",
@@ -91,6 +98,7 @@ export const DEMO_REPORT: EvalReport = {
       reject_reasons: [],
       passed: null,
       duplicate_group: 6,
+      refinement: null,
     },
   ],
   aggregate: {

@@ -66,7 +66,7 @@ Override one with its `*_TAG` var in `.env` (see `.env.example`):
 | argus-lens | `LENS_TAG` | `0.11.0` |
 | argus-quarry | `QUARRY_TAG` | `0.4.0` |
 | argus-forge | `FORGE_TAG` | `0.2.0` (`0.2.0-train` adds the trainer stack) |
-| argus-proof | `PROOF_TAG` | `0.2.2` |
+| argus-proof | `PROOF_TAG` | `0.3.0` |
 | argus-atlas | `ATLAS_TAG` | `0.3.1` |
 | argus-darkroom | `DARKROOM_TAG` | `0.2.0` |
 | argus-survey | `SURVEY_TAG` | `0.1.1` |
