@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   allowsEval,
+  allowsPurge,
   getProofHealth,
   getReport,
   getReportManifest,
@@ -14,7 +15,7 @@ import {
   type ReportManifest,
   type ReportSummary,
 } from "@/lib/proofApi";
-import { type Capability } from "@/lib/capabilities";
+import { permits, type Capability } from "@/lib/capabilities";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { proofLive } from "@/lib/curatorEnv";
 import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
@@ -27,6 +28,7 @@ import { StageHandoff } from "@/components/StageHandoff";
 import { ExternalLink } from "@/components/ExternalLink";
 import { MadeWith } from "@/components/MadeWith";
 import { darkroomHandoffHref } from "@/lib/darkroom/handoff";
+import { PurgeRuns } from "@/components/proof/PurgeRuns";
 
 function verdictDot(s: ReportSummary): string {
   if (s.passed) return "bg-accent-green";
@@ -150,6 +152,25 @@ export default function ProofPage() {
 
   // A finished evaluation run: refresh the run browser and land on the new
   // scored report for HITL review.
+  // A devmode purge (#229): re-read the list, and leave a run that no longer exists.
+  const onPurged = useCallback(
+    async (removed: string | null) => {
+      let next: ReportSummary[] = [];
+      try {
+        next = await listReports();
+      } catch {
+        // the list refresh is best-effort; the deleted run is dropped below regardless
+        next = summaries.filter((s) => removed !== null && s.run_id !== removed);
+      }
+      setSummaries(next);
+      if (removed === null || removed === selected) {
+        setReport(null);
+        setSelected(next[0]?.run_id ?? null);
+      }
+    },
+    [summaries, selected],
+  );
+
   const onRunComplete = useCallback(async (runId: string) => {
     try {
       setSummaries(await listReports());
@@ -231,6 +252,7 @@ export default function ProofPage() {
                   </span>
                 </button>
               ))}
+              {live && permits(allowsPurge(health)) && <PurgeRuns selected={selected} onPurged={(r) => void onPurged(r)} />}
             </aside>
 
             {/* Selected report */}
