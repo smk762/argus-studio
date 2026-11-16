@@ -4,6 +4,12 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- **Compose defaults to argus-lens 0.13.0 and argus-curator 0.16.0** (`0.16.0-gpu` under `compose.gpu.yaml`). Both are on argus-cortex 0.6 and can lease the GPU from argus-iris, the suite's GPU broker. The curator wire pin stays where the daily `wire-drift` check holds it.
+- **The argus-iris GPU broker.** Compose passes `ARGUS_GPU_BROKER_URL`, `ARGUS_GPU_BROKER_TOKEN`, `ARGUS_GPU_BROKER_FALLBACK` and each image's `ARGUS_GPU_TENANT_MANIFEST` to lens and curator, so `ARGUS_GPU_COORDINATOR=broker` in `.env` switches them to iris, with the lock file as the fallback. Lens also gets `ARGUS_ADMIN_TOKEN`, so iris can unload its model. `.env.example` shows them, with the URL as an IP (containers do not resolve LAN host names).
+- Compose passes `LENS_TRUSTED_HOSTS` and `CURATOR_TRUSTED_HOSTS`: argus-cortex 0.6 refuses a same-host write by DNS name unless the host is named.
+
 ## [0.5.0] - 2026-11-15
 
 ### Added
