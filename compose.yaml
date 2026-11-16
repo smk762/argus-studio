@@ -366,7 +366,7 @@ services:
     # Default: pull the published image (baked EXTRAS=server,cli). For the full
     # scorer stack (PROOF_EXTRAS=server,cli,score) build via compose.build.yaml.
     # Demo-safe: live GPU eval (POST /run/stream) 403s by default (argus-halo#7).
-    image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-0.3.0}
+    image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-0.4.0}
     ports:
       - "${PROOF_PORT:-8104}:8104"
     environment:
@@ -391,6 +391,20 @@ services:
       # Two roots (PATH-style) mirror ComfyUI's main + extra_model_paths trees;
       # with MODELS_EXTRA_DIR unset both point at the same tree (harmless).
       PROOF_MODELS_DIR: /data/models:/data/models-extra
+      # Safety scoring (proof 0.4.0+): the suite's shared NudeNet 640m, argus-retina,
+      # published on the compose host at :8130. An exposed score of at least 0.2 is
+      # unsafe, and the report names the detector. Set it empty to skip safety.
+      PROOF_NUDENET_URL: ${PROOF_NUDENET_URL-http://host.docker.internal:8130}
+      # GPU leases (proof 0.4.0+), as lens and curator take them: one batch lease
+      # per run, given back between seeds. ARGUS_GPU_COORDINATOR=broker asks
+      # argus-iris; the lock file is the fallback.
+      ARGUS_GPU_COORDINATOR: ${ARGUS_GPU_COORDINATOR:-none}
+      ARGUS_GPU_LEASE_PATH: /run/argus-gpu/argus-gpu.lock
+      ARGUS_GPU_LEASE_TIMEOUT_S: ${ARGUS_GPU_LEASE_TIMEOUT_S:-300}
+      ARGUS_GPU_BROKER_URL: ${ARGUS_GPU_BROKER_URL:-}
+      ARGUS_GPU_BROKER_TOKEN: ${ARGUS_GPU_BROKER_TOKEN:-}
+      ARGUS_GPU_TENANT_MANIFEST: ${ARGUS_GPU_TENANT_MANIFEST:-/app/gpu-tenant.yaml}
+      ARGUS_GPU_BROKER_FALLBACK: ${ARGUS_GPU_BROKER_FALLBACK:-lease}
     volumes:
       # ro: proof only reads the curated source images (score references).
       - ${DATASET_DIR:-./data}:/data/images:ro
@@ -403,8 +417,9 @@ services:
       # uses extra_model_paths, MODELS_EXTRA_DIR) at them in .env.
       - ${MODELS_DIR:-./models}:/data/models:ro
       - ${MODELS_EXTRA_DIR:-${MODELS_DIR:-./models}}:/data/models-extra:ro
+      - ${ARGUS_GPU_LOCK_DIR:-/tmp/argus-gpu}:/run/argus-gpu
     extra_hosts:
-      # Reach a ComfyUI running on the compose host at host.docker.internal.
+      # Reach a ComfyUI (and retina's NudeNet) on the compose host at host.docker.internal.
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
