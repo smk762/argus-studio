@@ -102,7 +102,7 @@ services:
     profiles: ["lens", "full"]
     # Default: pull the published standalone image (baked EXTRAS=server,local).
     # For a source build (or a different LENS_EXTRAS) add compose.build.yaml.
-    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.12.0}
+    image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.13.0}
     ports:
       - "${LENS_PORT:-8100}:8100"
     environment:
@@ -123,6 +123,9 @@ services:
       # Browser origins allowed to call lens. Empty means localhost:3000 only
       # (lens 0.11+), and a write from any other origin gets a 403.
       - LENS_CORS_ORIGINS=${LENS_CORS_ORIGINS:-}
+      # Host names (no port) lens is reached by, for a page served from lens's
+      # own host:port (argus-cortex 0.6 refuses a same-host write by DNS name).
+      - LENS_TRUSTED_HOSTS=${LENS_TRUSTED_HOSTS:-}
       # Optional Immich integration (caption page "Immich" mode + pull-to-dataset).
       # Leave unset to disable; lens's /immich/* endpoints then return 503.
       - IMMICH_URL=${IMMICH_URL:-}
@@ -168,6 +171,17 @@ services:
       # curator must name the same lock file, in the same host directory below.
       - ARGUS_GPU_LEASE_PATH=/run/argus-gpu/argus-gpu.lock
       - ARGUS_GPU_LEASE_TIMEOUT_S=${ARGUS_GPU_LEASE_TIMEOUT_S:-300}
+      # ARGUS_GPU_COORDINATOR=broker asks argus-iris, the suite's GPU broker,
+      # which queues by priority and makes room across nodes; the lease above
+      # is its fallback while iris is down. The URL is an IP (the container does
+      # not resolve LAN host names); the token is the suite's caller token.
+      - ARGUS_GPU_BROKER_URL=${ARGUS_GPU_BROKER_URL:-}
+      - ARGUS_GPU_BROKER_TOKEN=${ARGUS_GPU_BROKER_TOKEN:-}
+      - ARGUS_GPU_TENANT_MANIFEST=${ARGUS_GPU_TENANT_MANIFEST:-/app/gpu-tenant.yaml}
+      - ARGUS_GPU_BROKER_FALLBACK=${ARGUS_GPU_BROKER_FALLBACK:-lease}
+      # iris unloads lens's model through POST /admin/unload (lens 0.13+),
+      # behind this token when it is set.
+      - ARGUS_ADMIN_TOKEN=${ARGUS_ADMIN_TOKEN:-}
     volumes:
       - ${ARGUS_GPU_LOCK_DIR:-/tmp/argus-gpu}:/run/argus-gpu
       # Shared dataset (RW so lens can write caption sidecars next to source images).
@@ -218,7 +232,7 @@ services:
     # export flow hands off to it. /forge itself works without the curator —
     # point it at any export dir under the shared root.
     profiles: ["curator", "forge", "full"]
-    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.15.1}
+    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.16.0}
     ports:
       - "${CURATOR_PORT:-8101}:8101"
     environment:
@@ -235,6 +249,9 @@ services:
       #   CURATOR_CORS_ORIGINS=http://localhost:3000,http://203.0.113.10:3000
       # (The argus-halo demo is same-origin behind Caddy and never needs this.)
       - CURATOR_CORS_ORIGINS=${CURATOR_CORS_ORIGINS:-http://localhost:3000}
+      # Host names (no port) curator is reached by, for a page served from its
+      # own host:port (argus-cortex 0.6 refuses a same-host write by DNS name).
+      - CURATOR_TRUSTED_HOSTS=${CURATOR_TRUSTED_HOSTS:-}
       # Destructive mode="move" is rejected unless enabled here. Left off so the
       # demo can't relocate source images; the ExportPanel disables the option
       # to match. Uncomment to permit it.
@@ -280,6 +297,14 @@ services:
       - ARGUS_GPU_COORDINATOR=${ARGUS_GPU_COORDINATOR:-none}
       - ARGUS_GPU_LEASE_PATH=/run/argus-gpu/argus-gpu.lock
       - ARGUS_GPU_LEASE_TIMEOUT_S=${ARGUS_GPU_LEASE_TIMEOUT_S:-300}
+      # ARGUS_GPU_COORDINATOR=broker asks argus-iris, the suite's GPU broker,
+      # which queues by priority and makes room across nodes; the lease above
+      # is its fallback while iris is down. The URL is an IP (the container does
+      # not resolve LAN host names); the token is the suite's caller token.
+      - ARGUS_GPU_BROKER_URL=${ARGUS_GPU_BROKER_URL:-}
+      - ARGUS_GPU_BROKER_TOKEN=${ARGUS_GPU_BROKER_TOKEN:-}
+      - ARGUS_GPU_TENANT_MANIFEST=${ARGUS_GPU_TENANT_MANIFEST:-/app/gpu-tenant.yaml}
+      - ARGUS_GPU_BROKER_FALLBACK=${ARGUS_GPU_BROKER_FALLBACK:-lease}
     volumes:
       - ${ARGUS_GPU_LOCK_DIR:-/tmp/argus-gpu}:/run/argus-gpu
       - ${DATASET_DIR:-./data}:/data/images
