@@ -6,6 +6,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Changed
 
+- **Compose defaults to argus-proof 0.4.0, with safety scoring on.** Proof's `PROOF_NUDENET_URL` defaults to `http://host.docker.internal:8130`, argus-retina's shared NudeNet 640m on the compose host (an exposed score of at least 0.2 is unsafe; the report names the detector); set it empty to skip safety. Proof also gets the `ARGUS_GPU_*` variables and the lock mount lens and curator have, so `ARGUS_GPU_COORDINATOR=broker` moves its runs onto argus-iris too.
+
 - **Compose defaults to argus-lens 0.13.0 and argus-curator 0.16.0** (`0.16.0-gpu` under `compose.gpu.yaml`). Both are on argus-cortex 0.6 and can lease the GPU from argus-iris, the suite's GPU broker. The curator wire pin stays where the daily `wire-drift` check holds it.
 - **The argus-iris GPU broker.** Compose passes `ARGUS_GPU_BROKER_URL`, `ARGUS_GPU_BROKER_TOKEN`, `ARGUS_GPU_BROKER_FALLBACK` and each image's `ARGUS_GPU_TENANT_MANIFEST` to lens and curator, so `ARGUS_GPU_COORDINATOR=broker` in `.env` switches them to iris, with the lock file as the fallback. Lens also gets `ARGUS_ADMIN_TOKEN`, so iris can unload its model. `.env.example` shows them, with the URL as an IP (containers do not resolve LAN host names).
 - Compose passes `LENS_TRUSTED_HOSTS` and `CURATOR_TRUSTED_HOSTS`: argus-cortex 0.6 refuses a same-host write by DNS name unless the host is named.
