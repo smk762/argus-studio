@@ -1,4 +1,4 @@
-// Generated from smk762/argus-proof@1c00940 (0.3.0) schema/proof-wire.schema.json.
+// Generated from smk762/argus-proof@c98b1dd (0.4.1.dev6+gc98b1dd) schema/proof-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 /**
@@ -52,8 +52,9 @@ export interface ProofWire {
  * ``min_pass_rate_ci_lower`` is the stricter, small-N-safe version of
  * ``min_pass_rate`` — the Wilson lower bound must clear it, so a lucky 3/3
  * doesn't pass a bar that 300/400 would. ``max_unsafe_rate`` counts an image
- * unsafe when its ``safety`` metric is below ``unsafe_safety_floor`` or it
- * carries an ``unsafe`` reject reason.
+ * unsafe when its ``safety`` metric is at or below ``unsafe_safety_floor`` or
+ * it carries an ``unsafe`` reject reason. The default 0.8 is an exposed score
+ * of at least 0.2 on NudeNet 640m (``safety.UNSAFE_SAFETY_FLOOR``, #84).
  */
 export interface AcceptanceThresholds {
   confidence?: number;
@@ -330,10 +331,12 @@ export interface GridConfig {
   seeds: [number, ...number[]];
   source_manifest?: string | null;
   source_manifest_version?: string | null;
+  text_encoders?: string[];
   token_axes?: {
     [k: string]: string[];
   };
   training_run_id?: string | null;
+  vae?: string | null;
 }
 /**
  * The sampler knobs that, with the seed-set, make a run reproducible.
@@ -383,6 +386,10 @@ export interface GridPlan {
  * ``seeds`` is the seed strategy made concrete — one fixed seed for a
  * within-checkpoint sweep, or a fixed seed-set (so seed luck averages out) for
  * a cross-checkpoint comparison. One image is produced per seed.
+ *
+ * ``text_encoders`` fill a template's ``$text_encoder`` / ``$text_encoder_2`` …
+ * slots in order (Flux: T5, then CLIP-L); the slots and the list must match one
+ * for one, like LoRAs.
  */
 export interface RunSpec {
   base_checkpoint: string;
@@ -397,6 +404,7 @@ export interface RunSpec {
   seeds: [number, ...number[]];
   source_manifest?: string | null;
   source_manifest_version?: string | null;
+  text_encoders?: string[];
   training_run_id?: string | null;
   vae?: string | null;
 }
@@ -500,6 +508,7 @@ export interface RunManifest {
   seeds: [number, ...number[]];
   source_manifest: string | null;
   source_manifest_version: string | null;
+  text_encoders: ModelRef[];
   training_run_id: string | null;
   vae: ModelRef | null;
 }
