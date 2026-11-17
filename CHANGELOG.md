@@ -6,6 +6,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Changed
 
+- **CLAUDE.md states what must never happen and what enforces each rule** (#255). New checks: ESLint refuses a literal `process.env.NAME`, a runtime-config accessor called at module scope and an HTML string written to the DOM; `writeGateCoverage.test.ts` finds every non-GET fetcher in `lib/*Api.ts` and fails one that runs no capability guard; `repoRules.test.ts` holds that only `compose.train.yaml` arms training, the release image takes no build-time config, `next.config.ts` pins no headers and dev mode reaches only the policy list.
+
 - **Compose defaults to argus-proof 0.4.0, with safety scoring on.** Proof's `PROOF_NUDENET_URL` defaults to `http://host.docker.internal:8130`, argus-retina's shared NudeNet 640m on the compose host (an exposed score of at least 0.2 is unsafe; the report names the detector); set it empty to skip safety. Proof also gets the `ARGUS_GPU_*` variables and the lock mount lens and curator have, so `ARGUS_GPU_COORDINATOR=broker` moves its runs onto argus-iris too.
 
 - **Compose defaults to argus-lens 0.13.0 and argus-curator 0.16.0** (`0.16.0-gpu` under `compose.gpu.yaml`). Both are on argus-cortex 0.6 and can lease the GPU from argus-iris, the suite's GPU broker. The curator wire pin stays where the daily `wire-drift` check holds it.
