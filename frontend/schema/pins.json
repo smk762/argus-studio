@@ -27,5 +27,14 @@
     "commit": "1c009405d1d5bee8a3ba4b3a52f3991c24f12a50",
     "version": "0.3.0",
     "sha256": "d42d296467e291215b44dab8eabf9ca8c075cbfa4fd8d5ee4f0c2d255b11a3cc"
+  },
+  "forge-parity": {
+    "repo": "smk762/argus-forge",
+    "branch": "dev",
+    "kind": "fixture",
+    "path": "schema/forge-parity.json",
+    "commit": "d729a209c0e7c4aabc09fdfb822f5890b0b24723",
+    "version": "0.2.1.dev19+gd729a20",
+    "sha256": "f56517f899f0ce669eb1ad6d064d19e5dd6b233b4f864b900c4d79e55d0485ac"
   }
 }
