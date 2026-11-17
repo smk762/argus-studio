@@ -2,8 +2,8 @@
   "cortex": {
     "repo": "smk762/argus-cortex",
     "branch": "dev",
-    "commit": "e74048ba27ed770ffae0bbc24ec7796abf96d08e",
-    "version": "0.5.1.dev44+ge74048b",
+    "commit": "6bdc1082cf9dc2c8827deaa767a7ad0493e5a2f7",
+    "version": "0.9.1.dev2+g6bdc108",
     "path": "taxonomy-schema.json",
     "sha256": "41360429bb7542230bb4e64ad3f94043b521a2eebcdb4b2e723e5fdaab861966"
   },
@@ -17,24 +17,24 @@
   "forge": {
     "repo": "smk762/argus-forge",
     "branch": "dev",
-    "commit": "093ab0df69a6839bd08f45c4745add41253b2201",
-    "version": "0.2.1.dev9+g093ab0d",
+    "commit": "8b8116c1f572e3320f14fed5f5d7cbfbe599da12",
+    "version": "0.2.1.dev21+g8b8116c",
     "sha256": "6ad334e451f0e873809e58b3ee1a08027310ba4beb474fa469989ef276e3bc05"
   },
   "proof": {
     "repo": "smk762/argus-proof",
     "branch": "dev",
-    "commit": "1c009405d1d5bee8a3ba4b3a52f3991c24f12a50",
-    "version": "0.3.0",
-    "sha256": "d42d296467e291215b44dab8eabf9ca8c075cbfa4fd8d5ee4f0c2d255b11a3cc"
+    "commit": "c98b1dd332e9af6a5001bbdaac7c8c5857e36b3e",
+    "version": "0.4.1.dev6+gc98b1dd",
+    "sha256": "18c5114ede138fc0de94e003a6529c587c20b2b86dbf22edb742a6e270bb1129"
   },
   "forge-parity": {
     "repo": "smk762/argus-forge",
     "branch": "dev",
     "kind": "fixture",
     "path": "schema/forge-parity.json",
-    "commit": "d729a209c0e7c4aabc09fdfb822f5890b0b24723",
-    "version": "0.2.1.dev19+gd729a20",
+    "commit": "8b8116c1f572e3320f14fed5f5d7cbfbe599da12",
+    "version": "0.2.1.dev21+g8b8116c",
     "sha256": "f56517f899f0ce669eb1ad6d064d19e5dd6b233b4f864b900c4d79e55d0485ac"
   }
 }

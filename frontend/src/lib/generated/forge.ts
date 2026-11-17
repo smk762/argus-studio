@@ -1,4 +1,4 @@
-// Generated from smk762/argus-forge@093ab0d (0.2.1.dev9+g093ab0d) schema/forge-wire.schema.json.
+// Generated from smk762/argus-forge@8b8116c (0.2.1.dev21+g8b8116c) schema/forge-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface ForgeWire {
