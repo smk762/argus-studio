@@ -144,7 +144,7 @@ jobs:
           MOVED: ${{ steps.compare.outputs.moved }}
         run: |
           summary=$(jq -r 'to_entries[] | "- \(.value.repo) \(.value.version) @ \(.value.commit[0:7])"' schema/pins.json)
-          changed=$(git diff --name-only -- schema/*.schema.json schema/taxonomy-schema.json | xargs -r -n1 basename | tr '\n' ' ')
+          changed=$(git diff --name-only -- schema/*.schema.json schema/taxonomy-schema.json schema/forge-parity.json | xargs -r -n1 basename | tr '\n' ' ')
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C "$BRANCH"
@@ -175,6 +175,7 @@ jobs:
           body="Pulling the wire schemas at \`dev\` HEAD (moved: $MOVED) breaks wire:check, lint, typecheck or the tests. Run: $RUN
 
           - If typecheck or a wire test fails, Studio's code has to follow a schema change: reproduce with \`npm run wire:pull -- $MOVED\` in frontend/ and fix what it reports.
+          - If \`src/components/curator/forgeParity.test.ts\` fails, argus-forge changed its training heuristics or kohya emitter: port the change into \`types.ts\` / \`forgeDemo.ts\` (\`schema/forge-parity.json\` shows forge's new answers).
           - If only \`src/lib/demoRecordings.test.ts\` fails, the package's recorded demo sample must move with its pin (schema/demo.json): re-record it at the new commit (needs the GPU; see public/curator-sample/PROVENANCE.md and scripts/record_curator_demo.py), then pull the pin in the same PR."
           number=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
           if [ -n "$number" ]; then

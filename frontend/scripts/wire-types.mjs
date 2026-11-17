@@ -5,7 +5,10 @@
 // A pin is the service's `dev` commit, its version there and the file's sha256:
 // Studio follows each package's dev HEAD, not a release (argus-studio#170). A
 // pin whose file lives elsewhere names it in `path` (argus-cortex's
-// taxonomy-schema.json); the local copy keeps that file's basename.
+// taxonomy-schema.json); the local copy keeps that file's basename. A pin with
+// `"kind": "fixture"` is a data file, not a schema: it is pulled and
+// sha-checked like the others but generates no types (argus-forge's
+// forge-parity.json, which src/components/curator/forgeParity.test.ts reads).
 //
 //   node scripts/wire-types.mjs                 regenerate from the committed schemas
 //   node scripts/wire-types.mjs --check         fail on drift; reads no network or sibling repo
@@ -120,6 +123,7 @@ async function main() {
       problems.push(`schema/${basename(remotePath(service, pin))} is not the file pinned at ${pinLabel(pin)}`);
       continue;
     }
+    if (pin.kind === "fixture") continue;
     const generated = await generate(service, pin, text);
     if (mode !== "--check") {
       await mkdir(dirname(outputPath(service)), { recursive: true });

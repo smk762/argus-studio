@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 import { releaseOf, versionFrom } from "../../scripts/release-version.mjs";
 
 // schema/pins.json: each wire schema follows its package's dev HEAD (argus-studio#170).
-const pins: Record<string, { repo: string; branch: string; commit: string; version: string; sha256: string }> = JSON.parse(
+const pins: Record<
+  string,
+  { repo: string; branch: string; commit: string; version: string; sha256: string; kind?: "fixture" }
+> = JSON.parse(
   readFileSync(join(__dirname, "..", "..", "schema", "pins.json"), "utf8"),
 );
 
@@ -18,6 +21,7 @@ describe("wire pins", () => {
     const local = pin.version.match(/^\d+\.\d+\.\d+(?:\.dev\d+\+g([0-9a-f]+))?$/);
     expect(local, `${service} version ${pin.version}`).not.toBeNull();
     if (local![1]) expect(pin.commit.startsWith(local![1])).toBe(true);
+    if (pin.kind === "fixture") return; // a data file: pulled and sha-checked, no generated types
     const generated = readFileSync(join(__dirname, "generated", `${service}.ts`), "utf8");
     expect(generated.split("\n")[0]).toContain(`${pin.repo}@${pin.commit.slice(0, 7)} (${pin.version})`);
   });

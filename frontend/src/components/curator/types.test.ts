@@ -7,9 +7,10 @@ import {
   suggestTrainingParams,
 } from "./types";
 
-// Pinned against argus-forge v0.2.0 heuristics.py (suggest_training_params /
-// dataset_size_status), which ports these line for line. A change here needs
-// the same change there, or forge writes configs the /curate panel didn't show.
+// Readable spot checks for the concept category. forgeParity.test.ts is what
+// keeps these tables equal to argus-forge's heuristics.py (the whole grid, from
+// forge's pinned schema/forge-parity.json): a change here needs the same change
+// there, or forge writes configs the /curate panel didn't show.
 describe("concept target category (argus-forge 0.2.0 parity)", () => {
   it("is offered alongside the other four", () => {
     expect(TARGET_CATEGORIES).toEqual(["identity", "wardrobe", "pose_composition", "setting", "concept"]);
