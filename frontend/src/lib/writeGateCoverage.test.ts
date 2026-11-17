@@ -29,18 +29,22 @@ const UNGATED: Record<string, string> = {
 interface Fn {
   name: string;
   body: ts.Node;
+  /** The declared type of each parameter, as written. */
+  params: string[];
 }
+
+const paramTypes = (fn: ts.SignatureDeclaration) => fn.parameters.map((p) => p.type?.getText() ?? "");
 
 function topLevelFunctions(source: ts.SourceFile): Fn[] {
   const fns: Fn[] = [];
   for (const stmt of source.statements) {
     if (ts.isFunctionDeclaration(stmt) && stmt.name && stmt.body) {
-      fns.push({ name: stmt.name.text, body: stmt.body });
+      fns.push({ name: stmt.name.text, body: stmt.body, params: paramTypes(stmt) });
     } else if (ts.isVariableStatement(stmt)) {
       for (const d of stmt.declarationList.declarations) {
         const init = d.initializer;
         if (ts.isIdentifier(d.name) && init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))) {
-          fns.push({ name: d.name.text, body: init.body });
+          fns.push({ name: d.name.text, body: init.body, params: paramTypes(init) });
         }
       }
     }
@@ -80,9 +84,33 @@ function isWrite(call: ts.CallExpression): boolean {
   return false;
 }
 
+/** The literal method of a write, or null when it is not a literal. */
+function methodOf(call: ts.CallExpression): string | null {
+  const init = call.arguments[1];
+  if (!init || !ts.isObjectLiteralExpression(init)) return null;
+  for (const prop of init.properties) {
+    if (ts.isPropertyAssignment(prop) && prop.name.getText() === "method" && ts.isStringLiteral(prop.initializer)) {
+      return prop.initializer.text.toUpperCase();
+    }
+  }
+  return null;
+}
+
+/**
+ * A write that removes something: a DELETE, a URL with a `/purge` or `/delete`
+ * segment, or a function named for it (the purge helpers take their path as an
+ * argument, so only the name says what they do).
+ */
+function isDestructive(fn: Fn, writes: ts.CallExpression[]): boolean {
+  if (/purge|delete|remove/i.test(fn.name)) return true;
+  return writes.some((w) => methodOf(w) === "DELETE" || /\/(purge|delete)\b/.test(w.arguments[0]?.getText() ?? ""));
+}
+
 interface Writer {
   key: string;
   gated: boolean;
+  /** Null for a write that removes nothing; otherwise whether it spends a confirmation first. */
+  confirmed: boolean | null;
 }
 
 function writersIn(file: string, text: string): Writer[] {
@@ -112,7 +140,9 @@ function writersIn(file: string, text: string): Writer[] {
     if (!writes.length) continue;
     const firstWrite = Math.min(...writes.map((w) => w.getStart()));
     const gated = all.some((c) => guards.has(calleeName(c) ?? "") && c.getStart() < firstWrite);
-    writers.push({ key: `${file} ${fn.name}`, gated });
+    const spends = all.some((c) => calleeName(c) === "spendConfirmation" && c.getStart() < firstWrite);
+    const confirmed = isDestructive(fn, writes) ? spends && fn.params.includes("Confirmed") : null;
+    writers.push({ key: `${file} ${fn.name}`, gated, confirmed });
   }
   return writers;
 }
@@ -137,6 +167,22 @@ describe("write gate coverage", () => {
     expect(ungated).toEqual([]);
   });
 
+  it("every fetcher that deletes takes the user's confirmation and spends it before its fetch (#262)", () => {
+    const destructive = writers.filter((w) => w.confirmed !== null);
+    // curator: a cached scan, scan images, every scan. darkroom: an image, the purges. proof: the purges.
+    expect(destructive.map((w) => w.key)).toEqual(
+      expect.arrayContaining([
+        "curatorApi.ts deleteCachedScan",
+        "curatorApi.ts deleteScanImages",
+        "curatorApi.ts purgeScans",
+        "darkroomApi.ts removeImage",
+        "darkroomApi.ts postPurge",
+        "proofApi.ts postPurge",
+      ]),
+    );
+    expect(destructive.filter((w) => !w.confirmed).map((w) => w.key)).toEqual([]);
+  });
+
   it("lists no exemption for a fetcher that is gated or gone", () => {
     const live = new Set(writers.filter((w) => !w.gated).map((w) => w.key));
     expect(Object.keys(UNGATED).filter((k) => !live.has(k))).toEqual([]);
@@ -155,12 +201,31 @@ describe("write gate coverage", () => {
       export async function plainGet() { return fetch(u, { method: "GET" }); }
     `;
     expect(writersIn("x.ts", sample)).toEqual([
-      { key: "x.ts gated", gated: true },
-      { key: "x.ts late", gated: false },
-      { key: "x.ts bare", gated: false },
-      { key: "x.ts byName", gated: false },
-      { key: "x.ts spread", gated: false },
-      { key: "x.ts arrow", gated: false },
+      { key: "x.ts gated", gated: true, confirmed: false },
+      { key: "x.ts late", gated: false, confirmed: null },
+      { key: "x.ts bare", gated: false, confirmed: null },
+      { key: "x.ts byName", gated: false, confirmed: null },
+      { key: "x.ts spread", gated: false, confirmed: null },
+      { key: "x.ts arrow", gated: false, confirmed: null },
+    ]);
+  });
+
+  it("tells a confirmed delete from one that only looks it", () => {
+    const sample = `
+      export async function dropIt(id: string, confirmed: Confirmed) { spendConfirmation(confirmed); await requireCapability(m, a, "no"); return fetch(u, { method: "DELETE" }); }
+      export async function unasked(id: string) { await requireCapability(m, a, "no"); return fetch(u, { method: "DELETE" }); }
+      export async function unspent(id: string, confirmed: Confirmed) { await requireCapability(m, a, "no"); return fetch(u, { method: "DELETE" }); }
+      export async function tooLate(id: string, confirmed: Confirmed) { const r = await fetch(\`\${base()}/purge/\${id}\`, { method: "POST" }); spendConfirmation(confirmed); return r; }
+      export async function purgeThings(path: string) { return fetch(base() + path, { method: "POST" }); }
+      export async function save(body: string) { return fetch(u, { method: "POST", body }); }
+    `;
+    expect(writersIn("x.ts", sample).map((w) => [w.key, w.confirmed])).toEqual([
+      ["x.ts dropIt", true],
+      ["x.ts unasked", false],
+      ["x.ts unspent", false],
+      ["x.ts tooLate", false],
+      ["x.ts purgeThings", false],
+      ["x.ts save", null],
     ]);
   });
 });

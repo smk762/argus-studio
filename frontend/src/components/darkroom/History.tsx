@@ -7,6 +7,7 @@ import { REASON_WORDS, matchesRule, promptChangedVerdict, reasonParts, recordRul
 import { ago, formatWhen } from "@/lib/darkroom/time";
 import { allowsDarkroomPurge, OUTCOMES, purgeAll, type GenerationRecord, type Mode, type Outcome } from "@/lib/darkroomApi";
 import { permits } from "@/lib/capabilities";
+import { confirmedBy, type Confirmed } from "@/lib/confirmed";
 import { useLoad } from "@/lib/darkroom/useLoad";
 
 import { Info, Tooltip } from "@/components/Tooltip";
@@ -34,11 +35,11 @@ function PurgeAll({ onPurged }: { onPurged: () => void }) {
   const [purging, setPurging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const purge = async () => {
+  const purge = async (confirmed: Confirmed) => {
     setPurging(true);
     setError(null);
     try {
-      await purgeAll();
+      await purgeAll(confirmed);
       setConfirming(false);
       onPurged();
     } catch (caught) {
@@ -58,7 +59,7 @@ function PurgeAll({ onPurged }: { onPurged: () => void }) {
   return (
     <span role="group" aria-label="Confirm deleting every record" className="inline-flex flex-wrap items-center gap-2 text-sm text-foreground/70">
       <span>Delete every record and image, including any the filters hide? This cannot be undone.</span>
-      <Button small tone="danger" onClick={purge} disabled={purging}>
+      <Button small tone="danger" onClick={(event) => void purge(confirmedBy(event))} disabled={purging}>
         {purging ? "Deleting…" : "Delete all for good"}
       </Button>
       <Button small onClick={() => setConfirming(false)} disabled={purging}>

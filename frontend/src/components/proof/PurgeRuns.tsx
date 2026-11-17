@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { confirmedBy, type Confirmed } from "@/lib/confirmed";
 import { purgeAllRuns, purgeRun } from "@/lib/proofApi";
 
 type Pending = { kind: "one"; runId: string } | { kind: "all" } | null;
@@ -21,13 +22,13 @@ export function PurgeRuns({ selected, onPurged }: { selected: string | null; onP
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const confirm = async () => {
+  const confirm = async (confirmed: Confirmed) => {
     if (!pending) return;
     setBusy(true);
     setError(null);
     try {
-      if (pending.kind === "one") await purgeRun(pending.runId);
-      else await purgeAllRuns();
+      if (pending.kind === "one") await purgeRun(pending.runId, confirmed);
+      else await purgeAllRuns(confirmed);
       onPurged(pending.kind === "one" ? pending.runId : null);
       setPending(null);
     } catch (caught) {
@@ -54,7 +55,7 @@ export function PurgeRuns({ selected, onPurged }: { selected: string | null; onP
             This cannot be undone.
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => void confirm()} disabled={busy} className={DANGER}>
+            <button type="button" onClick={(event) => void confirm(confirmedBy(event))} disabled={busy} className={DANGER}>
               {busy ? "Deleting…" : pending.kind === "one" ? "Delete run for good" : "Delete all for good"}
             </button>
             {/* The safe choice is the one focus lands on. */}
