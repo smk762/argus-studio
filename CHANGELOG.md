@@ -12,6 +12,17 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 - **The argus-iris GPU broker.** Compose passes `ARGUS_GPU_BROKER_URL`, `ARGUS_GPU_BROKER_TOKEN`, `ARGUS_GPU_BROKER_FALLBACK` and each image's `ARGUS_GPU_TENANT_MANIFEST` to lens and curator, so `ARGUS_GPU_COORDINATOR=broker` in `.env` switches them to iris, with the lock file as the fallback. Lens also gets `ARGUS_ADMIN_TOKEN`, so iris can unload its model. `.env.example` shows them, with the URL as an IP (containers do not resolve LAN host names).
 - Compose passes `LENS_TRUSTED_HOSTS` and `CURATOR_TRUSTED_HOSTS`: argus-cortex 0.6 refuses a same-host write by DNS name unless the host is named.
 
+### Fixed
+
+- **Eight audit findings.**
+  - `/curate`: reopening a cached scan loads every row, not only the first 10,000, so the keep-set, the export and the bulk deletes see the whole scan.
+  - `/curate`: a scan option whose detector the curator lacks (FairFace, MiVOLO ages, one-person set, body ages, scenes, garments) is switched off, not just hidden, so a stale `true` no longer goes out with the scan.
+  - `/curate`: while the ages are still coming, an exposed frame stays covered even on a set with an adult set age, and so does a frame whose nudity was not scored.
+  - `/darkroom`: a proof handoff always lands on the server's defaults, never on the placeholder form.
+  - `/darkroom`: a late pre-flight verdict no longer revives a finished, failed or cleared run.
+  - `/proof`: a refinement save that outlasts its run no longer touches the next run's edits or saving state.
+  - `scripts/bundle_atlas_demo.py` builds the bundle beside the old one and swaps it in once every job is written, and refuses an `--out` that overlaps a `--job`.
+
 ## [0.5.0] - 2026-11-15
 
 ### Added

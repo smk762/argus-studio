@@ -9,8 +9,8 @@
  * keeps its own choice for it rather than silently using something else.
  */
 
-import type { ComposeState } from "@/lib/darkroom/compose";
-import type { Models, ModelOption } from "@/lib/darkroomApi";
+import { defaultCompose, normaliseCompose, type ComposeState } from "@/lib/darkroom/compose";
+import type { Health, Models, ModelOption, Policies } from "@/lib/darkroomApi";
 
 export interface HandoffModel {
   name: string;
@@ -120,4 +120,23 @@ export function applyHandoff(state: ComposeState, handoff: DarkroomHandoff, mode
     return [{ name: hit.name, weight: l.weight, trigger_words: [...(hit.trigger_words ?? [])] }];
   });
   return { state: { ...state, checkpoint, loras: handoff.loras.length > 0 ? loras : state.loras }, applied, missing };
+}
+
+/**
+ * The form once the server's catalogue is known: its defaults, or the form as
+ * it stands when the user has already `touched` it, with a pending handoff
+ * applied on top. `touched` is a plain argument so a state updater can call
+ * this with a value read before it was queued: React may run the updater
+ * later, or twice, and a ref read inside it would have moved on by then.
+ */
+export function composeFromCatalogue(
+  current: ComposeState,
+  touched: boolean,
+  health: Health | null,
+  policies: Policies,
+  models: Models,
+  incoming: DarkroomHandoff | null,
+): ComposeState {
+  const base = touched ? current : defaultCompose(health, policies, models);
+  return normaliseCompose(incoming ? applyHandoff(base, incoming, models).state : base, policies, models);
 }

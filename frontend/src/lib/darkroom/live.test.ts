@@ -92,4 +92,12 @@ describe("live reducer", () => {
     expect(liveReducer(state, { type: "scan", scan: { policy: "default", context: "isolated", cell: safe } } as never)).toBe(state);
     expect(isRunning(liveReducer(state, { type: "queued" }))).toBe(false);
   });
+
+  // Audit pack-argus-studio-6edd014758: a late verdict is a straggler too, and must not clear a finished grid.
+  it.each(["idle", "complete", "error"] as const)("ignores a late preflight once %s", (phase) => {
+    const state: LiveState = { ...IDLE, phase, policies: ["default"], cells: { default: { isolated: safe, with_prompt: null } } };
+    const after = liveReducer(state, { type: "preflight", preflight: preflight("ok") });
+    expect(after).toBe(state);
+    expect(isRunning(after)).toBe(false);
+  });
 });

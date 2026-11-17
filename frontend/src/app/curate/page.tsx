@@ -39,6 +39,7 @@ import {
   getGuardPolicies,
   getHealth,
   getScan,
+  getWholeScan,
   isDeterminatePhase,
   listScans,
   purgeScans,
@@ -419,7 +420,7 @@ export default function CuratePage() {
     setPending([]);
     setLoading(true);
     try {
-      applySummary(await getScan(scanId));
+      applySummary(await getWholeScan(scanId));
       setFolderPath(folder);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not reload that scan");
