@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { deletedSummary, omittedSummary } from "@/lib/darkroom/outcome";
+import { deletedSummary, hasImage, omittedSummary } from "@/lib/darkroom/outcome";
 import { ruleLetters } from "@/lib/darkroom/shields";
 import type { Cell, GenerationRecord } from "@/lib/darkroomApi";
 
@@ -12,12 +12,16 @@ import { Badge, Button, Notice } from "./ui";
 
 const TILE = "aspect-square w-full max-w-[512px] rounded-lg";
 
-/** A served image. Blurred when darkroom set `blur`, until the user reveals it; the img stays in the DOM. */
+/**
+ * A served image. Blurred when darkroom set `blur`, until the user reveals it; the img stays in the DOM.
+ * It asks `hasImage` itself, so a caller that forgets to cannot show a withheld image.
+ */
 export function ImageTile({ record }: { record: GenerationRecord }) {
   const { image } = useDarkroom();
   const blur = record.guard.nudenet?.blur ?? false;
   const [revealed, setRevealed] = useState(false);
   const hidden = blur && !revealed;
+  if (!hasImage(record)) return null;
   return (
     <figure className={`relative overflow-hidden border border-border/60 bg-surface-hover ${TILE}`}>
       {/* eslint-disable-next-line @next/next/no-img-element -- loaded by record id from darkroom, not a static asset */}

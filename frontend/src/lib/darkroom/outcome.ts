@@ -64,6 +64,17 @@ export function omittedSummary(record: GenerationRecord): DeletedSummary {
   return { headline: "SFW output withheld.", lines: [`NudeNet reported exposure (score ${score.toFixed(2)}), so the image was not kept.`] };
 }
 
+/**
+ * What a record's view says about it in the DOM: the outcome, and whether the
+ * user removed the image. Read straight from the record, not through
+ * {@link hasImage}, so a check on the page (bombadil/spec.ts, #263) is
+ * independent of the gate it checks. Spread onto every element that shows one
+ * record and could hold its image.
+ */
+export function recordMarks(record: Pick<GenerationRecord, "outcome" | "removed_at">): { "data-outcome": string; "data-removed"?: "" } {
+  return { "data-outcome": record.outcome, ...(record.removed_at != null ? { "data-removed": "" as const } : {}) };
+}
+
 export function hasImage(record: GenerationRecord): boolean {
   return (record.outcome === "passed" || record.outcome === "review") && record.removed_at == null;
 }
