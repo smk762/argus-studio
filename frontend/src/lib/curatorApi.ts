@@ -449,6 +449,17 @@ export async function getScan(scanId: string, limit = 10000, signal?: AbortSigna
 }
 
 /**
+ * A persisted scan with every row. `getScan`'s page can be shorter than the
+ * scan, and the grid has no paging: the keep-set, the export manifest and the
+ * bulk deletes all read what is loaded. So a short first page is asked for
+ * again at the scan's own `total`.
+ */
+export async function getWholeScan(scanId: string, signal?: AbortSignal): Promise<ScanSummary> {
+  const first = await getScan(scanId, undefined, signal);
+  if (first.results.length >= first.total) return first;
+  return getScan(scanId, first.total, signal);
+}
+
 /**
  * The stream ended with `event: cancelled`: the scan was stopped by
  * `POST /scan/{id}/cancel` or `POST /scans/purge` (curator ≥ 0.6), possibly

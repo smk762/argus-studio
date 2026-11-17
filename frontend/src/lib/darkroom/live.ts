@@ -50,6 +50,9 @@ export function liveReducer(state: LiveState, event: LiveEvent): LiveState {
       return { ...IDLE, phase: "preflight", request: event.request, enforcing: event.request.enforcing_policy, policies, cells: emptyCells(policies) };
     }
     case "preflight": {
+      // Only `start` begins a run: a verdict landing after a reset, a failure or
+      // the finish would otherwise leave the form "queued" with nothing coming.
+      if (FINISHED.includes(state.phase)) return state;
       const policies = [event.preflight.enforcing_policy, ...event.preflight.advisory_policies.filter((name) => name !== event.preflight.enforcing_policy)];
       // A refusal ends the run: nothing is queued after it, so don't stay "running"
       // waiting for a follow-up event (the `complete` that may follow still lands).

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ExportResult } from "@/components/curator/types";
 import {
@@ -9,6 +9,7 @@ import {
   captionExportRoot,
   exportedAbsPath,
   exportedRelPath,
+  getWholeScan,
   manifestMajor,
   normalizeExportResult,
   speaksSupportedManifest,
@@ -185,5 +186,34 @@ describe("captionExportRoot", () => {
 
   it("leaves a symlink export on abs_path, since lens would refuse the resolved link", () => {
     expect(captionExportRoot({ dest: "/data/out/a", mode: "symlink" })).toBeUndefined();
+  });
+});
+
+// Audit pack-argus-studio-96078239c0: a reopened scan must carry every row, since nothing pages the grid.
+describe("getWholeScan", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const serve = (total: number) => {
+    const limits: number[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      const limit = Number(new URL(url, "http://curator").searchParams.get("limit"));
+      limits.push(limit);
+      const results = Array.from({ length: Math.min(limit, total) }, (_, i) => ({ rel_path: `${i}.jpg` }));
+      return { ok: true, json: async () => ({ scan_id: "s1", total, results }) };
+    });
+    return limits;
+  };
+
+  it("asks again at the scan's total when the first page is short", async () => {
+    const limits = serve(10003);
+    const scan = await getWholeScan("s1");
+    expect(scan.results).toHaveLength(10003);
+    expect(limits).toEqual([10000, 10003]);
+  });
+
+  it("takes a scan that fits the first page in one request", async () => {
+    const limits = serve(3);
+    expect((await getWholeScan("s1")).results).toHaveLength(3);
+    expect(limits).toHaveLength(1);
   });
 });

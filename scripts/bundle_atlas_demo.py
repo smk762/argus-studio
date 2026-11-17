@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -65,6 +66,33 @@ def recorded_dir(sidecar: dict[str, Any]) -> str:
     return ""
 
 
+def overlap(out: Path, jobs: list[str]) -> str | None:
+    """The first --job whose directory is --out, holds it, or sits inside it (None when none does)."""
+    resolved = out.resolve()
+    for job in jobs:
+        src = Path(job).resolve()
+        if resolved == src or resolved in src.parents or src in resolved.parents:
+            return job
+    return None
+
+
+def swap_in(built: Path, out: Path) -> None:
+    """Put the finished bundle at `out`. The old one is removed only once the new one is in place."""
+    old = None
+    if out.exists():
+        old = Path(tempfile.mkdtemp(prefix=f".{out.name}.old-", dir=out.parent))
+        os.replace(out, old / out.name)
+    try:
+        os.replace(built, out)
+    except BaseException:
+        if old is not None:
+            os.replace(old / out.name, out)
+            old.rmdir()
+        raise
+    if old is not None:
+        shutil.rmtree(old)
+
+
 def main() -> None:
     # No abbreviations: --archive is paired with its --job by scanning argv for the
     # exact tokens below, which `--arch` or `--jo PATH` would silently miss.
@@ -91,12 +119,19 @@ def main() -> None:
                 ap.error("--archive applies to the --job before it; put it after a --job")
             with_archive.add(last)
 
-    out = Path(args.out)
-    if out.exists():
-        shutil.rmtree(out)
-    out.mkdir(parents=True)
-    with tempfile.TemporaryDirectory() as tmp:
+    final = Path(args.out)
+    clash = overlap(final, args.job)
+    if clash:
+        ap.error(f"--out {final} overlaps --job {clash}: replacing the bundle would delete the recording")
+    # Built beside the old bundle and swapped in at the end, so a run that fails
+    # part-way (a missing tile, no `magick`) leaves the old bundle as it was.
+    final.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory(
+        prefix=f".{final.name}.new-", dir=final.parent
+    ) as staging:
         root = Path(tmp)
+        out = Path(staging) / final.name
+        out.mkdir()
         for job in args.job:
             (root / Path(job).name).symlink_to(Path(job).resolve(), target_is_directory=True)
         store = JobStore(root)
@@ -128,6 +163,7 @@ def main() -> None:
                 )
             if d.job_id in with_archive and sidecar.tiles:
                 shutil.copy2(src / sidecar.tiles.archive.path, dst / "fantasy.pmtiles")
+        swap_in(out, final)
 
 
 if __name__ == "__main__":

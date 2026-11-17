@@ -30,7 +30,7 @@ import { GuardPolicyPicker } from "./GuardPolicyPicker";
 import { devMode } from "@/lib/curatorEnv";
 import { offeredPolicies } from "@/lib/curatorGuard";
 import { Tooltip } from "@/components/Tooltip";
-import { clearDenied } from "@/lib/scanConfigCaps";
+import { clearDenied, offeredDetectors } from "@/lib/scanConfigCaps";
 
 const ACCENT_CLASSES: Record<string, { ring: string; text: string; bg: string; border: string }> = {
   "accent-purple": { ring: "ring-accent-purple", text: "text-accent-purple-ink", bg: "bg-accent-purple/20", border: "border-accent-purple/40" },
@@ -80,7 +80,9 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
 
   // A refused option shows unchecked and is cleared from the config, so a stale
   // `true` can't sit greyed out and still go out with the scan.
-  const cleared = clearDenied(value, { setAge, prefilter, crops, watermarkDenied: watermarks === false || (detectors != null && !detectors.watermark) });
+  // An option whose detector this curator lacks is not drawn, and is cleared the same way.
+  const has = offeredDetectors(detectors);
+  const cleared = clearDenied(value, { setAge, prefilter, crops, watermarkDenied: watermarks === false || (detectors != null && !detectors.watermark), detectors });
   useEffect(() => {
     if (cleared !== value) onChange(cleared);
   }, [cleared, value, onChange]);
@@ -242,7 +244,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
                 ))}
               </div>
             </div>
-            {detectors?.fairface && (
+            {has.fairface && (
               <Check
                 label="FairFace attributes"
                 checked={value.faces.fairface === true}
@@ -251,7 +253,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
                 hint="Predicted race, gender and age bracket for each face. A guess from appearance, not a fact about anyone."
               />
             )}
-            {detectors?.mivolo && (
+            {has.mivolo && (
               <Check
                 label="MiVOLO ages"
                 checked={value.faces.mivolo === true}
@@ -262,7 +264,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
                 hint="An age in years for each face. It is a model's estimate, and the under-18 rule reads it."
               />
             )}
-            {detectors?.mivolo && (
+            {has.mivolo && (
               <Check
                 label="Set: one person"
                 checked={value.faces.set_age === true}
@@ -271,7 +273,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
                 hint={setAgeReason ?? "For a folder of one person: frames with no face take the set's age, so the under-18 rule has something to read. A mixed folder gets nothing."}
               />
             )}
-            {detectors?.mivolo && detectors.bodies && (
+            {has.mivoloBody && (
               <Check
                 label="Read bodies too"
                 checked={value.faces.mivolo_body === true}
@@ -286,11 +288,11 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
 
       <hr className="border-border" />
 
-      {(detectors?.places365 || detectors?.garments) && (
+      {(has.scenes || has.garments) && (
         <>
           <div className="space-y-3">
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted">Scenes &amp; Wardrobe</label>
-            {detectors.places365 && (
+            {has.scenes && (
               <Check
                 label="Scenes (Places365)"
                 checked={value.scenes.enabled}
@@ -299,11 +301,11 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
                 hint="Scene labels and indoor or outdoor for each frame."
               />
             )}
-            {value.scenes.enabled && (
+            {has.scenes && value.scenes.enabled && (
               <Slider label="Labels per frame" value={value.scenes.top_k} min={1} max={20} step={1}
                 onChange={(v) => setScenes({ top_k: v })} disabled={loading} />
             )}
-            {detectors.garments && (
+            {has.garments && (
               <Check
                 label="Garments (Fashionpedia)"
                 checked={value.garments.enabled}
@@ -312,7 +314,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
                 hint="The slowest local check. Needed for the wardrobe facets and spreading across outfits."
               />
             )}
-            {value.garments.enabled && (
+            {has.garments && value.garments.enabled && (
               <Slider label="Record from confidence" value={value.garments.min_conf} min={0} max={1} step={0.05}
                 format={(v) => v.toFixed(2)} onChange={(v) => setGarments({ min_conf: v })} disabled={loading} />
             )}

@@ -51,8 +51,8 @@ function mivoloYears(attrs: AgeReading | null | undefined): number | null {
   return attrs.age_years;
 }
 
-/** Every MiVOLO age the under-18 rule reads: faces, body-only people, then the set age. */
-export function mivoloAges(img: ImageResult): number[] {
+/** MiVOLO ages read from this frame itself: its faces, then its body-only people. */
+export function measuredAges(img: ImageResult): number[] {
   const faces = img.faces ?? [];
   const measured = faces.map((face) => mivoloYears(face.attributes)).filter((age): age is number => age != null);
   const primary = mivoloYears(img.primary_face_attributes);
@@ -61,7 +61,12 @@ export function mivoloAges(img: ImageResult): number[] {
     .filter((person) => person.face_index == null)
     .map((person) => mivoloYears(person))
     .filter((age): age is number => age != null);
-  const ages = [...measured, ...bodies];
+  return [...measured, ...bodies];
+}
+
+/** Every MiVOLO age the under-18 rule reads: faces, body-only people, then the set age. */
+export function mivoloAges(img: ImageResult): number[] {
+  const ages = measuredAges(img);
   if (ages.length === 0 && img.set_age) return [img.set_age.years];
   return ages;
 }
@@ -118,8 +123,11 @@ function clearUnlessFlagged(img: ImageResult): ThumbSafety {
  * `passed === false` is decided first and does not read `nsfw`.
  *
  * `pending` is the scan-wide list of checks still running. While nudity has
- * not landed, or exposure has landed and the ages have not, the frame stays
- * covered and cannot be revealed. An empty list is a finished scan.
+ * not landed, or the ages have not and the frame is exposed or has no usable
+ * nudity score, the frame stays covered and cannot be revealed. Only an age
+ * measured on the frame counts as landed: the set's age stands in for a frame
+ * with no face, and cannot say that this frame's face is an adult's. An empty
+ * list is a finished scan.
  */
 export function thumbSafety(img: ImageResult, nsfwRan: boolean, pending: readonly string[] = []): ThumbSafety {
   if (img.passed === false) {
@@ -131,8 +139,14 @@ export function thumbSafety(img: ImageResult, nsfwRan: boolean, pending: readonl
   if (pending.includes("nsfw") && img.nsfw == null && !img.nudenet_failed) {
     return held("Checking", "Nudity has not been scored yet, so this stays blurred.");
   }
-  if (pending.includes("faces") && exposedReading(img) >= MINOR_EXPOSED_SCORE && mivoloAges(img).length === 0) {
-    return held("Stays blurred", "Exposure is in, and the ages are still coming.");
+  if (pending.includes("faces") && measuredAges(img).length === 0) {
+    if (exposedReading(img) >= MINOR_EXPOSED_SCORE) {
+      return held("Stays blurred", "Exposure is in, and the ages are still coming.");
+    }
+    // An under-18 age would hold this frame for good, so it can't be revealed before the ages land.
+    if (img.nudenet_failed || (nsfwRan && img.nsfw == null)) {
+      return held("Stays blurred", "Nudity was not scored, and the ages are still coming.");
+    }
   }
   if (isMinorExposed(img)) {
     return held("Stays blurred", "An under-18 face with exposure stays blurred.");
