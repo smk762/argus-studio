@@ -1,6 +1,6 @@
 "use client";
 
-import { OUTCOME_LABEL, OUTCOME_TONE, OVERALL_NOTE, hasImage } from "@/lib/darkroom/outcome";
+import { OUTCOME_LABEL, OUTCOME_TONE, OVERALL_NOTE, hasImage, recordMarks } from "@/lib/darkroom/outcome";
 import { allCells, overallState, ruleLetters } from "@/lib/darkroom/shields";
 import { ago, formatWhen } from "@/lib/darkroom/time";
 import type { GenerationRecord } from "@/lib/darkroomApi";
@@ -17,7 +17,7 @@ export function ResultView({ record, actions }: { record: GenerationRecord; acti
   const worstLetters = worst ? ruleLetters(allCells(record.guard).find((cell) => cell.state === worst)?.result) : [];
   const scanned = Object.keys(record.guard.scans ?? {}).length > 0;
   return (
-    <article className="space-y-4" aria-labelledby="result-title">
+    <article className="space-y-4" aria-labelledby="result-title" {...recordMarks(record)}>
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h2 id="result-title" className="text-2xl font-semibold text-foreground">
           {OUTCOME_LABEL[record.outcome]}
