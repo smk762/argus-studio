@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { OUTCOME_LABEL, OUTCOME_TONE, hasImage } from "@/lib/darkroom/outcome";
+import { OUTCOME_LABEL, OUTCOME_TONE, hasImage, recordMarks } from "@/lib/darkroom/outcome";
 import { REASON_WORDS, matchesRule, promptChangedVerdict, reasonParts, recordRules, rowVerdict, type RuleHit } from "@/lib/darkroom/shields";
 import { ago, formatWhen } from "@/lib/darkroom/time";
 import { allowsDarkroomPurge, OUTCOMES, purgeAll, type GenerationRecord, type Mode, type Outcome } from "@/lib/darkroomApi";
@@ -200,12 +200,12 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
   );
 }
 
-function HistoryRow({ record }: { record: GenerationRecord }) {
+export function HistoryRow({ record }: { record: GenerationRecord }) {
   const { openRecord } = useCompose();
   const verdict = rowVerdict(record);
   const changed = promptChangedVerdict(record);
   return (
-    <li>
+    <li {...recordMarks(record)}>
       <button type="button" onClick={() => openRecord(record.id)} className="w-full cursor-pointer text-left flex items-center gap-3 rounded-lg border border-border/60 bg-surface p-2 transition-colors hover:border-accent-purple/60 hover:bg-surface-hover/60">
         <Thumb record={record} />
         <div className="min-w-0 flex-1">
