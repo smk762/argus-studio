@@ -9,6 +9,7 @@ import {
   requireCapability,
   type Capability,
 } from "@/lib/capabilities";
+import { spendConfirmation, type Confirmed } from "@/lib/confirmed";
 import type {
   CuratorConfig,
   Detectors,
@@ -631,7 +632,8 @@ export async function listScans(signal?: AbortSignal): Promise<ScanList | null> 
 }
 
 /** Remove one cached scan (DELETE /scan/{id}). Source images stay. The running scan is refused. */
-export async function deleteCachedScan(scanId: string, signal?: AbortSignal): Promise<void> {
+export async function deleteCachedScan(scanId: string, confirmed: Confirmed, signal?: AbortSignal): Promise<void> {
+  spendConfirmation(confirmed);
   await requireCapability(
     curatorHealth,
     allowsScanDelete,
@@ -659,8 +661,10 @@ export const DELETE_ANY_DENIED =
 export async function deleteScanImages(
   scanId: string,
   rows: readonly ImageResult[],
+  confirmed: Confirmed,
   signal?: AbortSignal,
 ): Promise<DeleteOutcome> {
+  spendConfirmation(confirmed);
   const outcome: DeleteOutcome = { deleted: [], refused: [], error: null };
   if (rows.length === 0) return outcome;
   const flaggedOnly = rows.every(isMinorExposed);
@@ -695,7 +699,8 @@ export async function deleteScanImages(
 }
 
 /** Stop whatever is running and delete every cached scan (POST /scans/purge). */
-export async function purgeScans(signal?: AbortSignal): Promise<PurgeResult> {
+export async function purgeScans(confirmed: Confirmed, signal?: AbortSignal): Promise<PurgeResult> {
+  spendConfirmation(confirmed);
   await requireCapability(
     curatorHealth,
     allowsScanControl,

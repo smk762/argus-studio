@@ -29,6 +29,9 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/** The user's yes, from the module instance the freshly imported client spends it in. */
+const yes = async () => (await import("@/lib/confirmed")).confirmedBy({ isTrusted: true });
+
 describe("proof writes", () => {
   it("refuses a review on a read-only server without sending it", async () => {
     routes["GET /health"] = () => json({ status: "ok", service: "argus-proof", version: "0.2.1", read_only: true });
@@ -123,7 +126,7 @@ describe("curator scan control", () => {
     const { cancelScan, purgeScans } = await import("@/lib/curatorApi");
 
     await expect(cancelScan("abc")).rejects.toThrow(/stop a running scan/);
-    await expect(purgeScans()).rejects.toThrow(/purge/);
+    await expect(purgeScans(await yes())).rejects.toThrow(/purge/);
     expect(calls).toEqual(["GET /health"]);
   });
 
@@ -144,7 +147,7 @@ describe("curator scan control", () => {
 
     await getHealth();
     await cancelScan("abc");
-    const purged = await purgeScans();
+    const purged = await purgeScans(await yes());
     expect(purged).toEqual({ cancelled: null, deleted: [] });
     expect(calls).toEqual(["GET /health", "POST /scan/abc/cancel", "POST /scans/purge"]);
   });
@@ -154,12 +157,12 @@ describe("curator scan control", () => {
     routes["DELETE /scan/abc"] = sent;
     const { deleteCachedScan, getHealth } = await import("@/lib/curatorApi");
 
-    await expect(deleteCachedScan("abc")).rejects.toThrow(/delete a cached scan/);
+    await expect(deleteCachedScan("abc", await yes())).rejects.toThrow(/delete a cached scan/);
     expect(calls).toEqual(["GET /health"]);
 
     routes["GET /health"] = curator({ scan_delete: true });
     await getHealth();
-    await expect(deleteCachedScan("abc")).rejects.toThrow("reached the server");
+    await expect(deleteCachedScan("abc", await yes())).rejects.toThrow("reached the server");
     expect(calls).toEqual(["GET /health", "GET /health", "DELETE /scan/abc"]);
   });
 });
@@ -177,7 +180,7 @@ describe("darkroom purge", () => {
       calls.length = 0;
       const { getDarkroomHealth } = await import("@/lib/darkroomApi");
       expect(permits(allowsDarkroomPurge(await getDarkroomHealth()))).toBe(false);
-      for (const write of [() => purgeAll(), () => purgeRecord("r1")]) {
+      for (const write of [async () => purgeAll(await yes()), async () => purgeRecord("r1", await yes())]) {
         expect(await write().catch((e) => e)).toBeInstanceOf(CapabilityRefused);
       }
       expect(calls.filter((call) => call.startsWith("POST"))).toEqual([]);
@@ -193,7 +196,7 @@ describe("darkroom purge", () => {
     };
     const { getDarkroomHealth, purgeRecord } = await import("@/lib/darkroomApi");
     await getDarkroomHealth();
-    expect(await purgeRecord("r 1")).toEqual({ records: 1, images: 1 });
+    expect(await purgeRecord("r 1", await yes())).toEqual({ records: 1, images: 1 });
     expect(bodies).toEqual([{ confirm: "purge" }]);
   });
 });
@@ -211,7 +214,7 @@ describe("darkroom writes", () => {
     const { generate, preflight, removeImage } = await import("@/lib/darkroomApi");
     const { CapabilityRefused } = await import("@/lib/capabilities");
 
-    for (const write of [() => preflight(request), () => generate(request, handlers), () => removeImage("r1")]) {
+    for (const write of [() => preflight(request), () => generate(request, handlers), async () => removeImage("r1", await yes())]) {
       const err = await write().catch((e) => e);
       expect(err).toBeInstanceOf(CapabilityRefused);
       expect(err.denied).toBe(true);
@@ -280,7 +283,7 @@ describe("curator image delete", () => {
     const { deleteScanImages } = await import("@/lib/curatorApi");
     const { CapabilityRefused } = await import("@/lib/capabilities");
 
-    const err = await deleteScanImages("s1", [flagged("a"), plain("b")]).catch((e) => e);
+    const err = await deleteScanImages("s1", [flagged("a"), plain("b")], await yes()).catch((e) => e);
     expect(err).toBeInstanceOf(CapabilityRefused);
     expect(calls).toEqual(["GET /health"]);
   });
@@ -290,7 +293,7 @@ describe("curator image delete", () => {
     routes["POST /scan/s1/delete"] = accept;
     const { deleteScanImages } = await import("@/lib/curatorApi");
 
-    await expect(deleteScanImages("s1", [flagged("a")])).rejects.toThrow("predates image delete");
+    await expect(deleteScanImages("s1", [flagged("a")], await yes())).rejects.toThrow("predates image delete");
     expect(calls).toEqual(["GET /health"]);
   });
 
@@ -300,7 +303,7 @@ describe("curator image delete", () => {
     const { deleteScanImages } = await import("@/lib/curatorApi");
 
     const rows = Array.from({ length: 201 }, (_, i) => plain(`${i}.jpg`));
-    const outcome = await deleteScanImages("s1", rows);
+    const outcome = await deleteScanImages("s1", rows, await yes());
     expect(outcome.deleted).toHaveLength(201);
     expect(sentPaths(bodies).map((paths) => paths.length)).toEqual([200, 1]);
   });
@@ -315,7 +318,7 @@ describe("curator image delete", () => {
     };
     const { deleteScanImages } = await import("@/lib/curatorApi");
 
-    const outcome = await deleteScanImages("s1", [flagged("a"), flagged("b"), flagged("c")]);
+    const outcome = await deleteScanImages("s1", [flagged("a"), flagged("b"), flagged("c")], await yes());
     expect(sentPaths(bodies)).toEqual([["a"], ["b"], ["c"]]);
     expect(outcome).toEqual({ deleted: ["a", "c"], refused: ["b"], error: null });
   });
@@ -328,7 +331,7 @@ describe("curator image delete", () => {
     const { deleteScanImages } = await import("@/lib/curatorApi");
 
     const rows = Array.from({ length: 401 }, (_, i) => plain(`${i}.jpg`));
-    const outcome = await deleteScanImages("s1", rows);
+    const outcome = await deleteScanImages("s1", rows, await yes());
     expect(outcome.deleted).toHaveLength(200);
     expect(outcome.error?.message).toContain("could not delete");
     expect(replies).toBe(2);
@@ -635,5 +638,39 @@ describe("curator scan and export options", () => {
     const { previewKeepSet } = await import("@/lib/curatorApi");
 
     await expect(previewKeepSet("s1", { min_score: 0, keep_similar: false })).rejects.toThrow(/outside the source root/);
+  });
+});
+
+describe("destructive writes", () => {
+  it("send nothing without the user's confirmation, even where the server allows them", async () => {
+    routes["GET /health"] = () =>
+      json({ status: "ok", scan_control: true, scan_delete: true, delete_any: true, devmode: true, read_only: false, capabilities: ["purge"] });
+    const curator = await import("@/lib/curatorApi");
+    const darkroom = await import("@/lib/darkroomApi");
+    const proof = await import("@/lib/proofApi");
+    const { Unconfirmed } = await import("@/lib/confirmed");
+    type Forged = Parameters<typeof curator.purgeScans>[0];
+    const forged = {} as Forged;
+    const spent = await yes();
+    (await import("@/lib/confirmed")).spendConfirmation(spent);
+
+    for (const confirmed of [forged, spent]) {
+      const writes: (() => Promise<unknown>)[] = [
+        () => curator.purgeScans(confirmed),
+        () => curator.deleteCachedScan("s1", confirmed),
+        () => curator.deleteScanImages("s1", [{ rel_path: "a" } as Parameters<typeof curator.deleteScanImages>[1][number]], confirmed),
+        () => darkroom.removeImage("r1", confirmed),
+        () => darkroom.purgeRecord("r1", confirmed),
+        () => darkroom.purgeAll(confirmed),
+        () => proof.purgeRun("r1", confirmed),
+        () => proof.purgeAllRuns(confirmed),
+      ];
+      for (const write of writes) {
+        // Sync throw or rejection, either way before any request.
+        const err = await Promise.resolve().then(write).catch((e) => e);
+        expect(err).toBeInstanceOf(Unconfirmed);
+      }
+    }
+    expect(calls).toEqual([]);
   });
 });

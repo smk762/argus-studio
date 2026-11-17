@@ -7,6 +7,7 @@ import { fromRecord } from "@/lib/darkroom/compose";
 import { hasImage } from "@/lib/darkroom/outcome";
 
 import { capabilityReason, permits } from "@/lib/capabilities";
+import { confirmedBy, type Confirmed } from "@/lib/confirmed";
 
 import { useCompose } from "./ComposeProvider";
 import { useDarkroom } from "./DarkroomProvider";
@@ -48,11 +49,11 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
     }
   };
 
-  const remove = async () => {
+  const remove = async (confirmed: Confirmed) => {
     setRemoving(true);
     setRemoveError(null);
     try {
-      const updated = await removeImage(record.id);
+      const updated = await removeImage(record.id, confirmed);
       setConfirming(false);
       onRemoved?.(updated);
     } catch (caught) {
@@ -62,11 +63,11 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
     }
   };
 
-  const purge = async () => {
+  const purge = async (confirmed: Confirmed) => {
     setPurging(true);
     setPurgeError(null);
     try {
-      await purgeRecord(record.id);
+      await purgeRecord(record.id, confirmed);
       closeRecord();
       setView("history");
     } catch (caught) {
@@ -87,7 +88,7 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
         confirming ? (
           <span role="group" aria-label="Confirm removing the image" className="inline-flex flex-wrap items-center gap-2 text-sm text-foreground/70">
             <span>Delete the image file? The record stays.</span>
-            <Button tone="danger" onClick={remove} disabled={removing}>
+            <Button tone="danger" onClick={(event) => void remove(confirmedBy(event))} disabled={removing}>
               {removing ? "Removing…" : "Delete image"}
             </Button>
             <Button onClick={() => setConfirming(false)} disabled={removing}>
@@ -105,7 +106,7 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
         confirmingPurge ? (
           <span role="group" aria-label="Confirm deleting the record" className="inline-flex flex-wrap items-center gap-2 text-sm text-foreground/70">
             <span>Delete this record and any image? It leaves no trace in the history.</span>
-            <Button tone="danger" onClick={purge} disabled={purging}>
+            <Button tone="danger" onClick={(event) => void purge(confirmedBy(event))} disabled={purging}>
               {purging ? "Deleting…" : "Delete for good"}
             </Button>
             <Button onClick={() => setConfirmingPurge(false)} disabled={purging}>

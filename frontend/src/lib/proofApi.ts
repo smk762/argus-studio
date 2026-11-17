@@ -13,6 +13,7 @@ import type * as Wire from "@/lib/generated/proof";
 import type { Filled } from "@/lib/wire";
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
+import { spendConfirmation, type Confirmed } from "@/lib/confirmed";
 import { readNdjson } from "@/lib/lensApi";
 import { getConcept } from "@/content/concepts";
 
@@ -542,7 +543,8 @@ export interface PurgeAllResult {
   run_dirs: number;
 }
 
-async function postPurge<T>(path: string, signal?: AbortSignal): Promise<T> {
+async function postPurge<T>(path: string, confirmed: Confirmed, signal?: AbortSignal): Promise<T> {
+  spendConfirmation(confirmed);
   await requireCapability(proofHealth, allowsPurge, PURGE_DENIED, signal);
   const resp = await fetch(`${proofUrl()}${path}`, {
     method: "POST",
@@ -556,13 +558,13 @@ async function postPurge<T>(path: string, signal?: AbortSignal): Promise<T> {
 }
 
 /** Delete one run's report and run dir (POST /purge/{run_id}). 409 while it is still generating. */
-export function purgeRun(runId: string, signal?: AbortSignal): Promise<PurgeRunResult> {
-  return postPurge(`/purge/${encodeURIComponent(runId)}`, signal);
+export function purgeRun(runId: string, confirmed: Confirmed, signal?: AbortSignal): Promise<PurgeRunResult> {
+  return postPurge(`/purge/${encodeURIComponent(runId)}`, confirmed, signal);
 }
 
 /** Delete every run (POST /purge). */
-export function purgeAllRuns(signal?: AbortSignal): Promise<PurgeAllResult> {
-  return postPurge("/purge", signal);
+export function purgeAllRuns(confirmed: Confirmed, signal?: AbortSignal): Promise<PurgeAllResult> {
+  return postPurge("/purge", confirmed, signal);
 }
 
 // --- evaluation runs ---------------------------------------------------------
