@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { attributeLine } from "@/lib/curatorAttributes";
 import { facetCounts, rankedLabels, slugLabel } from "@/lib/curatorFacets";
-import { matchesGuardView, policiesRun, policyFlagCounts, ruleCounts, shieldState, type GuardView } from "@/lib/curatorGuard";
+import { guardModeNote, matchesGuardView, policiesRun, policyFlagCounts, ruleCounts, shieldState, type GuardView } from "@/lib/curatorGuard";
 import { ratingCounts } from "@/lib/curatorModeration";
 import { scanCheckedNsfw, thumbSafety } from "@/lib/curatorSafety";
 import { ThumbImage } from "./ThumbImage";
@@ -68,6 +68,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
   const nsfwRan = scanCheckedNsfw(summary);
   const official = summary.guard_config?.policy ?? null;
   const policies = useMemo(() => policiesRun(summary), [summary]);
+  const guardMode = useMemo(() => guardModeNote(summary), [summary]);
   const rules = useMemo(() => ruleCounts(summary.results, official), [summary.results, official]);
   const flags = useMemo(() => policyFlagCounts(summary.results, official), [summary.results, official]);
   const views = useMemo(() => {
@@ -301,6 +302,12 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
           active={filters.guardUnsafe || filters.guardRules.length + filters.guardPolicies.length > 0 || filters.guardView !== "all"}
           onClear={() => set({ guardUnsafe: false, guardRules: [], guardPolicies: [], guardView: "all" })}
         >
+          {guardMode && (
+            <p className={`flex items-start gap-1 text-[10px] leading-snug ${guardMode.warn ? "text-accent-orange-ink" : "text-muted"}`}>
+              <span>{guardMode.text}</span>
+              <Info text="The mode is set on the curator (ARGUS_CURATOR_SINGGUARD_THINKING). A scan cannot choose it." />
+            </p>
+          )}
           <label className="block text-[10px] text-muted">
             Show
             <select

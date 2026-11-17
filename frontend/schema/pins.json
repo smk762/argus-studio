@@ -10,9 +10,9 @@
   "curator": {
     "repo": "smk762/argus-curator",
     "branch": "dev",
-    "commit": "97021d6c0d1b790d82c3a77ad66904450b18d065",
-    "version": "0.15.2.dev2+g97021d6",
-    "sha256": "0eca1bcdc66a742983022fc338eab579b6c8a215cda33ee7155772c2830f656c"
+    "commit": "e125355a9d7001a70112dd232b169fc4e8a9c5e0",
+    "version": "0.17.1.dev10+ge125355",
+    "sha256": "f62e622a0892ed7f7ffd355f47313beef4fa46543ddf3d0f120a9d4c430857d6"
   },
   "forge": {
     "repo": "smk762/argus-forge",

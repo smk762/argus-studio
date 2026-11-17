@@ -38,6 +38,37 @@ export function policiesRun(summary: Pick<ScanSummary, "guard_config">): string[
   return [config.policy, ...(config.variants ?? []).filter((name) => name !== config.policy)];
 }
 
+export interface GuardModeNote {
+  text: string;
+  /** The scan did not get the mode it asked for. */
+  warn: boolean;
+}
+
+const MODE_NOTES: Record<string, string> = {
+  fast: "a verdict and a rule for each frame, with no written reason",
+  "fast-slow": "a fast verdict on each frame, then a written reason",
+  slow: "each verdict comes with a written reason",
+  cascade: "fast on every frame, then slow on what fast flagged",
+};
+
+/**
+ * The SingGuard mode a finished scan ran in (curator 0.17+), or null when it
+ * did not run or the curator predates the field. Under cascade each unescalated
+ * verdict says `fast`, so only the scan's own record tells the two apart.
+ */
+export function guardModeNote(summary: Pick<ScanSummary, "guard_config">): GuardModeNote | null {
+  const config = summary.guard_config;
+  if (config?.enabled !== true || !config.thinking) return null;
+  if (config.fell_back === true) {
+    return {
+      text: `SingGuard refused ${config.thinking} mode, so every check ran fast: ${MODE_NOTES.fast}.`,
+      warn: true,
+    };
+  }
+  const what = MODE_NOTES[config.thinking];
+  return { text: what ? `Ran in ${config.thinking} mode: ${what}.` : `Ran in ${config.thinking} mode.`, warn: false };
+}
+
 export type ShieldState = "none" | "safe" | "safe-split" | "unsafe" | "unsafe-split";
 
 /** The official verdict, and whether another policy disagreed with it. */

@@ -4,6 +4,10 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- **`/curate` shows the SingGuard mode a scan ran in** (curator 0.17): fast, fast-slow, slow or cascade, under SingGuard in the facet rail, with a warning when SingGuard refused the mode and every check ran fast. The mode is set on the curator (`ARGUS_CURATOR_SINGGUARD_THINKING`); a scan cannot choose it, so there is no picker.
+
 ### Changed
 
 - **CLAUDE.md states what must never happen and what enforces each rule** (#255). New checks: ESLint refuses a literal `process.env.NAME`, a runtime-config accessor called at module scope and an HTML string written to the DOM; `writeGateCoverage.test.ts` finds every non-GET fetcher in `lib/*Api.ts` and fails one that runs no capability guard; `repoRules.test.ts` holds that only `compose.train.yaml` arms training, the release image takes no build-time config, `next.config.ts` pins no headers and dev mode reaches only the policy list.

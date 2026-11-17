@@ -7,6 +7,7 @@ import {
   guardProblem,
   matchesGuardView,
   offeredPolicies,
+  guardModeNote,
   policiesRun,
   policyFlagCounts,
   policyShields,
@@ -48,6 +49,35 @@ describe("policiesRun", () => {
       "adult",
       "adult-cinematic",
     ]);
+  });
+});
+
+describe("guardModeNote", () => {
+  const ran = (extra: object) => ({ guard_config: { enabled: true, policy: "default", variants: [], ...extra } });
+
+  it("says nothing when SingGuard did not run, or the curator predates the field", () => {
+    expect(guardModeNote({})).toBeNull();
+    expect(guardModeNote({ guard_config: { enabled: false, policy: "default", variants: [], thinking: "cascade" } })).toBeNull();
+    expect(guardModeNote(ran({}))).toBeNull();
+    expect(guardModeNote(ran({ thinking: null, fell_back: null }))).toBeNull();
+  });
+
+  it("names the mode the scan ran in", () => {
+    expect(guardModeNote(ran({ thinking: "cascade", fell_back: false }))).toEqual({
+      text: "Ran in cascade mode: fast on every frame, then slow on what fast flagged.",
+      warn: false,
+    });
+    expect(guardModeNote(ran({ thinking: "fast" }))?.text).toMatch(/^Ran in fast mode: .*no written reason\.$/);
+  });
+
+  it("warns when SingGuard refused the mode and the checks ran fast", () => {
+    const note = guardModeNote(ran({ thinking: "slow", fell_back: true }));
+    expect(note?.warn).toBe(true);
+    expect(note?.text).toMatch(/^SingGuard refused slow mode, so every check ran fast/);
+  });
+
+  it("still reads a mode a newer curator adds", () => {
+    expect(guardModeNote(ran({ thinking: "deep" }))).toEqual({ text: "Ran in deep mode.", warn: false });
   });
 });
 

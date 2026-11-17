@@ -109,6 +109,15 @@ export interface GuardConfig {
   policy: string;
   /** Extra policies to judge every image under: one more pass each. */
   variants: string[];
+  /**
+   * Curator 0.17+: the SingGuard mode the scan asked for, set on the curator
+   * (`ARGUS_CURATOR_SINGGUARD_THINKING`). Recorded by the scan, never chosen by
+   * a request: the curator replaces a value sent. A string, so a mode a newer
+   * curator adds still reads.
+   */
+  thinking?: string | null;
+  /** Curator 0.17+: SingGuard refused that mode, so every check ran `fast`. */
+  fell_back?: boolean | null;
 }
 
 /** One entry of `GET /guard/policies` (curator 0.8). */

@@ -1,4 +1,4 @@
-// Generated from smk762/argus-curator@97021d6 (0.15.2.dev2+g97021d6) schema/curator-wire.schema.json.
+// Generated from smk762/argus-curator@e125355 (0.17.1.dev10+ge125355) schema/curator-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface CuratorWire {
@@ -485,7 +485,9 @@ export interface GarmentDetection {
  */
 export interface GuardConfig {
   enabled?: boolean | null;
+  fell_back?: boolean | null;
   policy?: "default" | "adult" | "adult-granular" | "adult-cautious" | "adult-cinematic";
+  thinking?: ("fast" | "fast-slow" | "slow" | "cascade") | null;
   variants?: ("default" | "adult" | "adult-granular" | "adult-cautious" | "adult-cinematic")[];
 }
 /**
@@ -731,11 +733,11 @@ export interface ManifestRow {
   target_profile: TargetProfile;
 }
 /**
- * What we are curating *for* — shared verbatim with argus-lens.
+ * What a dataset was curated for — shared verbatim across the suite.
  *
- * The curator uses it to weight scoring and label exports; the captioner
- * inherits it to pick caption variants. This is the reason generic CV tools
- * (FiftyOne / fastdup) structurally cannot replace the suite.
+ * Inherited unchanged from stage to stage (curator → lens → forge → proof) so
+ * a decision made once at curation time is honoured everywhere downstream; no
+ * stage remaps the taxonomy.
  */
 export interface TargetProfile {
   checkpoint?: string | null;
