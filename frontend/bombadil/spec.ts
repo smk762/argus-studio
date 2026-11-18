@@ -59,6 +59,12 @@ const page = extract((state) => {
     ),
     unreachable: !path.startsWith("/docs/") && /\bunreachable\b/i.test(text),
     loading: /\bLoading(…|\.\.\.)/.test(text),
+    recordViews: doc.querySelectorAll("[data-outcome]").length,
+    withheldImages: Array.from(doc.querySelectorAll("[data-outcome]")).filter((view) => {
+      const outcome = view.getAttribute("data-outcome");
+      const served = (outcome === "passed" || outcome === "review") && !view.hasAttribute("data-removed");
+      return !served && view.querySelector("img") !== null;
+    }).length,
   };
 });
 
@@ -101,6 +107,14 @@ export const staticDemoNeverUnreachable = always(() => !page.current.unreachable
 export const loadingSettles = always(
   now(() => page.current.loading).implies(eventually(() => !page.current.loading).within(5, "seconds")),
 );
+
+// CLAUDE.md: darkroom never renders an image for a deleted, omitted, refused or
+// failed record, or one whose image the user removed (#263). Each record view
+// carries its outcome (`recordMarks` in lib/darkroom/outcome.ts), read from
+// the record rather than from hasImage(), so this checks the gate from outside.
+// The demo's sample has every outcome; recordImages.test.ts checks the same
+// rule on every PR, and that the views carry the marks this reads.
+export const darkroomWithholdsImages = always(() => page.current.withheldImages === 0);
 
 // Bombadil's default actions, plus an occasional resize between a small phone
 // and a desktop, so the layout properties see more than the 1024px default.

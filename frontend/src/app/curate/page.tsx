@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { askConfirm } from "@/lib/confirmed";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
@@ -386,13 +387,14 @@ export default function CuratePage() {
 
   const purge = async () => {
     if (purging) return;
-    if (!window.confirm("Delete every cached scan and stop one if it is running? The source images stay.")) return;
+    const confirmed = askConfirm("Delete every cached scan and stop one if it is running? The source images stay.");
+    if (!confirmed) return;
     stopKind.current = "purge";
     setPurging(true);
     setError(null);
     setNotice(null);
     try {
-      const { cancelled } = await purgeScans();
+      const { cancelled } = await purgeScans(confirmed);
       stopKind.current = "purged";
       setHistory([]);
       try {
@@ -448,11 +450,12 @@ export default function CuratePage() {
   };
 
   const forgetScan = async (scanId: string) => {
-    if (!window.confirm("Remove this scan from the curator's cache? The source images stay.")) return;
+    const confirmed = askConfirm("Remove this scan from the curator's cache? The source images stay.");
+    if (!confirmed) return;
     setForgetting(scanId);
     setError(null);
     try {
-      await deleteCachedScan(scanId);
+      await deleteCachedScan(scanId, confirmed);
       if (scanOnScreen.current === scanId) clearScan();
       setNotice("That scan was removed. The source images stayed.");
     } catch (err) {
@@ -507,13 +510,14 @@ export default function CuratePage() {
     if (!summary || rows.length === 0 || deleting) return;
     const shown = new Set(filtered.map((row) => row.rel_path));
     const hidden = rows.filter((row) => !shown.has(row.rel_path)).length;
-    if (!window.confirm(deleteConfirmText(rows.length, hidden))) return;
+    const confirmed = askConfirm(deleteConfirmText(rows.length, hidden));
+    if (!confirmed) return;
     const deletedFrom = summary.scan_id;
     setDeleting(true);
     setError(null);
     setNotice(null);
     try {
-      const outcome = await deleteScanImages(deletedFrom, rows);
+      const outcome = await deleteScanImages(deletedFrom, rows, confirmed);
       dropGone(deletedFrom, outcome.deleted);
       const report = deleteReport(rows.length, outcome);
       if (report.failed) setError(report.text);

@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 
-import { OUTCOME_LABEL, OUTCOME_TONE, hasImage } from "@/lib/darkroom/outcome";
+import { OUTCOME_LABEL, OUTCOME_TONE, hasImage, recordMarks } from "@/lib/darkroom/outcome";
 import { REASON_WORDS, matchesRule, promptChangedVerdict, reasonParts, recordRules, rowVerdict, type RuleHit } from "@/lib/darkroom/shields";
 import { ago, formatWhen } from "@/lib/darkroom/time";
 import { allowsDarkroomPurge, OUTCOMES, purgeAll, type GenerationRecord, type Mode, type Outcome } from "@/lib/darkroomApi";
 import { permits } from "@/lib/capabilities";
+import { confirmedBy, type Confirmed } from "@/lib/confirmed";
 import { useLoad } from "@/lib/darkroom/useLoad";
 
 import { Info, Tooltip } from "@/components/Tooltip";
@@ -34,11 +35,11 @@ function PurgeAll({ onPurged }: { onPurged: () => void }) {
   const [purging, setPurging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const purge = async () => {
+  const purge = async (confirmed: Confirmed) => {
     setPurging(true);
     setError(null);
     try {
-      await purgeAll();
+      await purgeAll(confirmed);
       setConfirming(false);
       onPurged();
     } catch (caught) {
@@ -58,7 +59,7 @@ function PurgeAll({ onPurged }: { onPurged: () => void }) {
   return (
     <span role="group" aria-label="Confirm deleting every record" className="inline-flex flex-wrap items-center gap-2 text-sm text-foreground/70">
       <span>Delete every record and image, including any the filters hide? This cannot be undone.</span>
-      <Button small tone="danger" onClick={purge} disabled={purging}>
+      <Button small tone="danger" onClick={(event) => void purge(confirmedBy(event))} disabled={purging}>
         {purging ? "Deleting…" : "Delete all for good"}
       </Button>
       <Button small onClick={() => setConfirming(false)} disabled={purging}>
@@ -199,12 +200,12 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
   );
 }
 
-function HistoryRow({ record }: { record: GenerationRecord }) {
+export function HistoryRow({ record }: { record: GenerationRecord }) {
   const { openRecord } = useCompose();
   const verdict = rowVerdict(record);
   const changed = promptChangedVerdict(record);
   return (
-    <li>
+    <li {...recordMarks(record)}>
       <button type="button" onClick={() => openRecord(record.id)} className="w-full cursor-pointer text-left flex items-center gap-3 rounded-lg border border-border/60 bg-surface p-2 transition-colors hover:border-accent-purple/60 hover:bg-surface-hover/60">
         <Thumb record={record} />
         <div className="min-w-0 flex-1">
