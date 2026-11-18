@@ -30,6 +30,8 @@ export function configFromSummary(summary: ScanSummary): CuratorConfig {
     guard: {
       policy: summary.guard_config?.policy ?? base.guard.policy,
       variants: summary.guard_config?.variants ?? base.guard.variants,
+      // The mode it ran in, whether chosen or the curator's default; cleared on a curator that cannot take it.
+      thinking: summary.guard_config?.thinking ?? base.guard.thinking,
     },
     prefilter: { ...base.prefilter, ...summary.prefilter_config },
     crops: { ...base.crops, ...summary.crop_config },

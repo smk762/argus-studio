@@ -1,9 +1,9 @@
 # Curator demo sample: provenance
 
 The 14 images behind the static `/curate` demo are **synthetic**. They were generated for this demo on
-2026-11-14. The two people in them are **fictional**: they were described in words, not taken from photos,
+2026-11-14 and regenerated from the same script on 2026-11-18. The two people in them are **fictional**: they were described in words, not taken from photos,
 and they do not depict or imitate any real person. The scan (`scan.json`) and the thumbnails (`thumbs/`) are
-a **real recording of argus-curator 0.15.2.dev2+g97021d6** (its `dev` HEAD, commit `97021d6`, the build
+a **real recording of argus-curator 0.17.1.dev30+g252cfde** (its `dev` HEAD, commit `252cfde`, the build
 `frontend/schema/pins.json` pins for the wire types) run over those images: no number in it was edited by
 hand. `recording.json` records that version, the date and the scan options; `frontend/schema/demo.json`
 records the commit, and `src/lib/demoRecordings.test.ts` fails if the three disagree.
@@ -30,9 +30,11 @@ every prompt, seed and whether the identity pass applied.
 6. **Clean-up.** Saved as JPEG (quality 90) from fresh pixel buffers: no EXIF, XMP or workflow metadata. The
    curator re-encodes its thumbnails, which carry none either.
 
-The set replaces an earlier one made the same morning with the same descriptions and seeds, whose text
-renders ran in ComfyUI and whose generation scripts were not kept. The images differ; the recipe is now in
-the repo.
+The first set from this script (2026-11-14) replaced an earlier one made the same morning with the same
+descriptions and seeds, whose text renders ran in ComfyUI and whose generation scripts were not kept. Its
+full-size originals were not kept either, so moving the curator pin on 2026-11-18 meant running the script
+again. Same seeds, same checkpoint and same diffusers (0.39): the frames are close to the earlier ones but not
+bit-identical (the group shot's face boxes moved by a pixel or so; `generation.json` is this run's).
 
 Character descriptions (the start of every prompt):
 
@@ -68,7 +70,7 @@ logo, signature, frame, low quality, worst quality", plus "teenager, young girl,
 ## The recorded scan
 
 `scripts/record_curator_demo.py` sent `POST /scan/folder` to a throwaway argus-curator built from `dev` at
-`97021d6` (the `-gpu` image, run on CPU) with the set mounted at `/data/images`, then saved the
+`252cfde` (the `-gpu` image) with the set mounted at `/data/images`, then saved the
 `ScanSummary` verbatim and fetched each image's `GET /thumb`. Options: photo / SDXL / identity target;
 min short side 512, max aspect 3.0, blur threshold 100, pHash cluster distance 10; InsightFace `buffalo_l`
 faces with MiVOLO age and gender; Places365 scenes; Fashionpedia garments; NudeNet; SingGuard
@@ -83,10 +85,11 @@ What it found is what the page shows:
 - **Faces.** Every person A frame, profile included, falls in one face cluster and every person B frame in
   another, with person B's face in the group shot. `02.jpg` is flagged as a near duplicate of `02_copy.jpg`.
 - **Ages.** MiVOLO reads both people younger than their descriptions: person A at about 23–25, person B at
-  about 31–36 (the group shot's faces at about 24 and 32). Both are adults throughout.
+  about 31–35 (the group shot's faces at about 24 and 32). Both are adults throughout.
 - **Moderation.** NudeNet rated every frame safe (the swimsuit frame only reports exposed armpits, exposed
   score 0.0) and SingGuard judged every frame safe, so no passing frame is blurred for review; rejected
-  frames are always veiled.
+  frames are always veiled. SingGuard ran in `cascade`, the curator's default (`guard_config.thinking`):
+  `fast` passed every frame, so none was escalated to `slow` and every verdict records `fast`.
 
 ## Licences
 

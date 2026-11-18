@@ -544,6 +544,30 @@ describe("curator scan and export options", () => {
     expect(calls).toEqual(["GET /health"]);
   });
 
+  it("refuses a chosen SingGuard mode on a curator that would run its own", async () => {
+    routes["GET /health"] = curator({});
+    routes["POST /scan/folder/stream"] = sent;
+    const { scanFolderStream, GUARD_THINKING_DENIED } = await import("@/lib/curatorApi");
+    const cfg = await scanConfig({ guard: { policy: "default", variants: [], thinking: "slow" } });
+
+    await expect(scanFolderStream("f", cfg, () => {})).rejects.toThrow(GUARD_THINKING_DENIED);
+    expect(calls).toEqual(["GET /health"]);
+  });
+
+  it("sends a chosen SingGuard mode to a curator that takes it", async () => {
+    routes["GET /health"] = curator({ guard_thinking: true });
+    let body: Record<string, unknown> | null = null;
+    routes["POST /scan/folder/stream"] = (init?: RequestInit) => {
+      body = JSON.parse(String(init?.body));
+      return sent();
+    };
+    const { scanFolderStream } = await import("@/lib/curatorApi");
+    const cfg = await scanConfig({ guard: { policy: "default", variants: [], thinking: "slow" } });
+
+    await scanFolderStream("f", cfg, () => {}).catch(() => {});
+    expect(body).toMatchObject({ guard: { policy: "default", variants: [], thinking: "slow" } });
+  });
+
   it("lets a plain scan through a curator that advertises nothing", async () => {
     routes["GET /health"] = curator({});
     routes["POST /scan/folder/stream"] = sent;

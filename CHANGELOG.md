@@ -4,8 +4,14 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- **`/curate` shows the SingGuard mode a scan ran in** (curator 0.17): fast, fast-slow, slow or cascade, under SingGuard in the facet rail, with a warning when SingGuard refused the mode and every check ran fast. The mode comes from the scan form's picker, or else from the curator's default (`ARGUS_CURATOR_SINGGUARD_THINKING`).
+- **`/curate`'s scan form picks the SingGuard mode** (argus-curator#180). A Mode select under the SingGuard policy offers `/detectors.singguard_thinking_modes` (the host's allowed list), with the curator's default named on the first option and a note on what each mode costs. It appears only when the curator lists modes. A chosen mode is sent as `guard.thinking`, and refused before the scan starts on a curator whose `/health` lacks `guard_thinking`, which would run its own mode silently. Again restores the mode the scan ran in, and the form flags a mode the host doesn't allow (the curator would answer 422).
+
 ### Changed
 
+- **Curator wire pin and demo recording move to `252cfde`** (curator 0.17.1.dev30, with argus-curator#180). The demo images were regenerated with `scripts/make_curator_sample.py` (the 2026-11-14 originals were not kept) and re-recorded; the scan finds what it found before (same rejects, clusters, near duplicate and ratings), and records `guard_config.thinking: cascade`.
 - **Darkroom's image rule is checked on the rendered views** (#263). `recordImages.test.ts` renders the record view, the history row and the image tile for every fixture record and fails if a deleted, omitted, refused, failed or removed one has an `<img>`. Record views carry `data-outcome`, which a new Bombadil property reads, and `ImageTile` now asks `hasImage()` itself.
 
 - **A delete cannot reach a backend without the user's confirmation** (#262). Every deleting or purging fetcher on `/curate`, `/darkroom` and `/proof` takes a one-use `Confirmed`, minted only by the browser's confirm dialog or the user's own click on a confirm button, and spends it before the request. Nothing changes for the user: the same questions are asked.
