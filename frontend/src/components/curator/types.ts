@@ -110,10 +110,10 @@ export interface GuardConfig {
   /** Extra policies to judge every image under: one more pass each. */
   variants: string[];
   /**
-   * Curator 0.17+: the SingGuard mode the scan asked for, set on the curator
-   * (`ARGUS_CURATOR_SINGGUARD_THINKING`). Recorded by the scan, never chosen by
-   * a request: the curator replaces a value sent. A string, so a mode a newer
-   * curator adds still reads.
+   * Curator 0.17+: the SingGuard mode the scan ran in. A curator that reports
+   * `/health.guard_thinking` takes it from the request (argus-curator#180);
+   * null or left out runs its default (`ARGUS_CURATOR_SINGGUARD_THINKING`). An
+   * older one replaces a value sent. A string, so a mode a newer curator adds still reads.
    */
   thinking?: string | null;
   /** Curator 0.17+: SingGuard refused that mode, so every check ran `fast`. */
@@ -481,6 +481,10 @@ export interface Detectors {
   singguard?: boolean;
   /** Names a scan can pass as `guard.policy`. Empty without a server. */
   singguard_policies?: string[];
+  /** Modes a scan can pass as `guard.thinking`: the host's allowed list. Absent on an older curator. */
+  singguard_thinking_modes?: string[];
+  /** The mode a scan runs in when it names none. Null without a server. */
+  singguard_thinking_default?: string | null;
   /** A NudeNet URL is set. Reachability is not probed. */
   nudenet?: boolean;
   /** A watermark detector URL is set. Reachability is not probed, so a scan can still get a 503. */
@@ -683,7 +687,7 @@ export interface CuratorConfig {
   faces: FaceConfig;
   scenes: SceneConfig;
   garments: GarmentConfig;
-  guard: Pick<GuardConfig, "policy" | "variants">;
+  guard: Pick<GuardConfig, "policy" | "variants" | "thinking">;
   prefilter: PrefilterConfig;
   crops: CropConfig;
 }
@@ -744,7 +748,7 @@ export function defaultCuratorConfig(): CuratorConfig {
     },
     scenes: { enabled: false, top_k: 5, device: "auto" },
     garments: { enabled: false, min_conf: 0.3, device: "auto" },
-    guard: { policy: "default", variants: [] },
+    guard: { policy: "default", variants: [], thinking: null },
     prefilter: defaultPrefilter(),
     crops: defaultCrops(),
   };

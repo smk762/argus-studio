@@ -305,7 +305,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
           {guardMode && (
             <p className={`flex items-start gap-1 text-[10px] leading-snug ${guardMode.warn ? "text-accent-orange-ink" : "text-muted"}`}>
               <span>{guardMode.text}</span>
-              <Info text="The mode is set on the curator (ARGUS_CURATOR_SINGGUARD_THINKING). A scan cannot choose it." />
+              <Info text="Chosen in the scan form, or the curator's default (ARGUS_CURATOR_SINGGUARD_THINKING)." />
             </p>
           )}
           <label className="block text-[10px] text-muted">

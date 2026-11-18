@@ -17,6 +17,8 @@ export interface ScanCaps {
   setAge: Capability;
   prefilter: Capability;
   crops: Capability;
+  /** A chosen SingGuard mode. Optional: absent clears nothing. */
+  guardThinking?: Capability;
   /** Watermark detection refused, or no watermark detector configured. */
   watermarkDenied: boolean;
   /** `/detectors`. Null or absent until known. */
@@ -42,6 +44,7 @@ export function clearDenied(config: CuratorConfig, caps: ScanCaps): CuratorConfi
   if (caps.prefilter === false && (next.prefilter.drop_nsfw || next.prefilter.drop_no_face || next.prefilter.drop_no_age)) {
     next = { ...next, prefilter: { ...next.prefilter, drop_nsfw: false, drop_no_face: false, drop_no_age: false } };
   }
+  if (caps.guardThinking === false && next.guard.thinking) next = { ...next, guard: { ...next.guard, thinking: null } };
   if (caps.crops === false && next.crops.enabled) next = { ...next, crops: { ...next.crops, enabled: false } };
   if (caps.watermarkDenied && next.crops.detect) next = { ...next, crops: { ...next.crops, detect: false } };
   if (caps.detectors != null) {

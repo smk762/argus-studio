@@ -6,7 +6,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Added
 
-- **`/curate` shows the SingGuard mode a scan ran in** (curator 0.17): fast, fast-slow, slow or cascade, under SingGuard in the facet rail, with a warning when SingGuard refused the mode and every check ran fast. The mode is set on the curator (`ARGUS_CURATOR_SINGGUARD_THINKING`); a scan cannot choose it, so there is no picker.
+- **`/curate` shows the SingGuard mode a scan ran in** (curator 0.17): fast, fast-slow, slow or cascade, under SingGuard in the facet rail, with a warning when SingGuard refused the mode and every check ran fast. The mode comes from the scan form's picker, or else from the curator's default (`ARGUS_CURATOR_SINGGUARD_THINKING`).
+- **`/curate`'s scan form picks the SingGuard mode** (argus-curator#180). A Mode select under the SingGuard policy offers `/detectors.singguard_thinking_modes` (the host's allowed list), with the curator's default named on the first option and a note on what each mode costs. It appears only when the curator lists modes. A chosen mode is sent as `guard.thinking`, and refused before the scan starts on a curator whose `/health` lacks `guard_thinking`, which would run its own mode silently. Again restores the mode the scan ran in, and the form flags a mode the host doesn't allow (the curator would answer 422).
 
 ### Changed
 
