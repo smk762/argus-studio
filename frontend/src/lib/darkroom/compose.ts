@@ -151,6 +151,21 @@ export function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 32);
 }
 
+/** The largest seed the form holds: above it a JS number no longer keeps every integer, so the seed sent would differ from the one typed. */
+export const SEED_MAX = Number.MAX_SAFE_INTEGER;
+
+/**
+ * The seed box's text as a held seed: null when cleared, the integer when it is
+ * a whole number in [0, SEED_MAX], undefined (keep the last good seed) for
+ * anything else, so a rounded, negative or non-finite seed never reaches a request.
+ */
+export function parseSeed(text: string): number | null | undefined {
+  if (text.trim() === "") return null;
+  const n = Number(text);
+  if (!Number.isSafeInteger(n) || n < 0) return undefined;
+  return n;
+}
+
 /** One wording, shared with the client's refusal. */
 export const READ_ONLY_BLOCK = DARKROOM_READ_ONLY_REASON;
 

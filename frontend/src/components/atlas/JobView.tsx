@@ -79,7 +79,9 @@ export function JobView({
     const ib = BASE_ORDER.indexOf(b);
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
   });
-  const [base, setBase] = useState(controlKinds[0] ?? "hillshade");
+  const [chosenBase, setBase] = useState(controlKinds[0] ?? "hillshade");
+  // A refreshed sidecar may lack the kind picked earlier: never request a missing control.
+  const base = controlKinds.includes(chosenBase) ? chosenBase : (controlKinds[0] ?? "hillshade");
   const [opacity, setOpacity] = useState(70);
   const [tiling, setTiling] = useState(false);
   const [tilesError, setTilesError] = useState<string | null>(null);

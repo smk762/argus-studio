@@ -48,8 +48,10 @@ describe("concept registry", () => {
     expect(getConcept("metric_diversity")).toBeDefined();
   });
 
-  it.each(concepts.map((c) => [c.id, c] as const))("%s: id matches its key, text is filled, related ids exist", (id, c) => {
-    expect((CONCEPTS as Record<string, { id: string }>)[id].id).toBe(id);
+  // Cases come from the entries, so a concept filed under the wrong key (a
+  // copy-paste leaving metric_fid = { id: "metric_clip" }) fails here.
+  it.each(Object.entries(CONCEPTS).map(([key, c]) => [key, c] as const))("%s: id matches its key, text is filled, related ids exist", (id, c) => {
+    expect(c.id).toBe(id);
     expect(c.title.trim()).not.toBe("");
     expect(c.summary.trim()).not.toBe("");
     expect(c.body.trim()).not.toBe("");

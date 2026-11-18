@@ -27,3 +27,17 @@ export function parseDenylist(raw: string | undefined): string[] {
 export function opsecFindings(text: string, denylist: string[] = []): OpsecFinding[] {
   return findings(text, denylist);
 }
+
+/**
+ * Why the gate cannot run its denylist check, or null when it can. On GitHub
+ * Actions (`GITHUB_ACTIONS=true`), where the secret is supplied, a missing or
+ * empty `DOCS_OPSEC_DENYLIST` is a failure, not a silent skip: a misnamed or rotated secret would otherwise pass every page.
+ * A run that is known to get no secrets (a fork PR) says so explicitly with
+ * `DOCS_OPSEC_DENYLIST_OPTIONAL=1`. A local run, or another runner that never
+ * gets the secret, may go without.
+ */
+export function denylistProblem(env: Record<string, string | undefined>): string | null {
+  if (parseDenylist(env.DOCS_OPSEC_DENYLIST).length > 0) return null;
+  if (env.GITHUB_ACTIONS !== "true" || env.DOCS_OPSEC_DENYLIST_OPTIONAL === "1") return null;
+  return "DOCS_OPSEC_DENYLIST is empty on GitHub Actions: the denylist check would be skipped. Supply the secret, or set DOCS_OPSEC_DENYLIST_OPTIONAL=1 for a run that gets no secrets.";
+}

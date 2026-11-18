@@ -222,8 +222,8 @@ export default function ForgePage() {
         // would offer trainers this build cannot emit. Reconcile the selection
         // so it is always a member of the list actually on screen.
         setTrainersEmpty(t.value.length === 0);
+        setTrainers(t.value);
         if (t.value.length > 0) {
-          setTrainers(t.value);
           setTrainer((cur) => (t.value.some((x) => x.id === cur) ? cur : t.value[0].id));
         }
       }
@@ -373,7 +373,7 @@ export default function ForgePage() {
       />
 
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
-        <MadeWith pkg="forge" verb="Configs from" version={live ? version : null} command={forgeConfigCommand(trainer)} />
+        <MadeWith pkg="forge" verb="Configs from" version={live ? version : null} command={trainersEmpty ? null : forgeConfigCommand(trainer)} />
         {STATIC_DEMO && (
           <RecordedDemoNote
             summary="The kohya config below is generated in your browser by the same sizing heuristics argus-forge uses."
@@ -719,7 +719,7 @@ export default function ForgePage() {
           {trainingNote && <CapabilityNotice reason={trainingNote} />}
           {/* The run list reads on a demo-safe forge too; Start and Cancel follow
               /health.training (and the client refuses them besides). */}
-          {live && !unreachable && version !== null && (
+          {live && !unreachable && version !== null && !trainersEmpty && (
             <TrainingRuns
               exportDir={dirTrimmed}
               atRoot={atRoot}

@@ -20,6 +20,20 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Fixed
 
+- **Twenty-three audit findings.**
+  - `/` (caption): an Immich or manifest batch that finishes after the user switched tabs no longer shows its table or error in the new tab, and the `/forge` hand-off follows the sidecar setting the run started with.
+  - `/atlas`: switching canvases hides the previous job until the new one loads, and a refresh of the old job no longer takes the selection back.
+  - `/forge`: an empty `/trainers` answer clears the fallback trainer chips and hides the run panel.
+  - `/gallery`: a subject is picked as category/folder, so two categories with the same folder name no longer mix in the grid; switching archives no longer shows the old archive's rows, and a saved slice plan is dropped once the archive, filters or target change.
+  - `/proof`: purging the last run no longer leaves "Loading report…" on screen, and a demo board always applies a review locally.
+  - `/darkroom`: a seed that would be rounded, negative or non-finite is refused, and a failed Refresh drops the stale `/health` so write actions turn off.
+  - Tooltips stay while the trigger is focused or hovered (not only both), and Escape closes a hover-opened one from anywhere.
+  - The folder picker survives a parent re-render with an inline fetcher and disables "Use this folder" while a navigation loads.
+  - An Immich album's dataset folder now ends in a short album-id suffix and is capped at 200 bytes, so two albums never share a folder and a long non-Latin name still fits the filesystem. **Re-ingesting an album lands in a new folder name.**
+  - The face-identity counts drop by the moved frames on every path, and the token-budget docs widget names the fragments it skipped.
+  - The docs opsec gate fails on GitHub Actions when the denylist secret is missing (fork PRs opt out explicitly), and the concept registry test compares each key with its entry's id.
+  - `scripts/record_curator_demo.py` stages the new thumbnails and swaps them in only once every one arrived.
+
 - **Eight audit findings.**
   - `/curate`: reopening a cached scan loads every row, not only the first 10,000, so the keep-set, the export and the bulk deletes see the whole scan.
   - `/curate`: a scan option whose detector the curator lacks (FairFace, MiVOLO ages, one-person set, body ages, scenes, garments) is switched off, not just hidden, so a stale `true` no longer goes out with the scan.

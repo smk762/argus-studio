@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { canExpand, defaultCompose, enforceBlock, fromRecord, generateBlock, normaliseCompose, parseTriggerWords, policyMode, toRequest } from "./compose";
+import { canExpand, defaultCompose, enforceBlock, fromRecord, generateBlock, normaliseCompose, parseSeed, parseTriggerWords, policyMode, toRequest } from "./compose";
 import { fixtureRecord } from "./fixture.test-util";
 import type { Health, Models, Policies } from "@/lib/darkroomApi";
 
@@ -163,5 +163,21 @@ describe("generate gating", () => {
   it("refuses SFW generation without NudeNet", () => {
     expect(generateBlock(health({ sfw_available: false }), null, { ...ready, enforcingPolicy: "default" }, policies())).toContain("NudeNet");
     expect(generateBlock(health({ sfw_available: false }), null, ready, policies())).toBeNull();
+  });
+});
+
+describe("parseSeed", () => {
+  it("clears to null and keeps a whole, safe seed", () => {
+    expect(parseSeed("")).toBeNull();
+    expect(parseSeed("0")).toBe(0);
+    expect(parseSeed("4294967295")).toBe(4294967295);
+    expect(parseSeed(String(Number.MAX_SAFE_INTEGER))).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it("refuses a seed it would round, a negative one or a non-finite one", () => {
+    expect(parseSeed("9007199254740993")).toBeUndefined(); // 2^53 + 1 rounds
+    expect(parseSeed("1e400")).toBeUndefined(); // Infinity → null in JSON
+    expect(parseSeed("-1")).toBeUndefined();
+    expect(parseSeed("1.5")).toBeUndefined();
   });
 });
