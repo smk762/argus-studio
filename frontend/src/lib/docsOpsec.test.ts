@@ -59,15 +59,16 @@ function files(dir: string): string[] {
 }
 
 describe("denylistProblem", () => {
-  it("fails closed under CI when the secret is missing or blank", () => {
-    expect(denylistProblem({ CI: "true" })).toMatch(/DOCS_OPSEC_DENYLIST/);
-    expect(denylistProblem({ CI: "true", DOCS_OPSEC_DENYLIST: " ,\n" })).toMatch(/DOCS_OPSEC_DENYLIST/);
+  it("fails closed on GitHub Actions when the secret is missing or blank", () => {
+    expect(denylistProblem({ GITHUB_ACTIONS: "true" })).toMatch(/DOCS_OPSEC_DENYLIST/);
+    expect(denylistProblem({ GITHUB_ACTIONS: "true", DOCS_OPSEC_DENYLIST: " ,\n" })).toMatch(/DOCS_OPSEC_DENYLIST/);
   });
 
-  it("runs with a denylist, locally without one, or where CI says it gets none", () => {
-    expect(denylistProblem({ CI: "true", DOCS_OPSEC_DENYLIST: "secret-host" })).toBeNull();
+  it("runs with a denylist, locally or on another runner without one, or where CI says it gets none", () => {
+    expect(denylistProblem({ GITHUB_ACTIONS: "true", DOCS_OPSEC_DENYLIST: "secret-host" })).toBeNull();
     expect(denylistProblem({})).toBeNull();
-    expect(denylistProblem({ CI: "true", DOCS_OPSEC_DENYLIST_OPTIONAL: "1" })).toBeNull();
+    expect(denylistProblem({ CI: "true" })).toBeNull();
+    expect(denylistProblem({ GITHUB_ACTIONS: "true", DOCS_OPSEC_DENYLIST_OPTIONAL: "1" })).toBeNull();
   });
 });
 

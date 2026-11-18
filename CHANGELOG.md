@@ -31,7 +31,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
   - The folder picker survives a parent re-render with an inline fetcher and disables "Use this folder" while a navigation loads.
   - An Immich album's dataset folder now ends in a short album-id suffix and is capped at 200 bytes, so two albums never share a folder and a long non-Latin name still fits the filesystem. **Re-ingesting an album lands in a new folder name.**
   - The face-identity counts drop by the moved frames on every path, and the token-budget docs widget names the fragments it skipped.
-  - The docs opsec gate fails under CI when the denylist secret is missing (fork PRs opt out explicitly), and the concept registry test compares each key with its entry's id.
+  - The docs opsec gate fails on GitHub Actions when the denylist secret is missing (fork PRs opt out explicitly), and the concept registry test compares each key with its entry's id.
   - `scripts/record_curator_demo.py` stages the new thumbnails and swaps them in only once every one arrived.
 
 - **Eight audit findings.**

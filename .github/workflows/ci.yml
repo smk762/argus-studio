@@ -44,7 +44,7 @@ jobs:
       - run: npm run typecheck
 
       # Includes the docs opsec gate (src/lib/docsOpsec.test.ts). The private
-      # denylist is a secret, never committed. Under CI an empty one fails the
+      # denylist is a secret, never committed. On Actions an empty one fails the
       # gate, except on a fork PR, which gets no secrets and says so here.
       - run: npm test
         env:
