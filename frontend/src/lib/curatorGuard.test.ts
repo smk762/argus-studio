@@ -198,8 +198,20 @@ describe("policy choice", () => {
     expect(guardProblem({ policy: "gone", variants: [] }, [])).toBeNull();
   });
 
+  it("names a mode the host does not allow, and passes the default or an older curator's empty list", () => {
+    const fast = ["fast", "cascade"];
+    expect(guardProblem({ policy: "default", variants: [], thinking: "slow" }, ["default"], fast)).toMatch(/mode slow/);
+    expect(guardProblem({ policy: "default", variants: [], thinking: "fast" }, ["default"], fast)).toBeNull();
+    expect(guardProblem({ policy: "default", variants: [], thinking: null }, ["default"], fast)).toBeNull();
+    expect(guardProblem({ policy: "default", variants: [], thinking: "slow" }, ["default"], [])).toBeNull();
+  });
+
   it("sends nothing for the default, and drops repeats", () => {
     expect(guardBody({ policy: "default", variants: [] })).toBeNull();
+    expect(guardBody({ policy: "default", variants: [], thinking: null })).toBeNull();
+    // A mode alone is a choice: left out, the curator would run its own default.
+    expect(guardBody({ policy: "default", variants: [], thinking: "slow" })).toEqual({ policy: "default", variants: [], thinking: "slow" });
+    expect(guardBody({ policy: "adult", variants: [], thinking: null })).toEqual({ policy: "adult", variants: [] });
     expect(guardBody({ policy: "adult", variants: ["adult", "x", "x"] })).toEqual({ policy: "adult", variants: ["x"] });
   });
 });

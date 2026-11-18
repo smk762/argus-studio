@@ -10,12 +10,14 @@ const on = () => {
     faces: { ...c.faces, set_age: true },
     prefilter: { ...c.prefilter, drop_nsfw: true, drop_no_face: true, drop_no_age: true },
     crops: { ...c.crops, enabled: true, detect: true },
+    guard: { ...c.guard, thinking: "slow" },
   };
 };
 
 describe("clearDenied", () => {
   it("switches off every option the curator refuses", () => {
-    const out = clearDenied(on(), { setAge: false, prefilter: false, crops: false, watermarkDenied: true });
+    const out = clearDenied(on(), { setAge: false, prefilter: false, guardThinking: false, crops: false, watermarkDenied: true });
+    expect(out.guard.thinking).toBeNull();
     expect(out.faces.set_age).toBe(false);
     expect([out.prefilter.drop_nsfw, out.prefilter.drop_no_face, out.prefilter.drop_no_age]).toEqual([false, false, false]);
     expect(out.crops.enabled).toBe(false);
@@ -26,6 +28,7 @@ describe("clearDenied", () => {
     const c = on();
     expect(clearDenied(c, { setAge: null, prefilter: null, crops: null, watermarkDenied: false })).toBe(c);
     expect(clearDenied(c, { setAge: true, prefilter: true, crops: true, watermarkDenied: false })).toBe(c);
+    expect(clearDenied(c, { setAge: true, prefilter: true, guardThinking: null, crops: true, watermarkDenied: false })).toBe(c);
   });
 });
 

@@ -211,6 +211,8 @@ export interface Health {
   prefilter?: boolean;
   /** `ScanRequest.crops` exists (curator 0.14 and later). */
   crops?: boolean;
+  /** `GuardConfig.thinking` is taken from the request (argus-curator#180). An older curator replaces it silently. */
+  guard_thinking?: boolean;
   /** `CropConfig.detect` exists. The detector's URL is `/detectors.watermark`. */
   watermark_detect?: boolean;
   /** `carry_sidecars` and `run_stats` on an export (curator 0.13 and later). */
@@ -285,6 +287,11 @@ export function allowsSetAge(health: Health | null): Capability {
  */
 export function allowsPrefilter(health: Health | null): Capability {
   return capabilityOf(health, (h) => h.prefilter, false);
+}
+
+/** Whether a scan can pick its SingGuard mode. Legacy `false`: an older curator would run its own mode silently. */
+export function allowsGuardThinking(health: Health | null): Capability {
+  return capabilityOf(health, (h) => h.guard_thinking, false);
 }
 
 /** Whether this server crops. Legacy `false`: an older curator would scan the frames uncropped. */
@@ -383,6 +390,7 @@ export async function listFolders(path = "", signal?: AbortSignal): Promise<Fold
 
 export const SET_AGE_DENIED = "This curator cannot read a set's age (it predates curator 0.7).";
 export const PREFILTER_DENIED = "This curator cannot drop images before the late checks (it predates the prefilter).";
+export const GUARD_THINKING_DENIED = "This curator cannot run a scan in a chosen SingGuard mode (it predates the choice).";
 export const CROPS_DENIED = "This curator cannot crop images (it predates crops).";
 export const WATERMARK_DENIED = "This curator cannot look for watermarks (it predates watermark detection).";
 export const EXPORT_SIDECARS_DENIED = "This curator cannot carry sidecars or write run stats (it predates curator 0.13).";
@@ -392,6 +400,7 @@ export const CROPPED_COPY_ONLY = "This scan cropped images, so it exports by cop
 async function requireScanCapabilities(cfg: CuratorConfig, signal?: AbortSignal): Promise<void> {
   if (cfg.faces.set_age) await requireCapability(curatorHealth, allowsSetAge, SET_AGE_DENIED, signal);
   if (prefilterOn(cfg.prefilter)) await requireCapability(curatorHealth, allowsPrefilter, PREFILTER_DENIED, signal);
+  if (cfg.guard.thinking) await requireCapability(curatorHealth, allowsGuardThinking, GUARD_THINKING_DENIED, signal);
   if (!cfg.crops.enabled) return;
   await requireCapability(curatorHealth, allowsCrops, CROPS_DENIED, signal);
   if (cfg.crops.detect) await requireCapability(curatorHealth, allowsWatermarkDetect, WATERMARK_DENIED, signal);

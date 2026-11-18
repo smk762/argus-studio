@@ -44,6 +44,6 @@ export function scanFormProblem(cfg: CuratorConfig, detectors: Detectors | null)
     modelProblem(cfg, detectors) ??
     prefilterProblem(cfg, detectors) ??
     cropsProblem(cfg, detectors) ??
-    guardProblem(cfg.guard, detectors?.singguard_policies ?? [])
+    guardProblem(cfg.guard, detectors?.singguard_policies ?? [], detectors?.singguard_thinking_modes ?? [])
   );
 }

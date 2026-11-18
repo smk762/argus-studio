@@ -16,10 +16,12 @@ import {
 } from "./types";
 import {
   allowsCrops,
+  allowsGuardThinking,
   allowsPrefilter,
   allowsSetAge,
   allowsWatermarkDetect,
   CROPS_DENIED,
+  GUARD_THINKING_DENIED,
   PREFILTER_DENIED,
   SET_AGE_DENIED,
   WATERMARK_DENIED,
@@ -27,6 +29,7 @@ import {
 } from "@/lib/curatorApi";
 import { capabilityReason, permits } from "@/lib/capabilities";
 import { GuardPolicyPicker } from "./GuardPolicyPicker";
+import { GuardThinkingPicker } from "./GuardThinkingPicker";
 import { devMode } from "@/lib/curatorEnv";
 import { offeredPolicies } from "@/lib/curatorGuard";
 import { Tooltip } from "@/components/Tooltip";
@@ -71,6 +74,8 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
   const setAgeReason = capabilityReason(setAge, SET_AGE_DENIED);
   const prefilter = allowsPrefilter(health);
   const prefilterReason = capabilityReason(prefilter, PREFILTER_DENIED);
+  const guardThinking = allowsGuardThinking(health);
+  const guardThinkingReason = capabilityReason(guardThinking, GUARD_THINKING_DENIED);
   const crops = allowsCrops(health);
   const cropsReason = capabilityReason(crops, CROPS_DENIED);
   const watermarks = allowsWatermarkDetect(health);
@@ -82,7 +87,7 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
   // `true` can't sit greyed out and still go out with the scan.
   // An option whose detector this curator lacks is not drawn, and is cleared the same way.
   const has = offeredDetectors(detectors);
-  const cleared = clearDenied(value, { setAge, prefilter, crops, watermarkDenied: watermarks === false || (detectors != null && !detectors.watermark), detectors });
+  const cleared = clearDenied(value, { setAge, prefilter, guardThinking, crops, watermarkDenied: watermarks === false || (detectors != null && !detectors.watermark), detectors });
   useEffect(() => {
     if (cleared !== value) onChange(cleared);
   }, [cleared, value, onChange]);
@@ -330,8 +335,19 @@ export function ScanConfigPanel({ value, onChange, loading, detectors, health, p
             choice={value.guard}
             catalog={policyCatalog}
             disabled={loading}
-            onChange={(guard) => onChange({ ...value, guard })}
+            onChange={(guard) => onChange({ ...value, guard: { ...value.guard, ...guard } })}
           />
+          {/* An older curator lists no modes; the picker shows only once the choice can mean something. */}
+          {(detectors.singguard_thinking_modes?.length ?? 0) > 0 && (
+            <GuardThinkingPicker
+              modes={detectors.singguard_thinking_modes ?? []}
+              defaultMode={detectors.singguard_thinking_default ?? null}
+              value={value.guard.thinking ?? null}
+              reason={guardThinkingReason}
+              disabled={loading}
+              onChange={(thinking) => onChange({ ...value, guard: { ...value.guard, thinking } })}
+            />
+          )}
           <hr className="border-border" />
         </>
       )}
