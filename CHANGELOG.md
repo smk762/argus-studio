@@ -11,6 +11,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Changed
 
+- **Curator wire pin and demo recording move to `252cfde`** (curator 0.17.1.dev30, with argus-curator#180). The demo images were regenerated with `scripts/make_curator_sample.py` (the 2026-11-14 originals were not kept) and re-recorded; the scan finds what it found before (same rejects, clusters, near duplicate and ratings), and records `guard_config.thinking: cascade`.
 - **Darkroom's image rule is checked on the rendered views** (#263). `recordImages.test.ts` renders the record view, the history row and the image tile for every fixture record and fails if a deleted, omitted, refused, failed or removed one has an `<img>`. Record views carry `data-outcome`, which a new Bombadil property reads, and `ImageTile` now asks `hasImage()` itself.
 
 - **A delete cannot reach a backend without the user's confirmation** (#262). Every deleting or purging fetcher on `/curate`, `/darkroom` and `/proof` takes a one-use `Confirmed`, minted only by the browser's confirm dialog or the user's own click on a confirm button, and spends it before the request. Nothing changes for the user: the same questions are asked.

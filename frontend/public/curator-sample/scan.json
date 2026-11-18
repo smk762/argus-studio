@@ -1,5 +1,5 @@
 {
-  "scan_id": "edd4450b923047269545a16755cc29b8",
+  "scan_id": "37d508528cd642319b5b4b0fddf3123c",
   "folder": "/data/images",
   "target_profile": {
     "target_style": "photo",
@@ -63,7 +63,9 @@
     "policy": "adult",
     "variants": [
       "adult-granular"
-    ]
+    ],
+    "thinking": "cascade",
+    "fell_back": false
   },
   "prefilter_config": {
     "drop_nsfw": false,
@@ -96,10 +98,10 @@
       "size": 7,
       "representative_rel_path": "personA/outdoor/03.jpg",
       "representative_bbox": [
-        179.4,
+        179.1,
         185.3,
-        447.1,
-        643.0
+        448.9,
+        638.7
       ],
       "attributes": {
         "race": null,
@@ -119,10 +121,10 @@
       "size": 5,
       "representative_rel_path": "personB/set1/01.jpg",
       "representative_bbox": [
-        120.2,
-        143.9,
-        524.7,
-        798.5
+        117.6,
+        125.2,
+        522.9,
+        818.9
       ],
       "attributes": {
         "race": null,
@@ -132,7 +134,7 @@
         "gender_source": "mivolo",
         "age": "30-39",
         "age_conf": null,
-        "age_years": 32.4,
+        "age_years": 32.6,
         "age_source": "mivolo",
         "age_body": null
       }
@@ -182,14 +184,14 @@
       "crop": null,
       "crop_source": null,
       "watermarks": null,
-      "phash": "efb08a2b983b392c",
+      "phash": "8ff00e0b3c3b223f",
       "score_breakdown": {},
       "content_rating": null
     },
     {
       "rel_path": "mixed/group_shot.jpg",
       "abs_path": "/data/images/mixed/group_shot.jpg",
-      "score": 0.2946,
+      "score": 0.2939,
       "passed": true,
       "reject_reason": null,
       "similar_group": 2,
@@ -198,67 +200,29 @@
       "is_duplicate": false,
       "duplicate_of": null,
       "keep_reason": "",
-      "sharpness": 452.97,
-      "artifact_score": 0.8215,
+      "sharpness": 449.05,
+      "artifact_score": 0.8237,
       "width": 1216,
       "height": 832,
       "faces": [
         {
           "bbox": [
-            352.8,
-            193.3,
-            206.6,
-            282.3
+            743.4,
+            146.0,
+            214.5,
+            312.7
           ],
-          "det_score": 0.8932,
-          "cluster_id": "face_1",
-          "primary": false,
-          "yaw": 7.47,
-          "pitch": -8.94,
-          "roll": 3.81,
-          "pose": "frontal",
-          "sharpness": 1175.71,
-          "eye_open": 0.3238,
-          "mouth_open": 0.1947,
-          "cluster_distance": 0.0945,
-          "reference_distance": null,
-          "attributes": {
-            "race": null,
-            "race_conf": null,
-            "gender": "female",
-            "gender_conf": 0.9971,
-            "gender_source": "mivolo",
-            "age": "20-29",
-            "age_conf": null,
-            "age_years": 24.5,
-            "age_source": "mivolo",
-            "age_body": false
-          },
-          "person_index": null,
-          "nsfw_labels": {
-            "FACE_FEMALE": 0.7739,
-            "FEMALE_BREAST_COVERED": 0.3894
-          },
-          "exposed_score": 0.0
-        },
-        {
-          "bbox": [
-            745.1,
-            145.1,
-            212.9,
-            311.9
-          ],
-          "det_score": 0.8852,
+          "det_score": 0.8853,
           "cluster_id": "face_2",
           "primary": true,
-          "yaw": -6.41,
-          "pitch": -6.79,
-          "roll": -1.82,
+          "yaw": -6.65,
+          "pitch": -7.22,
+          "roll": -1.81,
           "pose": "frontal",
-          "sharpness": 1265.77,
-          "eye_open": 0.3656,
-          "mouth_open": 0.1515,
-          "cluster_distance": 0.0891,
+          "sharpness": 1298.52,
+          "eye_open": 0.3662,
+          "mouth_open": 0.15,
+          "cluster_distance": 0.0853,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -268,13 +232,50 @@
             "gender_source": "mivolo",
             "age": "30-39",
             "age_conf": null,
-            "age_years": 32.4,
+            "age_years": 31.9,
             "age_source": "mivolo",
             "age_body": false
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.6355
+            "FACE_FEMALE": 0.6811
+          },
+          "exposed_score": 0.0
+        },
+        {
+          "bbox": [
+            352.5,
+            195.6,
+            206.9,
+            282.4
+          ],
+          "det_score": 0.8852,
+          "cluster_id": "face_1",
+          "primary": false,
+          "yaw": 7.23,
+          "pitch": -9.09,
+          "roll": 4.0,
+          "pose": "frontal",
+          "sharpness": 1104.33,
+          "eye_open": 0.3291,
+          "mouth_open": 0.1854,
+          "cluster_distance": 0.1002,
+          "reference_distance": null,
+          "attributes": {
+            "race": null,
+            "race_conf": null,
+            "gender": "female",
+            "gender_conf": 0.9971,
+            "gender_source": "mivolo",
+            "age": "20-29",
+            "age_conf": null,
+            "age_years": 24.2,
+            "age_source": "mivolo",
+            "age_body": false
+          },
+          "person_index": null,
+          "nsfw_labels": {
+            "FACE_FEMALE": 0.7419
           },
           "exposed_score": 0.0
         }
@@ -286,9 +287,9 @@
       "people_error": null,
       "primary_face_cluster": "face_2",
       "primary_face_pose": "frontal",
-      "primary_face_yaw": -6.41,
-      "primary_face_pitch": -6.79,
-      "primary_face_roll": -1.82,
+      "primary_face_yaw": -6.65,
+      "primary_face_pitch": -7.22,
+      "primary_face_roll": -1.81,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -297,7 +298,7 @@
         "gender_source": "mivolo",
         "age": "30-39",
         "age_conf": null,
-        "age_years": 32.4,
+        "age_years": 31.9,
         "age_source": "mivolo",
         "age_body": false
       },
@@ -306,23 +307,23 @@
         "categories": [
           {
             "label": "park",
-            "conf": 0.9334
+            "conf": 0.9345
           },
           {
             "label": "campus",
-            "conf": 0.0364
+            "conf": 0.0334
           },
           {
             "label": "street",
-            "conf": 0.0047
+            "conf": 0.0056
           },
           {
             "label": "beer_garden",
-            "conf": 0.0035
+            "conf": 0.004
           },
           {
             "label": "bamboo_forest",
-            "conf": 0.0032
+            "conf": 0.0033
           }
         ],
         "environment": "outdoor",
@@ -330,102 +331,102 @@
       },
       "garments": [
         {
-          "label": "glasses",
-          "conf": 0.5902,
+          "label": "jacket",
+          "conf": 0.575,
           "bbox": [
-            347.1000061035156,
-            271.20001220703125,
-            219.3000030517578,
-            60.70000076293945
+            92.2,
+            407.8,
+            1113.1,
+            424.2
+          ],
+          "touches_edge": true,
+          "color": "#7b7c7c"
+        },
+        {
+          "label": "glasses",
+          "conf": 0.5281,
+          "bbox": [
+            352.4,
+            271.4,
+            209.7,
+            60.8
           ],
           "touches_edge": false,
-          "color": "#8b6b4c"
-        },
-        {
-          "label": "jacket",
-          "conf": 0.5673,
-          "bbox": [
-            91.30000305175781,
-            407.3999938964844,
-            1108.9000244140625,
-            424.6000061035156
-          ],
-          "touches_edge": true,
-          "color": "#7c7c7c"
+          "color": "#8f6e4e"
         },
         {
           "label": "shirt_blouse",
-          "conf": 0.4708,
+          "conf": 0.49,
           "bbox": [
-            323.79998779296875,
-            493.5,
-            233.39999389648438,
-            338.5
+            319.8,
+            492.7,
+            234.8,
+            339.3
           ],
           "touches_edge": true,
-          "color": "#e9e0da"
+          "color": "#e8dfd9"
         },
         {
           "label": "shirt_blouse",
-          "conf": 0.3895,
+          "conf": 0.3685,
           "bbox": [
-            330.20001220703125,
-            579.4000244140625,
-            227.5,
-            252.60000610351562
+            329.0,
+            587.2,
+            229.0,
+            244.8
           ],
           "touches_edge": true,
-          "color": "#edeceb"
+          "color": "#efeeed"
         },
         {
           "label": "shirt_blouse",
-          "conf": 0.321,
+          "conf": 0.3294,
           "bbox": [
-            223.3000030517578,
-            458.8999938964844,
-            476.3999938964844,
-            373.1000061035156
+            223.7,
+            465.7,
+            474.9,
+            366.3
           ],
           "touches_edge": true,
-          "color": "#bdb9b6"
+          "color": "#bebbb8"
         }
       ],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.7739,
+            "score": 0.7419,
             "bbox": [
-              347.0,
-              73.0,
+              345.0,
+              265.0,
               215.0,
-              202.0
+              204.0
             ]
           },
           {
             "label": "FACE_FEMALE",
-            "score": 0.6355,
+            "score": 0.6811,
             "bbox": [
-              734.0,
-              22.0,
-              226.0,
-              237.0
+              736.0,
+              215.0,
+              225.0,
+              236.0
             ]
           },
           {
             "label": "FEMALE_BREAST_COVERED",
-            "score": 0.3894,
+            "score": 0.353,
             "bbox": [
-              454.0,
-              454.0,
-              129.0,
-              139.0
+              456.0,
+              643.0,
+              128.0,
+              143.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.7739,
-          "FEMALE_BREAST_COVERED": 0.3894
+          "FACE_FEMALE": 0.7419,
+          "FEMALE_BREAST_COVERED": 0.353
         },
         "exposed_score": 0.0
       },
@@ -463,9 +464,9 @@
       "watermarks": null,
       "phash": "ce89cee1c902e9b9",
       "score_breakdown": {
-        "sharpness": 0.1982,
+        "sharpness": 0.1965,
         "resolution": 0.2437,
-        "artifact": 0.1232,
+        "artifact": 0.1236,
         "target_bonus": 0.03,
         "face_penalty": 0.4
       },
@@ -483,29 +484,29 @@
       "is_duplicate": false,
       "duplicate_of": null,
       "keep_reason": "",
-      "sharpness": 1131.06,
-      "artifact_score": 0.8761,
+      "sharpness": 1185.33,
+      "artifact_score": 0.8825,
       "width": 832,
       "height": 1216,
       "faces": [
         {
           "bbox": [
-            179.4,
+            179.1,
             185.3,
-            447.1,
-            643.0
+            448.9,
+            638.7
           ],
-          "det_score": 0.8409,
+          "det_score": 0.8494,
           "cluster_id": "face_1",
           "primary": true,
-          "yaw": 0.36,
-          "pitch": -10.51,
-          "roll": -1.19,
+          "yaw": 0.76,
+          "pitch": -10.67,
+          "roll": -1.36,
           "pose": "frontal",
-          "sharpness": 294.6,
-          "eye_open": 0.33,
-          "mouth_open": 0.1789,
-          "cluster_distance": 0.0918,
+          "sharpness": 284.23,
+          "eye_open": 0.3317,
+          "mouth_open": 0.1743,
+          "cluster_distance": 0.089,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -521,7 +522,7 @@
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.8491
+            "FACE_FEMALE": 0.8507
           },
           "exposed_score": 0.0
         }
@@ -533,9 +534,9 @@
       "people_error": null,
       "primary_face_cluster": "face_1",
       "primary_face_pose": "frontal",
-      "primary_face_yaw": 0.36,
-      "primary_face_pitch": -10.51,
-      "primary_face_roll": -1.19,
+      "primary_face_yaw": 0.76,
+      "primary_face_pitch": -10.67,
+      "primary_face_roll": -1.36,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -553,69 +554,69 @@
         "categories": [
           {
             "label": "park",
-            "conf": 0.4534
-          },
-          {
-            "label": "orchard",
-            "conf": 0.0975
+            "conf": 0.4434
           },
           {
             "label": "playground",
-            "conf": 0.0821
+            "conf": 0.1001
           },
           {
-            "label": "beer_garden",
-            "conf": 0.0689
+            "label": "orchard",
+            "conf": 0.0865
+          },
+          {
+            "label": "bamboo_forest",
+            "conf": 0.0737
           },
           {
             "label": "yard",
-            "conf": 0.0629
+            "conf": 0.0536
           }
         ],
         "environment": "outdoor",
-        "environment_conf": 0.9796
+        "environment_conf": 0.9807
       },
       "garments": [
         {
           "label": "bag_wallet",
-          "conf": 0.6221,
+          "conf": 0.508,
           "bbox": [
-            627.7000122070312,
-            437.20001220703125,
-            204.0,
-            778.7999877929688
+            636.4,
+            739.2,
+            195.3,
+            476.8
           ],
           "touches_edge": true,
-          "color": "#8a9088"
+          "color": "#617f93"
         },
         {
           "label": "top_tshirt_sweatshirt",
-          "conf": 0.3034,
+          "conf": 0.3433,
           "bbox": [
-            236.89999389648438,
-            726.9000244140625,
-            494.5,
-            488.0
+            287.9,
+            688.6,
+            447.2,
+            525.9
           ],
           "touches_edge": true,
-          "color": "#987e7a"
+          "color": "#a38981"
         }
       ],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.8491,
+            "score": 0.8507,
             "bbox": [
-              161.0,
+              160.0,
               283.0,
-              494.0,
-              574.0
+              493.0,
+              572.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.8491
+          "FACE_FEMALE": 0.8507
         },
         "exposed_score": 0.0
       },
@@ -655,7 +656,7 @@
       "score_breakdown": {
         "sharpness": 0.35,
         "resolution": 0.2437,
-        "artifact": 0.1314,
+        "artifact": 0.1324,
         "target_bonus": 0.11,
         "face_penalty": 1.0
       },
@@ -673,29 +674,29 @@
       "is_duplicate": false,
       "duplicate_of": null,
       "keep_reason": "",
-      "sharpness": 1234.76,
-      "artifact_score": 0.8761,
+      "sharpness": 1241.49,
+      "artifact_score": 0.8892,
       "width": 832,
       "height": 1216,
       "faces": [
         {
           "bbox": [
-            318.9,
-            84.5,
-            348.1,
-            558.3
+            318.1,
+            84.2,
+            348.6,
+            560.3
           ],
-          "det_score": 0.8713,
+          "det_score": 0.8705,
           "cluster_id": "face_1",
           "primary": true,
-          "yaw": -61.6,
-          "pitch": -5.23,
-          "roll": 13.13,
+          "yaw": -62.22,
+          "pitch": -5.83,
+          "roll": 13.82,
           "pose": "profile",
-          "sharpness": 167.94,
-          "eye_open": 0.8383,
-          "mouth_open": 0.5822,
-          "cluster_distance": 0.1459,
+          "sharpness": 155.35,
+          "eye_open": 0.8527,
+          "mouth_open": 0.5776,
+          "cluster_distance": 0.1478,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -705,13 +706,13 @@
             "gender_source": "mivolo",
             "age": "20-29",
             "age_conf": null,
-            "age_years": 25.2,
+            "age_years": 24.4,
             "age_source": "mivolo",
             "age_body": false
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.7963
+            "FACE_FEMALE": 0.8025
           },
           "exposed_score": 0.0
         }
@@ -723,9 +724,9 @@
       "people_error": null,
       "primary_face_cluster": "face_1",
       "primary_face_pose": "profile",
-      "primary_face_yaw": -61.6,
-      "primary_face_pitch": -5.23,
-      "primary_face_roll": 13.13,
+      "primary_face_yaw": -62.22,
+      "primary_face_pitch": -5.83,
+      "primary_face_roll": 13.82,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -734,7 +735,7 @@
         "gender_source": "mivolo",
         "age": "20-29",
         "age_conf": null,
-        "age_years": 25.2,
+        "age_years": 24.4,
         "age_source": "mivolo",
         "age_body": false
       },
@@ -743,57 +744,57 @@
         "categories": [
           {
             "label": "park",
-            "conf": 0.6746
+            "conf": 0.4858
           },
           {
             "label": "street",
-            "conf": 0.1223
+            "conf": 0.2678
           },
           {
             "label": "campus",
-            "conf": 0.0564
+            "conf": 0.0513
           },
           {
             "label": "forest_road",
-            "conf": 0.0303
+            "conf": 0.0305
           },
           {
-            "label": "alley",
-            "conf": 0.0212
+            "label": "promenade",
+            "conf": 0.0291
           }
         ],
         "environment": "outdoor",
-        "environment_conf": 0.9968
+        "environment_conf": 0.9961
       },
       "garments": [
         {
           "label": "jacket",
-          "conf": 0.3422,
+          "conf": 0.3876,
           "bbox": [
-            287.29998779296875,
-            716.7000122070312,
-            544.7000122070312,
-            499.29998779296875
+            276.1,
+            718.7,
+            555.9,
+            497.3
           ],
           "touches_edge": true,
-          "color": "#6a819b"
+          "color": "#6a839b"
         }
       ],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.7963,
+            "score": 0.8025,
             "bbox": [
-              280.0,
-              193.0,
-              403.0,
-              458.0
+              279.0,
+              199.0,
+              407.0,
+              454.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.7963
+          "FACE_FEMALE": 0.8025
         },
         "exposed_score": 0.0
       },
@@ -829,11 +830,11 @@
       "crop": null,
       "crop_source": null,
       "watermarks": null,
-      "phash": "cc0aadc3ecad74a1",
+      "phash": "cc0aadc3ecade4a1",
       "score_breakdown": {
         "sharpness": 0.35,
         "resolution": 0.2437,
-        "artifact": 0.1314,
+        "artifact": 0.1334,
         "target_bonus": 0.11,
         "face_penalty": 1.0
       },
@@ -851,29 +852,29 @@
       "is_duplicate": false,
       "duplicate_of": null,
       "keep_reason": "",
-      "sharpness": 808.06,
-      "artifact_score": 0.8476,
+      "sharpness": 793.44,
+      "artifact_score": 0.8521,
       "width": 832,
       "height": 1216,
       "faces": [
         {
           "bbox": [
-            292.0,
-            148.2,
-            258.1,
-            374.8
+            292.4,
+            152.0,
+            257.5,
+            370.3
           ],
-          "det_score": 0.8348,
+          "det_score": 0.8307,
           "cluster_id": "face_1",
           "primary": true,
-          "yaw": 28.49,
-          "pitch": -5.78,
-          "roll": -15.05,
+          "yaw": 28.28,
+          "pitch": -5.74,
+          "roll": -14.95,
           "pose": "three_quarter",
-          "sharpness": 237.83,
-          "eye_open": 0.3851,
-          "mouth_open": 0.2191,
-          "cluster_distance": 0.1047,
+          "sharpness": 269.3,
+          "eye_open": 0.3772,
+          "mouth_open": 0.2241,
+          "cluster_distance": 0.104,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -883,13 +884,13 @@
             "gender_source": "mivolo",
             "age": "20-29",
             "age_conf": null,
-            "age_years": 24.5,
+            "age_years": 24.9,
             "age_source": "mivolo",
             "age_body": false
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.8584
+            "FACE_FEMALE": 0.8539
           },
           "exposed_score": 0.0
         }
@@ -901,9 +902,9 @@
       "people_error": null,
       "primary_face_cluster": "face_1",
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 28.49,
-      "primary_face_pitch": -5.78,
-      "primary_face_roll": -15.05,
+      "primary_face_yaw": 28.28,
+      "primary_face_pitch": -5.74,
+      "primary_face_roll": -14.95,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -912,7 +913,7 @@
         "gender_source": "mivolo",
         "age": "20-29",
         "age_conf": null,
-        "age_years": 24.5,
+        "age_years": 24.9,
         "age_source": "mivolo",
         "age_body": false
       },
@@ -921,49 +922,49 @@
         "categories": [
           {
             "label": "ocean",
-            "conf": 0.6139
+            "conf": 0.6457
           },
           {
             "label": "beach",
-            "conf": 0.2008
+            "conf": 0.1725
           },
           {
             "label": "coast",
-            "conf": 0.1247
+            "conf": 0.1269
           },
           {
             "label": "lagoon",
-            "conf": 0.0272
+            "conf": 0.0198
           },
           {
             "label": "wave",
-            "conf": 0.0083
+            "conf": 0.0084
           }
         ],
         "environment": "outdoor",
-        "environment_conf": 0.9995
+        "environment_conf": 0.9994
       },
       "garments": [
         {
           "label": "dress",
-          "conf": 0.5403,
+          "conf": 0.4746,
           "bbox": [
-            207.1999969482422,
-            565.0,
-            544.5,
-            651.0
+            213.7,
+            566.8,
+            539.3,
+            649.2
           ],
           "touches_edge": true,
-          "color": "#404163"
+          "color": "#43476c"
         }
       ],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.8584,
+            "score": 0.8539,
             "bbox": [
-              286.0,
+              287.0,
               256.0,
               268.0,
               274.0
@@ -971,39 +972,39 @@
           },
           {
             "label": "FEMALE_BREAST_COVERED",
-            "score": 0.6476,
+            "score": 0.62,
             "bbox": [
-              574.0,
-              781.0,
-              200.0,
-              261.0
+              562.0,
+              774.0,
+              207.0,
+              256.0
             ]
           },
           {
             "label": "FEMALE_BREAST_COVERED",
-            "score": 0.4872,
+            "score": 0.5012,
             "bbox": [
-              321.0,
-              861.0,
+              320.0,
+              874.0,
               237.0,
-              262.0
+              258.0
             ]
           },
           {
             "label": "ARMPITS_EXPOSED",
-            "score": 0.4493,
+            "score": 0.4711,
             "bbox": [
-              278.0,
+              277.0,
               847.0,
-              92.0,
-              150.0
+              91.0,
+              152.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.8584,
-          "FEMALE_BREAST_COVERED": 0.6476,
-          "ARMPITS_EXPOSED": 0.4493
+          "FACE_FEMALE": 0.8539,
+          "FEMALE_BREAST_COVERED": 0.62,
+          "ARMPITS_EXPOSED": 0.4711
         },
         "exposed_score": 0.0
       },
@@ -1039,11 +1040,11 @@
       "crop": null,
       "crop_source": null,
       "watermarks": null,
-      "phash": "e89c60c319b6f2ad",
+      "phash": "ea9c60c319b6b2ad",
       "score_breakdown": {
-        "sharpness": 0.35,
+        "sharpness": 0.3471,
         "resolution": 0.2437,
-        "artifact": 0.1271,
+        "artifact": 0.1278,
         "target_bonus": 0.11,
         "face_penalty": 1.0
       },
@@ -1096,7 +1097,7 @@
     {
       "rel_path": "personA/studio/01.jpg",
       "abs_path": "/data/images/personA/studio/01.jpg",
-      "score": 0.794,
+      "score": 0.808,
       "passed": true,
       "reject_reason": null,
       "similar_group": 7,
@@ -1105,29 +1106,29 @@
       "is_duplicate": false,
       "duplicate_of": null,
       "keep_reason": "",
-      "sharpness": 420.53,
-      "artifact_score": 0.7962,
+      "sharpness": 440.77,
+      "artifact_score": 0.8121,
       "width": 832,
       "height": 1216,
       "faces": [
         {
           "bbox": [
-            291.7,
-            154.7,
-            382.7,
-            557.6
+            289.2,
+            154.9,
+            383.8,
+            557.7
           ],
-          "det_score": 0.9065,
+          "det_score": 0.9053,
           "cluster_id": "face_1",
           "primary": true,
-          "yaw": -25.34,
-          "pitch": -6.47,
-          "roll": 4.09,
+          "yaw": -24.69,
+          "pitch": -6.63,
+          "roll": 3.8,
           "pose": "three_quarter",
-          "sharpness": 418.98,
-          "eye_open": 0.3883,
-          "mouth_open": 0.2514,
-          "cluster_distance": 0.0766,
+          "sharpness": 447.97,
+          "eye_open": 0.3857,
+          "mouth_open": 0.2683,
+          "cluster_distance": 0.0804,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -1143,7 +1144,7 @@
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.8073
+            "FACE_FEMALE": 0.7964
           },
           "exposed_score": 0.0
         }
@@ -1155,9 +1156,9 @@
       "people_error": null,
       "primary_face_cluster": "face_1",
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": -25.34,
-      "primary_face_pitch": -6.47,
-      "primary_face_roll": 4.09,
+      "primary_face_yaw": -24.69,
+      "primary_face_pitch": -6.63,
+      "primary_face_roll": 3.8,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -1175,69 +1176,69 @@
         "categories": [
           {
             "label": "elevator/door",
-            "conf": 0.7181
+            "conf": 0.7882
           },
           {
             "label": "elevator_lobby",
-            "conf": 0.1121
+            "conf": 0.1034
           },
           {
             "label": "dressing_room",
-            "conf": 0.0768
+            "conf": 0.0586
           },
           {
             "label": "beauty_salon",
-            "conf": 0.0383
+            "conf": 0.0134
           },
           {
-            "label": "ice_cream_parlor",
-            "conf": 0.0058
+            "label": "locker_room",
+            "conf": 0.0049
           }
         ],
         "environment": "indoor",
-        "environment_conf": 0.993
+        "environment_conf": 0.9927
       },
       "garments": [
         {
           "label": "top_tshirt_sweatshirt",
-          "conf": 0.5658,
+          "conf": 0.6003,
           "bbox": [
-            328.6000061035156,
-            813.2999877929688,
-            503.1000061035156,
-            393.3999938964844
+            328.2,
+            810.9,
+            503.6,
+            396.2
           ],
           "touches_edge": true,
-          "color": "#672d35"
+          "color": "#682c34"
         },
         {
           "label": "top_tshirt_sweatshirt",
-          "conf": 0.3629,
+          "conf": 0.3828,
           "bbox": [
-            330.1000061035156,
-            829.2000122070312,
-            341.79998779296875,
-            384.0
+            326.8,
+            827.9,
+            330.8,
+            385.4
           ],
           "touches_edge": true,
-          "color": "#510c1c"
+          "color": "#4e0919"
         }
       ],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.8073,
+            "score": 0.7964,
             "bbox": [
-              269.0,
-              271.0,
+              266.0,
+              273.0,
               407.0,
-              445.0
+              442.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.8073
+          "FACE_FEMALE": 0.7964
         },
         "exposed_score": 0.0
       },
@@ -1273,11 +1274,11 @@
       "crop": null,
       "crop_source": null,
       "watermarks": null,
-      "phash": "c218266b3765b676",
+      "phash": "cf18246e37653674",
       "score_breakdown": {
-        "sharpness": 0.184,
+        "sharpness": 0.1928,
         "resolution": 0.2437,
-        "artifact": 0.1194,
+        "artifact": 0.1218,
         "target_bonus": 0.11,
         "face_penalty": 1.0
       },
@@ -1286,7 +1287,7 @@
     {
       "rel_path": "personA/studio/02.jpg",
       "abs_path": "/data/images/personA/studio/02.jpg",
-      "score": 0.8478,
+      "score": 0.842,
       "passed": true,
       "reject_reason": null,
       "similar_group": 8,
@@ -1295,29 +1296,230 @@
       "is_duplicate": true,
       "duplicate_of": "personA/studio/02_copy.jpg",
       "keep_reason": "",
-      "sharpness": 518.57,
-      "artifact_score": 0.7975,
+      "sharpness": 504.43,
+      "artifact_score": 0.8076,
       "width": 832,
       "height": 1216,
       "faces": [
         {
           "bbox": [
-            348.8,
-            90.8,
-            412.1,
-            580.1
+            349.6,
+            93.6,
+            410.6,
+            579.1
           ],
-          "det_score": 0.8978,
+          "det_score": 0.8901,
           "cluster_id": "face_1",
           "primary": true,
-          "yaw": 36.21,
-          "pitch": -9.16,
-          "roll": -22.19,
+          "yaw": 36.46,
+          "pitch": -8.98,
+          "roll": -22.01,
           "pose": "three_quarter",
-          "sharpness": 525.98,
-          "eye_open": 0.4433,
-          "mouth_open": 0.2384,
-          "cluster_distance": 0.0515,
+          "sharpness": 492.28,
+          "eye_open": 0.4464,
+          "mouth_open": 0.2443,
+          "cluster_distance": 0.055,
+          "reference_distance": null,
+          "attributes": {
+            "race": null,
+            "race_conf": null,
+            "gender": "female",
+            "gender_conf": 0.9972,
+            "gender_source": "mivolo",
+            "age": "20-29",
+            "age_conf": null,
+            "age_years": 22.6,
+            "age_source": "mivolo",
+            "age_body": false
+          },
+          "person_index": null,
+          "nsfw_labels": {
+            "FACE_FEMALE": 0.8113
+          },
+          "exposed_score": 0.0
+        }
+      ],
+      "face_count": 1,
+      "face_error": null,
+      "people": [],
+      "people_check": null,
+      "people_error": null,
+      "primary_face_cluster": "face_1",
+      "primary_face_pose": "three_quarter",
+      "primary_face_yaw": 36.46,
+      "primary_face_pitch": -8.98,
+      "primary_face_roll": -22.01,
+      "primary_face_attributes": {
+        "race": null,
+        "race_conf": null,
+        "gender": "female",
+        "gender_conf": 0.9972,
+        "gender_source": "mivolo",
+        "age": "20-29",
+        "age_conf": null,
+        "age_years": 22.6,
+        "age_source": "mivolo",
+        "age_body": false
+      },
+      "set_age": null,
+      "scene": {
+        "categories": [
+          {
+            "label": "dressing_room",
+            "conf": 0.4575
+          },
+          {
+            "label": "beauty_salon",
+            "conf": 0.4025
+          },
+          {
+            "label": "shower",
+            "conf": 0.0628
+          },
+          {
+            "label": "elevator/door",
+            "conf": 0.0432
+          },
+          {
+            "label": "bathroom",
+            "conf": 0.0125
+          }
+        ],
+        "environment": "indoor",
+        "environment_conf": 0.9994
+      },
+      "garments": [
+        {
+          "label": "top_tshirt_sweatshirt",
+          "conf": 0.4085,
+          "bbox": [
+            198.5,
+            920.3,
+            587.2,
+            292.3
+          ],
+          "touches_edge": true,
+          "color": "#ab6f6a"
+        },
+        {
+          "label": "top_tshirt_sweatshirt",
+          "conf": 0.3443,
+          "bbox": [
+            200.0,
+            709.3,
+            614.7,
+            506.7
+          ],
+          "touches_edge": true,
+          "color": "#88493d"
+        }
+      ],
+      "nsfw": {
+        "detections": [
+          {
+            "label": "FACE_FEMALE",
+            "score": 0.8113,
+            "bbox": [
+              330.0,
+              214.0,
+              434.0,
+              491.0
+            ]
+          },
+          {
+            "label": "FEMALE_BREAST_COVERED",
+            "score": 0.477,
+            "bbox": [
+              210.0,
+              967.0,
+              431.0,
+              248.0
+            ]
+          }
+        ],
+        "labels": {
+          "FACE_FEMALE": 0.8113,
+          "FEMALE_BREAST_COVERED": 0.477
+        },
+        "exposed_score": 0.0
+      },
+      "erax": null,
+      "erax_filled": false,
+      "nudenet_failed": false,
+      "guard": {
+        "safe": true,
+        "rules": [],
+        "explanation": "Safe. No rule in the active policy matched.",
+        "model": "hf.co/inclusionAI/SingGuard-4b-GGUF:Q4_K_M",
+        "policy": "adult",
+        "thinking": "fast"
+      },
+      "guard_variants": {
+        "adult": {
+          "safe": true,
+          "rules": [],
+          "explanation": "Safe. No rule in the active policy matched.",
+          "model": "hf.co/inclusionAI/SingGuard-4b-GGUF:Q4_K_M",
+          "policy": "adult",
+          "thinking": "fast"
+        },
+        "adult-granular": {
+          "safe": true,
+          "rules": [],
+          "explanation": "Safe. No rule in the active policy matched.",
+          "model": "hf.co/inclusionAI/SingGuard-4b-GGUF:Q4_K_M",
+          "policy": "adult-granular",
+          "thinking": "fast"
+        }
+      },
+      "crop": null,
+      "crop_source": null,
+      "watermarks": null,
+      "phash": "98b1c363c7644f6c",
+      "score_breakdown": {
+        "sharpness": 0.2207,
+        "resolution": 0.2437,
+        "artifact": 0.1211,
+        "target_bonus": 0.11,
+        "face_penalty": 1.0
+      },
+      "content_rating": "suggestive"
+    },
+    {
+      "rel_path": "personA/studio/02_copy.jpg",
+      "abs_path": "/data/images/personA/studio/02_copy.jpg",
+      "score": 0.8545,
+      "passed": true,
+      "reject_reason": null,
+      "similar_group": 8,
+      "group_size": 2,
+      "is_representative": true,
+      "is_duplicate": false,
+      "duplicate_of": null,
+      "keep_reason": "",
+      "sharpness": 524.35,
+      "artifact_score": 0.8164,
+      "width": 832,
+      "height": 1216,
+      "faces": [
+        {
+          "bbox": [
+            346.1,
+            92.0,
+            416.1,
+            581.1
+          ],
+          "det_score": 0.8943,
+          "cluster_id": "face_1",
+          "primary": true,
+          "yaw": 36.39,
+          "pitch": -9.1,
+          "roll": -22.07,
+          "pose": "three_quarter",
+          "sharpness": 504.27,
+          "eye_open": 0.4437,
+          "mouth_open": 0.2489,
+          "cluster_distance": 0.0541,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -1333,7 +1535,7 @@
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.8225
+            "FACE_FEMALE": 0.8133
           },
           "exposed_score": 0.0
         }
@@ -1345,9 +1547,9 @@
       "people_error": null,
       "primary_face_cluster": "face_1",
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 36.21,
-      "primary_face_pitch": -9.16,
-      "primary_face_roll": -22.19,
+      "primary_face_yaw": 36.39,
+      "primary_face_pitch": -9.1,
+      "primary_face_roll": -22.07,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -1365,80 +1567,55 @@
         "categories": [
           {
             "label": "dressing_room",
-            "conf": 0.4661
+            "conf": 0.5944
           },
           {
             "label": "beauty_salon",
-            "conf": 0.3684
+            "conf": 0.232
           },
           {
             "label": "shower",
-            "conf": 0.0823
+            "conf": 0.0882
           },
           {
             "label": "elevator/door",
-            "conf": 0.0467
+            "conf": 0.0432
           },
           {
             "label": "bathroom",
-            "conf": 0.0161
+            "conf": 0.0176
           }
         ],
         "environment": "indoor",
-        "environment_conf": 0.9994
+        "environment_conf": 0.9993
       },
-      "garments": [
-        {
-          "label": "top_tshirt_sweatshirt",
-          "conf": 0.3692,
-          "bbox": [
-            200.0,
-            923.9000244140625,
-            587.4000244140625,
-            288.29998779296875
-          ],
-          "touches_edge": true,
-          "color": "#ab6f6a"
-        },
-        {
-          "label": "top_tshirt_sweatshirt",
-          "conf": 0.3271,
-          "bbox": [
-            201.39999389648438,
-            683.7999877929688,
-            612.5999755859375,
-            532.2000122070312
-          ],
-          "touches_edge": true,
-          "color": "#814439"
-        }
-      ],
+      "garments": [],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.8225,
+            "score": 0.8133,
             "bbox": [
-              332.0,
-              221.0,
-              428.0,
-              476.0
+              327.0,
+              217.0,
+              434.0,
+              482.0
             ]
           },
           {
             "label": "FEMALE_BREAST_COVERED",
-            "score": 0.4856,
+            "score": 0.517,
             "bbox": [
               209.0,
-              963.0,
-              429.0,
-              252.0
+              959.0,
+              436.0,
+              256.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.8225,
-          "FEMALE_BREAST_COVERED": 0.4856
+          "FACE_FEMALE": 0.8133,
+          "FEMALE_BREAST_COVERED": 0.517
         },
         "exposed_score": 0.0
       },
@@ -1476,198 +1653,9 @@
       "watermarks": null,
       "phash": "98b1c363c7644f6c",
       "score_breakdown": {
-        "sharpness": 0.2269,
+        "sharpness": 0.2294,
         "resolution": 0.2437,
-        "artifact": 0.1196,
-        "target_bonus": 0.11,
-        "face_penalty": 1.0
-      },
-      "content_rating": "suggestive"
-    },
-    {
-      "rel_path": "personA/studio/02_copy.jpg",
-      "abs_path": "/data/images/personA/studio/02_copy.jpg",
-      "score": 0.8703,
-      "passed": true,
-      "reject_reason": null,
-      "similar_group": 8,
-      "group_size": 2,
-      "is_representative": true,
-      "is_duplicate": false,
-      "duplicate_of": null,
-      "keep_reason": "",
-      "sharpness": 555.08,
-      "artifact_score": 0.8107,
-      "width": 832,
-      "height": 1216,
-      "faces": [
-        {
-          "bbox": [
-            347.7,
-            89.2,
-            413.9,
-            582.2
-          ],
-          "det_score": 0.8986,
-          "cluster_id": "face_1",
-          "primary": true,
-          "yaw": 36.33,
-          "pitch": -9.28,
-          "roll": -22.05,
-          "pose": "three_quarter",
-          "sharpness": 561.73,
-          "eye_open": 0.4435,
-          "mouth_open": 0.243,
-          "cluster_distance": 0.0562,
-          "reference_distance": null,
-          "attributes": {
-            "race": null,
-            "race_conf": null,
-            "gender": "female",
-            "gender_conf": 0.9972,
-            "gender_source": "mivolo",
-            "age": "20-29",
-            "age_conf": null,
-            "age_years": 23.1,
-            "age_source": "mivolo",
-            "age_body": false
-          },
-          "person_index": null,
-          "nsfw_labels": {
-            "FACE_FEMALE": 0.8177
-          },
-          "exposed_score": 0.0
-        }
-      ],
-      "face_count": 1,
-      "face_error": null,
-      "people": [],
-      "people_check": null,
-      "people_error": null,
-      "primary_face_cluster": "face_1",
-      "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 36.33,
-      "primary_face_pitch": -9.28,
-      "primary_face_roll": -22.05,
-      "primary_face_attributes": {
-        "race": null,
-        "race_conf": null,
-        "gender": "female",
-        "gender_conf": 0.9972,
-        "gender_source": "mivolo",
-        "age": "20-29",
-        "age_conf": null,
-        "age_years": 23.1,
-        "age_source": "mivolo",
-        "age_body": false
-      },
-      "set_age": null,
-      "scene": {
-        "categories": [
-          {
-            "label": "dressing_room",
-            "conf": 0.5423
-          },
-          {
-            "label": "beauty_salon",
-            "conf": 0.272
-          },
-          {
-            "label": "shower",
-            "conf": 0.0947
-          },
-          {
-            "label": "elevator/door",
-            "conf": 0.0497
-          },
-          {
-            "label": "bathroom",
-            "conf": 0.0178
-          }
-        ],
-        "environment": "indoor",
-        "environment_conf": 0.9992
-      },
-      "garments": [
-        {
-          "label": "dress",
-          "conf": 0.3332,
-          "bbox": [
-            196.10000610351562,
-            489.6000061035156,
-            602.4000244140625,
-            726.4000244140625
-          ],
-          "touches_edge": true,
-          "color": "#743d32"
-        }
-      ],
-      "nsfw": {
-        "detections": [
-          {
-            "label": "FACE_FEMALE",
-            "score": 0.8177,
-            "bbox": [
-              333.0,
-              215.0,
-              430.0,
-              493.0
-            ]
-          },
-          {
-            "label": "FEMALE_BREAST_COVERED",
-            "score": 0.4795,
-            "bbox": [
-              208.0,
-              964.0,
-              433.0,
-              251.0
-            ]
-          }
-        ],
-        "labels": {
-          "FACE_FEMALE": 0.8177,
-          "FEMALE_BREAST_COVERED": 0.4795
-        },
-        "exposed_score": 0.0
-      },
-      "erax": null,
-      "erax_filled": false,
-      "nudenet_failed": false,
-      "guard": {
-        "safe": true,
-        "rules": [],
-        "explanation": "Safe. No rule in the active policy matched.",
-        "model": "hf.co/inclusionAI/SingGuard-4b-GGUF:Q4_K_M",
-        "policy": "adult",
-        "thinking": "fast"
-      },
-      "guard_variants": {
-        "adult": {
-          "safe": true,
-          "rules": [],
-          "explanation": "Safe. No rule in the active policy matched.",
-          "model": "hf.co/inclusionAI/SingGuard-4b-GGUF:Q4_K_M",
-          "policy": "adult",
-          "thinking": "fast"
-        },
-        "adult-granular": {
-          "safe": true,
-          "rules": [],
-          "explanation": "Safe. No rule in the active policy matched.",
-          "model": "hf.co/inclusionAI/SingGuard-4b-GGUF:Q4_K_M",
-          "policy": "adult-granular",
-          "thinking": "fast"
-        }
-      },
-      "crop": null,
-      "crop_source": null,
-      "watermarks": null,
-      "phash": "98b1c363c7644f6c",
-      "score_breakdown": {
-        "sharpness": 0.2428,
-        "resolution": 0.2437,
-        "artifact": 0.1216,
+        "artifact": 0.1225,
         "target_bonus": 0.11,
         "face_penalty": 1.0
       },
@@ -1720,7 +1708,7 @@
     {
       "rel_path": "personB/set1/01.jpg",
       "abs_path": "/data/images/personB/set1/01.jpg",
-      "score": 0.8021,
+      "score": 0.8034,
       "passed": true,
       "reject_reason": null,
       "similar_group": 10,
@@ -1729,29 +1717,29 @@
       "is_duplicate": false,
       "duplicate_of": null,
       "keep_reason": "",
-      "sharpness": 425.57,
-      "artifact_score": 0.8249,
+      "sharpness": 427.49,
+      "artifact_score": 0.8264,
       "width": 832,
       "height": 1216,
       "faces": [
         {
           "bbox": [
-            120.2,
-            143.9,
-            524.7,
-            798.5
+            117.6,
+            125.2,
+            522.9,
+            818.9
           ],
-          "det_score": 0.8453,
+          "det_score": 0.8338,
           "cluster_id": "face_2",
           "primary": true,
-          "yaw": 10.5,
-          "pitch": -12.82,
-          "roll": -0.43,
+          "yaw": 10.63,
+          "pitch": -12.38,
+          "roll": -0.4,
           "pose": "frontal",
-          "sharpness": 422.35,
-          "eye_open": 0.4143,
-          "mouth_open": 0.0541,
-          "cluster_distance": 0.0712,
+          "sharpness": 364.25,
+          "eye_open": 0.4074,
+          "mouth_open": 0.0497,
+          "cluster_distance": 0.0694,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -1761,13 +1749,13 @@
             "gender_source": "mivolo",
             "age": "30-39",
             "age_conf": null,
-            "age_years": 33.0,
+            "age_years": 33.5,
             "age_source": "mivolo",
             "age_body": false
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.8339
+            "FACE_FEMALE": 0.8413
           },
           "exposed_score": 0.0
         }
@@ -1779,9 +1767,9 @@
       "people_error": null,
       "primary_face_cluster": "face_2",
       "primary_face_pose": "frontal",
-      "primary_face_yaw": 10.5,
-      "primary_face_pitch": -12.82,
-      "primary_face_roll": -0.43,
+      "primary_face_yaw": 10.63,
+      "primary_face_pitch": -12.38,
+      "primary_face_roll": -0.4,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -1790,7 +1778,7 @@
         "gender_source": "mivolo",
         "age": "30-39",
         "age_conf": null,
-        "age_years": 33.0,
+        "age_years": 33.5,
         "age_source": "mivolo",
         "age_body": false
       },
@@ -1798,58 +1786,94 @@
       "scene": {
         "categories": [
           {
-            "label": "television_studio",
-            "conf": 0.3378
-          },
-          {
             "label": "beauty_salon",
-            "conf": 0.173
+            "conf": 0.3388
           },
           {
-            "label": "conference_center",
-            "conf": 0.1011
+            "label": "elevator/door",
+            "conf": 0.1851
           },
           {
-            "label": "stage/indoor",
-            "conf": 0.0539
+            "label": "television_studio",
+            "conf": 0.0627
+          },
+          {
+            "label": "elevator_lobby",
+            "conf": 0.0553
           },
           {
             "label": "discotheque",
-            "conf": 0.0408
+            "conf": 0.04
           }
         ],
         "environment": "indoor",
-        "environment_conf": 0.9649
+        "environment_conf": 0.9839
       },
       "garments": [
         {
           "label": "shirt_blouse",
-          "conf": 0.4159,
+          "conf": 0.5135,
           "bbox": [
-            9.800000190734863,
-            766.2999877929688,
-            631.7000122070312,
-            449.70001220703125
+            4.6,
+            756.3,
+            630.7,
+            459.7
           ],
           "touches_edge": true,
-          "color": "#707088"
+          "color": "#6e6e87"
+        },
+        {
+          "label": "tie",
+          "conf": 0.4207,
+          "bbox": [
+            276.0,
+            1053.4,
+            291.7,
+            159.4
+          ],
+          "touches_edge": true,
+          "color": "#324a79"
+        },
+        {
+          "label": "tie",
+          "conf": 0.3602,
+          "bbox": [
+            246.2,
+            1039.0,
+            348.6,
+            174.3
+          ],
+          "touches_edge": true,
+          "color": "#3c5688"
+        },
+        {
+          "label": "shirt_blouse",
+          "conf": 0.301,
+          "bbox": [
+            144.1,
+            821.4,
+            487.5,
+            393.7
+          ],
+          "touches_edge": true,
+          "color": "#717490"
         }
       ],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.8339,
+            "score": 0.8413,
             "bbox": [
-              112.0,
-              274.0,
+              113.0,
+              279.0,
               558.0,
               698.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.8339
+          "FACE_FEMALE": 0.8413
         },
         "exposed_score": 0.0
       },
@@ -1885,11 +1909,11 @@
       "crop": null,
       "crop_source": null,
       "watermarks": null,
-      "phash": "83a52f3134fd3487",
+      "phash": "83a52f31343d349f",
       "score_breakdown": {
-        "sharpness": 0.1862,
+        "sharpness": 0.187,
         "resolution": 0.2437,
-        "artifact": 0.1237,
+        "artifact": 0.124,
         "target_bonus": 0.11,
         "face_penalty": 1.0
       },
@@ -1898,7 +1922,7 @@
     {
       "rel_path": "personB/set1/02.jpg",
       "abs_path": "/data/images/personB/set1/02.jpg",
-      "score": 0.8676,
+      "score": 0.8751,
       "passed": true,
       "reject_reason": null,
       "similar_group": 11,
@@ -1907,29 +1931,29 @@
       "is_duplicate": false,
       "duplicate_of": null,
       "keep_reason": "",
-      "sharpness": 554.0,
-      "artifact_score": 0.7996,
+      "sharpness": 563.71,
+      "artifact_score": 0.8112,
       "width": 832,
       "height": 1216,
       "faces": [
         {
           "bbox": [
-            168.5,
-            212.8,
-            360.8,
-            541.1
+            169.1,
+            209.7,
+            359.3,
+            545.0
           ],
-          "det_score": 0.9027,
+          "det_score": 0.8994,
           "cluster_id": "face_2",
           "primary": true,
-          "yaw": 32.24,
-          "pitch": -9.85,
-          "roll": 1.54,
+          "yaw": 32.68,
+          "pitch": -9.9,
+          "roll": 1.66,
           "pose": "three_quarter",
-          "sharpness": 448.54,
-          "eye_open": 0.4889,
-          "mouth_open": 0.0435,
-          "cluster_distance": 0.0745,
+          "sharpness": 489.36,
+          "eye_open": 0.5093,
+          "mouth_open": 0.0436,
+          "cluster_distance": 0.0736,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -1939,13 +1963,13 @@
             "gender_source": "mivolo",
             "age": "30-39",
             "age_conf": null,
-            "age_years": 32.1,
+            "age_years": 32.6,
             "age_source": "mivolo",
             "age_body": false
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.7415
+            "FACE_FEMALE": 0.7047
           },
           "exposed_score": 0.0
         }
@@ -1957,9 +1981,9 @@
       "people_error": null,
       "primary_face_cluster": "face_2",
       "primary_face_pose": "three_quarter",
-      "primary_face_yaw": 32.24,
-      "primary_face_pitch": -9.85,
-      "primary_face_roll": 1.54,
+      "primary_face_yaw": 32.68,
+      "primary_face_pitch": -9.9,
+      "primary_face_roll": 1.66,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -1968,7 +1992,7 @@
         "gender_source": "mivolo",
         "age": "30-39",
         "age_conf": null,
-        "age_years": 32.1,
+        "age_years": 32.6,
         "age_source": "mivolo",
         "age_body": false
       },
@@ -1977,177 +2001,153 @@
         "categories": [
           {
             "label": "elevator/door",
-            "conf": 0.4543
+            "conf": 0.484
           },
           {
             "label": "elevator_lobby",
-            "conf": 0.1741
+            "conf": 0.1664
           },
           {
             "label": "stage/indoor",
-            "conf": 0.1223
-          },
-          {
-            "label": "conference_center",
-            "conf": 0.0676
+            "conf": 0.1079
           },
           {
             "label": "dressing_room",
-            "conf": 0.0626
+            "conf": 0.0704
+          },
+          {
+            "label": "beauty_salon",
+            "conf": 0.0459
           }
         ],
         "environment": "indoor",
-        "environment_conf": 0.9933
+        "environment_conf": 0.9932
       },
       "garments": [
         {
           "label": "shirt_blouse",
-          "conf": 0.7897,
+          "conf": 0.7255,
           "bbox": [
-            98.4000015258789,
-            585.5999755859375,
-            416.3999938964844,
-            630.4000244140625
+            90.9,
+            605.4,
+            425.4,
+            610.6
           ],
           "touches_edge": true,
-          "color": "#465a76"
+          "color": "#435d7b"
+        },
+        {
+          "label": "tie",
+          "conf": 0.4973,
+          "bbox": [
+            178.8,
+            753.7,
+            267.4,
+            459.2
+          ],
+          "touches_edge": true,
+          "color": "#374f6c"
         },
         {
           "label": "jacket",
-          "conf": 0.5037,
+          "conf": 0.4841,
           "bbox": [
             0.0,
-            597.5999755859375,
-            764.0,
-            618.4000244140625
+            606.3,
+            786.3,
+            609.7
           ],
           "touches_edge": true,
-          "color": "#364c67"
-        },
-        {
-          "label": "shirt_blouse",
-          "conf": 0.4913,
-          "bbox": [
-            99.19999694824219,
-            587.7999877929688,
-            409.70001220703125,
-            628.2000122070312
-          ],
-          "touches_edge": true,
-          "color": "#455974"
-        },
-        {
-          "label": "shirt_blouse",
-          "conf": 0.4853,
-          "bbox": [
-            161.89999389648438,
-            718.7000122070312,
-            348.79998779296875,
-            496.5
-          ],
-          "touches_edge": true,
-          "color": "#5a7592"
+          "color": "#364d69"
         },
         {
           "label": "tie",
-          "conf": 0.4501,
+          "conf": 0.4696,
           "bbox": [
-            282.70001220703125,
-            771.4000244140625,
-            152.6999969482422,
-            439.29998779296875
+            332.7,
+            761.6,
+            120.8,
+            450.5
           ],
           "touches_edge": true,
-          "color": "#6785a1"
-        },
-        {
-          "label": "tie",
-          "conf": 0.3959,
-          "bbox": [
-            304.1000061035156,
-            747.7000122070312,
-            169.8000030517578,
-            462.3999938964844
-          ],
-          "touches_edge": true,
-          "color": "#94b2cc"
-        },
-        {
-          "label": "tie",
-          "conf": 0.376,
-          "bbox": [
-            304.20001220703125,
-            757.9000244140625,
-            214.1999969482422,
-            456.79998779296875
-          ],
-          "touches_edge": true,
-          "color": "#98b1c7"
+          "color": "#a6c3db"
         },
         {
           "label": "shirt_blouse",
-          "conf": 0.3498,
+          "conf": 0.3852,
+          "bbox": [
+            120.8,
+            612.1,
+            404.2,
+            603.9
+          ],
+          "touches_edge": true,
+          "color": "#4e6986"
+        },
+        {
+          "label": "shirt_blouse",
+          "conf": 0.3556,
+          "bbox": [
+            94.2,
+            606.5,
+            419.0,
+            609.5
+          ],
+          "touches_edge": true,
+          "color": "#435d7b"
+        },
+        {
+          "label": "shirt_blouse",
+          "conf": 0.3416,
           "bbox": [
             0.0,
-            596.0999755859375,
-            552.9000244140625,
-            619.9000244140625
+            604.7,
+            569.5,
+            611.3
           ],
           "touches_edge": true,
-          "color": "#374d6c"
+          "color": "#3b5473"
+        },
+        {
+          "label": "tie",
+          "conf": 0.314,
+          "bbox": [
+            228.1,
+            767.5,
+            286.6,
+            448.5
+          ],
+          "touches_edge": true,
+          "color": "#7992aa"
         },
         {
           "label": "shirt_blouse",
-          "conf": 0.3356,
+          "conf": 0.3085,
           "bbox": [
-            302.1000061035156,
-            723.9000244140625,
-            216.3000030517578,
-            490.3999938964844
+            30.1,
+            595.6,
+            493.7,
+            620.4
           ],
           "touches_edge": true,
-          "color": "#89a4bb"
-        },
-        {
-          "label": "shirt_blouse",
-          "conf": 0.3205,
-          "bbox": [
-            54.900001525878906,
-            585.5,
-            468.3999938964844,
-            630.5
-          ],
-          "touches_edge": true,
-          "color": "#3e526f"
-        },
-        {
-          "label": "shirt_blouse",
-          "conf": 0.3075,
-          "bbox": [
-            101.0,
-            581.4000244140625,
-            379.5,
-            634.5999755859375
-          ],
-          "touches_edge": true,
-          "color": "#41516b"
+          "color": "#364e6c"
         }
       ],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.7415,
+            "score": 0.7047,
             "bbox": [
-              147.0,
-              314.0,
-              396.0,
-              453.0
+              143.0,
+              303.0,
+              399.0,
+              476.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.7415
+          "FACE_FEMALE": 0.7047
         },
         "exposed_score": 0.0
       },
@@ -2183,11 +2183,11 @@
       "crop": null,
       "crop_source": null,
       "watermarks": null,
-      "phash": "8dd6392671cc6399",
+      "phash": "8dd6392471ec6399",
       "score_breakdown": {
-        "sharpness": 0.2424,
+        "sharpness": 0.2466,
         "resolution": 0.2437,
-        "artifact": 0.1199,
+        "artifact": 0.1217,
         "target_bonus": 0.11,
         "face_penalty": 1.0
       },
@@ -2196,7 +2196,7 @@
     {
       "rel_path": "personB/set2/03.jpg",
       "abs_path": "/data/images/personB/set2/03.jpg",
-      "score": 0.7136,
+      "score": 0.7172,
       "passed": true,
       "reject_reason": null,
       "similar_group": 12,
@@ -2205,29 +2205,29 @@
       "is_duplicate": false,
       "duplicate_of": null,
       "keep_reason": "",
-      "sharpness": 264.26,
-      "artifact_score": 0.8234,
+      "sharpness": 271.19,
+      "artifact_score": 0.8226,
       "width": 832,
       "height": 1216,
       "faces": [
         {
           "bbox": [
-            81.8,
-            75.8,
-            607.3,
-            938.4
+            82.7,
+            83.9,
+            604.3,
+            930.4
           ],
-          "det_score": 0.597,
+          "det_score": 0.5866,
           "cluster_id": "face_2",
           "primary": true,
-          "yaw": -12.21,
-          "pitch": -12.79,
-          "roll": -1.92,
+          "yaw": -12.75,
+          "pitch": -13.2,
+          "roll": -1.75,
           "pose": "frontal",
-          "sharpness": 146.34,
-          "eye_open": 0.4043,
-          "mouth_open": 0.0436,
-          "cluster_distance": 0.0601,
+          "sharpness": 135.15,
+          "eye_open": 0.407,
+          "mouth_open": 0.0369,
+          "cluster_distance": 0.0561,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -2237,13 +2237,13 @@
             "gender_source": "mivolo",
             "age": "30-39",
             "age_conf": null,
-            "age_years": 35.7,
+            "age_years": 35.2,
             "age_source": "mivolo",
             "age_body": false
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.7952
+            "FACE_FEMALE": 0.7906
           },
           "exposed_score": 0.0
         }
@@ -2255,9 +2255,9 @@
       "people_error": null,
       "primary_face_cluster": "face_2",
       "primary_face_pose": "frontal",
-      "primary_face_yaw": -12.21,
-      "primary_face_pitch": -12.79,
-      "primary_face_roll": -1.92,
+      "primary_face_yaw": -12.75,
+      "primary_face_pitch": -13.2,
+      "primary_face_roll": -1.75,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -2266,7 +2266,7 @@
         "gender_source": "mivolo",
         "age": "30-39",
         "age_conf": null,
-        "age_years": 35.7,
+        "age_years": 35.2,
         "age_source": "mivolo",
         "age_body": false
       },
@@ -2275,81 +2275,69 @@
         "categories": [
           {
             "label": "beauty_salon",
-            "conf": 0.2198
+            "conf": 0.2161
           },
           {
             "label": "discotheque",
-            "conf": 0.117
+            "conf": 0.103
           },
           {
             "label": "stage/indoor",
-            "conf": 0.0664
+            "conf": 0.0561
           },
           {
             "label": "music_studio",
-            "conf": 0.0565
+            "conf": 0.0493
           },
           {
             "label": "sky",
-            "conf": 0.0323
+            "conf": 0.037
           }
         ],
         "environment": "indoor",
-        "environment_conf": 0.8059
+        "environment_conf": 0.7809
       },
       "garments": [
         {
           "label": "top_tshirt_sweatshirt",
-          "conf": 0.388,
+          "conf": 0.4163,
           "bbox": [
-            144.1999969482422,
-            957.4000244140625,
-            631.5,
-            255.60000610351562
+            157.1,
+            971.1,
+            513.3,
+            241.6
           ],
           "touches_edge": true,
-          "color": "#816961"
+          "color": "#725246"
         },
         {
           "label": "top_tshirt_sweatshirt",
-          "conf": 0.3648,
+          "conf": 0.3412,
           "bbox": [
-            25.899999618530273,
-            30.700000762939453,
-            784.2000122070312,
-            1183.800048828125
+            144.1,
+            954.0,
+            650.7,
+            257.8
           ],
           "touches_edge": true,
-          "color": "#b38c87"
-        },
-        {
-          "label": "top_tshirt_sweatshirt",
-          "conf": 0.3644,
-          "bbox": [
-            156.60000610351562,
-            968.7999877929688,
-            499.5,
-            245.0
-          ],
-          "touches_edge": true,
-          "color": "#664639"
+          "color": "#8b756e"
         }
       ],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.7952,
+            "score": 0.7906,
             "bbox": [
-              75.0,
-              217.0,
-              625.0,
-              811.0
+              79.0,
+              224.0,
+              613.0,
+              801.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.7952
+          "FACE_FEMALE": 0.7906
         },
         "exposed_score": 0.0
       },
@@ -2385,11 +2373,11 @@
       "crop": null,
       "crop_source": null,
       "watermarks": null,
-      "phash": "9ec513f9b53c3830",
+      "phash": "9ac513f9b53e3830",
       "score_breakdown": {
-        "sharpness": 0.1156,
+        "sharpness": 0.1186,
         "resolution": 0.2437,
-        "artifact": 0.1235,
+        "artifact": 0.1234,
         "target_bonus": 0.11,
         "face_penalty": 1.0
       },
@@ -2407,29 +2395,29 @@
       "is_duplicate": false,
       "duplicate_of": null,
       "keep_reason": "",
-      "sharpness": 1456.95,
-      "artifact_score": 0.8902,
+      "sharpness": 1465.98,
+      "artifact_score": 0.8896,
       "width": 832,
       "height": 1216,
       "faces": [
         {
           "bbox": [
-            31.3,
-            143.9,
-            386.1,
-            704.2
+            32.7,
+            150.2,
+            382.3,
+            691.7
           ],
-          "det_score": 0.7838,
+          "det_score": 0.7784,
           "cluster_id": "face_2",
           "primary": true,
-          "yaw": -79.11,
-          "pitch": -9.84,
-          "roll": -1.3,
+          "yaw": -79.35,
+          "pitch": -7.93,
+          "roll": -3.53,
           "pose": "profile",
-          "sharpness": 880.01,
-          "eye_open": 3.6958,
-          "mouth_open": 0.6722,
-          "cluster_distance": 0.1264,
+          "sharpness": 900.79,
+          "eye_open": 4.2137,
+          "mouth_open": 0.6784,
+          "cluster_distance": 0.122,
           "reference_distance": null,
           "attributes": {
             "race": null,
@@ -2439,13 +2427,13 @@
             "gender_source": "mivolo",
             "age": "30-39",
             "age_conf": null,
-            "age_years": 31.0,
+            "age_years": 31.1,
             "age_source": "mivolo",
             "age_body": false
           },
           "person_index": null,
           "nsfw_labels": {
-            "FACE_FEMALE": 0.4317
+            "FACE_FEMALE": 0.4614
           },
           "exposed_score": 0.0
         }
@@ -2457,9 +2445,9 @@
       "people_error": null,
       "primary_face_cluster": "face_2",
       "primary_face_pose": "profile",
-      "primary_face_yaw": -79.11,
-      "primary_face_pitch": -9.84,
-      "primary_face_roll": -1.3,
+      "primary_face_yaw": -79.35,
+      "primary_face_pitch": -7.93,
+      "primary_face_roll": -3.53,
       "primary_face_attributes": {
         "race": null,
         "race_conf": null,
@@ -2468,7 +2456,7 @@
         "gender_source": "mivolo",
         "age": "30-39",
         "age_conf": null,
-        "age_years": 31.0,
+        "age_years": 31.1,
         "age_source": "mivolo",
         "age_body": false
       },
@@ -2477,57 +2465,69 @@
         "categories": [
           {
             "label": "beauty_salon",
-            "conf": 0.4391
+            "conf": 0.4183
           },
           {
             "label": "music_studio",
-            "conf": 0.1588
+            "conf": 0.164
           },
           {
             "label": "stage/indoor",
-            "conf": 0.0691
+            "conf": 0.0684
           },
           {
             "label": "stage/outdoor",
-            "conf": 0.0469
+            "conf": 0.0473
           },
           {
             "label": "playground",
-            "conf": 0.0184
+            "conf": 0.0189
           }
         ],
         "environment": "indoor",
-        "environment_conf": 0.7941
+        "environment_conf": 0.7939
       },
       "garments": [
         {
-          "label": "jacket",
-          "conf": 0.3077,
+          "label": "bag_wallet",
+          "conf": 0.4403,
           "bbox": [
-            222.6999969482422,
-            690.0999755859375,
-            609.2999877929688,
-            524.5999755859375
+            248.9,
+            701.7,
+            583.1,
+            512.5
           ],
           "touches_edge": true,
-          "color": "#7d554b"
+          "color": "#7d564d"
+        },
+        {
+          "label": "bag_wallet",
+          "conf": 0.3133,
+          "bbox": [
+            297.5,
+            695.2,
+            526.5,
+            430.9
+          ],
+          "touches_edge": true,
+          "color": "#846059"
         }
       ],
       "nsfw": {
         "detections": [
           {
             "label": "FACE_FEMALE",
-            "score": 0.4317,
+            "score": 0.4614,
             "bbox": [
-              14.0,
-              250.0,
-              547.0,
-              613.0
+              12.0,
+              239.0,
+              559.0,
+              627.0
             ]
           }
         ],
         "labels": {
-          "FACE_FEMALE": 0.4317
+          "FACE_FEMALE": 0.4614
         },
         "exposed_score": 0.0
       },
@@ -2563,11 +2563,11 @@
       "crop": null,
       "crop_source": null,
       "watermarks": null,
-      "phash": "e5c026bddbac5982",
+      "phash": "e5c02eb9dbac5982",
       "score_breakdown": {
         "sharpness": 0.35,
         "resolution": 0.2437,
-        "artifact": 0.1335,
+        "artifact": 0.1334,
         "target_bonus": 0.11,
         "face_penalty": 1.0
       },

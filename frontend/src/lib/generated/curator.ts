@@ -1,4 +1,4 @@
-// Generated from smk762/argus-curator@e125355 (0.17.1.dev10+ge125355) schema/curator-wire.schema.json.
+// Generated from smk762/argus-curator@252cfde (0.17.1.dev30+g252cfde) schema/curator-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface CuratorWire {
@@ -482,6 +482,14 @@ export interface GarmentDetection {
  *
  * Like NudeNet, the URL (ARGUS_CURATOR_SINGGUARD_URL) is process
  * configuration. A request picks a policy by name, never by text.
+ *
+ * ``thinking``: a request may pick the SingGuard mode (``fast``,
+ * ``fast-slow``, ``slow`` or ``cascade``); null runs the server's default
+ * (ARGUS_CURATOR_SINGGUARD_THINKING). The server refuses a mode outside
+ * ARGUS_CURATOR_SINGGUARD_THINKING_ALLOWED with 422. A finished scan records
+ * the mode it ran in, whichever set it. ``fell_back`` is recorded by the scan
+ * only (a value a request sends is replaced): whether the server refused the
+ * mode so checks dropped to ``fast``.
  */
 export interface GuardConfig {
   enabled?: boolean | null;
