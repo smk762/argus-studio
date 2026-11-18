@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { opsecFindings, parseDenylist } from "./docsOpsec";
+import { denylistProblem, opsecFindings, parseDenylist } from "./docsOpsec";
 
 describe("opsecFindings", () => {
   it("passes placeholders, loopback and container paths", () => {
@@ -58,8 +58,24 @@ function files(dir: string): string[] {
   });
 }
 
+describe("denylistProblem", () => {
+  it("fails closed under CI when the secret is missing or blank", () => {
+    expect(denylistProblem({ CI: "true" })).toMatch(/DOCS_OPSEC_DENYLIST/);
+    expect(denylistProblem({ CI: "true", DOCS_OPSEC_DENYLIST: " ,\n" })).toMatch(/DOCS_OPSEC_DENYLIST/);
+  });
+
+  it("runs with a denylist, locally without one, or where CI says it gets none", () => {
+    expect(denylistProblem({ CI: "true", DOCS_OPSEC_DENYLIST: "secret-host" })).toBeNull();
+    expect(denylistProblem({})).toBeNull();
+    expect(denylistProblem({ CI: "true", DOCS_OPSEC_DENYLIST_OPTIONAL: "1" })).toBeNull();
+  });
+});
+
 describe("published docs opsec gate", () => {
   const denylist = parseDenylist(process.env.DOCS_OPSEC_DENYLIST);
+  it("has its denylist (or an explicit opt-out)", () => {
+    expect(denylistProblem(process.env)).toBeNull();
+  });
   for (const file of PUBLISHED.flatMap(files)) {
     it(relative(ROOT, file), () => {
       expect(opsecFindings(readFileSync(file, "utf8"), denylist)).toEqual([]);

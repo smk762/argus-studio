@@ -172,6 +172,16 @@ export default function GalleryPage() {
 
   const setFilter = (key: keyof Filters, value: string) =>
     setFilters((cur) => ({ ...cur, [key]: value, ...(key === "category" ? { subject: "" } : {}) }));
+  // A folder name is only unique within its category (identity/foo vs concept/foo),
+  // so a subject is picked as category/folder and sets both filters.
+  const pickSubject = (value: string) => {
+    const cut = value.indexOf("/");
+    setFilters((cur) =>
+      cut < 0
+        ? { ...cur, subject: "" }
+        : { ...cur, category: value.slice(0, cut), subject: value.slice(cut + 1) },
+    );
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -279,13 +289,13 @@ export default function GalleryPage() {
                 ))}
               </div>
               <select
-                value={filters.subject}
-                onChange={(e) => setFilter("subject", e.target.value)}
+                value={filters.subject ? `${filters.category}/${filters.subject}` : ""}
+                onChange={(e) => pickSubject(e.target.value)}
                 className="cursor-pointer rounded-lg border border-border bg-surface px-3 py-2 text-xs text-foreground focus:border-accent-amber/50 focus:outline-none"
               >
                 <option value="">All subjects</option>
                 {subjects.map((s) => (
-                  <option key={`${s.category}/${s.folder}`} value={s.folder}>
+                  <option key={`${s.category}/${s.folder}`} value={`${s.category}/${s.folder}`}>
                     {s.folder} ({s.photo_count})
                   </option>
                 ))}

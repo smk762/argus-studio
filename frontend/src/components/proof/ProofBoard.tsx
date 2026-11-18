@@ -351,7 +351,9 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
       // Writable: send the edits and adopt the server's authoritative recompute.
       // Demo: apply the same edits locally, laundered identically (normalizeEdits
       // mirrors what editsToUpdates strips) so the two paths can't diverge.
-      const updated = permits(canWrite)
+      // Branch on the same gate that enabled the button: a demo board applies
+      // locally even if a capability reads as writable.
+      const updated = !localApply && permits(canWrite)
         ? await submitHitl(report.run_id, { rater: rater || null, updates: editsToUpdates(sent) })
         : applyEdits(report, normalizeEdits(sent), rater || null);
       // The page's run list still learns what was saved, but a board that has

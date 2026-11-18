@@ -25,6 +25,8 @@ import { Info } from "@/components/Tooltip";
 import { tileLoading } from "@/lib/imageLoading";
 
 const PAGE_SIZE = 48;
+/** One empty list, so the rows derived for a not-yet-loaded archive keep a stable identity. */
+const NO_ITEMS: ArchiveItem[] = [];
 const CATEGORIES = ["identity", "wardrobe", "setting", "concept"] as const;
 const MIN_SIZES = [0, 512, 768, 1024, 1536] as const;
 /** Explicit selections travel as an `ids=` query parameter, so keep them URL-sized. */
@@ -103,8 +105,13 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
   const [facets, setFacets] = useState<ArchiveFacets | null>(null);
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [query, setQuery] = useState<ArchiveQuery>(toQuery(EMPTY_FORM));
-  const [items, setItems] = useState<ArchiveItem[]>([]);
-  const [total, setTotal] = useState(0);
+  // The loaded rows carry the archive they came from: until the new archive's
+  // search answers, the old rows must not be drawn (or opened) against its name.
+  const [results, setResults] = useState<{ archive: string; items: ArchiveItem[]; total: number }>({
+    archive: "",
+    items: [],
+    total: 0,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -149,6 +156,9 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
     return () => ctrl.abort();
   }, []);
 
+  const items = results.archive === archive ? results.items : NO_ITEMS;
+  const total = results.archive === archive ? results.total : 0;
+
   const current = listing?.archives.find((a) => a.name === archive);
   const ready = Boolean(current?.indexed);
 
@@ -184,8 +194,11 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
       try {
         const page = await searchArchive(archive, query, { limit: PAGE_SIZE, offset }, signal);
         if (signal.aborted) return;
-        setTotal(page.total);
-        setItems((cur) => (append ? [...cur, ...page.items] : page.items));
+        setResults((cur) => ({
+          archive,
+          items: append && cur.archive === archive ? [...cur.items, ...page.items] : page.items,
+          total: page.total,
+        }));
       } catch (err) {
         if (signal.aborted) return;
         setError(err instanceof Error ? err.message : "Search failed");
@@ -485,7 +498,9 @@ function SliceBar({
   const [category, setCategory] = useState<string>("setting");
   const [subject, setSubject] = useState("");
   const [limit, setLimit] = useState("100");
-  const [plan, setPlan] = useState<SlicePlan | null>(null);
+  // The plan is kept with the settings it was made for: once the archive, the
+  // query or the target changes, its count and command no longer describe it.
+  const [saved, setPlan] = useState<{ key: string; plan: SlicePlan } | null>(null);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; counts: Record<string, number> } | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -498,6 +513,8 @@ function SliceBar({
   // The count shown is the count fetched: the same 5000 cap target() sends.
   const n = useSelection ? selected.length : Math.min(total, Number(limit) || 0, SLICE_MAX);
   const ready = subject.trim() !== "" && n > 0;
+  const planKey = JSON.stringify([archive, sliceQuery, category, subject.trim(), limit]);
+  const plan = saved?.key === planKey ? saved.plan : null;
 
   const target = () => ({
     category,
@@ -509,7 +526,7 @@ function SliceBar({
     setError(null);
     try {
       const p = await planSlice(archive, sliceQuery, target());
-      setPlan(p);
+      setPlan({ key: planKey, plan: p });
       downloadText("slice.json", JSON.stringify(p.slice, null, 2) + "\n", "application/json");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not plan the slice");

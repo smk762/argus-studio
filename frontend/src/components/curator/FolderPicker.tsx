@@ -26,6 +26,12 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
   // Only the latest navigation may land: each fetch aborts the one before it,
   // so a slow, older listing can never replace the folder the user is in.
   const inFlight = useRef<AbortController | null>(null);
+  // Called through a ref: a caller's inline fetcher gets a new identity on every
+  // render, and depending on it would abort the user's navigation and reset to root.
+  const fetcherRef = useRef(fetcher);
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  }, [fetcher]);
 
   // Fetch + apply results only in async callbacks (safe to call from an effect).
   const fetchListing = useCallback(
@@ -34,7 +40,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
       const ctrl = new AbortController();
       inFlight.current = ctrl;
       const { signal } = ctrl;
-      fetcher(path, signal)
+      fetcherRef.current(path, signal)
         .then((data) => {
           if (signal.aborted) return;
           setListing(data);
@@ -52,7 +58,7 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
         });
       return ctrl;
     },
-    [fetcher],
+    [],
   );
 
   // Navigation from user events may set the spinner synchronously.
@@ -191,7 +197,9 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
         <button
           type="button"
           onClick={() => onSelect(listing.abs_path)}
-          className={`w-full cursor-pointer rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+          // While a navigation loads, `listing` is still the folder being left.
+          disabled={loading}
+          className={`w-full cursor-pointer rounded-lg disabled:cursor-not-allowed disabled:opacity-40 px-3 py-2 text-xs font-medium transition-colors ${
             selectedAbs === listing.abs_path
               ? "bg-accent-teal/20 text-accent-teal-ink"
               : "border border-border text-muted hover:text-foreground"

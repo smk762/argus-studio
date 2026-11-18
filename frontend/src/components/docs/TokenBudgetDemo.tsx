@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DemoCard, SegmentedButtons } from "@/components/docs/DemoPrimitives";
 import { TARGET_BACKENDS } from "@/types";
+import { packFragments } from "@/lib/fragmentPacking";
 
 /**
  * Live, embeddable widget for the Target Backend doc page. It reads the SAME
@@ -31,17 +32,11 @@ export function TokenBudgetDemo() {
   const budget = selected.tokens;
 
   // Assemble the fragments highest-priority-first. Like lens's packing, a
-  // fragment that doesn't fit is skipped and the next one still gets its chance.
-  // A plain loop rather than a mutating `map` callback: the running totals stay
-  // local to the loop instead of being reassigned from inside a closure.
-  const rows: ((typeof FRAGMENTS)[number] & { fits: boolean })[] = [];
-  for (let spent = 0, i = 0; i < FRAGMENTS.length; i++) {
-    const f = FRAGMENTS[i];
-    const fits = spent + f.tokens <= budget;
-    if (fits) spent += f.tokens;
-    rows.push({ ...f, fits });
-  }
-  const dropped = rows.filter((r) => !r.fits).length;
+  // fragment that doesn't fit is skipped and the next one still gets its chance,
+  // so the dropped ones are named rather than called the lowest-priority tail.
+  const rows = packFragments(FRAGMENTS, budget);
+  const droppedNames = rows.filter((r) => !r.fits).map((r) => r.priority);
+  const dropped = droppedNames.length;
 
   return (
     <DemoCard aside="budgets from the Caption tool">
@@ -56,7 +51,8 @@ export function TokenBudgetDemo() {
           <span className="text-accent-green-ink">everything fits.</span>
         ) : (
           <span className="text-accent-amber-ink">
-            the {dropped} lowest-priority {dropped === 1 ? "fragment is" : "fragments are"} dropped.
+            {dropped === 1 ? "this fragment doesn't" : "these fragments don't"} fit and{" "}
+            {dropped === 1 ? "is" : "are"} skipped: {droppedNames.join(", ")}.
           </span>
         )}
       </p>
@@ -79,8 +75,9 @@ export function TokenBudgetDemo() {
       </ul>
 
       <p className="mt-3 text-xs text-muted">
-        Fragment sizes are illustrative; the budgets are real. Ordering is by training priority —
-        identity survives, prose is spent last.
+        Fragment sizes are illustrative; the budgets are real. Fragments are placed in training-priority
+        order, identity first and prose last; one that does not fit is skipped, and a smaller one after it
+        can still fit.
       </p>
     </DemoCard>
   );

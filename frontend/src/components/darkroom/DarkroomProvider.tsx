@@ -78,6 +78,10 @@ export function DarkroomProvider({ children }: { children: ReactNode }) {
           setError(null);
           return;
         }
+        // As the poll does: a darkroom that stopped answering keeps no stale
+        // /health, which History and RecordActions gate writes on.
+        setHealth(null);
+        setSample(null);
         setError(caught instanceof Error ? caught.message : String(caught));
       } finally {
         if (!cancelled) setLoadedTick(tick);

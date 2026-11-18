@@ -51,6 +51,10 @@ export function Tooltip({
       : children;
   const [pos, setPos] = useState<{ x: number; y: number; below: boolean; host: Element } | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pointer (on the trigger or the bubble) and focus (inside the wrapper) are
+  // tracked apart: the bubble goes only when neither holds it open.
+  const hovered = useRef(false);
+  const focused = useRef(false);
 
   function cancelHide() {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -69,6 +73,34 @@ export function Tooltip({
 
   useEffect(() => cancelHide, []);
 
+  // Escape dismisses the bubble wherever focus is (WCAG 1.4.13), not only from
+  // inside the trigger: a hover-opened bubble must close without moving the
+  // pointer. Capture phase, and the keydown cancelled, so a surrounding modal
+  // <dialog> does not treat the same press as its close request.
+  const open = pos !== null;
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+      setPos(null);
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [open]);
+
+  function pointerIn() {
+    hovered.current = true;
+    cancelHide();
+  }
+
+  function pointerOut() {
+    hovered.current = false;
+    if (!focused.current) hideSoon();
+  }
+
   function show() {
     cancelHide();
     if (!text) return; // nothing to say: no empty bubble
@@ -85,16 +117,18 @@ export function Tooltip({
     <span
       ref={ref}
       className={`inline-flex ${className}`}
-      onMouseEnter={show}
-      onMouseLeave={hideSoon}
-      onFocus={show}
-      onBlur={hideNow}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || !pos) return;
-        // Cancelling the keydown stops a surrounding modal <dialog> treating
-        // the same press as its close request.
-        event.preventDefault();
-        hideNow();
+      onMouseEnter={() => {
+        hovered.current = true;
+        show();
+      }}
+      onMouseLeave={pointerOut}
+      onFocus={() => {
+        focused.current = true;
+        show();
+      }}
+      onBlur={(event) => {
+        focused.current = event.currentTarget.contains(event.relatedTarget as Node | null);
+        if (!focused.current && !hovered.current) hideNow();
       }}
     >
       {described}
@@ -109,8 +143,8 @@ export function Tooltip({
               id={id}
               role="tooltip"
               // Hoverable (WCAG 1.4.13): the pointer may rest on the bubble to read it.
-              onMouseEnter={cancelHide}
-              onMouseLeave={hideSoon}
+              onMouseEnter={pointerIn}
+              onMouseLeave={pointerOut}
               className="fixed z-50 w-max max-w-64 rounded-md border border-border bg-surface px-2 py-1.5 text-xs font-normal text-foreground/80 shadow-soft"
               style={{ left: pos.x, top: pos.y, transform: `translate(-50%, ${pos.below ? "0" : "-100%"})` }}
             >

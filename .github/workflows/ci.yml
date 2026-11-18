@@ -44,10 +44,12 @@ jobs:
       - run: npm run typecheck
 
       # Includes the docs opsec gate (src/lib/docsOpsec.test.ts). The private
-      # denylist is a secret, never committed; it is empty on fork PRs.
+      # denylist is a secret, never committed. Under CI an empty one fails the
+      # gate, except on a fork PR, which gets no secrets and says so here.
       - run: npm test
         env:
           DOCS_OPSEC_DENYLIST: ${{ secrets.DOCS_OPSEC_DENYLIST }}
+          DOCS_OPSEC_DENYLIST_OPTIONAL: ${{ github.event.pull_request.head.repo.fork && '1' || '' }}
 
   # The static demo export (studio.dragonhound.dev) must not scroll sideways on
   # a phone: every route at 390 px, light and dark, plus no console errors or

@@ -109,21 +109,17 @@ export default function AtlasPage() {
   }, [selected, loadJob]);
 
   // After controls, a bake or tiles: refresh the list (status dots) and the job.
+  // Only a job NewCanvas just created is selected; a change to an existing job
+  // never moves the selection, so a switch the user made meanwhile stands.
   const refresh = useCallback(
-    async (jobId: string) => {
-      const wasSelected = selectedRef.current === jobId;
+    async (jobId: string, created = false) => {
       try {
         setJobs(await listJobs());
       } catch {
         // best-effort; the job itself still reloads below
       }
-      if (wasSelected) {
-        // Reload only if it is still the one on screen; a switch meanwhile stands.
-        if (selectedRef.current === jobId) await loadJob(jobId);
-      } else {
-        // A new job (e.g. controls just built): select it.
-        setSelected(jobId);
-      }
+      if (created) setSelected(jobId);
+      else if (selectedRef.current === jobId) await loadJob(jobId);
     },
     [loadJob],
   );
@@ -177,7 +173,7 @@ export default function AtlasPage() {
                   inputs={inputs}
                   canGdal={canGdal}
                   canOsm={canOsm}
-                  onCreated={(id) => void refresh(id)}
+                  onCreated={(id) => void refresh(id, true)}
                   onInputsChanged={reloadInputs}
                 />
               </>
@@ -227,7 +223,9 @@ export default function AtlasPage() {
 
               <div>
                 {error && <p className="py-12 text-center text-sm text-accent-red-ink">{error}</p>}
-                {!error && job && (
+                {/* The held job only renders under its own selection: until B loads,
+                    A's view (and its bake/tiles actions) must not stay on screen. */}
+                {!error && job && job.job_id === selected && (
                   <JobView
                     key={job.job_id}
                     job={job}
@@ -236,6 +234,9 @@ export default function AtlasPage() {
                     canGdal={canGdal}
                     onChanged={() => void refresh(job.job_id)}
                   />
+                )}
+                {!error && job && selected && job.job_id !== selected && (
+                  <p className="py-12 text-center text-sm text-muted">Loading canvas…</p>
                 )}
                 {!error && !job && jobs.length > 0 && (
                   <p className="py-12 text-center text-sm text-muted">Select a canvas.</p>

@@ -171,7 +171,14 @@ export default function ProofPage() {
       setSummaries(next);
       if (removed === null || removed === selected) {
         setReport(null);
-        setSelected(next[0]?.run_id ?? null);
+        const nextRun = next[0]?.run_id ?? null;
+        // No run left: the aborted load leaves its spinner to a successor that
+        // never starts (the selection effect returns early on null), so clear it here.
+        if (nextRun === null) {
+          setLoading(false);
+          setError(null);
+        }
+        setSelected(nextRun);
       }
     },
     [summaries, selected],
