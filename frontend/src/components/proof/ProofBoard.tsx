@@ -426,7 +426,7 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             {METRIC_LABELS.map((m) => (
-              <MetricBar key={m.key} label={m.label} value={agg.means[m.key]} hint={`Mean ${m.label} — ${m.hint}`} conceptId={m.conceptId} />
+              <MetricBar key={m.key} label={m.label} value={agg.means[m.key] ?? null} hint={`Mean ${m.label} — ${m.hint}`} conceptId={m.conceptId} />
             ))}
             <MetricBar label="Diversity" value={agg.diversity} hint="Output variety (higher = more varied)" conceptId="metric_diversity" />
           </div>
@@ -441,6 +441,11 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
                     {s.name} <span className="text-muted">({s.metric})</span>
                     {s.model ? ` · ${s.model}` : ""}
                     {s.version ? ` v${s.version}` : ""}
+                    {s.model_file ? (
+                      <span className="text-muted" title={`${s.model_file.name}\nsha256 ${s.model_file.sha256}`}>
+                        {` · ${s.model_file.sha256.slice(0, 12)}`}
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -554,7 +559,7 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
               {!hidden && (
                 <div className="space-y-1">
                   {presentMetrics(img.metrics).map((m) => (
-                    <MetricBar key={m.key} label={m.label} value={img.metrics[m.key]} hint={m.hint} />
+                    <MetricBar key={m.key} label={m.label} value={img.metrics[m.key] ?? null} hint={m.hint} />
                   ))}
                   {comp != null && (
                     <div className="pt-0.5 text-right text-[10px] text-muted">composite {comp.toFixed(2)}</div>

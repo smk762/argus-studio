@@ -79,6 +79,11 @@ describe("compositeScore", () => {
     expect(compositeScore({ ...NO_METRICS, clip_score: 0.8, preference: 0.4 })).toBeCloseTo(0.6);
     expect(compositeScore(NO_METRICS)).toBeNull();
   });
+
+  it("leaves likeness out, as proof's default gate weighs it 0", () => {
+    expect(compositeScore({ ...NO_METRICS, clip_score: 0.8, likeness: 0.1 })).toBeCloseTo(0.8);
+    expect(compositeScore({ ...NO_METRICS, likeness: 0.9 })).toBeNull();
+  });
 });
 
 describe("applyEdits", () => {

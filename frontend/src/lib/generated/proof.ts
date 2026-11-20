@@ -1,4 +1,4 @@
-// Generated from smk762/argus-proof@c98b1dd (0.4.1.dev6+gc98b1dd) schema/proof-wire.schema.json.
+// Generated from smk762/argus-proof@3773d89 (0.5.2) schema/proof-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 /**
@@ -15,6 +15,7 @@ export interface ProofWire {
   AggregateScores?: AggregateScores;
   BackendCapabilities?: BackendCapabilities;
   CompleteFrame?: CompleteFrame;
+  CropBox?: CropBox;
   EvalReport?: EvalReport;
   GateCheck?: GateCheck;
   GateConfig?: GateConfig;
@@ -38,6 +39,9 @@ export interface ProofWire {
   RunSpec?: RunSpec;
   RunStreamFrame?: RunStreamFrame;
   SamplingParams?: SamplingParams;
+  ScoreRequest?: ScoreRequest;
+  ScoreResult?: ScoreResult;
+  ScoredImage?: ScoredImage;
   ScorerProvenance?: ScorerProvenance;
   ScoringFrame?: ScoringFrame;
   Verdict?: Verdict;
@@ -60,6 +64,7 @@ export interface AcceptanceThresholds {
   confidence?: number;
   max_unsafe_rate?: number | null;
   min_identity_mean?: number | null;
+  min_likeness_mean?: number | null;
   min_pass_rate?: number | null;
   min_pass_rate_ci_lower?: number | null;
   unsafe_safety_floor?: number;
@@ -85,7 +90,9 @@ export interface AggregateScores {
  *
  * Every field is optional so an axis whose scorer did not run stays ``None``
  * instead of a misleading ``0.0``. Semantics: ``identity`` similarity to the
- * reference (higher = closer), ``clip_score`` prompt adherence, ``aesthetic``
+ * reference face (higher = closer), ``likeness`` whole-image embedding
+ * similarity to the reference set (any subject: a masked or non-human
+ * character, a scene), ``clip_score`` prompt adherence, ``aesthetic``
  * an IQA/aesthetic score, ``preference`` an ImageReward/HPS-style score, and
  * ``safety`` a safety score.
  */
@@ -93,6 +100,7 @@ export interface MetricScores {
   aesthetic: number | null;
   clip_score: number | null;
   identity: number | null;
+  likeness: number | null;
   preference: number | null;
   safety: number | null;
 }
@@ -136,6 +144,18 @@ export interface ReportSummary {
   run_id: string;
 }
 /**
+ * A box in an uploaded image's own pixels (after its EXIF orientation is applied).
+ *
+ * Only this region is scored, e.g. a teaser's character rather than its
+ * background. It must lie inside the image.
+ */
+export interface CropBox {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
+/**
  * Scored evaluation of a generation run: per-image + aggregate + verdict.
  *
  * Links to its :class:`RunManifest` by ``run_id`` rather than embedding it, so
@@ -144,11 +164,40 @@ export interface ReportSummary {
 export interface EvalReport {
   aggregate: AggregateScores;
   created_at: string | null;
+  gate: GateConfig | null;
   images: ImageScores[];
   proof_version: string;
   run_id: string;
   scorers: ScorerProvenance[];
   verdict: Verdict;
+}
+/**
+ * Thresholds that route each image to auto-pass / auto-fail / needs-HITL.
+ *
+ * An automated pre-pass so humans only rate the borderline band (HITL doesn't
+ * scale to every image). Scorers return a normalised score in ``[0, 1]``
+ * (higher = better); the gate takes a ``weights``-weighted mean of the metrics
+ * present (curator's weighted ``score_breakdown`` pattern) into a composite:
+ * ``composite >= auto_pass`` → pass, ``<= auto_fail`` → fail, between → HITL.
+ * ``hard_gates`` are absolute per-metric floors (e.g. a minimum identity) that
+ * fail an image regardless of composite. A run passes when its group pass-rate
+ * reaches ``run_pass_rate``.
+ *
+ * ``safety`` is in the default composite weights so an unsafe image is dragged
+ * down once safety scoring lands (Phase 4); for a true veto, add ``safety`` to
+ * ``hard_gates`` with your scorer's floor — the composite alone can let a
+ * high-quality-but-unsafe image through.
+ */
+export interface GateConfig {
+  auto_fail?: number;
+  auto_pass?: number;
+  hard_gates?: {
+    [k: string]: number;
+  };
+  run_pass_rate?: number;
+  weights?: {
+    [k: string]: number;
+  };
 }
 /**
  * Per-image scores for one generated sample, keyed by ``(run_id, seed)``.
@@ -218,8 +267,23 @@ export interface RejectReason {
 export interface ScorerProvenance {
   metric: string;
   model: string | null;
+  model_file: ModelRef | null;
   name: string;
   version: string | null;
+}
+/**
+ * A model file pinned by content: how the engine names it + its SHA256.
+ *
+ * ``name`` is what the generation engine loads (e.g. a ComfyUI checkpoint
+ * filename); ``sha256`` is the real identity, so a manifest can't drift if the
+ * file behind the name changes.
+ */
+export interface ModelRef {
+  name: string;
+  /**
+   * lowercase hex SHA256 digest
+   */
+  sha256: string;
 }
 /**
  * The automated pass/fail decision for a run, with the reasons behind it.
@@ -243,34 +307,6 @@ export interface GateCheck {
   name: string;
   passed: boolean;
   threshold: number | null;
-}
-/**
- * Thresholds that route each image to auto-pass / auto-fail / needs-HITL.
- *
- * An automated pre-pass so humans only rate the borderline band (HITL doesn't
- * scale to every image). Scorers return a normalised score in ``[0, 1]``
- * (higher = better); the gate takes a ``weights``-weighted mean of the metrics
- * present (curator's weighted ``score_breakdown`` pattern) into a composite:
- * ``composite >= auto_pass`` → pass, ``<= auto_fail`` → fail, between → HITL.
- * ``hard_gates`` are absolute per-metric floors (e.g. a minimum identity) that
- * fail an image regardless of composite. A run passes when its group pass-rate
- * reaches ``run_pass_rate``.
- *
- * ``safety`` is in the default composite weights so an unsafe image is dragged
- * down once safety scoring lands (Phase 4); for a true veto, add ``safety`` to
- * ``hard_gates`` with your scorer's floor — the composite alone can let a
- * high-quality-but-unsafe image through.
- */
-export interface GateConfig {
-  auto_fail?: number;
-  auto_pass?: number;
-  hard_gates?: {
-    [k: string]: number;
-  };
-  run_pass_rate?: number;
-  weights?: {
-    [k: string]: number;
-  };
 }
 /**
  * The overall accept/reject decision — ``passed`` iff every check passed.
@@ -432,20 +468,6 @@ export interface LoRARef {
   weight: number;
 }
 /**
- * A model file pinned by content: how the engine names it + its SHA256.
- *
- * ``name`` is what the generation engine loads (e.g. a ComfyUI checkpoint
- * filename); ``sha256`` is the real identity, so a manifest can't drift if the
- * file behind the name changes.
- */
-export interface ModelRef {
-  name: string;
-  /**
-   * lowercase hex SHA256 digest
-   */
-  sha256: string;
-}
-/**
  * One NDJSON progress line streamed during generation (suite convention).
  *
  * ``type`` selects which fields matter: ``start`` sets ``total`` (images to
@@ -535,4 +557,185 @@ export interface ScoringFrame {
   n_images: number;
   run_id: string;
   type: "scoring";
+}
+/**
+ * The JSON ``request`` part of a ``POST /score`` multipart body.
+ *
+ * ``export`` names a curator export under the exports root: its
+ * ``references/`` are the held-out set the images are scored against, and its
+ * training images are what those references must not overlap. ``scorers``
+ * picks the reference scorers to run: ``likeness`` (DINOv2, any subject) and/or
+ * ``identity`` (ArcFace, human faces; it only measures ``identity`` runs, so it
+ * reads ``None`` for any other ``target_category``). ``crops``, when given, has
+ * one entry per uploaded image in upload order (``null`` scores the whole image).
+ */
+export interface ScoreRequest {
+  crops?:
+    | []
+    | [CropBox | null]
+    | [CropBox | null, CropBox | null]
+    | [CropBox | null, CropBox | null, CropBox | null]
+    | [CropBox | null, CropBox | null, CropBox | null, CropBox | null]
+    | [CropBox | null, CropBox | null, CropBox | null, CropBox | null, CropBox | null]
+    | [CropBox | null, CropBox | null, CropBox | null, CropBox | null, CropBox | null, CropBox | null]
+    | [CropBox | null, CropBox | null, CropBox | null, CropBox | null, CropBox | null, CropBox | null, CropBox | null]
+    | [
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null
+      ]
+    | [
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null
+      ]
+    | [
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null
+      ]
+    | [
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null
+      ]
+    | [
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null
+      ]
+    | [
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null
+      ]
+    | [
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null
+      ]
+    | [
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null
+      ]
+    | [
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null,
+        CropBox | null
+      ]
+    | null;
+  export: string;
+  /**
+   * @minItems 1
+   * @maxItems 2
+   */
+  scorers: ["identity" | "likeness"] | ["identity" | "likeness", "identity" | "likeness"];
+  target_category?: "identity" | "wardrobe" | "pose_composition" | "setting" | "concept";
+}
+/**
+ * What ``POST /score`` returns. Nothing is stored.
+ *
+ * ``means`` averages each metric over the images that have it (``None`` when
+ * none do). ``scorers`` records each scorer that ran, with its model and pinned
+ * weights (``model_file``), plus a ``held-out-references`` row saying which
+ * overlap check ran.
+ */
+export interface ScoreResult {
+  images: ScoredImage[];
+  means: MetricScores;
+  n_images: number;
+  proof_version: string;
+  scorers: ScorerProvenance[];
+}
+/**
+ * One uploaded image's scores. ``index`` is its position in the upload;
+ * ``filename`` echoes the client's name for it (never used as a path).
+ */
+export interface ScoredImage {
+  crop: CropBox | null;
+  filename: string | null;
+  index: number;
+  metrics: MetricScores;
 }
