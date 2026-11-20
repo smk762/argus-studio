@@ -4,6 +4,54 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-19
+
+### Added
+
+- **`/curate` shows the SingGuard mode a scan ran in** (curator 0.17): fast, fast-slow, slow or cascade, under SingGuard in the facet rail, with a warning when SingGuard refused the mode and every check ran fast. The mode comes from the scan form's picker, or else from the curator's default (`ARGUS_CURATOR_SINGGUARD_THINKING`).
+- **`/curate`'s scan form picks the SingGuard mode** (argus-curator#180). A Mode select under the SingGuard policy offers `/detectors.singguard_thinking_modes` (the host's allowed list), with the curator's default named on the first option and a note on what each mode costs. It appears only when the curator lists modes. A chosen mode is sent as `guard.thinking`, and refused before the scan starts on a curator whose `/health` lacks `guard_thinking`, which would run its own mode silently. Again restores the mode the scan ran in, and the form flags a mode the host doesn't allow (the curator would answer 422).
+
+### Changed
+
+- **Cortex, forge and proof wire pins move to their `dev` HEADs** (#259). `/proof` follows proof's wire 1.9: a **Likeness** bar (DINOv2 whole-image similarity to the references, for subjects face identity can't score) with its Learn entry, and each scorer's pinned weights (`model_file`, a short sha256) in the Scorers list. Likeness is left out of the client's composite, as proof's default gate weighs it 0, and reports from older proofs (no `likeness`, `model_file` or `gate`) still load. The curator pin stays at `252cfde` until its recording moves with it (#250).
+- **Curator wire pin and demo recording move to `252cfde`** (curator 0.17.1.dev30, with argus-curator#180). The demo images were regenerated with `scripts/make_curator_sample.py` (the 2026-11-14 originals were not kept) and re-recorded; the scan finds what it found before (same rejects, clusters, near duplicate and ratings), and records `guard_config.thinking: cascade`.
+- **Darkroom's image rule is checked on the rendered views** (#263). `recordImages.test.ts` renders the record view, the history row and the image tile for every fixture record and fails if a deleted, omitted, refused, failed or removed one has an `<img>`. Record views carry `data-outcome`, which a new Bombadil property reads, and `ImageTile` now asks `hasImage()` itself.
+
+- **A delete cannot reach a backend without the user's confirmation** (#262). Every deleting or purging fetcher on `/curate`, `/darkroom` and `/proof` takes a one-use `Confirmed`, minted only by the browser's confirm dialog or the user's own click on a confirm button, and spends it before the request. Nothing changes for the user: the same questions are asked.
+
+- **CLAUDE.md states what must never happen and what enforces each rule** (#255). New checks: ESLint refuses a literal `process.env.NAME`, a runtime-config accessor called at module scope and an HTML string written to the DOM; `writeGateCoverage.test.ts` finds every non-GET fetcher in `lib/*Api.ts` and fails one that runs no capability guard; `repoRules.test.ts` holds that only `compose.train.yaml` arms training, the release image takes no build-time config, `next.config.ts` pins no headers and dev mode reaches only the policy list.
+
+- **Compose defaults to argus-proof 0.4.0, with safety scoring on.** Proof's `PROOF_NUDENET_URL` defaults to `http://host.docker.internal:8130`, argus-retina's shared NudeNet 640m on the compose host (an exposed score of at least 0.2 is unsafe; the report names the detector); set it empty to skip safety. Proof also gets the `ARGUS_GPU_*` variables and the lock mount lens and curator have, so `ARGUS_GPU_COORDINATOR=broker` moves its runs onto argus-iris too.
+
+- **Compose defaults to argus-lens 0.13.0 and argus-curator 0.16.0** (`0.16.0-gpu` under `compose.gpu.yaml`). Both are on argus-cortex 0.6 and can lease the GPU from argus-iris, the suite's GPU broker. The curator wire pin stays where the daily `wire-drift` check holds it.
+- **The argus-iris GPU broker.** Compose passes `ARGUS_GPU_BROKER_URL`, `ARGUS_GPU_BROKER_TOKEN`, `ARGUS_GPU_BROKER_FALLBACK` and each image's `ARGUS_GPU_TENANT_MANIFEST` to lens and curator, so `ARGUS_GPU_COORDINATOR=broker` in `.env` switches them to iris, with the lock file as the fallback. Lens also gets `ARGUS_ADMIN_TOKEN`, so iris can unload its model. `.env.example` shows them, with the URL as an IP (containers do not resolve LAN host names).
+- Compose passes `LENS_TRUSTED_HOSTS` and `CURATOR_TRUSTED_HOSTS`: argus-cortex 0.6 refuses a same-host write by DNS name unless the host is named.
+
+### Fixed
+
+- **Twenty-three audit findings.**
+  - `/` (caption): an Immich or manifest batch that finishes after the user switched tabs no longer shows its table or error in the new tab, and the `/forge` hand-off follows the sidecar setting the run started with.
+  - `/atlas`: switching canvases hides the previous job until the new one loads, and a refresh of the old job no longer takes the selection back.
+  - `/forge`: an empty `/trainers` answer clears the fallback trainer chips and hides the run panel.
+  - `/gallery`: a subject is picked as category/folder, so two categories with the same folder name no longer mix in the grid; switching archives no longer shows the old archive's rows, and a saved slice plan is dropped once the archive, filters or target change.
+  - `/proof`: purging the last run no longer leaves "Loading report…" on screen, and a demo board always applies a review locally.
+  - `/darkroom`: a seed that would be rounded, negative or non-finite is refused, and a failed Refresh drops the stale `/health` so write actions turn off.
+  - Tooltips stay while the trigger is focused or hovered (not only both), and Escape closes a hover-opened one from anywhere.
+  - The folder picker survives a parent re-render with an inline fetcher and disables "Use this folder" while a navigation loads.
+  - An Immich album's dataset folder now ends in a short album-id suffix and is capped at 200 bytes, so two albums never share a folder and a long non-Latin name still fits the filesystem. **Re-ingesting an album lands in a new folder name.**
+  - The face-identity counts drop by the moved frames on every path, and the token-budget docs widget names the fragments it skipped.
+  - The docs opsec gate fails on GitHub Actions when the denylist secret is missing (fork PRs opt out explicitly), and the concept registry test compares each key with its entry's id.
+  - `scripts/record_curator_demo.py` stages the new thumbnails and swaps them in only once every one arrived.
+
+- **Eight audit findings.**
+  - `/curate`: reopening a cached scan loads every row, not only the first 10,000, so the keep-set, the export and the bulk deletes see the whole scan.
+  - `/curate`: a scan option whose detector the curator lacks (FairFace, MiVOLO ages, one-person set, body ages, scenes, garments) is switched off, not just hidden, so a stale `true` no longer goes out with the scan.
+  - `/curate`: while the ages are still coming, an exposed frame stays covered even on a set with an adult set age, and so does a frame whose nudity was not scored.
+  - `/darkroom`: a proof handoff always lands on the server's defaults, never on the placeholder form.
+  - `/darkroom`: a late pre-flight verdict no longer revives a finished, failed or cleared run.
+  - `/proof`: a refinement save that outlasts its run no longer touches the next run's edits or saving state.
+  - `scripts/bundle_atlas_demo.py` builds the bundle beside the old one and swaps it in once every job is written, and refuses an `--out` that overlaps a `--job`.
+
 ## [0.5.0] - 2026-11-15
 
 ### Added
@@ -50,7 +98,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Fixed
 
-- **Every page scrolled sideways at 600–879 px when the Dragonhound strip was a little wider than the screen** (dh-shared 1.2.6, smk762/dragonhound-site#15; Studio vendors 1.2.7, which also adds Mask to the strip). The strip's visually hidden name and label escaped its scroll box. How wide the strip gets depends on fonts: CI's Chrome hit it at 604 px. Bombadil found it on #249.
+- **Every page scrolled sideways at 600–879 px when the Dragonhound strip was a little wider than the screen** (dh-shared 1.2.6, smk762/dragonhound-site#15; Studio vendors 1.2.8, which also adds Mask and Quarry to the strip). The strip's visually hidden name and label escaped its scroll box. How wide the strip gets depends on fonts: CI's Chrome hit it at 604 px. Bombadil found it on #249.
 - **Review fixes from the release sync (#248):**
   - `/proof`: a reloaded report clears the last applied review, so a stale copy no longer decides the verdict or the Darkroom hand-off.
   - `/forge` training runs: log lines are batched and rendered every 100 ms instead of once per line, and a newly started run is listed straight away without first reopening another run's log.
@@ -236,7 +284,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 First published image. It covers the caption page (`/`), curation (`/curate`), the provenance gallery (`/gallery`), training configs (`/forge`) and LoRA evaluation with HITL review (`/proof`), plus the `/docs` handbook. The suite `compose.yaml` runs the backends from published GHCR images, and API config is resolved at runtime rather than baked into the bundle (#71).
 
-[Unreleased]: https://github.com/smk762/argus-studio/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/smk762/argus-studio/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/smk762/argus-studio/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/smk762/argus-studio/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/smk762/argus-studio/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/smk762/argus-studio/compare/v0.2.0...v0.3.0

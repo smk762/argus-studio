@@ -38,6 +38,30 @@ export function policiesRun(summary: Pick<ScanSummary, "guard_config">): string[
   return [config.policy, ...(config.variants ?? []).filter((name) => name !== config.policy)];
 }
 
+export interface GuardModeNote {
+  text: string;
+  /** The scan did not get the mode it asked for. */
+  warn: boolean;
+}
+
+/**
+ * The SingGuard mode a finished scan ran in (curator 0.17+), or null when it
+ * did not run or the curator predates the field. Under cascade each unescalated
+ * verdict says `fast`, so only the scan's own record tells the two apart.
+ */
+export function guardModeNote(summary: Pick<ScanSummary, "guard_config">): GuardModeNote | null {
+  const config = summary.guard_config;
+  if (config?.enabled !== true || !config.thinking) return null;
+  if (config.fell_back === true) {
+    return {
+      text: `SingGuard refused ${config.thinking} mode, so every check ran fast: ${THINKING_NOTES.fast}.`,
+      warn: true,
+    };
+  }
+  const what = THINKING_NOTES[config.thinking];
+  return { text: what ? `Ran in ${config.thinking} mode: ${what}.` : `Ran in ${config.thinking} mode.`, warn: false };
+}
+
 export type ShieldState = "none" | "safe" | "safe-split" | "unsafe" | "unsafe-split";
 
 /** The official verdict, and whether another policy disagreed with it. */
@@ -134,6 +158,8 @@ export function guardFilterMatches(img: Guarded, f: CuratorFilters): boolean {
 export interface PolicyChoice {
   policy: string;
   variants: string[];
+  /** The SingGuard mode. Null or absent runs the curator's default. */
+  thinking?: string | null;
 }
 
 /**
@@ -152,19 +178,35 @@ export function offeredPolicies(available: readonly string[], choice: PolicyChoi
   );
 }
 
-/** Why the form's policies can't run on this server, or null. Again can bring back a name from another one. */
-export function guardProblem(choice: PolicyChoice, available: readonly string[]): string | null {
+/**
+ * Why the form's policies or mode can't run on this server, or null. Again can
+ * bring back a name from another one. `modes` is `/detectors.singguard_thinking_modes`:
+ * the curator would refuse a mode outside it with 422.
+ */
+export function guardProblem(choice: PolicyChoice, available: readonly string[], modes: readonly string[] = []): string | null {
+  if (choice.thinking && modes.length > 0 && !modes.includes(choice.thinking)) {
+    return `This curator does not allow the SingGuard mode ${choice.thinking}.`;
+  }
   if (available.length === 0) return null;
   const missing = [choice.policy, ...choice.variants].find((name) => !available.includes(name));
   return missing ? `This curator does not offer the policy ${missing}.` : null;
 }
 
 /** The scan's `guard` block, or null for the curator's default: an older curator ignores it and would use its default silently. */
-export function guardBody(choice: PolicyChoice): Pick<GuardConfig, "policy" | "variants"> | null {
+export function guardBody(choice: PolicyChoice): Pick<GuardConfig, "policy" | "variants" | "thinking"> | null {
   const variants = choice.variants.filter((name, i) => name !== choice.policy && choice.variants.indexOf(name) === i);
-  if (choice.policy === "default" && variants.length === 0) return null;
-  return { policy: choice.policy, variants };
+  const thinking = choice.thinking || null;
+  if (choice.policy === "default" && variants.length === 0 && thinking === null) return null;
+  return { policy: choice.policy, variants, ...(thinking ? { thinking } : {}) };
 }
+
+/** What each mode costs and gives, for the picker and the facet rail. */
+export const THINKING_NOTES: Record<string, string> = {
+  fast: "a verdict and a rule for each frame, with no written reason",
+  "fast-slow": "a fast verdict on each frame, then a written reason",
+  slow: "each verdict comes with a written reason",
+  cascade: "fast on every frame, then slow on what fast flagged",
+};
 
 export function policyByName(catalog: readonly GuardPolicyInfo[] | null, name: string): GuardPolicyInfo | null {
   return catalog?.find((entry) => entry.name === name) ?? null;

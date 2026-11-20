@@ -10,7 +10,8 @@
 # below says -gpu whatever was built.
 #
 # Lens and curator share the card through a lock file, one job at a time. Set
-# ARGUS_GPU_COORDINATOR=none in .env to turn that off.
+# ARGUS_GPU_COORDINATOR=none in .env to turn that off, or broker to ask argus-iris
+# (see .env.example; the lock file is then its fallback).
 #
 # Kept separate so the base stack runs on any machine (CPU-only, no toolkit).
 services:
@@ -36,7 +37,7 @@ services:
 
   argus-curator:
     # The default image is CPU only, so reserving a GPU for it does nothing.
-    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.15.1}-gpu
+    image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.16.0}-gpu
     environment:
       - ARGUS_GPU_COORDINATOR=${ARGUS_GPU_COORDINATOR:-lease}
     deploy:

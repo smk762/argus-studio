@@ -10,6 +10,7 @@
 
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
+import { spendConfirmation, type Confirmed } from "@/lib/confirmed";
 import { darkroomUrl } from "@/lib/curatorEnv";
 import { readSseFrames } from "@/lib/sse";
 
@@ -373,7 +374,8 @@ export async function preflight(request: GenerateRequest, signal?: AbortSignal):
 }
 
 /** Delete the user's own image file. The record stays, marked removed. */
-export async function removeImage(id: string, signal?: AbortSignal): Promise<GenerationRecord> {
+export async function removeImage(id: string, confirmed: Confirmed, signal?: AbortSignal): Promise<GenerationRecord> {
+  spendConfirmation(confirmed);
   await requireWrite(signal);
   const resp = await fetch(`${darkroomUrl()}/record/${encodeURIComponent(id)}`, { method: "DELETE", signal });
   if (!resp.ok) return asError(resp);
@@ -385,7 +387,8 @@ export interface PurgeResult {
   images: number;
 }
 
-async function postPurge(path: string, signal?: AbortSignal): Promise<PurgeResult> {
+async function postPurge(path: string, confirmed: Confirmed, signal?: AbortSignal): Promise<PurgeResult> {
+  spendConfirmation(confirmed);
   await requireCapability(darkroomHealth, allowsDarkroomPurge, DARKROOM_PURGE_DENIED, signal);
   const resp = await fetch(`${darkroomUrl()}${path}`, {
     method: "POST",
@@ -398,13 +401,13 @@ async function postPurge(path: string, signal?: AbortSignal): Promise<PurgeResul
 }
 
 /** Delete a record and its image. `removeImage` keeps the record, which is the audit trail; this doesn't. */
-export function purgeRecord(id: string, signal?: AbortSignal): Promise<PurgeResult> {
-  return postPurge(`/purge/${encodeURIComponent(id)}`, signal);
+export function purgeRecord(id: string, confirmed: Confirmed, signal?: AbortSignal): Promise<PurgeResult> {
+  return postPurge(`/purge/${encodeURIComponent(id)}`, confirmed, signal);
 }
 
 /** Delete every record and stored image. */
-export function purgeAll(signal?: AbortSignal): Promise<PurgeResult> {
-  return postPurge("/purge", signal);
+export function purgeAll(confirmed: Confirmed, signal?: AbortSignal): Promise<PurgeResult> {
+  return postPurge("/purge", confirmed, signal);
 }
 
 export interface GenerateHandlers {

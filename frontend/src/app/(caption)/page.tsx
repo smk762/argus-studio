@@ -259,13 +259,16 @@ export default function Home() {
     void runUrl(imageUrl.trim());
   };
 
-  // The tab on screen now, and the newest folder run, for a run that finishes
-  // after the user moved on: its result and hand-off must not land in another tab.
+  // The tab on screen now, and the newest batch run (folder, manifest, Immich),
+  // for a run that finishes after the user moved on: its result, error and
+  // hand-off must not land in another tab.
   const modeRef = useRef(mode);
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
-  const folderRun = useRef(0);
+  const batchRun = useRef(0);
+  const isStale = (run: number, runMode: InputMode) =>
+    run !== batchRun.current || modeRef.current !== runMode;
 
   const runFolder = async () => {
     // Snapshot the path for this run: the input stays editable while captioning
@@ -273,16 +276,19 @@ export default function Home() {
     // (and the /forge hand-off) with a folder the user has since typed over.
     const folder = folderPath.trim();
     if (!folder) return;
+    // The sidecar toggle stays interactive too: the request and the hand-off
+    // below must agree on what this run wrote.
+    const sidecars = writeSidecar;
     setLoading(true);
     setError(null);
     setBatchResult(null);
     setCaptionedFolder(null);
-    const run = ++folderRun.current;
+    const run = ++batchRun.current;
     try {
       const data = await captionFolder({
         folder,
         recursive,
-        write_sidecar: writeSidecar,
+        write_sidecar: sidecars,
         write_xmp: writeXmp,
         xmp_overwrite: writeXmp && xmpOverwrite,
         target_style: targetStyle,
@@ -294,15 +300,15 @@ export default function Home() {
         ...backendField(captionBackend, backendInfo),
       });
       // The sidecars are written either way; only what this page shows is skipped.
-      if (run !== folderRun.current || modeRef.current !== "folder") return;
+      if (isStale(run, "folder")) return;
       setBatchResult(data);
       setBatchSource(folder);
       // Sidecars are what forge sizes a dataset from: without them the folder
       // has images and no captions, and the next stage has nothing to read.
-      if (writeSidecar && data.captioned > 0) setCaptionedFolder(folder);
+      if (sidecars && data.captioned > 0) setCaptionedFolder(folder);
     } catch (err) {
       // Like a result, a stale run's failure must not land in another tab.
-      if (run !== folderRun.current || modeRef.current !== "folder") return;
+      if (isStale(run, "folder")) return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
@@ -317,6 +323,7 @@ export default function Home() {
     setBatchResult(null);
     setCaptionedFolder(null);
     setBatchSource(manifestFile.name);
+    const run = ++batchRun.current;
 
     const rows: BatchCaptionRow[] = [];
     const errors: { rel_path: string; error: string }[] = [];
@@ -325,14 +332,17 @@ export default function Home() {
       // Seed a total from the manifest line count so the bar renders before the
       // first row lands; the server's authoritative total overrides it below.
       const total = manifestText.split("\n").filter((l) => l.trim()).length;
-      setProgress({ done: 0, total });
+      if (!isStale(run, "manifest")) setProgress({ done: 0, total });
 
       const summary = await captionManifestStream(
         manifestText,
         (p) => {
-          setProgress({ done: p.done, total: p.total });
           if (p.error) errors.push({ rel_path: p.rel_path, error: p.error });
           else rows.push({ rel_path: p.rel_path, final_caption: p.final_caption ?? "", metadata: p.metadata });
+          // The rows keep streaming (and the sidecars keep being written); only
+          // what another tab would show is skipped.
+          if (isStale(run, "manifest")) return;
+          setProgress({ done: p.done, total: p.total });
           // Publish a growing snapshot so captions stream into the results table.
           setBatchResult({
             total: p.total,
@@ -351,8 +361,10 @@ export default function Home() {
           ...backendField(captionBackend, backendInfo),
         },
       );
+      if (isStale(run, "manifest")) return;
       setBatchResult({ ...summary, results: rows, errors });
     } catch (err) {
+      if (isStale(run, "manifest")) return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
@@ -427,6 +439,7 @@ export default function Home() {
     setBatchResult(null);
     setCaptionedFolder(null);
     setProgress(null);
+    const run = ++batchRun.current;
     const rows: BatchCaptionRow[] = [];
     const errors: { rel_path: string; error: string }[] = [];
     try {
@@ -442,14 +455,16 @@ export default function Home() {
           ...backendField(captionBackend, backendInfo),
         },
         (p) => {
-          setProgress({ done: p.done, total: p.total });
           if (p.error) errors.push({ rel_path: p.name, error: p.error });
           else rows.push({ rel_path: p.name, final_caption: p.final_caption ?? "" });
+          if (!isStale(run, "immich")) setProgress({ done: p.done, total: p.total });
         },
       );
+      if (isStale(run, "immich")) return;
       setBatchResult({ ...summary, results: rows, errors });
       setBatchSource(album ? `Immich · ${album.name}` : "Immich album");
     } catch (err) {
+      if (isStale(run, "immich")) return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);

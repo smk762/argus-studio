@@ -1,7 +1,7 @@
 {
   "package": "argus-curator",
-  "version": "0.15.2.dev2+g97021d6",
-  "recorded_at": "2026-11-14",
+  "version": "0.17.1.dev30+g252cfde",
+  "recorded_at": "2026-11-18",
   "options": {
     "target_profile": {
       "target_style": "photo",

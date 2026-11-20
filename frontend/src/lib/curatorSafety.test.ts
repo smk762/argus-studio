@@ -134,6 +134,28 @@ describe("thumbSafety", () => {
     );
   });
 
+  // Audit pack-argus-studio-8cc2abd9e2: the set's age is a stand-in, not this frame's measured age.
+  it("holds exposure on an adult set while the frame's own ages are still coming", () => {
+    const img = image({ nsfw: exposed(0.4), set_age: { years: 30 } as ImageResult["set_age"] });
+    expect(thumbSafety(img, true, ["faces"])).toMatchObject({ blurred: true, revealable: false, label: "Stays blurred" });
+    expect(thumbSafety(img, true)).toMatchObject({ blurred: true, revealable: true, label: "Blurred" });
+  });
+
+  // Audit pack-argus-studio-9c5d014163: an under-18 age would hold these for good.
+  it("holds a frame with no usable nudity score while the ages are still coming", () => {
+    const failed = image({ nudenet_failed: true });
+    expect(thumbSafety(failed, true, ["faces"])).toMatchObject({ blurred: true, revealable: false, label: "Stays blurred" });
+    expect(thumbSafety(failed, true)).toMatchObject({ revealable: true, label: "NudeNet failed" });
+    const unscored = image({ nsfw: null });
+    expect(thumbSafety(unscored, true, ["faces"])).toMatchObject({ blurred: true, revealable: false, label: "Stays blurred" });
+    expect(thumbSafety(unscored, true)).toMatchObject({ revealable: true, label: "Not checked" });
+    // A measured adult age has landed, so the usual veil applies.
+    expect(thumbSafety(image({ nudenet_failed: true, primary_face_attributes: years(30) }), true, ["faces"]).revealable).toBe(true);
+    // A scan that never asked for NudeNet has no score to wait on, and a clear score needs no age.
+    expect(thumbSafety(unscored, false, ["faces"]).blurred).toBe(false);
+    expect(thumbSafety(image({ nsfw: exposed(0) }), true, ["faces"]).blurred).toBe(false);
+  });
+
   it("keeps a NudeNet failure blurred even when EraX's score is low", () => {
     const safety = thumbSafety(image({ nudenet_failed: true, nsfw: exposed(0.1) }), true);
     expect(safety).toMatchObject({ blurred: true, revealable: true, label: "NudeNet failed" });

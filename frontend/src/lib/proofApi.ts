@@ -13,6 +13,7 @@ import type * as Wire from "@/lib/generated/proof";
 import type { Filled } from "@/lib/wire";
 import { asError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
+import { spendConfirmation, type Confirmed } from "@/lib/confirmed";
 import { readNdjson } from "@/lib/lensApi";
 import { getConcept } from "@/content/concepts";
 
@@ -20,7 +21,8 @@ import { getConcept } from "@/content/concepts";
 
 /** The automated scoring axes; each is [0,1] (higher = better) or null if the
  * scorer for it didn't run. */
-export type MetricScores = Required<Wire.MetricScores>;
+/** `likeness` (proof wire 1.8) stays optional: reports from older proofs don't carry it. */
+export type MetricScores = Omit<Wire.MetricScores, "likeness"> & { likeness?: number | null };
 
 /** Closed vocabulary of reject causes (argus_proof RejectReasonCode). */
 export type RejectReasonCode = Wire.RejectReason["code"];
@@ -39,7 +41,8 @@ export type AggregateScores = Filled<Omit<Wire.AggregateScores, "means">, "n_gro
   means: MetricScores;
 };
 
-export type ScorerProvenance = Required<Wire.ScorerProvenance>;
+/** `model_file` (proof wire 1.8, the pinned weights) stays optional for older reports. */
+export type ScorerProvenance = Omit<Wire.ScorerProvenance, "model_file"> & { model_file?: Wire.ModelRef | null };
 
 export type Verdict = Required<Wire.Verdict>;
 
@@ -51,6 +54,8 @@ export interface EvalReport {
   scorers: ScorerProvenance[];
   verdict: Verdict;
   created_at: string | null;
+  /** The gate the report was scored with (proof wire 1.9); older reports omit it. */
+  gate?: Wire.GateConfig | null;
 }
 
 /**
@@ -131,7 +136,7 @@ export interface RefinementRequest {
 
 /** The scoring axes in display order, with human labels. */
 export const METRIC_LABELS: { key: keyof MetricScores; label: string; hint: string; conceptId: string }[] = (
-  ["identity", "clip_score", "aesthetic", "preference", "safety"] as const
+  ["identity", "likeness", "clip_score", "aesthetic", "preference", "safety"] as const
 ).map((key) => {
   // Label and hint come from the concept registry (#34), so the bar, its tooltip
   // and the Learn panel can't drift apart.
@@ -253,10 +258,16 @@ export function presentMetrics(metrics: MetricScores): { key: keyof MetricScores
   return METRIC_LABELS.filter((m) => metrics[m.key] != null);
 }
 
+const UNWEIGHTED: ReadonlySet<keyof MetricScores> = new Set(["likeness"]);
+
 /** Weighted composite over the metrics actually present, mirroring the proof
  * gate's renormalised composite (a missing scorer isn't a phantom zero). */
 export function compositeScore(metrics: MetricScores): number | null {
-  const present = presentMetrics(metrics).map((m) => metrics[m.key] as number);
+  // Likeness carries weight 0 in proof's default gate: it acts only through
+  // min_likeness_mean or a hard gate, so it never moves the composite.
+  const present = presentMetrics(metrics)
+    .filter((m) => !UNWEIGHTED.has(m.key))
+    .map((m) => metrics[m.key] as number);
   if (present.length === 0) return null;
   return present.reduce((a, b) => a + b, 0) / present.length;
 }
@@ -542,7 +553,8 @@ export interface PurgeAllResult {
   run_dirs: number;
 }
 
-async function postPurge<T>(path: string, signal?: AbortSignal): Promise<T> {
+async function postPurge<T>(path: string, confirmed: Confirmed, signal?: AbortSignal): Promise<T> {
+  spendConfirmation(confirmed);
   await requireCapability(proofHealth, allowsPurge, PURGE_DENIED, signal);
   const resp = await fetch(`${proofUrl()}${path}`, {
     method: "POST",
@@ -556,13 +568,13 @@ async function postPurge<T>(path: string, signal?: AbortSignal): Promise<T> {
 }
 
 /** Delete one run's report and run dir (POST /purge/{run_id}). 409 while it is still generating. */
-export function purgeRun(runId: string, signal?: AbortSignal): Promise<PurgeRunResult> {
-  return postPurge(`/purge/${encodeURIComponent(runId)}`, signal);
+export function purgeRun(runId: string, confirmed: Confirmed, signal?: AbortSignal): Promise<PurgeRunResult> {
+  return postPurge(`/purge/${encodeURIComponent(runId)}`, confirmed, signal);
 }
 
 /** Delete every run (POST /purge). */
-export function purgeAllRuns(signal?: AbortSignal): Promise<PurgeAllResult> {
-  return postPurge("/purge", signal);
+export function purgeAllRuns(confirmed: Confirmed, signal?: AbortSignal): Promise<PurgeAllResult> {
+  return postPurge("/purge", confirmed, signal);
 }
 
 // --- evaluation runs ---------------------------------------------------------

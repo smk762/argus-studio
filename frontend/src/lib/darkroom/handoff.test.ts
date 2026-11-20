@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { defaultCompose } from "@/lib/darkroom/compose";
-import { applyHandoff, darkroomHandoffHref, matchModel, parseHandoff } from "@/lib/darkroom/handoff";
+import { applyHandoff, composeFromCatalogue, darkroomHandoffHref, matchModel, parseHandoff } from "@/lib/darkroom/handoff";
 import type { Models } from "@/lib/darkroomApi";
 
 const S = (c: string) => c.repeat(64);
@@ -83,5 +83,29 @@ describe("applyHandoff", () => {
     const r = applyHandoff(base, { from: null, checkpoint: { name: "gone.safetensors", sha256: S("f") }, loras: [] }, MODELS);
     expect(r.state.checkpoint).toBe("base.safetensors");
     expect(r.missing).toEqual(["gone.safetensors"]);
+  });
+});
+
+// Audit pack-argus-studio-786c824c9e: the handoff lands on the server's defaults, not the placeholder form.
+describe("composeFromCatalogue", () => {
+  const POLICIES = { default: "adult-granular", policies: [] } as never;
+  const incoming = parseHandoff(params(darkroomHandoffHref(MANIFEST)));
+  const placeholder = defaultCompose(null, null, null);
+  const defaults = defaultCompose(null, POLICIES, MODELS);
+
+  it("applies a handoff over the server defaults on an untouched form", () => {
+    const state = composeFromCatalogue(placeholder, false, null, POLICIES, MODELS, incoming);
+    expect(state.checkpoint).toBe("juggernaut-xl.safetensors");
+    expect(state.loras.map((l) => l.name)).toEqual(["loras/sabine.safetensors"]);
+    expect(state.enforcingPolicy).toBe(defaults.enforcingPolicy);
+    expect(state.enforcingPolicy).not.toBe(placeholder.enforcingPolicy);
+    // Running the updater again, as React may, gives the same form.
+    expect(composeFromCatalogue(placeholder, false, null, POLICIES, MODELS, incoming)).toEqual(state);
+  });
+
+  it("gives the defaults with no handoff, and keeps a touched form", () => {
+    expect(composeFromCatalogue(placeholder, false, null, POLICIES, MODELS, null)).toEqual(defaults);
+    const typed = { ...defaults, prompt: "a lemon" };
+    expect(composeFromCatalogue(typed, true, null, POLICIES, MODELS, incoming)).toMatchObject({ prompt: "a lemon", checkpoint: "juggernaut-xl.safetensors" });
   });
 });

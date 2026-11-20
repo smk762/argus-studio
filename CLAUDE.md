@@ -30,55 +30,58 @@ argus-cortex's SUITE.md** (a PR to argus-cortex in the same release).
 
 Not checked out? Read https://github.com/smk762/argus-cortex/blob/dev/SUITE.md
 
+## Must never happen
+
+Each rule names what fails when it is broken. **UNENFORCED** means only this file says so: add a check rather than more prose, and link the issue from the row. A rule about code shape (a banned import or API) can go in argus-ci's suite-rules catalogue instead of a test here. The reasons are in Conventions below.
+
+| Never | Enforced by |
+|---|---|
+| Layer `compose.train.yaml` on a public demo. It arms live forge training: the `-train` image, the GPU and `ARGUS_FORGE_READONLY=0` | Partial: `repoRules.test.ts` (only that file arms training, and no workflow layers it). The deployed stack is **UNENFORCED**: smk762/argus-halo#33 |
+| Arm training from `compose.gpu.yaml`, `compose.yaml` or `.env.example` | `repoRules.test.ts` |
+| Read a literal `process.env.NAME` in `src/` (only `NODE_ENV`, and `staticDemo.ts`'s one flag) | ESLint `no-restricted-syntax` (`eslint.config.mjs`) |
+| Give the release image a build-arg or the Dockerfile an `ARG` | `repoRules.test.ts` |
+| Call a `curatorEnv.ts` accessor or `runtimeConfig()` at module scope | ESLint `no-restricted-syntax` |
+| Send a backend write that its client did not gate | `writeGateCoverage.test.ts` finds every non-GET fetcher in `lib/*Api.ts`; `writeGates.test.ts` proves the known ones refuse |
+| Offer curator's `adult-*` SingGuard policies outside dev mode | `curatorGuard.test.ts` |
+| Let dev mode loosen viewing, move, bakes, fetches or NSFW | `repoRules.test.ts` (`devMode()` reaches only `offeredPolicies`) |
+| Delete without the user's confirm | Typecheck: every fetcher that deletes takes a `Confirmed` (`lib/confirmed.ts`), minted only by `askConfirm` or the user's own click. `writeGateCoverage.test.ts` finds the deleting fetchers; `writeGates.test.ts` proves a forged or spent one sends nothing |
+| Render a darkroom image for a deleted, omitted, refused or failed record, or a removed one | `components/darkroom/recordImages.test.ts` renders every view for every fixture record and reads the markup; `lib/darkroom/outcome.test.ts` pins `hasImage()`; Bombadil `darkroomWithholdsImages` checks the pages it reaches |
+| Hand-edit `src/lib/generated/` | CI `npm run wire:check` |
+| Hand-edit `frontend/vendor/dh/` | CI `dh-shared` job, `dhShared.test.ts` |
+| Hand-edit recorded demo output, or move curator's wire pin without its recording | `demoRecordings.test.ts` |
+| Copy the opsec rules out of `scripts/opsec.mjs` | `docsOpsec.test.ts` |
+| Ship an inline script without the nonce, or loosen the policy | `csp.test.ts`, `trustedTypes.test.ts`, CI `static-overflow` (CSP violations on the export) |
+| Write an HTML string to the DOM (`innerHTML` and the like) | ESLint `no-restricted-syntax` |
+| Pin the CSP in `next.config.ts` `headers()` | `repoRules.test.ts` |
+| Add a setup or package page under `src/app/docs/` | `handbook.test.ts` (the moved prefixes redirect), `docsNav.test.ts` |
+| Point Bombadil at a live backend | Structural: CI serves the static export |
+| Drop the Argus suite block above, or this repo's SUITE.md row | CI `suite.yml` |
+
 ## Layout
 
-Everything is under `frontend/` (Next.js 16 App Router, React 19, Tailwind v4, light and dark themes). Repo root holds only compose + env.
-
-- `frontend/src/app/` — routes: `page.tsx` (caption), `curate/`, `forge/`, `gallery/`, `proof/`, `atlas/`, `darkroom/`, and `docs/` (MDX; `page.mdx` + the captioning concept pages). `layout.tsx` injects the runtime-config `<script>` before hydration.
-- `frontend/src/lib/` — thin fetch clients, one per backend: `lensApi.ts`, `curatorApi.ts`, `forgeApi.ts`, `galleryApi.ts`, `proofApi.ts`, `atlasApi.ts`, `darkroomApi.ts`. Plus `runtimeConfig.ts` (the env-resolution core) and `curatorEnv.ts` (named accessors).
-- `frontend/src/components/` — shared UI plus `gallery/` (`ArchiveBrowser.tsx`), `curator/` (e.g. `ExportPanel.tsx`, `SelectionInsights.tsx`, `FolderPicker.tsx`, `forgeDemo.ts`), `proof/` (`ProofBoard.tsx`, `NewEvaluation.tsx`), `atlas/` (`NewCanvas.tsx`, `JobView.tsx`, `BakePanel.tsx`), `darkroom/` (ported from argus-safelight), and `docs/`.
-- `compose.yaml` — the whole stack, gated by **profiles**. `compose.gpu.yaml` is an NVIDIA override layered on top. `compose.train.yaml` arms live forge training: the `-train` image, the GPU and `ARGUS_FORGE_READONLY=0`. Keep it separate from `compose.gpu.yaml`, so adding GPUs never arms training, and never layer it on a public demo.
-- `.env.example` — every wiring var; copy to `.env`. `.github/workflows/release.yml` — GHCR image publish.
+Everything is under `frontend/` (Next.js 16 App Router, React 19, Tailwind v4, light and dark themes). The repo root holds only compose and env: `compose.yaml` is the whole stack, gated by profiles, with `compose.gpu.yaml` (NVIDIA), `compose.train.yaml` (live forge training) and `compose.build.yaml` (build the backends from sibling checkouts) as overrides. `src/lib/` has one thin fetch client per backend (`*Api.ts`), plus `runtimeConfig.ts` (the env-resolution core) and `curatorEnv.ts` (named accessors).
 
 There is **no Next API-proxy layer**: the browser calls each backend directly (cross-origin), so the backends must send CORS headers.
 
 ## Commands
 
 ```bash
-# Frontend dev (host), from frontend/:
-npm install
+# From frontend/:
 npm run dev            # next dev on :3000
-npm run build          # next build (output: "standalone")
 npm run lint           # eslint
 npm run typecheck      # tsc --noEmit
 npm test               # vitest run (unit tests: src/**/*.test.ts)
 npm run wire:check     # fail if src/lib/generated drifts from schema/pins.json
 npm run wire:pull      # fetch each pin at its dev HEAD (`-- curator` for one), record commit/version/sha256, regenerate
 
-# Whole stack via Docker, from repo root — backends run from published GHCR
-# images by default; pick which with profiles:
+# From the repo root: the stack, by profile (README.md and compose.yaml list them all).
 docker compose up                       # frontend only (demo mode, no backend)
-docker compose --profile curator up     # + argus-curator
-docker compose --profile lens    up     # + argus-lens
-docker compose --profile gallery up     # argus-quarry acquisition job -> DATASET_DIR
-ARGUS_CURATOR_UI_MODE=live \
-  docker compose --profile forge up      # + curator + forge
-docker compose --profile proof   up     # + argus-proof
-docker compose --profile atlas   up     # + argus-atlas (bake off unless ATLAS_ALLOW_BAKE=1)
-docker compose --profile darkroom up    # + argus-darkroom (needs DARKROOM_SINGGUARD_URL; not in full)
-docker compose --profile full    up     # everything but darkroom (pulls any MISSING images, then runs)
-docker compose --profile full    pull   # refresh images to the current *_TAG
-docker compose -f compose.yaml -f compose.gpu.yaml --profile full up            # + GPUs
-docker compose -f compose.yaml -f compose.train.yaml --profile forge up         # + live training on /forge (trusted GPU host)
-
-# Build the backends from local source instead (opt-in): clone the sibling
-# repos next to this one, then layer the build override.
-docker compose -f compose.yaml -f compose.build.yaml --profile full up --build  # from source
+docker compose --profile full up        # everything but darkroom, survey and mask
 ```
 
-`node`/`npm` may not be on the dev host's PATH; the same commands run in the Dockerfile's base image, e.g. `docker run --rm -v "$PWD":/app -v studio-nm:/app/node_modules -w /app node:22.23.4-alpine sh -c "npm ci && npm test"` from `frontend/` (the named volume keeps the container's `node_modules` off the host's).
+`node`/`npm` may not be on the dev host's PATH; the same commands run in the Dockerfile's base image, e.g. `docker run --rm -v "$PWD":/app -v studio-nm:/app/node_modules -w /app node:22.23.4-alpine sh -c "npm ci && npm test"` from `frontend/` (the named volume keeps the container's `node_modules` off the host's; the repo-root rules in `repoRules.test.ts` skip there, and run in CI).
 
-Backends default to **published GHCR images** — no sibling checkouts needed. To build from source instead, clone the siblings (`../argus-lens`, etc.) next to this repo and add `-f compose.build.yaml … up --build`. `frontend` is the exception: it has no published image, so it always builds from `./frontend` — re-run with `--build` after changing frontend source (a plain `up` reuses the existing image). `up` also does **not** re-pull an image already cached under a mutable tag like `latest`; use `docker compose … pull` to refresh.
+Backends default to **published GHCR images**. `frontend` has no published image, so it always builds from `./frontend`: re-run with `--build` after changing frontend source. `up` does **not** re-pull an image already cached under a mutable tag; use `docker compose … pull`.
 
 ## Conventions & gotchas
 
@@ -89,12 +92,14 @@ Backends default to **published GHCR images** — no sibling checkouts needed. T
 - **`demo` vs `live`.** `ARGUS_CURATOR_UI_MODE=demo` (default) serves a bundled read-only sample with no backend; `live` talks to the real curator. The `/forge` export handoff needs `live`. `local` is a legacy alias for `live`. `/forge` and `/proof` follow it unless `ARGUS_FORGE_UI_MODE` / `ARGUS_PROOF_UI_MODE` is set (`forgeLive()`, `proofLive()`), so a public demo can keep curator on its sample while those pages call read-only servers (#59). Gate a page on its own stage's mode, never on `isLive()` for another service.
 - **The repo-root `.env` is read by `docker compose` only.** A host `npm run dev` does not see it — put local overrides in `frontend/.env.local`. Legacy `NEXT_PUBLIC_*` names are still honoured as fallbacks; `NEXT_PUBLIC_API_URL` is now `ARGUS_LENS_URL`.
 - **Every page of the server build is served with a nonce CSP** (`src/proxy.ts`, `lib/csp.ts`; `ARGUS_CSP=enforce|report-only|off`). An inline `<script>` needs `nonce={(await headers()).get("x-nonce")}` (skipped when `STATIC_DEMO`, which has no request) or it is blocked, and a script it injects must be created from script ('strict-dynamic'), not parsed from HTML. The policy is scripts-only on purpose: no `default-src`/`connect-src`, because backend URLs are runtime config. Don't pin it in `next.config.ts` `headers()`: a static header cannot carry a per-request nonce. Trusted Types is a dry run (#198): `ARGUS_CSP=report-only` adds `require-trusted-types-for 'script'` and the layout's first head script registers a `default` policy (`lib/trustedTypes.ts`) that admits only this origin's `/_next/static/chunks/*.js` script URLs and returns null for anything else; it has no `createHTML`, so never write strings to `innerHTML` and the like. Enforce mode carries neither until the dry run is clean on real traffic.
-- **Every backend write is gated in its client, not its component** (argus-studio#75). Each `lib/*Api.ts` keeps a `healthMemo` of its service's last `/health` (refreshed by its `get*Health`, fetched on demand otherwise) and runs `requireCapability(...)` before the request, throwing `CapabilityRefused` (an `Error`, so existing error spans render it). Add the same guard to any new write fetcher; components still read the `allows*` helpers to disable controls up front, but the client is what guarantees a refused write never reaches the wire.
+- **Every backend write is gated in its client, not its component** (argus-studio#75). Each `lib/*Api.ts` keeps a `healthMemo` of its service's last `/health` (refreshed by its `get*Health`, fetched on demand otherwise) and runs `requireCapability(...)` before the request, throwing `CapabilityRefused` (an `Error`, so existing error spans render it). Add the same guard to any new write fetcher (`writeGateCoverage.test.ts` fails until it has one, or an entry in its `UNGATED` list with the reason); components still read the `allows*` helpers to disable controls up front, but the client is what guarantees a refused write never reaches the wire.
+- **A delete carries the user's yes to the client** (argus-studio#262). A fetcher that deletes or purges takes a `Confirmed` and calls `spendConfirmation` before its request. Get one from `askConfirm(message)` (the browser's dialog) or `confirmedBy(event)` in a confirm button's `onClick`; it is good for one call, so ask again for the next delete. Never mint one any other way, dev mode included.
 - **Curator's `adult-*` SingGuard policies stay out of normal UI** until its evaluation picks one, though `/detectors` lists them: offer policies through `offeredPolicies()`, on `/curate` and `/darkroom`. `DEVMODE=1` (`devMode()`) shows them all, and compose also passes it to `CURATOR_DEVMODE` and `ARGUS_DARKROOM_DEVMODE`, so nothing restricts deleting. That is its whole reach: it never loosens viewing, move, bakes, fetches or NSFW, and a delete always takes a user's confirm.
-- **Darkroom's browser decides nothing** (`lib/darkroom/`, `components/darkroom/`). Outcome, cell states, blur and the fired rule all come from the record. Never render an image for a deleted, omitted, refused or failed record: `hasImage()` is the gate. Rule names come from the data, because `adult-cinematic`'s letters differ from the other adult policies. `POST /preflight` counts as a write, so `read_only` disables Check as well as Generate.
+- **Darkroom's browser decides nothing** (`lib/darkroom/`, `components/darkroom/`). Outcome, cell states, blur and the fired rule all come from the record. Never render an image for a deleted, omitted, refused or failed record: `hasImage()` is the gate. A view that shows one record spreads `recordMarks(record)` (`data-outcome`, `data-removed`) onto its element, and a new view joins `recordImages.test.ts`. Rule names come from the data, because `adult-cinematic`'s letters differ from the other adult policies. `POST /preflight` counts as a write, so `read_only` disables Check as well as Generate.
 - **Wire types are generated.** `src/lib/generated/` comes from the cortex, curator, forge and proof schemas pinned in `frontend/schema/pins.json`: never hand-edit it. A pin is the package's `dev` commit and its version there, not a release (#170); the daily `wire-drift` workflow opens a `chore/wire-sync` PR when a `dev` moves on, or an issue when Studio's code must follow a schema change. `lib/wire.ts` holds `Filled<T, K>` and the compile-time checks. Types that tolerate older servers or decide blurring, such as `ImageResult` and `NsfwResult`, stay hand-written on purpose.
+- **The forge twins are checked against forge.** `curator/types.ts` (`suggestTrainingParams`, `datasetSizeStatus`, `DATASET_SIZE_GUIDE`) and `curator/forgeDemo.ts` hand-copy argus-forge's heuristics and kohya emitter. `forgeParity.test.ts` checks them against `schema/forge-parity.json`, a `kind: "fixture"` pin that `wire:pull` fetches like a schema. When it fails after a pull, port forge's change into the twins rather than editing the fixture.
 - **Suite docs live in argus-handbook, not here.** The setup guides and each package's docs (README + `docs/*.md`) are published by smk762/argus-handbook at `https://docs.dragonhound.dev`; Studio's `/docs` keeps only its captioning concepts. Add a setup or package page there, never under `src/app/docs/`. The old `/docs/setup/…` and `/docs/packages/…` paths 301 to the handbook: `lib/handbook.ts` lists the moved prefixes, `next.config.ts` builds the server build's redirects from it, `public/_redirects` does the same for the static demo, and `lib/handbook.test.ts` holds the two together. Link a handbook page by its absolute URL with the trailing slash (`https://docs.dragonhound.dev/packages/lens/cli/#argus-lens-caption`); it is a family host, so `ExternalLink` opens it in the same tab. The opsec rules live only in `scripts/opsec.mjs`, which `lib/docsOpsec.ts` re-exports for the gate over Studio's own `/docs` sources.
-- **Colours, type, radius and focus come from the Dragonhound shared tokens (`--dh-*`), for both themes.** `frontend/vendor/dh/` is vendored from dragonhound-site `shared/` (v1, pinned in `.dh-shared.json`); never edit it here: re-sync with `node scripts/sync-shared.mjs <this repo> --dest frontend/vendor/dh` from a dragonhound-site checkout, then copy `vendor/dh/dh-theme.js` to `frontend/public/` (a vitest checks they match). CI's `dh-shared` job fails on local edits or drift from `https://dragonhound.dev/brand/v1/manifest.json`. `globals.css` maps Tailwind's colours onto the tokens and overrides only `--dh-accent` (Studio purple); the other stage accents are Studio-local with an `-ink` twin. **Text on a tint uses the `-ink` colour** (`text-accent-teal-ink` on `bg-accent-teal/10`), never the fill. `data-theme` is set by `public/dh-theme.js`, a plain blocking `<script src>` first in `<head>` (a `dh-theme` cookie on `.dragonhound.dev`, two states, system default); the toggle is any `[data-dh-theme-toggle]` button. Use `text-on-accent` on an accent background, not `text-black` or `text-white`. Demo-state labels use `<DemoBadge state=…>` (Recorded, Sample data, In-browser, Not in this demo), one per page in the header. Favicons are the suite-mark set from argus-cortex `brand/mark/favicon/`, copied unchanged (all rights reserved): `favicon.ico`, `icon.svg` and `apple-icon.png` in `frontend/src/app/` (Next emits the tags), `icon-192.png`/`icon-512.png` in `frontend/public/` for `site.webmanifest`. The header mark stays the argus-studio mark in `frontend/brand/`. Darkroom's and curator's shield marks stay separate: curator verdicts are only safe or unsafe.
+- **Colours, type, radius and focus come from the Dragonhound shared tokens (`--dh-*`), for both themes.** `frontend/vendor/dh/` is vendored from dragonhound-site `shared/` (pinned in `.dh-shared.json`): re-sync with `node scripts/sync-shared.mjs <this repo> --dest frontend/vendor/dh` from a dragonhound-site checkout, then copy `vendor/dh/dh-theme.js` to `frontend/public/`. `globals.css` maps Tailwind's colours onto the tokens and overrides only `--dh-accent` (Studio purple); the other stage accents are Studio-local with an `-ink` twin. **Text on a tint uses the `-ink` colour** (`text-accent-teal-ink` on `bg-accent-teal/10`), never the fill, and an accent background takes `text-on-accent`, not `text-black` or `text-white`. `data-theme` is set by `public/dh-theme.js`, a blocking `<script src>` first in `<head>`; the toggle is any `[data-dh-theme-toggle]` button. Demo-state labels use `<DemoBadge state=…>`, one per page in the header. Favicons are the suite-mark set from argus-cortex `brand/mark/favicon/`, copied unchanged (all rights reserved); the header mark stays the argus-studio mark in `frontend/brand/`. Darkroom's and curator's shield marks stay separate: curator verdicts are only safe or unsafe.
 - **The React Compiler lint rules are on.** A `set-state-in-effect` suppression is fine for an effect that only fetches, with the reason beside it. Declare a memoized value before any closure that uses it, or the compiler gives up on the component.
 - **Tests cover `src/lib`'s pure logic, not components** (vitest, node environment, `@/` aliased in `vitest.config.ts`). Put a `*.test.ts` next to the module; the wire seams (`normalizeExportResult`, `manifestMajor`), capability readers and `resolveRuntimeConfig` are the contracts worth pinning. There is no DOM test setup.
 - **Container vs host paths:** forge/curator configs reference container paths (`/data/out`, `/data/images`); when running a forged `train.sh` on the host, substitute your `OUTPUT_DIR`/`DATASET_DIR`. Shared volumes are the only cross-service coupling — don't assume `localhost` inside compose (services use DNS names like `http://argus-lens:8100`).

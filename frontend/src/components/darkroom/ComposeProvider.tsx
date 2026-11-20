@@ -8,7 +8,7 @@ import { IDLE, isRunning, liveReducer, type LiveState } from "@/lib/darkroom/liv
 
 import { useDarkroom } from "./DarkroomProvider";
 import { useDeepLink } from "@/lib/deepLink";
-import { applyHandoff, parseHandoff, type DarkroomHandoff } from "@/lib/darkroom/handoff";
+import { applyHandoff, composeFromCatalogue, parseHandoff, type DarkroomHandoff } from "@/lib/darkroom/handoff";
 
 /** What a proof handoff (#199) selected, and what darkroom's model list lacked. */
 export interface HandoffNotice {
@@ -89,10 +89,9 @@ export function ComposeProvider({ children }: { children: ReactNode }) {
     if (!policies || !models) return;
     const incoming = pendingHandoff.current;
     pendingHandoff.current = null;
-    setCompose((current) => {
-      const base = touched.current ? current : defaultCompose(health, policies, models);
-      return normaliseCompose(incoming ? applyHandoff(base, incoming, models).state : base, policies, models);
-    });
+    // Read before queuing: the updater can run after the flag below has flipped.
+    const wasTouched = touched.current;
+    setCompose((current) => composeFromCatalogue(current, wasTouched, health, policies, models, incoming));
     if (incoming) {
       touched.current = true;
       const { applied, missing } = applyHandoff(defaultCompose(health, policies, models), incoming, models);

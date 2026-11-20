@@ -62,11 +62,11 @@ Override one with its `*_TAG` var in `.env` (see `.env.example`):
 
 | Service | Var | Default |
 |---|---|---|
-| argus-curator | `CURATOR_TAG` | `0.15.1` (`0.15.1-gpu` under `compose.gpu.yaml`) |
-| argus-lens | `LENS_TAG` | `0.12.0` |
+| argus-curator | `CURATOR_TAG` | `0.16.0` (`0.16.0-gpu` under `compose.gpu.yaml`) |
+| argus-lens | `LENS_TAG` | `0.13.0` |
 | argus-quarry | `QUARRY_TAG` | `0.4.0` |
 | argus-forge | `FORGE_TAG` | `0.2.0` (`0.2.0-train` under `compose.train.yaml`) |
-| argus-proof | `PROOF_TAG` | `0.3.0` |
+| argus-proof | `PROOF_TAG` | `0.4.0` |
 | argus-atlas | `ATLAS_TAG` | `0.3.1` |
 | argus-darkroom | `DARKROOM_TAG` | `0.2.0` |
 | argus-survey | `SURVEY_TAG` | `0.1.1` |
@@ -372,7 +372,7 @@ Argus Studio is a thin frontend-only wrapper. It sends JSON requests to the `arg
 
 ### Wire types
 
-`frontend/src/lib/generated/` holds TypeScript generated from the cortex, curator, forge and proof wire schemas. The schemas are committed under `frontend/schema/`, and `pins.json` records each one's `dev` commit, the package version at that commit and the file's sha256: Studio follows each package's `dev` HEAD, not a release. `npm run wire:pull` (or `npm run wire:pull -- curator` for one) fetches them at the current `dev` HEAD; then fix whatever `npm run typecheck` reports. A daily workflow (`.github/workflows/wire-drift.yml`) does the same and opens a `chore/wire-sync` PR when a package's `dev` has moved on, or an issue when the checks fail. `npm run wire:check` is the CI step that fails on drift, and needs no network or sibling checkout.
+`frontend/src/lib/generated/` holds TypeScript generated from the cortex, curator, forge and proof wire schemas. The schemas are committed under `frontend/schema/`, and `pins.json` records each one's `dev` commit, the package version at that commit and the file's sha256: Studio follows each package's `dev` HEAD, not a release. `npm run wire:pull` (or `npm run wire:pull -- curator` for one) fetches them at the current `dev` HEAD; then fix whatever `npm run typecheck` reports. A daily workflow (`.github/workflows/wire-drift.yml`) does the same and opens a `chore/wire-sync` PR when a package's `dev` has moved on, or an issue when the checks fail. `npm run wire:check` is the CI step that fails on drift, and needs no network or sibling checkout. One pin is a data file rather than a schema (`"kind": "fixture"`): argus-forge's `forge-parity.json`, forge's own answers for the training heuristics and the kohya config. `src/components/curator/forgeParity.test.ts` checks `types.ts` (`suggestTrainingParams`, `datasetSizeStatus`) and demo mode's `forgeDemo.ts` against it, so when forge changes them the drift job's checks fail until the twins follow.
 
 ### Package docs
 

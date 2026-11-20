@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clearSentEdits,
   proofImageUrl,
@@ -71,6 +71,11 @@ export function RefinementPanel({ report, live, canWrite, rater, reviewDirty, bl
     setError(null);
     setSaving(false);
   }
+  // The run on screen, for a save that outlasts it: that reset happens in place, not by a remount.
+  const currentRun = useRef(report.run_id);
+  useEffect(() => {
+    currentRun.current = report.run_id;
+  }, [report.run_id]);
 
   // Ordered from the saved report only, so a row doesn't jump while it's ranked.
   const ranked = useMemo(() => refinedRanking(report.images), [report.images]);
@@ -88,18 +93,22 @@ export function RefinementPanel({ report, live, canWrite, rater, reviewDirty, bl
     setSaving(true);
     setError(null);
     // Snapshot what this click commits: an edit made while the POST is in flight
-    // stays unsaved. (A run switch remounts the board, so no stale-run guard.)
+    // stays unsaved. A reply for a run no longer on screen is dropped: the new
+    // run's report, edits and saving state are not this save's to touch.
     const sent = edits;
+    const startedFor = report.run_id;
+    const stillCurrent = () => currentRun.current === startedFor;
     try {
       const updated = permits(canWrite)
-        ? await submitRefinement(report.run_id, { rater, updates: refinementUpdates(sent) })
+        ? await submitRefinement(startedFor, { rater, updates: refinementUpdates(sent) })
         : applyRefinement(report, sent, rater);
+      if (!stillCurrent()) return;
       onRefined(updated);
       setEdits((cur) => clearSentEdits(cur, sent));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save refinement");
+      if (stillCurrent()) setError(err instanceof Error ? err.message : "Failed to save refinement");
     } finally {
-      setSaving(false);
+      if (stillCurrent()) setSaving(false);
     }
   };
 

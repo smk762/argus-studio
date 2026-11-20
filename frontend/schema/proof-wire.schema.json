@@ -1,7 +1,7 @@
 {
   "$defs": {
     "AcceptanceThresholds": {
-      "description": "Declared thresholds a run must clear to be accepted (the CI gate, #12).\n\nTurns \"was this LoRA/dataset good enough?\" into an automatable yes/no. Each\ncheck runs only when its threshold is set; ``min_pass_rate`` is **on by\ndefault** (set it ``None`` to skip), the rest default off. If no check is\nconfigured the gate rejects rather than accept on zero evidence.\n``min_pass_rate_ci_lower`` is the stricter, small-N-safe version of\n``min_pass_rate`` \u2014 the Wilson lower bound must clear it, so a lucky 3/3\ndoesn't pass a bar that 300/400 would. ``max_unsafe_rate`` counts an image\nunsafe when its ``safety`` metric is below ``unsafe_safety_floor`` or it\ncarries an ``unsafe`` reject reason.",
+      "description": "Declared thresholds a run must clear to be accepted (the CI gate, #12).\n\nTurns \"was this LoRA/dataset good enough?\" into an automatable yes/no. Each\ncheck runs only when its threshold is set; ``min_pass_rate`` is **on by\ndefault** (set it ``None`` to skip), the rest default off. If no check is\nconfigured the gate rejects rather than accept on zero evidence.\n``min_pass_rate_ci_lower`` is the stricter, small-N-safe version of\n``min_pass_rate`` \u2014 the Wilson lower bound must clear it, so a lucky 3/3\ndoesn't pass a bar that 300/400 would. ``max_unsafe_rate`` counts an image\nunsafe when its ``safety`` metric is at or below ``unsafe_safety_floor`` or\nit carries an ``unsafe`` reject reason. The default 0.8 is an exposed score\nof at least 0.2 on NudeNet 640m (``safety.UNSAFE_SAFETY_FLOOR``, #84).",
       "properties": {
         "confidence": {
           "default": 0.95,
@@ -38,6 +38,20 @@
           "default": null,
           "title": "Min Identity Mean"
         },
+        "min_likeness_mean": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Likeness Mean"
+        },
         "min_pass_rate": {
           "anyOf": [
             {
@@ -67,7 +81,7 @@
           "title": "Min Pass Rate Ci Lower"
         },
         "unsafe_safety_floor": {
-          "default": 0.5,
+          "default": 0.8,
           "maximum": 1.0,
           "minimum": 0.0,
           "title": "Unsafe Safety Floor",
@@ -209,6 +223,39 @@
       "title": "CompleteFrame",
       "type": "object"
     },
+    "CropBox": {
+      "description": "A box in an uploaded image's own pixels (after its EXIF orientation is applied).\n\nOnly this region is scored, e.g. a teaser's character rather than its\nbackground. It must lie inside the image.",
+      "properties": {
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        },
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "CropBox",
+      "type": "object"
+    },
     "EvalReport": {
       "description": "Scored evaluation of a generation run: per-image + aggregate + verdict.\n\nLinks to its :class:`RunManifest` by ``run_id`` rather than embedding it, so\nthe run dir stays the single source of truth for generation params.",
       "properties": {
@@ -227,6 +274,17 @@
           "default": null,
           "title": "Created At"
         },
+        "gate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GateConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "images": {
           "items": {
             "$ref": "#/$defs/ImageScores"
@@ -235,7 +293,7 @@
           "type": "array"
         },
         "proof_version": {
-          "default": "1.4",
+          "default": "1.9",
           "title": "Proof Version",
           "type": "string"
         },
@@ -261,7 +319,8 @@
         "aggregate",
         "scorers",
         "verdict",
-        "created_at"
+        "created_at",
+        "gate"
       ],
       "title": "EvalReport",
       "type": "object"
@@ -538,6 +597,13 @@
           "default": null,
           "title": "Source Manifest Version"
         },
+        "text_encoders": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Text Encoders",
+          "type": "array"
+        },
         "token_axes": {
           "additionalProperties": {
             "items": {
@@ -559,6 +625,18 @@
           ],
           "default": null,
           "title": "Training Run Id"
+        },
+        "vae": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vae"
         }
       },
       "required": [
@@ -782,7 +860,7 @@
       "type": "object"
     },
     "MetricScores": {
-      "description": "The scoring axes for one image (or their means, in the aggregate).\n\nEvery field is optional so an axis whose scorer did not run stays ``None``\ninstead of a misleading ``0.0``. Semantics: ``identity`` similarity to the\nreference (higher = closer), ``clip_score`` prompt adherence, ``aesthetic``\nan IQA/aesthetic score, ``preference`` an ImageReward/HPS-style score, and\n``safety`` a safety score.",
+      "description": "The scoring axes for one image (or their means, in the aggregate).\n\nEvery field is optional so an axis whose scorer did not run stays ``None``\ninstead of a misleading ``0.0``. Semantics: ``identity`` similarity to the\nreference face (higher = closer), ``likeness`` whole-image embedding\nsimilarity to the reference set (any subject: a masked or non-human\ncharacter, a scene), ``clip_score`` prompt adherence, ``aesthetic``\nan IQA/aesthetic score, ``preference`` an ImageReward/HPS-style score, and\n``safety`` a safety score.",
       "properties": {
         "aesthetic": {
           "anyOf": [
@@ -820,6 +898,18 @@
           "default": null,
           "title": "Identity"
         },
+        "likeness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Likeness"
+        },
         "preference": {
           "anyOf": [
             {
@@ -847,6 +937,7 @@
       },
       "required": [
         "identity",
+        "likeness",
         "clip_score",
         "aesthetic",
         "preference",
@@ -1015,7 +1106,7 @@
           "type": "object"
         },
         "proof_version": {
-          "default": "1.4",
+          "default": "1.9",
           "title": "Proof Version",
           "type": "string"
         },
@@ -1258,7 +1349,7 @@
           "type": "string"
         },
         "proof_version": {
-          "default": "1.4",
+          "default": "1.9",
           "title": "Proof Version",
           "type": "string"
         },
@@ -1301,6 +1392,13 @@
           "default": null,
           "title": "Source Manifest Version"
         },
+        "text_encoders": {
+          "items": {
+            "$ref": "#/$defs/ModelRef"
+          },
+          "title": "Text Encoders",
+          "type": "array"
+        },
         "training_run_id": {
           "anyOf": [
             {
@@ -1330,6 +1428,7 @@
         "run_id",
         "base_checkpoint",
         "vae",
+        "text_encoders",
         "loras",
         "sampling",
         "prompt",
@@ -1346,7 +1445,7 @@
       "type": "object"
     },
     "RunSpec": {
-      "description": "A generation request: what to generate, before a backend resolves it.\n\nThe prompt-grid builder (issue #3) emits a list of these; a\n:class:`~argus_proof.backends.base.GenBackend` turns one into images plus the\nresolved :class:`RunManifest`. Models are named (not yet hashed): the backend\nresolves each name to a file and records its SHA256 in the manifest.\n\n``seeds`` is the seed strategy made concrete \u2014 one fixed seed for a\nwithin-checkpoint sweep, or a fixed seed-set (so seed luck averages out) for\na cross-checkpoint comparison. One image is produced per seed.",
+      "description": "A generation request: what to generate, before a backend resolves it.\n\nThe prompt-grid builder (issue #3) emits a list of these; a\n:class:`~argus_proof.backends.base.GenBackend` turns one into images plus the\nresolved :class:`RunManifest`. Models are named (not yet hashed): the backend\nresolves each name to a file and records its SHA256 in the manifest.\n\n``seeds`` is the seed strategy made concrete \u2014 one fixed seed for a\nwithin-checkpoint sweep, or a fixed seed-set (so seed luck averages out) for\na cross-checkpoint comparison. One image is produced per seed.\n\n``text_encoders`` fill a template's ``$text_encoder`` / ``$text_encoder_2`` \u2026\nslots in order (Flux: T5, then CLIP-L); the slots and the list must match one\nfor one, like LoRAs.",
       "properties": {
         "base_checkpoint": {
           "title": "Base Checkpoint",
@@ -1406,6 +1505,13 @@
           ],
           "default": null,
           "title": "Source Manifest Version"
+        },
+        "text_encoders": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Text Encoders",
+          "type": "array"
         },
         "training_run_id": {
           "anyOf": [
@@ -1529,6 +1635,152 @@
       "title": "SamplingParams",
       "type": "object"
     },
+    "ScoreRequest": {
+      "description": "The JSON ``request`` part of a ``POST /score`` multipart body.\n\n``export`` names a curator export under the exports root: its\n``references/`` are the held-out set the images are scored against, and its\ntraining images are what those references must not overlap. ``scorers``\npicks the reference scorers to run: ``likeness`` (DINOv2, any subject) and/or\n``identity`` (ArcFace, human faces; it only measures ``identity`` runs, so it\nreads ``None`` for any other ``target_category``). ``crops``, when given, has\none entry per uploaded image in upload order (``null`` scores the whole image).",
+      "properties": {
+        "crops": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/CropBox"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crops"
+        },
+        "export": {
+          "title": "Export",
+          "type": "string"
+        },
+        "scorers": {
+          "items": {
+            "enum": [
+              "identity",
+              "likeness"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Scorers",
+          "type": "array"
+        },
+        "target_category": {
+          "default": "identity",
+          "enum": [
+            "identity",
+            "wardrobe",
+            "pose_composition",
+            "setting",
+            "concept"
+          ],
+          "title": "Target Category",
+          "type": "string"
+        }
+      },
+      "required": [
+        "export",
+        "scorers"
+      ],
+      "title": "ScoreRequest",
+      "type": "object"
+    },
+    "ScoreResult": {
+      "description": "What ``POST /score`` returns. Nothing is stored.\n\n``means`` averages each metric over the images that have it (``None`` when\nnone do). ``scorers`` records each scorer that ran, with its model and pinned\nweights (``model_file``), plus a ``held-out-references`` row saying which\noverlap check ran.",
+      "properties": {
+        "images": {
+          "items": {
+            "$ref": "#/$defs/ScoredImage"
+          },
+          "title": "Images",
+          "type": "array"
+        },
+        "means": {
+          "$ref": "#/$defs/MetricScores"
+        },
+        "n_images": {
+          "title": "N Images",
+          "type": "integer"
+        },
+        "proof_version": {
+          "default": "1.9",
+          "title": "Proof Version",
+          "type": "string"
+        },
+        "scorers": {
+          "items": {
+            "$ref": "#/$defs/ScorerProvenance"
+          },
+          "title": "Scorers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "proof_version",
+        "images",
+        "means",
+        "n_images",
+        "scorers"
+      ],
+      "title": "ScoreResult",
+      "type": "object"
+    },
+    "ScoredImage": {
+      "description": "One uploaded image's scores. ``index`` is its position in the upload;\n``filename`` echoes the client's name for it (never used as a path).",
+      "properties": {
+        "crop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CropBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MetricScores"
+        }
+      },
+      "required": [
+        "index",
+        "filename",
+        "crop",
+        "metrics"
+      ],
+      "title": "ScoredImage",
+      "type": "object"
+    },
     "ScorerProvenance": {
       "description": "Where a score came from: the scorer, its version, and the model it used.\n\nRecorded for every scorer that contributed to an :class:`EvalReport` so a\nresult is auditable and reproducible \u2014 a score is only as trustworthy as the\nmodel and version that produced it.",
       "properties": {
@@ -1547,6 +1799,17 @@
           ],
           "default": null,
           "title": "Model"
+        },
+        "model_file": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "name": {
           "title": "Name",
@@ -1569,7 +1832,8 @@
         "name",
         "metric",
         "version",
-        "model"
+        "model",
+        "model_file"
       ],
       "title": "ScorerProvenance",
       "type": "object"

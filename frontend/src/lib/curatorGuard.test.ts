@@ -7,6 +7,7 @@ import {
   guardProblem,
   matchesGuardView,
   offeredPolicies,
+  guardModeNote,
   policiesRun,
   policyFlagCounts,
   policyShields,
@@ -48,6 +49,35 @@ describe("policiesRun", () => {
       "adult",
       "adult-cinematic",
     ]);
+  });
+});
+
+describe("guardModeNote", () => {
+  const ran = (extra: object) => ({ guard_config: { enabled: true, policy: "default", variants: [], ...extra } });
+
+  it("says nothing when SingGuard did not run, or the curator predates the field", () => {
+    expect(guardModeNote({})).toBeNull();
+    expect(guardModeNote({ guard_config: { enabled: false, policy: "default", variants: [], thinking: "cascade" } })).toBeNull();
+    expect(guardModeNote(ran({}))).toBeNull();
+    expect(guardModeNote(ran({ thinking: null, fell_back: null }))).toBeNull();
+  });
+
+  it("names the mode the scan ran in", () => {
+    expect(guardModeNote(ran({ thinking: "cascade", fell_back: false }))).toEqual({
+      text: "Ran in cascade mode: fast on every frame, then slow on what fast flagged.",
+      warn: false,
+    });
+    expect(guardModeNote(ran({ thinking: "fast" }))?.text).toMatch(/^Ran in fast mode: .*no written reason\.$/);
+  });
+
+  it("warns when SingGuard refused the mode and the checks ran fast", () => {
+    const note = guardModeNote(ran({ thinking: "slow", fell_back: true }));
+    expect(note?.warn).toBe(true);
+    expect(note?.text).toMatch(/^SingGuard refused slow mode, so every check ran fast/);
+  });
+
+  it("still reads a mode a newer curator adds", () => {
+    expect(guardModeNote(ran({ thinking: "deep" }))).toEqual({ text: "Ran in deep mode.", warn: false });
   });
 });
 
@@ -168,8 +198,20 @@ describe("policy choice", () => {
     expect(guardProblem({ policy: "gone", variants: [] }, [])).toBeNull();
   });
 
+  it("names a mode the host does not allow, and passes the default or an older curator's empty list", () => {
+    const fast = ["fast", "cascade"];
+    expect(guardProblem({ policy: "default", variants: [], thinking: "slow" }, ["default"], fast)).toMatch(/mode slow/);
+    expect(guardProblem({ policy: "default", variants: [], thinking: "fast" }, ["default"], fast)).toBeNull();
+    expect(guardProblem({ policy: "default", variants: [], thinking: null }, ["default"], fast)).toBeNull();
+    expect(guardProblem({ policy: "default", variants: [], thinking: "slow" }, ["default"], [])).toBeNull();
+  });
+
   it("sends nothing for the default, and drops repeats", () => {
     expect(guardBody({ policy: "default", variants: [] })).toBeNull();
+    expect(guardBody({ policy: "default", variants: [], thinking: null })).toBeNull();
+    // A mode alone is a choice: left out, the curator would run its own default.
+    expect(guardBody({ policy: "default", variants: [], thinking: "slow" })).toEqual({ policy: "default", variants: [], thinking: "slow" });
+    expect(guardBody({ policy: "adult", variants: [], thinking: null })).toEqual({ policy: "adult", variants: [] });
     expect(guardBody({ policy: "adult", variants: ["adult", "x", "x"] })).toEqual({ policy: "adult", variants: ["x"] });
   });
 });

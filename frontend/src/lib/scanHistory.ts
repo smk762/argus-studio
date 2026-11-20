@@ -30,6 +30,8 @@ export function configFromSummary(summary: ScanSummary): CuratorConfig {
     guard: {
       policy: summary.guard_config?.policy ?? base.guard.policy,
       variants: summary.guard_config?.variants ?? base.guard.variants,
+      // The mode it ran in, whether chosen or the curator's default; cleared on a curator that cannot take it.
+      thinking: summary.guard_config?.thinking ?? base.guard.thinking,
     },
     prefilter: { ...base.prefilter, ...summary.prefilter_config },
     crops: { ...base.crops, ...summary.crop_config },
@@ -83,12 +85,18 @@ export function withoutRelPaths(summary: ScanSummary, gone: readonly string[]): 
     similar_clusters: summary.similar_clusters - [...left.values()].filter((size) => size <= 1).length,
     reject_reasons: withoutRejects(summary.reject_reasons, dropped),
     face_clusters: summary.face_clusters.flatMap((cluster) => {
-      if (!drop.has(cluster.representative_rel_path)) return [cluster];
+      // Every path takes the dropped rows' faces off the count, not only the one
+      // where the representative went with no frame left to replace it.
+      const facesGone = dropped.reduce((n, img) => n + img.faces.filter((face) => face.cluster_id === cluster.cluster_id).length, 0);
+      const facesLeft = cluster.size - facesGone;
+      if (!drop.has(cluster.representative_rel_path)) {
+        // The representative stays, so at least its own face is left.
+        return [facesGone === 0 ? cluster : { ...cluster, size: Math.max(facesLeft, 1) }];
+      }
       const hasFace = (img: ImageResult) => img.faces.some((face) => face.cluster_id === cluster.cluster_id);
       const next = results.find(hasFace);
-      if (next) return [{ ...cluster, representative_rel_path: next.rel_path, representative_bbox: null }];
+      if (next) return [{ ...cluster, size: Math.max(facesLeft, 1), representative_rel_path: next.rel_path, representative_bbox: null }];
       const unfetched = summary.returned < summary.total;
-      const facesLeft = cluster.size - dropped.reduce((n, img) => n + img.faces.filter((face) => face.cluster_id === cluster.cluster_id).length, 0);
       if (!unfetched || facesLeft <= 0) return [];
       return [{ ...cluster, size: facesLeft, representative_rel_path: "", representative_bbox: null }];
     }),

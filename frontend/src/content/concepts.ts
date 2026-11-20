@@ -115,7 +115,18 @@ export const CONCEPTS = {
       "",
       "Scored with a face-recognition model (proof records `insightface` as the scorer). It needs references in the export, so it is empty for a LoRA trained without a face, or when the scorer isn't installed.",
     ].join("\n"),
-    related: ["metric_clip_score", "metric_diversity"],
+    related: ["metric_likeness", "metric_clip_score", "metric_diversity"],
+  },
+  metric_likeness: {
+    id: "metric_likeness",
+    title: "Likeness",
+    summary: "Whole-image similarity to the reference set, for any subject.",
+    body: [
+      "How closely the whole image resembles the held-out references, on a 0–1 scale where higher is closer. It compares DINOv2 image embeddings (proof records the `likeness` scorer and its pinned weights), so it works where Identity can't: a masked or non-human character, a style, a scene.",
+      "",
+      "It has no weight in the default gate, so it never moves an image's composite. It counts only when the gate sets a floor on its mean (`--min-likeness`) or makes it a hard gate. Empty when the export has no references or the scorer isn't installed.",
+    ].join("\n"),
+    related: ["metric_identity", "metric_clip_score"],
   },
   metric_clip_score: {
     id: "metric_clip_score",

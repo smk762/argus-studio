@@ -2,30 +2,39 @@
   "cortex": {
     "repo": "smk762/argus-cortex",
     "branch": "dev",
-    "commit": "e74048ba27ed770ffae0bbc24ec7796abf96d08e",
-    "version": "0.5.1.dev44+ge74048b",
+    "commit": "281bfe97e832fdcf592279fd2b0f0825d83f4b7a",
+    "version": "0.10.1.dev54+g281bfe9",
     "path": "taxonomy-schema.json",
     "sha256": "41360429bb7542230bb4e64ad3f94043b521a2eebcdb4b2e723e5fdaab861966"
   },
   "curator": {
     "repo": "smk762/argus-curator",
     "branch": "dev",
-    "commit": "97021d6c0d1b790d82c3a77ad66904450b18d065",
-    "version": "0.15.2.dev2+g97021d6",
-    "sha256": "0eca1bcdc66a742983022fc338eab579b6c8a215cda33ee7155772c2830f656c"
+    "commit": "252cfde51d6e918d46ce0780e28f7b669a28a783",
+    "version": "0.17.1.dev30+g252cfde",
+    "sha256": "ac67d4f9f6f198b2cc50d35c43d0650a1d4f3d078fea283328aaedb3a6feade2"
   },
   "forge": {
     "repo": "smk762/argus-forge",
     "branch": "dev",
-    "commit": "093ab0df69a6839bd08f45c4745add41253b2201",
-    "version": "0.2.1.dev9+g093ab0d",
-    "sha256": "6ad334e451f0e873809e58b3ee1a08027310ba4beb474fa469989ef276e3bc05"
+    "commit": "2415e84c778109700d53599f669bcdf901ff59d2",
+    "version": "0.3.1.dev2+g2415e84",
+    "sha256": "596f19381673160a2427c0ccfce514f699ee3f9e9cef95cee9413e79b8f4ca4e"
   },
   "proof": {
     "repo": "smk762/argus-proof",
     "branch": "dev",
-    "commit": "1c009405d1d5bee8a3ba4b3a52f3991c24f12a50",
-    "version": "0.3.0",
-    "sha256": "d42d296467e291215b44dab8eabf9ca8c075cbfa4fd8d5ee4f0c2d255b11a3cc"
+    "commit": "3773d89214ee750befb24c5b37d0997c04859cd4",
+    "version": "0.5.2",
+    "sha256": "af8741ed1ff62ca274f12502ddeabc696869680c167034215b1c438631da0719"
+  },
+  "forge-parity": {
+    "repo": "smk762/argus-forge",
+    "branch": "dev",
+    "kind": "fixture",
+    "path": "schema/forge-parity.json",
+    "commit": "2415e84c778109700d53599f669bcdf901ff59d2",
+    "version": "0.3.1.dev2+g2415e84",
+    "sha256": "f56517f899f0ce669eb1ad6d064d19e5dd6b233b4f864b900c4d79e55d0485ac"
   }
 }

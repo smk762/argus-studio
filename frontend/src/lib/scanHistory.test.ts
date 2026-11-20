@@ -81,13 +81,13 @@ describe("configFromSummary", () => {
     });
     expect(ran.prefilter.drop_nsfw).toBe(true);
     expect(old.scenes.enabled).toBe(false);
-    expect(old.guard).toEqual({ policy: "default", variants: [] });
+    expect(old.guard).toEqual({ policy: "default", variants: [], thinking: null });
     expect(
       configFromSummary({
         ...summary([image("keep.jpg")]),
-        guard_config: { enabled: true, policy: "adult", variants: ["adult-cinematic"] },
+        guard_config: { enabled: true, policy: "adult", variants: ["adult-cinematic"], thinking: "slow" },
       }).guard,
-    ).toEqual({ policy: "adult", variants: ["adult-cinematic"] });
+    ).toEqual({ policy: "adult", variants: ["adult-cinematic"], thinking: "slow" });
     expect(
       configFromSummary({
         ...summary([image("keep.jpg")]),
@@ -115,6 +115,24 @@ describe("withoutRelPaths", () => {
     const cluster = next.face_clusters.find((c) => c.cluster_id === "b");
     expect(cluster?.representative_rel_path).toBe("same.jpg");
     expect(cluster?.representative_bbox).toBeNull();
+  });
+
+  it("counts a moved frame's faces off an identity whose representative stays", () => {
+    const face = { cluster_id: "b" } as ImageResult["faces"][number];
+    const base = summary([image("rep.jpg", { faces: [face] }), image("gone.jpg", { faces: [face] })]);
+    const sized = { ...base, face_clusters: [{ cluster_id: "b", size: 2, representative_rel_path: "rep.jpg", representative_bbox: null }] };
+    expect(withoutRelPaths(sized, ["gone.jpg"]).face_clusters).toEqual([
+      { cluster_id: "b", size: 1, representative_rel_path: "rep.jpg", representative_bbox: null },
+    ]);
+  });
+
+  it("counts the moved faces off an identity handed to a new representative", () => {
+    const face = { cluster_id: "b" } as ImageResult["faces"][number];
+    const base = summary([image("gone.jpg", { faces: [face] }), image("same.jpg", { faces: [face] })]);
+    const sized = { ...base, face_clusters: [{ cluster_id: "b", size: 2, representative_rel_path: "gone.jpg", representative_bbox: null }] };
+    expect(withoutRelPaths(sized, ["gone.jpg"]).face_clusters).toEqual([
+      { cluster_id: "b", size: 1, representative_rel_path: "same.jpg", representative_bbox: null },
+    ]);
   });
 
   it("keeps an identity whose other frames sit on a page not loaded yet", () => {

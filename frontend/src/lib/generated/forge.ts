@@ -1,4 +1,4 @@
-// Generated from smk762/argus-forge@093ab0d (0.2.1.dev9+g093ab0d) schema/forge-wire.schema.json.
+// Generated from smk762/argus-forge@2415e84 (0.3.1.dev2+g2415e84) schema/forge-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface ForgeWire {
@@ -9,6 +9,7 @@ export interface ForgeWire {
   InspectRequest?: InspectRequest;
   ManifestRow?: ManifestRow;
   ParamOverrides?: ParamOverrides;
+  RunArtifact?: RunArtifact;
   RunEvent?: RunEvent;
   RunRequest?: RunRequest;
   RunState?: RunState;
@@ -159,6 +160,19 @@ export interface ManifestRow {
   target_profile?: TargetProfile;
 }
 /**
+ * The LoRA a succeeded run left behind (``RunState.lora``, GET /run/{id}/lora).
+ *
+ * Located from the forged config the run executed (kohya's ``output_dir`` +
+ * ``output_name``, diffusers' ``--output_dir``), so a caller never has to know
+ * a trainer's output layout, and hashed by forge once the trainer has exited.
+ */
+export interface RunArtifact {
+  export_path?: string | null;
+  path: string;
+  sha256: string;
+  size_bytes: number;
+}
+/**
  * One NDJSON line streamed from a run.
  *
  * ``run_id`` (the training_run_id) is stable for the whole run and is the join
@@ -199,6 +213,7 @@ export interface RunState {
   cwd?: string | null;
   ended_at?: string | null;
   export_dir: string;
+  lora?: RunArtifact | null;
   message?: string | null;
   returncode?: number | null;
   run_id: string;

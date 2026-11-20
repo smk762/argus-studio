@@ -23,7 +23,9 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import shutil
 import struct
+import tempfile
 import urllib.parse
 import urllib.request
 from pathlib import Path, PurePosixPath
@@ -78,6 +80,51 @@ def thumb_dest(thumbs: Path, rel: str) -> Path:
     return dest
 
 
+def fetch_thumbs(summary: dict, staging: Path, fetch) -> dict[str, tuple[int, int]]:
+    """Fetch every result's thumbnail into `staging`; return each one's pixel size.
+
+    `fetch(rel)` returns the WebP bytes. Any failure (a request, a header, a
+    collision) raises before the live thumbs/ directory is touched.
+    """
+    dims: dict[str, tuple[int, int]] = {}
+    written: dict[Path, str] = {}
+    for row in summary["results"]:
+        rel = row["rel_path"]
+        dest = thumb_dest(staging, rel)
+        # a/foo.jpg and a/foo.png would both become a/foo.webp: refuse rather
+        # than let the second overwrite the first under two manifest keys.
+        if dest in written:
+            raise SystemExit(f"thumbnail collision: {written[dest]!r} and {rel!r} both map to {dest.relative_to(staging)}")
+        written[dest] = rel
+        data = fetch(rel)
+        dims[rel] = webp_size(data)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
+    return dims
+
+
+def record_thumbs(summary: dict, out: Path, fetch) -> dict[str, tuple[int, int]]:
+    """Replace out/thumbs with the new recording's thumbnails, all or nothing.
+
+    The new set is staged in a sibling directory (same filesystem, so the swap
+    is a rename) and only replaces the old one once every thumbnail arrived: a
+    failed run leaves the committed thumbs/, scan.json and recording.json as
+    they were, still describing each other.
+    """
+    out.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".thumbs-", dir=out))
+    try:
+        dims = fetch_thumbs(summary, staging, fetch)
+        thumbs = out / "thumbs"
+        if thumbs.exists():
+            shutil.rmtree(thumbs)
+        staging.rename(thumbs)
+        return dims
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--curator", required=True, help="argus-curator base URL")
@@ -92,26 +139,14 @@ def main() -> None:
     with urllib.request.urlopen(req, timeout=1800) as resp:
         summary = json.load(resp)
 
-    thumbs = OUT / "thumbs"
-    if thumbs.exists():
-        for old in sorted(thumbs.rglob("*"), reverse=True):
-            old.unlink() if old.is_file() else old.rmdir()
-    dims: dict[str, tuple[int, int]] = {}
-    written: dict[Path, str] = {}
-    for row in summary["results"]:
-        rel = row["rel_path"]
-        dest = thumb_dest(thumbs, rel)
-        # a/foo.jpg and a/foo.png would both become a/foo.webp: refuse rather
-        # than let the second overwrite the first under two manifest keys.
-        if dest in written:
-            raise SystemExit(f"thumbnail collision: {written[dest]!r} and {rel!r} both map to {dest.relative_to(thumbs)}")
-        written[dest] = rel
+    def fetch(rel: str) -> bytes:
         q = urllib.parse.urlencode({"path": rel, "scan_id": summary["scan_id"]})
         with urllib.request.urlopen(f"{base}/thumb?{q}", timeout=120) as resp:
-            data = resp.read()
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(data)
-        dims[rel] = webp_size(data)
+            return resp.read()
+
+    # Thumbnails first, staged: scan.json, recording.json and the DIMS module
+    # are written only once every thumbnail is in place.
+    dims = record_thumbs(summary, OUT, fetch)
 
     (OUT / "scan.json").write_text(json.dumps(summary, indent=2) + "\n")
     recording = {

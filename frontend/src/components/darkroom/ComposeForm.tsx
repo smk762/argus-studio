@@ -2,7 +2,7 @@
 
 import { useState, type InputHTMLAttributes, type ReactNode } from "react";
 
-import { DEMO_GENERATE_BLOCK, NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, parseTriggerWords, randomSeed } from "@/lib/darkroom/compose";
+import { DEMO_GENERATE_BLOCK, NSFW_THRESHOLD_MAX, NSFW_THRESHOLD_MIN, READ_ONLY_BLOCK, SIZES, canExpand, generateBlock, parseSeed, parseTriggerWords, randomSeed, SEED_MAX } from "@/lib/darkroom/compose";
 import { THINKING_MODES, type ThinkingMode } from "@/lib/darkroomApi";
 import { STATIC_DEMO } from "@/lib/staticDemo";
 
@@ -236,11 +236,16 @@ export function ComposeForm() {
               id="seed"
               type="number"
               min={0}
+              max={SEED_MAX}
               step={1}
               value={compose.seedLocked ? (compose.seed ?? "") : ""}
               placeholder="random"
               disabled={!compose.seedLocked}
-              onChange={(event) => update({ seed: event.target.value === "" ? null : Math.max(0, Math.floor(Number(event.target.value))) })}
+              onChange={(event) => {
+                // An out-of-range or inexact seed is refused, not rounded: the held seed is what gets sent.
+                const seed = parseSeed(event.target.value);
+                if (seed !== undefined) update({ seed });
+              }}
               className={FIELD}
             />
             <Button small aria-pressed={compose.seedLocked} onClick={() => update((c) => ({ ...c, seedLocked: !c.seedLocked, seed: c.seedLocked ? c.seed : (c.seed ?? randomSeed()) }))} title={compose.seedLocked ? "Unlock: let darkroom pick a seed" : "Lock: hold this seed"}>
