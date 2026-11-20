@@ -142,7 +142,17 @@ jobs:
 
       - run: npm run build:static
 
-      - run: npm install --no-save playwright@1.65.0 && npx playwright install --with-deps chromium
+      # Retried: --with-deps installs fonts through apt, and an Ubuntu mirror outage
+      # failed the 2026-11-19 nightly before any check ran (#241).
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.65.0
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::Chromium install failed (attempt $attempt of 3)"
+            sleep $((attempt * 30))
+          done
+          exit 1
 
       - id: check
         run: |
