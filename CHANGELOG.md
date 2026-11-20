@@ -4,6 +4,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-19
+
 ### Added
 
 - **`/curate` shows the SingGuard mode a scan ran in** (curator 0.17): fast, fast-slow, slow or cascade, under SingGuard in the facet rail, with a warning when SingGuard refused the mode and every check ran fast. The mode comes from the scan form's picker, or else from the curator's default (`ARGUS_CURATOR_SINGGUARD_THINKING`).
@@ -281,7 +283,8 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 First published image. It covers the caption page (`/`), curation (`/curate`), the provenance gallery (`/gallery`), training configs (`/forge`) and LoRA evaluation with HITL review (`/proof`), plus the `/docs` handbook. The suite `compose.yaml` runs the backends from published GHCR images, and API config is resolved at runtime rather than baked into the bundle (#71).
 
-[Unreleased]: https://github.com/smk762/argus-studio/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/smk762/argus-studio/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/smk762/argus-studio/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/smk762/argus-studio/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/smk762/argus-studio/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/smk762/argus-studio/compare/v0.2.0...v0.3.0
