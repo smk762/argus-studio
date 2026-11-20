@@ -1,4 +1,4 @@
-// Generated from smk762/argus-cortex@6bdc108 (0.9.1.dev2+g6bdc108) taxonomy-schema.json.
+// Generated from smk762/argus-cortex@281bfe9 (0.10.1.dev54+g281bfe9) taxonomy-schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface CortexWire {

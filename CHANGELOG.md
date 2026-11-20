@@ -13,6 +13,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Changed
 
+- **Cortex, forge and proof wire pins move to their `dev` HEADs** (#259). `/proof` follows proof's wire 1.9: a **Likeness** bar (DINOv2 whole-image similarity to the references, for subjects face identity can't score) with its Learn entry, and each scorer's pinned weights (`model_file`, a short sha256) in the Scorers list. Likeness is left out of the client's composite, as proof's default gate weighs it 0, and reports from older proofs (no `likeness`, `model_file` or `gate`) still load. The curator pin stays at `252cfde` until its recording moves with it (#250).
 - **Curator wire pin and demo recording move to `252cfde`** (curator 0.17.1.dev30, with argus-curator#180). The demo images were regenerated with `scripts/make_curator_sample.py` (the 2026-11-14 originals were not kept) and re-recorded; the scan finds what it found before (same rejects, clusters, near duplicate and ratings), and records `guard_config.thinking: cascade`.
 - **Darkroom's image rule is checked on the rendered views** (#263). `recordImages.test.ts` renders the record view, the history row and the image tile for every fixture record and fails if a deleted, omitted, refused, failed or removed one has an `<img>`. Record views carry `data-outcome`, which a new Bombadil property reads, and `ImageTile` now asks `hasImage()` itself.
 
