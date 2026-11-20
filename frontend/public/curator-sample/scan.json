@@ -1,5 +1,5 @@
 {
-  "scan_id": "37d508528cd642319b5b4b0fddf3123c",
+  "scan_id": "7854acbd0522474d8c6a493bf439195f",
   "folder": "/data/images",
   "target_profile": {
     "target_style": "photo",
@@ -2574,6 +2574,7 @@
       "content_rating": "safe"
     }
   ],
+  "legacy_min_short_side": null,
   "offset": 0,
   "limit": null,
   "returned": 14

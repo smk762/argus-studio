@@ -346,6 +346,9 @@ export interface ScanSummary {
   prefilter_config?: PrefilterConfig | null;
   crop_config?: CropConfig | null;
   results: ImageResult[];
+  /** Curator 0.18: a scan cached before the `min_short_side` floor ran with this lower value
+   * (`config` then reads the floor); null or absent otherwise. */
+  legacy_min_short_side?: number | null;
   offset: number;
   limit: number | null;
   returned: number;

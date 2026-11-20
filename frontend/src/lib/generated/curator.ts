@@ -1,4 +1,4 @@
-// Generated from smk762/argus-curator@252cfde (0.17.1.dev30+g252cfde) schema/curator-wire.schema.json.
+// Generated from smk762/argus-curator@b94d89b (0.18.0) schema/curator-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface CuratorWire {
@@ -837,6 +837,7 @@ export interface ScanSummary {
   folder: string;
   garments_config: GarmentConfig;
   guard_config: GuardConfig;
+  legacy_min_short_side: number | null;
   limit: number | null;
   nsfw_config: NsfwConfig;
   offset: number;
