@@ -4,6 +4,10 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- **Demo recordings and the curator wire pin move to each package's `dev` HEAD** (#250, #259). The static `/` caption is re-recorded on argus-lens 0.14.1.dev9 (`61d8c16`): the same flags, now with lens's factual `straightforward` prompt and reconcile checks, so the prose reads plainer. `/curate`'s scan is re-recorded on argus-curator 0.18.0 (`b94d89b`) over the kept 2026-11-18 images, against the same NudeNet and SingGuard servers as before, and finds exactly what it found before. The curator pin moves with it, adding `legacy_min_short_side` to `ScanSummary`. The GPU work of both runs was leased from argus-iris.
+
 ## [0.6.0] - 2026-11-19
 
 ### Added

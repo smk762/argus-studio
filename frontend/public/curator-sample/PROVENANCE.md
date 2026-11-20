@@ -3,7 +3,7 @@
 The 14 images behind the static `/curate` demo are **synthetic**. They were generated for this demo on
 2026-11-14 and regenerated from the same script on 2026-11-18. The two people in them are **fictional**: they were described in words, not taken from photos,
 and they do not depict or imitate any real person. The scan (`scan.json`) and the thumbnails (`thumbs/`) are
-a **real recording of argus-curator 0.17.1.dev30+g252cfde** (its `dev` HEAD, commit `252cfde`, the build
+a **real recording of argus-curator 0.18.0** (its `dev` HEAD, commit `b94d89b`, the build
 `frontend/schema/pins.json` pins for the wire types) run over those images: no number in it was edited by
 hand. `recording.json` records that version, the date and the scan options; `frontend/schema/demo.json`
 records the commit, and `src/lib/demoRecordings.test.ts` fails if the three disagree.
@@ -35,6 +35,8 @@ descriptions and seeds, whose text renders ran in ComfyUI and whose generation s
 full-size originals were not kept either, so moving the curator pin on 2026-11-18 meant running the script
 again. Same seeds, same checkpoint and same diffusers (0.39): the frames are close to the earlier ones but not
 bit-identical (the group shot's face boxes moved by a pixel or so; `generation.json` is this run's).
+Those 2026-11-18 originals were kept this time, so the 2026-11-20 recording (curator 0.18.0) rescanned the
+same files with no new generation.
 
 Character descriptions (the start of every prompt):
 
@@ -69,12 +71,15 @@ logo, signature, frame, low quality, worst quality", plus "teenager, young girl,
 
 ## The recorded scan
 
-`scripts/record_curator_demo.py` sent `POST /scan/folder` to a throwaway argus-curator built from `dev` at
-`252cfde` (the `-gpu` image) with the set mounted at `/data/images`, then saved the
+`scripts/record_curator_demo.py` sent `POST /scan/folder` to a throwaway `ghcr.io/smk762/argus-curator:0.18.0-gpu`
+(`dev` at `b94d89b` is that release) with the set mounted at `/data/images`, its face, scene and garment models
+leased from argus-iris, then saved the
 `ScanSummary` verbatim and fetched each image's `GET /thumb`. Options: photo / SDXL / identity target;
 min short side 512, max aspect 3.0, blur threshold 100, pHash cluster distance 10; InsightFace `buffalo_l`
-faces with MiVOLO age and gender; Places365 scenes; Fashionpedia garments; NudeNet; SingGuard
-(`SingGuard-4b`) under the `adult` policy with the `adult-granular` variant.
+faces with MiVOLO age and gender; Places365 scenes; Fashionpedia garments; NudeNet (the imogen NudeNet
+server); SingGuard (`SingGuard-4b`, the Q4_K_M GGUF through Ollama on dragon) under the `adult` policy with the
+`adult-granular` variant. The detectors matter: retina's NudeNet 640m does not report the covered-chest
+detection behind three frames' `suggestive` rating, so swapping detectors changes the recording.
 
 What it found is what the page shows:
 
