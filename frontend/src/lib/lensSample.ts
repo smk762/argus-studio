@@ -8,106 +8,106 @@
  * identity variant refined by qwen3:4b-instruct, both from Ollama on CPU. The
  * result is kept verbatim, less the `name` the JSON exporter adds; only the
  * recording fields at the end of `metadata` (from `recorded` on) are Studio's.
- * The source image is a public-domain plate by Richard Knötel (Norway, 1863,
- * from his Uniformenkunde) on Wikimedia Commons, captioned at its full
- * 1537x2048; a resized WebP copy ships at `public/demo/lens/knotel-norway-1863.webp`.
+ * The source image is "Colour celebration in Holi festival" by Avra10 (2019,
+ * a Wiki Loves Folklore 2024 winner) on Wikimedia Commons, CC BY-SA 4.0,
+ * captioned at its full 1920x1372; a resized WebP copy (1200x858, under the
+ * same licence) ships at `public/demo/lens/holi-festival-2019.webp`.
  */
 
 import type { CaptionResult } from "@/types";
 
 export const RECORDED_CAPTION: CaptionResult = {
-  "final_caption": "soldier, man, officer, army, troop",
+  "final_caption": "person, powder, celebration",
   "caption_variants": {
-    "identity": "soldier, man, officer, army, troop",
-    "wardrobe": "uniform, a group of soldiers in 1863 uniforms standing and a soldier mounted on a horse in a field, soldier, army, horse",
-    "pose_composition": "soldier, army, horse, uniform, in the background, there are trees and a hill with mountains",
-    "setting": "in the background, there are trees and a hill with mountains, soldier, army, horse, uniform",
-    "lighting": "soldier, army, horse, uniform, in the background, there are trees and a hill with mountains",
-    "action": "soldier, army, horse, uniform, in the background, there are trees and a hill with mountains",
-    "training": "uniform, soldier, army, horse, illustration, man, cartoon, officer",
-    "training_prose": "A group of soldiers in 1863 uniforms standing and a soldier mounted on a horse in a field. The soldiers are dressed in various military attire, with some in dark green jackets with red trim and others in blue uniforms with red borders and gold trim.",
-    "zeroshot": "the illustration is detailed with clear lines and a color palette of earth tones, blues, reds, a watermark of the artist's name is visible, soldier, army, horse, illustration, man, cartoon, officer, troop, war"
+    "identity": "person, powder, celebration",
+    "wardrobe": "festival, person, powder, some are bent, reaching out, others are standing with arms raised",
+    "pose_composition": "some are bent, reaching out, others are standing with arms raised, festival, person, powder",
+    "setting": "festival, person, powder, some are bent, reaching out, others are standing with arms raised",
+    "lighting": "festival, person, powder, some are bent, reaching out, others are standing with arms raised",
+    "action": "a high-angle view captures a vibrant holi festival scene, focusing on a central figure holding a white bucket, from which a thick stream of yellow-colored powder erupts upward, striking a dense crowd of people",
+    "training": "festival, person, powder, celebration, color, crowd, throw, blanket",
+    "training_prose": "A high-angle view captures a vibrant Holi festival scene, focusing on a central figure holding a white bucket, from which a thick stream of yellow-colored powder erupts upward, striking a dense crowd of people.",
+    "zeroshot": "the ground is obscured by the falling powder, creating a dynamic visual effect as the particles rise against the backdrop of a crowd of people, filled with a riot of color, with the red and orange hues of the festival dominating the visual landscape"
   },
   "selected_category": "identity",
   "removed_phrases": [
-    "war",
-    "conflict",
-    "horseback",
-    "rifle",
-    "weapon",
-    "the illustration is detailed with clear lines and a color palette of earth tones, blues, and reds, and a watermark of the artist's name is visible",
-    "a group of soldiers in 1863 uniforms standing and a soldier mounted on a horse in a field",
-    "the soldiers are dressed in various military attire, with some in dark green jackets with red trim and others in blue uniforms with red borders and gold trim",
-    "holding rifles, and one soldier is equipped with a backpack",
-    "uniform",
-    "in the background, there are trees and a hill with mountains",
-    "illustration",
-    "man",
-    "cartoon",
-    "officer",
-    "troop",
-    "soldier",
-    "army",
-    "horse",
-    "they are holding rifles, and one soldier is equipped with a backpack.",
-    "in the background, there are trees and a hill with mountains.",
-    "the illustration is detailed with clear lines and a color palette of earth tones, blues, and reds, and a watermark of the artist's name is visible."
+    "celebrate",
+    "spray",
+    "liquid",
+    "flare",
+    "crowded",
+    "the individuals, many with their heads covered in a mix of red and other colored powders, are tightly packed in a circular formation",
+    "the ground is obscured by the falling powder, creating a dynamic visual effect as the particles rise against the backdrop of a crowd of people",
+    "filled with a riot of color, with the red and orange hues of the festival dominating the visual landscape",
+    "some are bent over, reaching out, and others are standing with arms raised",
+    "a high-angle view captures a vibrant holi festival scene, focusing on a central figure holding a white bucket, from which a thick stream of yellow-colored powder erupts upward, striking a dense crowd of people",
+    "celebration",
+    "color",
+    "crowd",
+    "throw",
+    "blanket",
+    "festival",
+    "person",
+    "powder",
+    "the individuals, many with their heads covered in a mix of red and other colored powders, are tightly packed in a circular formation.",
+    "some are bent over, reaching out, and others are standing with arms raised.",
+    "the ground is obscured by the falling powder, creating a dynamic visual effect as the particles rise against the backdrop of a crowd of people.",
+    "filled with a riot of color, with the red and orange hues of the festival dominating the visual landscape."
   ],
   "compaction_notes": [
+    "Normalised prose (opener).",
     "Trimmed lower-priority fragments to keep captions compact.",
     "Repaired disjointed fragments in assembled captions.",
     "Refined identity with qwen3:4b-instruct."
   ],
-  "raw_tags": "soldier, army, horse, uniform, illustration, man, cartoon, officer, troop, war, conflict, horseback, rifle, weapon",
-  "raw_prose": "A group of soldiers in 1863 uniforms standing and a soldier mounted on a horse in a field. The soldiers are dressed in various military attire, with some in dark green jackets with red trim and others in blue uniforms with red borders and gold trim. They are holding rifles, and one soldier is equipped with a backpack. In the background, there are trees and a hill with mountains. The illustration is detailed with clear lines and a color palette of earth tones, blues, and reds, and a watermark of the artist's name is visible.",
+  "raw_tags": "festival, person, powder, celebration, color, crowd, throw, blanket, celebrate, spray, liquid, flare, crowded",
+  "raw_prose": "A high-angle view captures a vibrant Holi festival scene, focusing on a central figure holding a white bucket, from which a thick stream of yellow-colored powder erupts upward, striking a dense crowd of people. The individuals, many with their heads covered in a mix of red and other colored powders, are tightly packed in a circular formation. Some are bent over, reaching out, and others are standing with arms raised. The ground is obscured by the falling powder, creating a dynamic visual effect as the particles rise against the backdrop of a crowd of people. The scene is filled with a riot of color, with the red and orange hues of the festival dominating the visual landscape.",
   "backend_name": "hybrid",
   "metadata": {
     "empty_categories": [
-      "pose_composition",
-      "lighting",
-      "action"
+      "wardrobe",
+      "setting",
+      "lighting"
     ],
     "buckets": {
       "tags": {
         "identity": [],
-        "wardrobe": [
-          "uniform"
-        ],
+        "wardrobe": [],
         "pose_composition": [],
         "setting": [],
         "lighting": [],
         "action": [],
         "unclassified": [
-          "soldier",
-          "army",
-          "horse",
-          "illustration",
-          "man",
-          "cartoon",
-          "officer",
-          "troop",
-          "war",
-          "conflict",
-          "horseback",
-          "rifle",
-          "weapon"
+          "festival",
+          "person",
+          "powder",
+          "celebration",
+          "color",
+          "crowd",
+          "throw",
+          "blanket",
+          "celebrate",
+          "spray",
+          "liquid",
+          "flare",
+          "crowded"
         ]
       },
       "prose": {
         "identity": [],
-        "wardrobe": [
-          "a group of soldiers in 1863 uniforms standing and a soldier mounted on a horse in a field",
-          "the soldiers are dressed in various military attire, with some in dark green jackets with red trim and others in blue uniforms with red borders and gold trim",
-          "holding rifles, and one soldier is equipped with a backpack"
+        "wardrobe": [],
+        "pose_composition": [
+          "some are bent over, reaching out, and others are standing with arms raised"
         ],
-        "pose_composition": [],
-        "setting": [
-          "in the background, there are trees and a hill with mountains"
-        ],
+        "setting": [],
         "lighting": [],
-        "action": [],
+        "action": [
+          "a high-angle view captures a vibrant holi festival scene, focusing on a central figure holding a white bucket, from which a thick stream of yellow-colored powder erupts upward, striking a dense crowd of people"
+        ],
         "unclassified": [
-          "the illustration is detailed with clear lines and a color palette of earth tones, blues, and reds, and a watermark of the artist's name is visible"
+          "the individuals, many with their heads covered in a mix of red and other colored powders, are tightly packed in a circular formation",
+          "the ground is obscured by the falling powder, creating a dynamic visual effect as the particles rise against the backdrop of a crowd of people",
+          "filled with a riot of color, with the red and orange hues of the festival dominating the visual landscape"
         ]
       }
     },
@@ -118,11 +118,12 @@ export const RECORDED_CAPTION: CaptionResult = {
       "prose_count": 3,
       "agree": null,
       "evidence": [
-        "group of soldiers"
+        "crowd of people",
+        "crowd of people"
       ]
     },
     "monochrome": false,
-    "reconciled_tags": "soldier, army, horse, uniform, illustration, man, cartoon, officer, troop, war, conflict, horseback, rifle, weapon",
+    "reconciled_tags": "festival, person, powder, celebration, color, crowd, throw, blanket, celebrate, spray, liquid, flare, crowded",
     "tag_reconcile": {
       "dropped": [],
       "added": [],
@@ -144,12 +145,12 @@ export const RECORDED_CAPTION: CaptionResult = {
     "prose_model": "qwen3-vl:2b-instruct (prompt: straightforward)",
     "refine_model": "qwen3:4b-instruct (identity variant)",
     "device": "cuda",
-    "image": "lens-sample-pd.jpg",
+    "image": "holi.jpg",
     "source": {
-      "title": "Norwegen 1863 Jäger Kavallerist Musketier Garde-Scharfschütz Artillerist. Uniformenkunde military uniform plate print by Richard Knötel (1857-1914) publ in 1890s? Norwegian army cavalry guards artillery PD-old.jpg",
-      "author": "Richard Knötel",
-      "license": "PD",
-      "source_url": "https://commons.wikimedia.org/wiki/File:Norwegen_1863_J%C3%A4ger_Kavallerist_Musketier_Garde-Scharfsch%C3%BCtz_Artillerist._Uniformenkunde_military_uniform_plate_print_by_Richard_Kn%C3%B6tel_(1857-1914)_publ_in_1890s%3F_Norwegian_army_cavalry_guards_artillery_PD-old.jpg"
+      "title": "Colour celebration in Holi festival.jpg",
+      "author": "Avra10",
+      "license": "CC BY-SA 4.0",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Colour_celebration_in_Holi_festival.jpg"
     },
     "lens_commit": "61d8c16a6",
     "recorded_at": "2026-11-20"
@@ -158,13 +159,12 @@ export const RECORDED_CAPTION: CaptionResult = {
 
 /** The captioned image, as shipped with the static demo. */
 export const RECORDED_CAPTION_IMAGE = {
-  src: "/demo/lens/knotel-norway-1863.webp",
-  width: 901,
-  height: 1200,
+  src: "/demo/lens/holi-festival-2019.webp",
+  width: 1200,
+  height: 858,
   alt:
-    "Hand-coloured uniform plate titled Norwegen, 1863: five Norwegian soldiers (Jäger, Kavallerist, " +
-    "Musketier, Garde-Scharfschütz, Artillerist) on a grassy hillside, the cavalryman mounted, fir trees behind.",
-  attribution: "Richard Knötel, Norway 1863 (Uniformenkunde), public domain, via Wikimedia Commons",
-  sourceUrl:
-    "https://commons.wikimedia.org/wiki/File:Norwegen_1863_J%C3%A4ger_Kavallerist_Musketier_Garde-Scharfsch%C3%BCtz_Artillerist._Uniformenkunde_military_uniform_plate_print_by_Richard_Kn%C3%B6tel_(1857-1914)_publ_in_1890s%3F_Norwegian_army_cavalry_guards_artillery_PD-old.jpg",
+    "Seen from above at a Holi festival: a dense crowd covered in red and pink powder, one person tipping a " +
+    "white bucket that sends a stream of yellow powder arcing over the heads.",
+  attribution: "Avra10, Colour celebration in Holi festival (2019), CC BY-SA 4.0, via Wikimedia Commons (resized)",
+  sourceUrl: "https://commons.wikimedia.org/wiki/File:Colour_celebration_in_Holi_festival.jpg",
 } as const;

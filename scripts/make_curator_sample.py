@@ -50,13 +50,19 @@ PERSON_B = (
     "a fictional 45 year old man, square jaw, short salt-and-pepper hair, neatly trimmed greying beard, "
     "warm brown eyes, faint smile lines"
 )
-TAIL = "professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light"
+# The identity references keep the 2026-11 prompts and tail, so both people keep the faces they had.
+REF_TAIL = "professional photograph, natural skin texture, realistic, 85mm lens, sharp focus, soft light"
+REF_A_SCENE = "wearing a denim jacket over a white t-shirt, looking at the camera, upper body portrait, outdoors in a green city park, trees behind her, daylight"
+REF_B_SCENE = "wearing a navy blazer over a light blue shirt, looking directly at the camera, head and shoulders portrait, in a television studio with studio lights and screens behind him"
+TAIL = "vivid colours, candid action photograph, natural skin texture, realistic, sharp focus, fast shutter"
 NEGATIVE = (
     "nude, nsfw, topless, cleavage, lingerie, underwear, sexy, celebrity, famous person, cartoon, anime, painting, "
     "illustration, 3d render, cgi, deformed, disfigured, extra fingers, bad hands, watermark, text, logo, signature, "
-    "frame, low quality, worst quality"
+    "frame, low quality, worst quality, motion blur, blurry, dull colours"
 )
 NEGATIVE_A = NEGATIVE + ", teenager, young girl, childlike"
+# The group shot must show its two people and no one else: a bystander's face would be scanned and aged too.
+NEGATIVE_GROUP = NEGATIVE_A + ", crowd, bystanders, third person, people in the background, mural, poster"
 PERSONS = {"A": PERSON_A, "B": PERSON_B}
 
 PORTRAIT = (832, 1216)
@@ -65,22 +71,22 @@ STEPS = 30
 CFG = 5.0
 ID_SCALE = 0.8
 
-A_STUDIO = "wearing an elegant burgundy dress, looking directly at the camera, head and shoulders portrait, in a theatre dressing room with a lit mirror behind her"
-A_STUDIO_34 = "wearing an elegant burgundy dress, three-quarter view, face turned slightly to the side, upper body portrait, in a theatre dressing room with a lit mirror"
-A_PARK = "wearing a denim jacket over a white t-shirt, looking at the camera, smiling, upper body portrait, outdoors in a green city park, trees behind her, daylight"
-A_PARK_PROFILE = "wearing a denim jacket over a white t-shirt, side profile view looking to the left, upper body, outdoors in a green city park, autumn trees, daylight"
-A_BEACH = "wearing a modest navy one-piece swimsuit, standing on a sandy beach, waist-up portrait, ocean and sky behind her, summer daylight, wholesome holiday photo"
-B_TV = "wearing a navy blazer over a light blue shirt, looking directly at the camera, head and shoulders portrait, in a television studio with studio lights and screens behind him"
-B_TV_34 = "wearing a navy blazer over a light blue shirt, three-quarter view, upper body portrait, seated in a television studio set"
-B_STREET = "wearing a brown leather jacket, looking at the camera, upper body portrait, outdoors on a city street, daylight"
-B_STREET_PROFILE = "wearing a brown leather jacket, side profile view looking to the right, upper body, outdoors on a city street, daylight"
-BANNER = "small in frame, walking along a wide beach promenade at sunset, wide landscape shot"
+A_CLIMB = "wearing a loose teal t-shirt, bouldering in a bright indoor climbing gym, mid-climb on a wall of colourful holds, chalked hands, looking back over her shoulder at the camera, smiling, upper body"
+A_CLIMB_34 = "wearing a loose teal t-shirt, bouldering in a bright indoor climbing gym, three-quarter view, reaching for a yellow hold on a wall of colourful holds, upper body"
+A_HOLI = "laughing at a holi colour festival, clouds of pink, yellow and blue powder in the air, powder on her face and white shirt, looking at the camera, upper body portrait, daylight"
+A_HOLI_PROFILE = "side profile view looking to the left, throwing a handful of bright pink powder at a holi colour festival, upper body, white shirt covered in coloured powder, daylight"
+A_PADDLE = "stand-up paddleboarding on turquoise water, wearing a bright orange life vest over a teal long-sleeve rash guard, waist-up, laughing, looking at the camera, sunny summer day"
+B_CYCLE = "road cyclist in a bright red and yellow cycling jersey and helmet, no sunglasses, looking directly at the camera, head and shoulders portrait, on a sunny alpine pass"
+B_CYCLE_34 = "road cyclist in a bright red and yellow cycling jersey and helmet, no sunglasses, three-quarter view, riding hard uphill out of the saddle, upper body, sunny alpine pass"
+B_WOK = "street food cook in a white t-shirt and a black apron, tossing vegetables in a flaming wok, looking at the camera, grinning, upper body, busy night market, red lanterns and neon signs behind him"
+B_WOK_PROFILE = "street food cook in a white t-shirt and a black apron, side profile view looking to the right, flames leaping from his wok, upper body, busy night market, red lanterns and neon signs"
+BANNER = "small in frame, flying a bright rainbow kite while running along a wide beach at sunset, wide landscape shot"
 # Short on purpose: CLIP reads 77 tokens, and both people must fit in them.
 GROUP = (
-    "medium shot of two colleagues standing a step apart in a green city park, a woman with wavy auburn hair "
-    "in a green cardigan, a 45 year old man with a greying beard in a navy blazer, both smiling, daylight"
+    "medium shot of two friends standing a step apart after a run, plain bright yellow wall behind them, a woman with "
+    "wavy auburn hair in a pink running top, a 45 year old man with a greying beard in a blue running vest, both laughing"
 )
-GROUP_SEED_TRIES = 12  # from GROUP_SEED upward, until the render shows two faces
+GROUP_SEED_TRIES = 24  # from GROUP_SEED upward, until the render shows exactly two faces
 
 
 @dataclass(frozen=True)
@@ -96,31 +102,31 @@ class Shot:
 
 
 # The identity references come first: every other frame of a person takes its face from them.
-REF_A = Shot("_refs/A2_ref_1", "A", A_PARK.replace("smiling, ", ""), 7701, None)
-REF_B = Shot("_refs/B_tv_front_1", "B", B_TV, 2201, None)
+REF_A = Shot("_refs/A2_ref_1", "A", REF_A_SCENE, 7701, None)
+REF_B = Shot("_refs/B_tv_front_1", "B", REF_B_SCENE, 2201, None)
 
 SHOTS = [
-    Shot("personA/studio/01", "A", A_STUDIO, 1101, 51101),
-    Shot("personA/studio/02", "A", A_STUDIO_34, 1110, 51110),
-    Shot("personA/studio/02_copy", "A", A_STUDIO_34, 1110, 51110, id_cfg=5.3),
-    Shot("personA/outdoor/03", "A", A_PARK, 1120, 51120),
-    Shot("personA/outdoor/04", "A", A_PARK_PROFILE, 1131, 51131),
-    Shot("personA/outdoor/05", "A", A_BEACH, 1150, 51150),
-    Shot("personB/set1/01", "B", B_TV, 2201, 52201),
-    Shot("personB/set1/02", "B", B_TV_34, 2210, 52210),
-    Shot("personB/set2/03", "B", B_STREET, 2220, 52220),
-    Shot("personB/set2/04", "B", B_STREET_PROFILE, 2230, 52230),
-    Shot("personB/rejects/blurry", "B", B_TV_34, 2211, None, post="blur"),
-    Shot("personA/rejects/lowres", "A", A_PARK, 1121, 51121, post="lowres"),
+    Shot("personA/climb/01", "A", A_CLIMB, 1101, 51101),
+    Shot("personA/climb/02", "A", A_CLIMB_34, 1110, 51110),
+    Shot("personA/climb/02_copy", "A", A_CLIMB_34, 1110, 51110, id_cfg=5.3),
+    Shot("personA/holi/03", "A", A_HOLI, 1120, 51120),
+    Shot("personA/holi/04", "A", A_HOLI_PROFILE, 1131, 51131),
+    Shot("personA/water/05", "A", A_PADDLE, 1150, 51150),
+    Shot("personB/cycle/01", "B", B_CYCLE, 2201, 52201),
+    Shot("personB/cycle/02", "B", B_CYCLE_34, 2210, 52210),
+    Shot("personB/market/03", "B", B_WOK, 2220, 52220),
+    Shot("personB/market/04", "B", B_WOK_PROFILE, 2230, 52230),
+    Shot("personB/rejects/blurry", "B", B_CYCLE_34, 2211, None, post="blur"),
+    Shot("personA/rejects/lowres", "A", A_HOLI, 1121, 51121, post="lowres"),
     Shot("misc/wide_banner", "A", BANNER, 4400, 54400, size=LANDSCAPE, post="banner"),
 ]
 GROUP_SHOT = "mixed/group_shot"
-GROUP_SEED = 3300
+GROUP_SEED = 3305
 GROUP_ID_SEEDS = {"A": 61000, "B": 61001}
 
 
-def prompt_for(person: str, scene: str) -> str:
-    return f"{PERSONS[person]}, {scene}, {TAIL}"
+def prompt_for(person: str, scene: str, tail: str = TAIL) -> str:
+    return f"{PERSONS[person]}, {scene}, {tail}"
 
 
 def negative_for(person: str) -> str:
@@ -166,10 +172,12 @@ def main() -> None:
     ident.load_ip_adapter_instantid(str(args.instantid / "ip-adapter.bin"))
     ident.set_ip_adapter_scale(ID_SCALE)
 
-    def text_render(person: str, scene: str, seed: int, size: tuple[int, int], prompt: str | None = None) -> Image.Image:
+    def text_render(
+        person: str, scene: str, seed: int, size: tuple[int, int], prompt: str | None = None, tail: str = TAIL, negative: str | None = None
+    ) -> Image.Image:
         g = torch.Generator("cuda").manual_seed(seed)
         return base(
-            prompt=prompt or prompt_for(person, scene), negative_prompt=negative_for(person), width=size[0], height=size[1],
+            prompt=prompt or prompt_for(person, scene, tail), negative_prompt=negative or negative_for(person), width=size[0], height=size[1],
             num_inference_steps=STEPS, guidance_scale=CFG, generator=g,
         ).images[0]
 
@@ -193,18 +201,18 @@ def main() -> None:
 
     manifest: dict = {
         "checkpoint": args.ckpt.name, "sampler": "DPM++ 2M SDE Karras", "steps": STEPS, "cfg": CFG,
-        "identity_scale": ID_SCALE, "negative": NEGATIVE, "negative_person_a": NEGATIVE_A, "shots": [],
+        "identity_scale": ID_SCALE, "negative": NEGATIVE, "negative_person_a": NEGATIVE_A, "negative_group": NEGATIVE_GROUP, "shots": [],
     }
 
     embeddings = {}
     for ref in (REF_A, REF_B):
-        img = text_render(ref.person, ref.scene, ref.seed, ref.size)
+        img = text_render(ref.person, ref.scene, ref.seed, ref.size, tail=REF_TAIL)
         face = largest_face(img)
         if face is None:
             raise SystemExit(f"no face in the reference {ref.rel}: pick another seed")
         embeddings[ref.person] = face.embedding
         save(img, ref.rel)
-        manifest["shots"].append({"rel": ref.rel, "prompt": prompt_for(ref.person, ref.scene), "seed": ref.seed, "identity": "reference"})
+        manifest["shots"].append({"rel": ref.rel, "prompt": prompt_for(ref.person, ref.scene, REF_TAIL), "seed": ref.seed, "identity": "reference"})
 
     for shot in [] if args.only else SHOTS:
         text = text_render(shot.person, shot.scene, shot.seed, shot.size)
@@ -229,11 +237,11 @@ def main() -> None:
 
     # Group shot: re-render each face in a square crop around it and feather it back in.
     for group_seed in range(GROUP_SEED, GROUP_SEED + GROUP_SEED_TRIES):
-        group = text_render("A", "", group_seed, LANDSCAPE, prompt=f"{GROUP}, {TAIL}")
+        group = text_render("A", "", group_seed, LANDSCAPE, prompt=f"{GROUP}, {TAIL}", negative=NEGATIVE_GROUP)
         found = faces.get(cv2.cvtColor(np.array(group), cv2.COLOR_RGB2BGR))
-        found = sorted(found, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True)[:2]
         genders = sorted(int(f.gender) for f in found)
-        if genders == [0, 1]:  # one woman, one man
+        # Exactly one woman and one man: a bystander's face would be scanned (and aged) too.
+        if genders == [0, 1]:
             break
         print(f"{GROUP_SHOT}: seed {group_seed} shows {len(found)} face(s), genders {genders}; next seed", flush=True)
     else:
@@ -251,7 +259,7 @@ def main() -> None:
         if crop_face is None:
             group_faces.append({"person": person, "identity": "skipped: no face in the crop"})
             continue
-        scene = "head and shoulders portrait, in a green city park, daylight, " + ("wearing a green cardigan" if person == "A" else "wearing a navy blazer")
+        scene = "head and shoulders portrait, laughing against a plain bright yellow wall, " + ("wearing a pink running top" if person == "A" else "wearing a blue running vest")
         redone = identity_pass(crop, crop_face, embeddings[person], person, scene, GROUP_ID_SEEDS[person], CFG)
         redone = redone.resize((box[2] - box[0], box[3] - box[1]), Image.LANCZOS)
         # Feather in only the face itself (its box inside the crop), not hair, clothes or background.

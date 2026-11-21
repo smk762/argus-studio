@@ -11,8 +11,8 @@ const scan = JSON.parse(readFileSync(`${publicDir}/curator-sample/scan.json`, "u
 
 describe("sampleThumb", () => {
   it("maps a scanned path to its bundled WebP and size", () => {
-    expect(sampleThumb("personA/studio/01.jpg")).toEqual({
-      src: "/curator-sample/thumbs/personA/studio/01.webp",
+    expect(sampleThumb("personA/climb/01.jpg")).toEqual({
+      src: "/curator-sample/thumbs/personA/climb/01.webp",
       width: 263,
       height: 384,
     });
