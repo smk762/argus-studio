@@ -177,6 +177,16 @@ images land in **Upload**, a `.jsonl` lands in **Curate manifest**):
 - **Immich** — batch-caption an album on your [Immich](https://immich.app) photo server (`POST /immich/caption/stream`), optionally writing each caption back to the asset's description in Immich. Requires `IMMICH_URL` / `IMMICH_API_KEY` on the argus-lens server.
 - **Curate manifest** — upload a `manifest.jsonl` produced by `/curate` (`POST /caption/manifest`); each row's `target_profile` is applied per image. Images must be reachable at their `abs_path` (the shared `/data/images` mount).
 
+**Immich, end to end.** Pick an album and press **Caption album**; with **Write captions back to Immich** on, each caption becomes the asset's description and its tags become Immich tags (`PUT /api/assets/{id}`, `PUT /api/tags`, `PUT /api/tags/assets`). The API key needs `album.read`, `asset.download`, `asset.update`, `tag.create` and `tag.asset`. Here an album of fourteen public-domain and CC0 photos (twelve from argus-lightbox's demo set, two from the `/curate` sample) was captioned by the argus-lens 0.15.0 release on its default `hybrid:ram+florence2` backend:
+
+![The Immich tab: the album, the write-back toggle and fourteen captioned results](docs/images/immich-studio-caption.png)
+
+The same album in Immich afterwards, and an asset's info panel with the caption as its description:
+
+![The album in Immich: a volleyball serve, a tree at sunset, a roe deer, a robin, a red squirrel, a painted lady butterfly, fireworks, an aurora, lava at Kīlauea, a handball player, fruit and the Mezquita of Córdoba](docs/images/immich-album.jpg)
+
+![An Immich asset, an elephant silhouetted against the sunset, whose description is the argus-lens caption](docs/images/immich-asset-info.jpg)
+
 **What a result contains** (argus-lens ≥ 0.6): one caption per category (`identity`, `wardrobe`, `pose_composition`, `setting`, `lighting`, `action`), each leading with its own category, plus `training` (tag-style, for SDXL/CLIP), **`training_prose`** (sentence-style, for Flux/SD3/T5) and `zeroshot`. Every variant passes a coherence post-check, so dangling fragments, "The image shows…" openers and hedging are repaired before display. `metadata.subjects` carries a headcount (`count`, `multiple`, `agree`), so multi-person images can go to face identification in argus-curator. `metadata.buckets` carries the per-category tags behind each caption. `metadata.refine` records which variants an LLM rewrote and why any rewrite was rejected.
 
 **LLM refinement is on by default** (lens ≥ 0.10). Lens rewrites its training captions with a chat model and keeps a rewrite only if it passes the post-check. In the suite compose, the `lens` and `full` profiles start a bundled `ollama` service and pull `qwen3:8b` into it, so this works with no setup. It needs about 6 GB of VRAM while loaded. Set `ARGUS_REFINE=off` to switch it off, or point `ARGUS_REFINE_BASE_URL` / `ARGUS_REFINE_MODEL` at another OpenAI-compatible LLM. If the endpoint is unreachable, lens writes its deterministic captions.
