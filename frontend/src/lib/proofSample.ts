@@ -1,9 +1,11 @@
 /**
  * Bundled sample EvalReport for /proof demo mode — no backend required, mirrors
- * the public GitHub demo pattern used by /curate and /gallery. Generated from a
- * real argus_proof run through the schema-valid models (a LoRA weight/epoch
- * sweep: 8 samples, one near-dup pair, a spread of scores so the gate lands some
- * auto-pass, one auto-fail, and a borderline band awaiting HITL review).
+ * the public GitHub demo pattern used by /curate and /gallery. It is hand-made,
+ * not a recording: the scores were written to fit argus-proof's schema (a LoRA
+ * weight/epoch sweep: 8 samples, one near-dup pair, a spread of scores so the
+ * gate lands some auto-pass, one auto-fail, and a borderline band awaiting HITL
+ * review), and the page labels it "Synthetic sample, hand-made scores". A real
+ * recorded proof run is argus-studio#280.
  */
 
 import type { EvalReport } from "@/lib/proofApi";
