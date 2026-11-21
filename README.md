@@ -320,9 +320,10 @@ npx serve out               # or any static file server, to preview
 ```
 
 Every page renders from bundled recorded output and says so: `/` replays one
-real argus-lens caption run, `/curate` replays a recorded argus-curator 0.15.0
-scan of 14 synthetic images of two fictional people (`public/curator-sample/`,
-written by `scripts/record_curator_demo.py`; see its `PROVENANCE.md`), `/forge`
+real argus-lens caption run, `/curate` replays a recorded argus-curator 0.18.0
+scan of 14 CC0 sports photos from PD12M, fetched through argus-quarry by
+`scripts/make_curator_sample.py` (`public/curator-sample/`, written by
+`scripts/record_curator_demo.py`; see its `PROVENANCE.md`), `/forge`
 builds kohya configs in the browser, `/atlas` browses seven recorded argus-atlas
 0.3.0 jobs (Iceland and Réunion, one per style) from the island bake behind
 https://atlas.dragonhound.dev
