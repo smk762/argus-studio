@@ -354,6 +354,75 @@ export interface ScanSummary {
   returned: number;
 }
 
+/*
+ * Body pose from argus-puppet (argus-curator#221, on curator `dev` after 0.18.0, unreleased).
+ *
+ * Ahead of the wire pin on purpose: the pin moves only with a re-recorded demo, and the recording has no pose
+ * stage. So these fields are not on `ImageResult` and `ScanSummary`, whose keys `@/lib/wire` holds to the pinned
+ * schema; a row or summary is read through {@link PosedImageResult} / {@link PosedScanSummary}. When the curator pin
+ * moves past #221, `Fits` in `@/lib/wire` fails until the fields below are folded into those two types.
+ */
+
+/** Puppet's label values, in puppet's order (`docs/metrics.md#labels` there). `unknown` is a real reading. */
+export const BODY_STANCES = ["standing", "jumping", "crouching", "seated", "lying", "unknown"] as const;
+export const BODY_ARMS = ["up", "out", "down", "mixed", "unknown"] as const;
+export const BODY_FACINGS = ["front", "back", "left", "right", "unknown"] as const;
+
+/** The primary person's coarse body-pose labels. Each can be `unknown` when the joints a rule needs were not confident. */
+export interface BodyPoseLabels {
+  stance: (typeof BODY_STANCES)[number];
+  arms: (typeof BODY_ARMS)[number];
+  facing: (typeof BODY_FACINGS)[number];
+}
+
+/** How the pose check went for one image. Null: not checked (stage off, or rejected before it). */
+export type PoseCheck = "ok" | "unusable" | "no_person" | "failed";
+
+export interface PoseRowFields {
+  pose_check?: PoseCheck | null;
+  /** Null: no person, failed or not checked. An unusable pose keeps the labels the rules could decide. */
+  pose_labels?: BodyPoseLabels | null;
+  /** Scan-level cluster id, 0 the largest. Null: unusable, no person, failed, not checked, or not clustered. */
+  pose_cluster?: number | null;
+}
+
+/** One scan-level pose cluster: puppet's average linkage over every posed image in the scan. */
+export interface PoseCluster {
+  id: number;
+  size: number;
+  share: number;
+  /** The image whose pose is most central to the cluster. */
+  medoid_rel_path?: string | null;
+}
+
+/** What the pose stage found over the whole scan. */
+export interface PoseSummary {
+  puppet_version?: string | null;
+  posed?: number;
+  no_person?: number;
+  failed?: number;
+  /** Posed images with a usable primary pose: the clustered ones. */
+  usable?: number;
+  comparable_share?: number | null;
+  diversity?: number | null;
+  largest_cluster_share?: number | null;
+  clusters?: PoseCluster[];
+  /** Why the scan was not clustered, else null. Labels are kept either way. */
+  skipped?: string | null;
+  /** Rows were dropped since: sizes and medoids are recounted, diversity is as measured. */
+  stale?: boolean;
+}
+
+export interface PoseScanFields {
+  /** Whether the stage ran (a finished scan records true or false). */
+  pose_config?: { enabled?: boolean | null } | null;
+  /** Null when the stage did not run. */
+  pose?: PoseSummary | null;
+}
+
+export type PosedImageResult = ImageResult & PoseRowFields;
+export type PosedScanSummary = ScanSummary & PoseScanFields;
+
 /** Transfer modes the curator accepts. Only `move` relocates (deletes) the source. */
 export type ExportMode = "copy" | "symlink" | "move";
 
