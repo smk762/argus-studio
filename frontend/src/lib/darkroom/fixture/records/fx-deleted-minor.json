@@ -2,7 +2,7 @@
   "record_version": "1.0",
   "id": "fx-deleted-minor",
   "created_at": "2026-10-20T09:40:00Z",
-  "darkroom_version": "0.0.0+fixture",
+  "darkroom_version": "0.1.4.dev82+gfe32c9e",
   "outcome": "deleted",
   "outcome_reason": "minor-exposed",
   "critical": true,
@@ -20,19 +20,22 @@
       "scheduler": "karras",
       "steps": 28,
       "cfg": 4.5,
+      "guidance": null,
       "clip_skip": 1,
       "width": 512,
       "height": 512
     },
     "checkpoint": {
-      "name": "argus-base-v1.safetensors",
+      "name": "sdxl/argus-base-v1.safetensors",
       "sha256": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f"
     },
     "vae": null,
     "loras": [],
     "workflow_sha256": "5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b",
+    "workflow": "sdxl",
     "engine": "comfyui",
-    "engine_version": "0.3.60"
+    "engine_version": "0.3.60",
+    "init_image": null
   },
   "guard": {
     "enforcing_policy": "adult-granular",
@@ -46,9 +49,8 @@
           "rules": [],
           "explanation": "No rule matched.",
           "model": "SingGuard-4b",
-          "thinking": "fast",
-          "fast_verdict": "safe",
-          "fast_rule": null
+          "policy": "custom-641a2b290946",
+          "thinking": "fast"
         },
         "error": null
       }
@@ -62,9 +64,8 @@
             "rules": [],
             "explanation": "No rule matched.",
             "model": "SingGuard-4b",
-            "thinking": "fast",
-            "fast_verdict": "safe",
-            "fast_rule": null
+            "policy": "custom-641a2b290946",
+            "thinking": "fast"
           },
           "error": null
         },
@@ -75,9 +76,8 @@
             "rules": [],
             "explanation": "No rule matched.",
             "model": "SingGuard-4b",
-            "thinking": "fast",
-            "fast_verdict": "safe",
-            "fast_rule": null
+            "policy": "custom-641a2b290946",
+            "thinking": "fast"
           },
           "error": null
         }
@@ -86,10 +86,24 @@
     "nudenet": {
       "exposed_score": 0.45,
       "labels": {
-        "BUTTOCKS_EXPOSED": 0.45
+        "BELLY_EXPOSED": 0.45
       },
+      "detections": [
+        {
+          "label": "BELLY_EXPOSED",
+          "score": 0.45,
+          "bbox": [
+            96.0,
+            128.0,
+            160.0,
+            192.0
+          ]
+        }
+      ],
       "threshold": 0.2,
-      "blur": true
+      "blur": true,
+      "detector": "640m",
+      "detector_model": "640m.onnx"
     },
     "age": {
       "source": "mivolo",
@@ -122,8 +136,42 @@
           ]
         }
       ],
-      "minor_exposed": true
-    }
+      "people": [
+        {
+          "bbox": [
+            100,
+            60,
+            340,
+            460
+          ],
+          "age_estimate_years": null,
+          "face_index": 0
+        },
+        {
+          "bbox": [
+            140,
+            60,
+            380,
+            460
+          ],
+          "age_estimate_years": null,
+          "face_index": 1
+        },
+        {
+          "bbox": [
+            180,
+            60,
+            420,
+            460
+          ],
+          "age_estimate_years": null,
+          "face_index": 2
+        }
+      ],
+      "minor_exposed": true,
+      "minor_exposed_rule": "frame"
+    },
+    "input": null
   },
   "image": {
     "sha256": "5879410c954e85145983286e25da737ba48880aede2526f258a93a0aea8befcb",
@@ -131,5 +179,6 @@
     "width": 512,
     "height": 512,
     "path": null
-  }
+  },
+  "depth": null
 }

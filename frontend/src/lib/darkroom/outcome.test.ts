@@ -67,7 +67,7 @@ describe("hasImage", () => {
       .filter((record) => hasImage(record))
       .map((record) => record.id)
       .sort();
-    expect(withImage).toEqual(["fx-passed", "fx-passed-noage", "fx-review-agree", "fx-review-disagree"]);
+    expect(withImage).toEqual(["fx-img2img-passed", "fx-inpaint-passed", "fx-passed", "fx-passed-noage", "fx-review-agree", "fx-review-disagree"]);
     expect(hasImage({ ...fixtureRecord("fx-passed"), removed_at: "2026-10-21T00:00:00Z" })).toBe(false);
   });
 });
