@@ -86,8 +86,8 @@ describe("reads", () => {
     });
     const { getLabels } = await import("@/lib/atlasApi");
 
-    await expect(getLabels("antique-7-56-34")).resolves.toEqual({ type: "FeatureCollection", features: [] });
-    expect(seen).toEqual(["/demo/atlas/antique-7-56-34/labels.geojson"]);
+    await expect(getLabels("antique-8-112-68")).resolves.toEqual({ type: "FeatureCollection", features: [] });
+    expect(seen).toEqual(["/demo/atlas/antique-8-112-68/labels.geojson"]);
     vi.doUnmock("@/lib/staticDemo");
   });
 });
