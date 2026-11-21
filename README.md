@@ -17,7 +17,7 @@ Designed as a living onboarding document -- every parameter includes an inline e
 
 ![Raw model outputs and auto-removed tags](docs/images/spa-output-raw.png)
 
-<sub>Screenshots are from the static demo, captioning [Colour celebration in Holi festival by Avra10 (2019)](https://commons.wikimedia.org/wiki/File:Colour_celebration_in_Holi_festival.jpg), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), via Wikimedia Commons.</sub>
+<sub>Screenshots are from the static demo, captioning [Painted Lady by the U.S. Fish and Wildlife Service, Northeast Region](https://www.flickr.com/photos/usfwsnortheast/48671279001), [Public Domain Mark 1.0](https://creativecommons.org/publicdomain/mark/1.0/), shared from argus-lightbox's demo set.</sub>
 
 ## Quick Start
 
