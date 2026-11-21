@@ -1,109 +1,157 @@
 # Curator demo sample: provenance
 
-The 14 images behind the static `/curate` demo are **synthetic**. They were generated for this demo on
-2026-11-14 and regenerated from the same script on 2026-11-18. The two people in them are **fictional**: they were described in words, not taken from photos,
-and they do not depict or imitate any real person. The scan (`scan.json`) and the thumbnails (`thumbs/`) are
-a **real recording of argus-curator 0.18.0** (its `dev` HEAD, commit `b94d89b`, the build
-`frontend/schema/pins.json` pins for the wire types) run over those images: no number in it was edited by
-hand. `recording.json` records that version, the date and the scan options; `frontend/schema/demo.json`
-records the commit, and `src/lib/demoRecordings.test.ts` fails if the three disagree.
+The 50 images behind the static `/curate` demo come from two places:
 
-Only the curator's own 384 px WebP thumbnails are bundled. The full-size originals (832×1216 portraits,
-1216×832 group shot) are not, to keep the site small; `scripts/make_curator_sample.py` regenerates them.
+- **14 real photographs** from [PD12M](https://huggingface.co/datasets/Spawning/PD12M), every one released
+  **CC0**, found and fetched through argus-quarry's archive index on 2026-11-21 (sports: handball, volleyball,
+  cross-country skiing, athletics);
+- **36 synthetic frames** from argus-cull's demo set: five fictional adults rendered with SDXL and InstantID
+  for Cull's own demo, shared with Studio so both pages show the same guard cases. Their recipe, prompts and
+  checks are in argus-cull's
+  [`web/public/data-tape/PROVENANCE.md`](https://github.com/smk762/argus-cull/blob/dev/web/public/data-tape/PROVENANCE.md).
 
-## How the images were made
+They replace the synthetic SDXL sets of 2026-11-14 to 2026-11-20. The scan (`scan.json`) and the thumbnails
+(`thumbs/`) are a **real recording of argus-curator 0.18.0** (its `dev` HEAD, commit `b94d89b`, the build
+`frontend/schema/pins.json` pins for the wire types) run over those images: no number in it was edited by hand.
+`recording.json` records that version, the date and the scan options; `frontend/schema/demo.json` records the
+commit, and `src/lib/demoRecordings.test.ts` fails if the three disagree.
 
-`scripts/make_curator_sample.py` is the whole recipe, in diffusers, and `generation.json` is what it wrote:
-every prompt, seed and whether the identity pass applied.
+Only the curator's own 384 px WebP thumbnails are bundled. The images themselves are not, to keep the site
+small; `scripts/make_curator_sample.py` rebuilds them from quarry and an argus-cull checkout.
 
-1. **Text render.** SDXL, checkpoint **CyberRealistic XL Desire v2.0** (`cyberrealisticXL_desireV20.safetensors`,
-   by Cyberdelia). DPM++ 2M SDE Karras, 30 steps, CFG 5.0.
-2. **Identity pass.** **InstantID** (InstantX; IdentityNet ControlNet + IP-Adapter, scale 0.8, same checkpoint
-   and sampler). The face embedding comes from one synthetic reference per person (person A: a text render,
-   seed 7701, in a denim jacket in a park; person B: his `set1/01` text render, seed 2201) and the head pose
-   from the frame's own text render, so each person keeps one face.
-3. **Group shot.** A text render of both people (seed 3300); each face was re-rendered with InstantID in a
-   tight crop around it (seeds 61000 for person A, 61001 for person B) and feathered back over the face only.
-4. **Near duplicate.** `02_copy.jpg` repeats `02.jpg`'s identity pass, same seeds, at CFG 5.3.
-5. **Rejects.** A heavy Gaussian blur (radius 8) of a text-only render, a 160 px-wide downscale, and a 5:1 crop
-   of a 2.25× Lanczos upscale (so the short side clears 512 px and only the aspect ratio fails).
-6. **Clean-up.** Saved as JPEG (quality 90) from fresh pixel buffers: no EXIF, XMP or workflow metadata. The
-   curator re-encodes its thumbnails, which carry none either.
+## How the photos were chosen
 
-The first set from this script (2026-11-14) replaced an earlier one made the same morning with the same
-descriptions and seeds, whose text renders ran in ComfyUI and whose generation scripts were not kept. Its
-full-size originals were not kept either, so moving the curator pin on 2026-11-18 meant running the script
-again. Same seeds, same checkpoint and same diffusers (0.39): the frames are close to the earlier ones but not
-bit-identical (the group shot's face boxes moved by a pixel or so; `generation.json` is this run's).
-Those 2026-11-18 originals were kept this time, so the 2026-11-20 recording (curator 0.18.0) rescanned the
-same files with no new generation.
+PD12M ships CLIP embeddings, and quarry's index ranks by them (`similar_to`). Searches for colourful sports
+photos, then "more like this" from the good hits, gave a pool of 124 frames from the Estonian Sports and
+Olympic Museum and from Wikimedia Commons (a championship athletics meet, handball and volleyball). The pool
+was scanned once with faces, MiVOLO and NudeNet only, and the set keeps frames where:
 
-Character descriptions (the start of every prompt):
+- the same person appears in more than one frame (the curator put them in one face cluster), so the demo
+  shows identity clusters from real photos;
+- every face reads as an adult. Crowds behind the play held faces MiVOLO read as children (25 of the 124
+  frames had a read under 18), and those frames are out, background faces included. The NudeNet `suggestive`
+  rating was not used to drop frames: in this pool it marks ordinary sports kit (covered-chest detections,
+  exposed score 0.0), the kind of footage broadcast on public television.
 
-- **Person A:** "a fictional 36 year old woman, mature adult face, fine laugh lines at the corners of her
-  eyes, oval face, light freckles, green-grey eyes, shoulder-length wavy auburn hair, small silver stud
-  earrings"
-- **Person B:** "a fictional 45 year old man, square jaw, short salt-and-pepper hair, neatly trimmed greying
-  beard, warm brown eyes, faint smile lines"
+`scripts/make_curator_sample.py` is the whole recipe for both sources. For the photos it asks quarry for each PD12M item, downloads the image
+from the URL quarry records, checks its sha256, scales it to at most 2048 px on the long side and saves it as
+a fresh JPEG (quality 92, no EXIF or XMP). Larger originals in the pool grew a scanning curator's ONNX arena
+to most of the GPU, which is why the set is capped. Four files are derived:
 
-Every prompt ends with "professional photograph, natural skin texture, realistic, 85mm lens, sharp focus,
-soft light" (CLIP truncates long prompts at 77 tokens, so some of this tail is dropped). Negative prompt:
-"nude, nsfw, topless, cleavage, lingerie, underwear, sexy, celebrity, famous person, cartoon, anime,
-painting, illustration, 3d render, cgi, deformed, disfigured, extra fingers, bad hands, watermark, text,
-logo, signature, frame, low quality, worst quality", plus "teenager, young girl, childlike" for person A.
+- **Near duplicate.** `skier/02_copy.jpg` is `skier/02.jpg` with 2% trimmed from each edge, re-encoded.
+- **Rejects.** A heavy Gaussian blur (radius 8) of a marathon runner, a 160 px-wide copy of a high-jump frame,
+  and a 5:1 band cut from a 2.25× upscale of a relay heat (so the short side clears 512 px and only the aspect
+  ratio fails).
 
-| Sample file | Text-render seed | InstantID seed | Scene prompt (after the character description) |
+| Sample file | PD12M id | Institution | What it shows |
 |---|---|---|---|
-| `personA/studio/01.jpg` | 1101 | 51101 | wearing an elegant burgundy dress, looking directly at the camera, head and shoulders portrait, in a theatre dressing room with a lit mirror behind her |
-| `personA/studio/02.jpg` | 1110 | 51110 | wearing an elegant burgundy dress, three-quarter view, face turned slightly to the side, upper body portrait, in a theatre dressing room with a lit mirror |
-| `personA/studio/02_copy.jpg` | 1110 | 51110 (CFG 5.3) | as `02.jpg` |
-| `personA/outdoor/03.jpg` | 1120 | 51120 | wearing a denim jacket over a white t-shirt, looking at the camera, smiling, upper body portrait, outdoors in a green city park, trees behind her, daylight |
-| `personA/outdoor/04.jpg` | 1131 | 51131 | wearing a denim jacket over a white t-shirt, side profile view looking to the left, upper body, outdoors in a green city park, autumn trees, daylight |
-| `personA/outdoor/05.jpg` | 1150 | 51150 | wearing a modest navy one-piece swimsuit, standing on a sandy beach, waist-up portrait, ocean and sky behind her, summer daylight, wholesome holiday photo |
-| `personB/set1/01.jpg` | 2201 | 52201 | wearing a navy blazer over a light blue shirt, looking directly at the camera, head and shoulders portrait, in a television studio with studio lights and screens behind him |
-| `personB/set1/02.jpg` | 2210 | 52210 | wearing a navy blazer over a light blue shirt, three-quarter view, upper body portrait, seated in a television studio set |
-| `personB/set2/03.jpg` | 2220 | 52220 | wearing a brown leather jacket, looking at the camera, upper body portrait, outdoors on a city street, daylight |
-| `personB/set2/04.jpg` | 2230 | 52230 | wearing a brown leather jacket, side profile view looking to the right, upper body, outdoors on a city street, daylight |
-| `mixed/group_shot.jpg` | 3300 | 61000 / 61001 (per face) | (own prompt) medium shot of two colleagues standing a step apart in a green city park, a woman with wavy auburn hair in a green cardigan, a 45 year old man with a greying beard in a navy blazer, both smiling, daylight |
-| `personB/rejects/blurry.jpg` | 2211 | none (text render, then blur) | as `set1/02.jpg` |
-| `personA/rejects/lowres.jpg` | 1121 | 51121 (then 160 px wide) | as `outdoor/03.jpg` |
-| `misc/wide_banner.jpg` | 4400 | 54400 (then 2.25× and a 5:1 crop) | small in frame, walking along a wide beach promenade at sunset, wide landscape shot |
+| `handball_a/01.jpg` | `dcdc8d02721d6a9d66949d917c1f1f71` | Wikimedia Commons | a handball player, #10 in blue, ball in hand |
+| `handball_a/02.jpg` | `84c403799ac4194c50a7e2de43631344` | Wikimedia Commons | the same player winding up a throw |
+| `handball_a/03.jpg` | `a673dd30d9051f45c59c4e846f0c287b` | Wikimedia Commons | a player in yellow, #7, driving forward (the curator puts her in the same face cluster) |
+| `handball_b/01.jpg` | `2bed74fb5e122ae117fa27e5a3e687f6` | Wikimedia Commons | a handball player in coral, mid-throw |
+| `handball_b/02.jpg` | `ec3e8c751205cff6789e9bfb146f4f81` | Wikimedia Commons | the same player, #8, on court |
+| `volleyball/01.jpg` | `35cfe2e5d8dae19ec21b019c2a532913` | Wikimedia Commons | a volleyball player in blue and white, leaping to serve |
+| `volleyball/02.jpg` | `9f12f7f0e4a630e047f1e3ddd26f8718` | Wikimedia Commons | the same player a moment later, arm back |
+| `skier/01.jpg` | `1281368a97e4484c1014afc344189c25` | Estonian Sports and Olympic Museum | a cross-country skier in red gloves and goggles |
+| `skier/02.jpg` | `e3b09846f651f96b5daee7ad42de8064` | Estonian Sports and Olympic Museum | the same skier racing at the Nagano Olympics, bib 33 |
+| `skier/02_copy.jpg` | as `skier/02.jpg` |  | near duplicate (2% crop, re-encoded) |
+| `relay/group_shot.jpg` | `43dae84e9f1380cf01e57aa878662a28` | Wikimedia Commons | a relay team together after their race |
+| `rejects/blurry.jpg` | `2e9ff3432b53c5628d2849e0a87c954f` | Wikimedia Commons | a marathon runner (blurred) |
+| `rejects/lowres.jpg` | `121d9531114127b8bf7c45dbdeeaccad` | Wikimedia Commons | a high jumper over the bar (160 px wide) |
+| `rejects/wide_banner.jpg` | `09dc65f4cb65d342991f2ed171b711e7` | Wikimedia Commons | a relay heat (5:1 band) |
+
+## The synthetic frames
+
+The script copies 36 of argus-cull's 53 frames from an argus-cull checkout's demo tape
+(`web/public/data-tape/images/<id>.webp`, the full 832×1216 renders, `dev` at `42a08f1`), checks each WebP's
+sha256 and saves it as a fresh JPEG under `synthetic/`, keeping Cull's folder and file names. They were picked
+for the cases the sports photos cannot show:
+
+- **all eleven crime-film stills** (prop handguns pointed away from the camera, a drug deal, a smuggler, a
+  blindfolded hostage; no blood or injury), which SingGuard's policies judge differently;
+- **`C_lingerie.jpg` and `E_boudoir_robe.jpg`**, which SingGuard's general `default` policy can read as sexual
+  content while the `adult*` policies do not;
+- **`rejects/D_cafe_watermark.jpg`**, a frame with a "SAMPLE ©" box for the watermark detector, and
+  **`rejects/BE_group_cafe.jpg`**, a two-person shot;
+- **21 everyday, swim and gym frames**, so each of the five fictional people (`personA` to `personE`) has
+  enough frames to form a face cluster.
+
+Cull's blur, low-resolution, banner and near-duplicate rejects were left out: the photos above already cover
+them. The people are fictional, written as adults of 27 to 30; none depicts a real person.
+
+## The people
+
+The people in these photos are real athletes photographed in public competition, released by their
+photographers or institutions under CC0. The demo shows what the curator reads from the frames (clusters,
+MiVOLO age bands, ratings); it names no one. The
+synthetic people are fictional and have no names.
 
 ## The recorded scan
 
 `scripts/record_curator_demo.py` sent `POST /scan/folder` to a throwaway `ghcr.io/smk762/argus-curator:0.18.0-gpu`
 (`dev` at `b94d89b` is that release) with the set mounted at `/data/images`, its face, scene and garment models
-leased from argus-iris, then saved the
-`ScanSummary` verbatim and fetched each image's `GET /thumb`. Options: photo / SDXL / identity target;
-min short side 512, max aspect 3.0, blur threshold 100, pHash cluster distance 10; InsightFace `buffalo_l`
-faces with MiVOLO age and gender; Places365 scenes; Fashionpedia garments; NudeNet (the imogen NudeNet
-server); SingGuard (`SingGuard-4b`, the Q4_K_M GGUF through Ollama on dragon) under the `adult` policy with the
-`adult-granular` variant. The detectors matter: retina's NudeNet 640m does not report the covered-chest
-detection behind three frames' `suggestive` rating, so swapping detectors changes the recording.
+leased from argus-iris, on 2026-11-21, then saved the `ScanSummary` verbatim and fetched each image's
+`GET /thumb`. Options: photo / SDXL / identity target; min short side 512, max aspect 3.0, blur threshold 100,
+pHash cluster distance 10; InsightFace `buffalo_l` faces with MiVOLO age and gender, clustered at a distance of
+**0.8** (curator's default is 0.5; 0.8 is argus-cull's setting, at which each fictional person holds one cluster);
+Places365 scenes; Fashionpedia garments; NudeNet (the imogen NudeNet server); watermark crops (`crops.detect`,
+max cut 15%) with argus-retina's watermark detector 0.1.0 (the image and weights argus-cull runs); SingGuard
+(`SingGuard-4b`, the Q4_K_M GGUF through Ollama on dragon) under the `adult` policy with the `default`,
+`adult-granular`, `adult-cautious` and `adult-cinematic` variants, in cascade mode. SingGuard ran with one
+worker and a 300 s timeout, and a scan whose log held a failed remote check would have been discarded; this one
+had none. The detectors matter: retina's NudeNet 640m reports covered-chest detections differently from this
+server, so swapping detectors can change the ratings and the recording.
 
 What it found is what the page shows:
 
-- **Rejects.** The blurred frame fails on sharpness (5 < 100): curator 0.15.1 measures the frame's interior
-  ([argus-curator#147](https://github.com/smk762/argus-curator/issues/147)), so a blurred bright frame no
-  longer passes on its edges as it did in the 0.15.0 recording. The 160 px frame fails on resolution and the
-  banner on aspect ratio.
-- **Faces.** Every person A frame, profile included, falls in one face cluster and every person B frame in
-  another, with person B's face in the group shot. `02.jpg` is flagged as a near duplicate of `02_copy.jpg`.
-- **Ages.** MiVOLO reads both people younger than their descriptions: person A at about 23–25, person B at
-  about 31–35 (the group shot's faces at about 24 and 32). Both are adults throughout.
-- **Moderation.** NudeNet rated every frame safe (the swimsuit frame only reports exposed armpits, exposed
-  score 0.0) and SingGuard judged every frame safe, so no passing frame is blurred for review; rejected
-  frames are always veiled. SingGuard ran in `cascade`, the curator's default (`guard_config.thinking`):
-  `fast` passed every frame, so none was escalated to `slow` and every verdict records `fast`.
+- **Rejects.** The blurred frame fails on sharpness (6 < 100) and the 160 px frame on resolution. The banner
+  fails on a watermark: the detector found an overlay inside it that no edge cut of 15% removes, and the scan
+  reports that reason rather than the 5:1 aspect ratio.
+- **Watermarks.** The photographer's credit along the bottom of both volleyball frames and of
+  `handball_b/02.jpg`, and Cull's "SAMPLE ©" box, are cut away by a detected crop; the frames pass on the crop.
+  Two weaker hits (`handball_a/02.jpg`, `D_action_film.jpg`) were below the detector's confidence line and
+  changed nothing.
+- **Faces.** Each fictional person holds one main cluster (A and D seven frames, C and E six, B five; the
+  group shot joins B's and E's), and two pairs of dark crime stills form small clusters of their own. The
+  first handball player's three frames fall in one cluster (the third, in a different kit, may be a clustering
+  error; it is the curator's real output), and the second player's, the volleyball player's and the skier's in
+  one each. At 0.8 five faces in the crowd behind `handball_a/03.jpg` merge into one cluster: also real
+  output. `skier/02_copy.jpg` is flagged as a near duplicate of `skier/02.jpg`.
+- **Ages.** MiVOLO reads every face as an adult, from about 21 to 52 on the photos and 24.9 and up on the
+  synthetic frames; the same person can read years apart between frames.
+- **Nudity.** NudeNet rated 21 passing frames `suggestive` (sports kit, swimwear, lingerie, evening dresses)
+  and 26 safe. It found no exposed female breast, genitalia or buttocks, so no frame is blurred for nudity;
+  the shirtless men's `MALE_BREAST_EXPOSED` detections are not an exposed class. Rejected frames are always
+  veiled.
+- **SingGuard.** Every passing frame has a verdict under all five policies. Eleven frames are unsafe under at
+  least one, and the page veils them until you reveal them:
+
+  | Frame | adult | default | adult-granular | adult-cautious | adult-cinematic |
+  |---|---|---|---|---|---|
+  | `personA/A_heist_film.jpg` | B | | | B | |
+  | `personA/A_noir_detective.jpg` | | | B | B | |
+  | `personB/B_detective_film.jpg` | B | | B | B | |
+  | `personB/B_drugdeal_film.jpg` | B | B | B | B | |
+  | `personC/C_lingerie.jpg` | | A | | | |
+  | `personC/C_rooftop_film.jpg` | B | | B | B | |
+  | `personD/D_action_film.jpg` | B | | B | B | |
+  | `personD/D_hostage_film.jpg` | | C | B | | B |
+  | `personD/D_smuggler_film.jpg` | B | B | B | B | G |
+  | `personE/E_getaway_film.jpg` | | | B | B | |
+  | `personE/E_heist_film.jpg` | B | | B | B | |
+
+  Letters are each policy's own rule (`default`'s A is sexual content and C unethical behaviour; the `adult*`
+  policies' B is real-world crime and public safety, except `adult-cinematic`, whose B is unethical behaviour
+  and G criminal instructions). Every other frame is safe under all five, including `C_spy_film.jpg` and
+  `E_boudoir_robe.jpg`, which argus-cull's recording on curator 0.15.1 flagged: SingGuard is not
+  deterministic across runs and builds, and this is what this run said.
 
 ## Licences
 
-- **CyberRealistic XL Desire v2.0:** CreativeML Open RAIL-M (as declared on the author's Hugging Face
-  model card). The licence lets you use generated outputs, including in public demos, subject to its use
-  restrictions (no impersonation of real people, no harmful content, and so on). This sample keeps to them:
-  fictional people, safe-for-work scenes.
-- **InstantID** (pipeline code, IdentityNet ControlNet and IP-Adapter weights, InstantX): Apache-2.0.
-  Its face encoder is InsightFace's `antelopev2`, whose pretrained weights InsightFace releases for
-  non-commercial research use; it was used only to make this non-commercial demo sample. argus-curator's
-  own face detection uses InsightFace `buffalo_l` under the same terms.
-- The images and the recorded scan ship with Argus Studio as demo data; reuse them on the terms above.
+- **The synthetic frames:** argus-cull's demo set, made with CyberRealistic XL Desire v2.0 (CreativeML Open
+  RAIL-M) and InstantID (Apache-2.0; its InsightFace antelopev2 face encoder has non-commercial research
+  weights), so they are for this non-commercial demo only. See argus-cull's provenance for the full recipe.
+- **The photographs:** CC0, as PD12M records each one (Spawning's PD12M keeps only CC0 and Public Domain Mark
+  images). No attribution is required; the institution is named above as a courtesy.
+- **Derived frames** (the photo near duplicate and the three photo rejects) are released under CC0 too.
+- The scan and thumbnails ship with Argus Studio as demo data.

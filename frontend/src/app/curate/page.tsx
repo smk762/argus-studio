@@ -602,11 +602,14 @@ export default function CuratePage() {
         />
         {STATIC_DEMO && (
           <div className="mb-6">
-            <RecordedDemoNote summary={`A recorded argus-curator ${CURATOR_SAMPLE_VERSION} scan of 14 synthetic images.`}>
-              The images were generated for this demo with SDXL (CyberRealistic XL Desire v2.0, with InstantID to
-              keep each face consistent); both people are fictional. Every score, face, pose, scene, garment and
-              moderation verdict here is the curator&apos;s real output, recorded with its own thumbnails. Filtering, selection and the export manifest all run in your
-              browser; scanning real folders needs a running argus-curator.
+            <RecordedDemoNote summary={`A recorded argus-curator ${CURATOR_SAMPLE_VERSION} scan of 50 images.`}>
+              Fourteen are public-domain (CC0) sports photos from PD12M, found and fetched with argus-quarry: two
+              handball players, a volleyball player, a skier and a relay team, with a near duplicate and three
+              deliberate rejects. The other 36 are argus-cull&apos;s synthetic demo frames of five fictional adults,
+              including crime-film stills and lingerie that SingGuard&apos;s policies judge differently. Every score,
+              face, pose, scene, garment and moderation verdict here is the curator&apos;s real output, recorded with its
+              own thumbnails. Filtering, selection and the export manifest all run in your browser; scanning real
+              folders needs a running argus-curator.
             </RecordedDemoNote>
           </div>
         )}

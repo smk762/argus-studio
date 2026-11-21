@@ -7,9 +7,10 @@ Point it at a running argus-curator whose image mount holds the sample set
 
     python3 scripts/record_curator_demo.py --curator http://127.0.0.1:8100 --folder /data/images
 
-It sends POST /scan/folder with the scan options below (faces + MiVOLO,
-Places365 scenes, Fashionpedia garments, NudeNet, SingGuard under the adult
-policy with the adult-granular variant), saves the ScanSummary verbatim as
+It sends POST /scan/folder with the scan options below (faces + MiVOLO at a
+0.8 clustering distance, Places365 scenes, Fashionpedia garments, NudeNet,
+watermark crops, SingGuard under the adult policy with the default,
+adult-granular, adult-cautious and adult-cinematic variants), saves the ScanSummary verbatim as
 scan.json, fetches every result's GET /thumb (the curator's own WebP
 thumbnail) into thumbs/<rel_path>.webp, records the curator's GET /health
 version in recording.json (checked against frontend/schema/demo.json by
@@ -37,11 +38,17 @@ DIMS = ROOT / "frontend" / "src" / "lib" / "curatorSampleThumbs.ts"
 SCAN_OPTIONS = {
     "target_profile": {"target_style": "photo", "target_backend": "sdxl", "target_category": "identity"},
     "config": {"min_short_side": 512, "max_aspect_ratio": 3.0, "blur_threshold": 100.0, "cluster_distance": 10},
-    "faces": {"enabled": True, "model": "buffalo_l", "mivolo": True},
+    # 0.8, not curator's 0.5: the synthetic people only hold one cluster each from about 0.8 (argus-cull's tuning).
+    "faces": {"enabled": True, "model": "buffalo_l", "mivolo": True, "cluster_eps": 0.8},
     "scenes": {"enabled": True, "top_k": 5},
     "garments": {"enabled": True, "min_conf": 0.3},
     "nsfw": {"enabled": True},
-    "guard": {"enabled": True, "policy": "adult", "variants": ["adult-granular"]},
+    "crops": {"enabled": True, "sidecars": True, "boxes": {}, "detect": True, "min_conf": 0.4, "max_cut": 0.15, "margin": 4, "reject_overlay": True},
+    "guard": {
+        "enabled": True,
+        "policy": "adult",
+        "variants": ["default", "adult-granular", "adult-cautious", "adult-cinematic"],
+    },
 }
 
 

@@ -17,7 +17,7 @@ Designed as a living onboarding document -- every parameter includes an inline e
 
 ![Raw model outputs and auto-removed tags](docs/images/spa-output-raw.png)
 
-<sub>Screenshots are from the static demo, captioning a public-domain plate: [Richard Knötel, Norway 1863 (Uniformenkunde), via Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Norwegen_1863_J%C3%A4ger_Kavallerist_Musketier_Garde-Scharfsch%C3%BCtz_Artillerist._Uniformenkunde_military_uniform_plate_print_by_Richard_Kn%C3%B6tel_(1857-1914)_publ_in_1890s%3F_Norwegian_army_cavalry_guards_artillery_PD-old.jpg).</sub>
+<sub>Screenshots are from the static demo, captioning [Painted Lady by the U.S. Fish and Wildlife Service, Northeast Region](https://www.flickr.com/photos/usfwsnortheast/48671279001), [Public Domain Mark 1.0](https://creativecommons.org/publicdomain/mark/1.0/), shared from argus-lightbox's demo set.</sub>
 
 ## Quick Start
 
@@ -330,9 +330,11 @@ npx serve out               # or any static file server, to preview
 ```
 
 Every page renders from bundled recorded output and says so: `/` replays one
-real argus-lens caption run, `/curate` replays a recorded argus-curator 0.15.0
-scan of 14 synthetic images of two fictional people (`public/curator-sample/`,
-written by `scripts/record_curator_demo.py`; see its `PROVENANCE.md`), `/forge`
+real argus-lens caption run, `/curate` replays a recorded argus-curator 0.18.0
+scan of 50 images (14 CC0 sports photos from PD12M, fetched through
+argus-quarry, and 36 of argus-cull's synthetic demo frames), built by
+`scripts/make_curator_sample.py` (`public/curator-sample/`, written by
+`scripts/record_curator_demo.py`; see its `PROVENANCE.md`), `/forge`
 builds kohya configs in the browser, `/atlas` browses seven recorded argus-atlas
 0.3.0 jobs (Iceland and Réunion, one per style) from the island bake behind
 https://atlas.dragonhound.dev
