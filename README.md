@@ -336,8 +336,8 @@ argus-quarry, and 36 of argus-cull's synthetic demo frames), built by
 `scripts/make_curator_sample.py` (`public/curator-sample/`, written by
 `scripts/record_curator_demo.py`; see its `PROVENANCE.md`), `/forge`
 builds kohya configs in the browser, `/atlas` browses seven recorded argus-atlas
-0.3.0 jobs (Iceland and Réunion, one per style) from the island bake behind
-https://atlas.dragonhound.dev
+jobs (one per style) from the Iceland bake at chunk zoom 8 that argus-realms
+serves at https://atlas.dragonhound.dev
 (`public/demo/atlas/`, written by `scripts/bundle_atlas_demo.py` through
 argus-atlas's own job store), `/darkroom` shows its bundled sample, `/proof`
 shows a "coming soon" state (no real evaluation recorded yet) with an opt-in,

@@ -269,17 +269,18 @@ const ATLAS_DEMO_SUMMARY = "Real argus-atlas jobs, replayed from their recorded 
 function AtlasDemoProvenance() {
   return (
     <>
-      Seven real jobs from the argus-atlas 0.3.0 island bake behind{" "}
+      Seven real jobs from argus-atlas&apos;s Iceland bake at chunk zoom 8 (0.3.1.dev62, commit 597cf38, baked
+      2026-11-21), one chunk in each of its seven styles, spread over the island: antique over Reykjavík, imhof over
+      Tröllaskagi, watercolor at the edge of Vatnajökull, pixel over the Westfjords, tolkien over the East Fjords,
+      cyberpunk on the west coast and minecraft on the south coast. Each records its relief correction: hillshade
+      and slope take a height factor of 2.2 to 2.5 from the chunk&apos;s latitude, with no added exaggeration. The
+      antique chunk also carries its OSM place names. Sidecars are as the server returned them, with host paths
+      made relative; previews are re-encoded to WebP; the PMTiles archives are not bundled. The whole island, with
+      Réunion and Cook Strait, is a live map on{" "}
       <ExternalLink href={ATLAS_URL} className="underline hover:text-foreground">
         atlas.dragonhound.dev
       </ExternalLink>
-      , one chunk in each of its seven styles: antique, imhof, watercolor and pixel over Iceland (z7), tolkien,
-      cyberpunk and minecraft over Réunion (z11). Each records 0.3&apos;s relief correction: hillshade and slope
-      take a height factor from the chunk&apos;s latitude, about 2.2 to 2.5 in Iceland and 1.07 in Réunion, with
-      no added exaggeration. The antique chunk also carries its OSM place names. Sidecars are as the server
-      returned them, with host paths made relative; previews are re-encoded to WebP; the PMTiles archives are
-      not bundled, and the whole map is live on Atlas. Building controls and baking need a running argus-atlas
-      (and a GPU for the bake).
+      . Building controls and baking need a running argus-atlas (and a GPU for the bake).
     </>
   );
 }
