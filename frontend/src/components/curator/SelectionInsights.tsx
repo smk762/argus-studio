@@ -2,22 +2,41 @@
 
 import { useMemo } from "react";
 import {
+  bodyPoseCoverage,
+  notMeasuredLine,
+  poseDominanceGap,
+  type BodyPoseCoverage,
+} from "@/lib/curatorBodyPose";
+import { scanCheckedNsfw, thumbSafety } from "@/lib/curatorSafety";
+import { ThumbImage } from "./ThumbImage";
+import {
   POSE_LABELS,
   suggestTrainingParams,
   type FacePose,
   type ImageResult,
+  type PosedImageResult,
+  type PosedScanSummary,
   type ScanSummary,
 } from "./types";
 
 interface Props {
   summary: ScanSummary;
   selectedResults: ImageResult[];
+  /** Checks still running on this scan, for the medoid thumbnail's blur. */
+  pending?: readonly string[];
 }
 
 interface Bucket {
   key: string;
   label: string;
   count: number;
+  /** A reading that is not a label (`unknown`): shown muted. */
+  muted?: boolean;
+}
+
+interface Gap {
+  text: string;
+  strong?: boolean;
 }
 
 /** Primary-face bbox area as a fraction of the frame, or null if no primary face. */
@@ -30,7 +49,7 @@ function primaryFaceArea(img: ImageResult): number | null {
   return Math.min(1, (w * h) / frame);
 }
 
-export function SelectionInsights({ summary, selectedResults }: Props) {
+export function SelectionInsights({ summary, selectedResults, pending = [] }: Props) {
   const hasFaces = summary.faces_config.enabled;
   const n = selectedResults.length;
 
@@ -109,16 +128,22 @@ export function SelectionInsights({ summary, selectedResults }: Props) {
     const uniqueGroups = groups.size;
 
     // Gaps worth flagging.
-    const gaps: string[] = [];
-    if (hasFaces) {
-      for (const p of poseOrder) if (poseCounts[p] === 0) gaps.push(`No ${POSE_LABELS[p].toLowerCase()} shots`);
-      if (none > 0) gaps.push(`${none} faceless image${none > 1 ? "s" : ""} — weak signal for identity`);
-      if (noPose > 0 && none === 0) gaps.push(`${noPose} without a scored pose`);
-    }
-    if (uniqueGroups < n) gaps.push(`${n - uniqueGroups} near-duplicate${n - uniqueGroups > 1 ? "s" : ""} in the set`);
+    // Body pose (argus-puppet, through curator): absent unless the stage ran on this scan.
+    const body = bodyPoseCoverage(summary as PosedScanSummary, selectedResults as PosedImageResult[]);
 
-    return { angle, framing, shotScale, faceComp, identity, uniqueGroups, gaps, noPose };
-  }, [selectedResults, hasFaces, n]);
+    const gaps: Gap[] = [];
+    const gap = (text: string) => gaps.push({ text });
+    if (hasFaces) {
+      for (const p of poseOrder) if (poseCounts[p] === 0) gap(`No ${POSE_LABELS[p].toLowerCase()} shots`);
+      if (none > 0) gap(`${none} faceless image${none > 1 ? "s" : ""} — weak signal for identity`);
+      if (noPose > 0 && none === 0) gap(`${noPose} without a scored pose`);
+    }
+    const bodyGap = body ? poseDominanceGap(body) : null;
+    if (bodyGap) gaps.push(bodyGap);
+    if (uniqueGroups < n) gap(`${n - uniqueGroups} near-duplicate${n - uniqueGroups > 1 ? "s" : ""} in the set`);
+
+    return { angle, framing, shotScale, faceComp, identity, uniqueGroups, gaps, noPose, body };
+  }, [summary, selectedResults, hasFaces, n]);
 
   const params = useMemo(
     () => suggestTrainingParams(n, summary.target_profile.target_category),
@@ -162,6 +187,8 @@ export function SelectionInsights({ summary, selectedResults }: Props) {
           </p>
         )}
 
+        {insights.body && <BodyPoseBlock summary={summary} coverage={insights.body} total={n} pending={pending} />}
+
         <Distribution title="Framing (aspect)" buckets={insights.framing} total={n} accent="accent-teal" />
 
         {insights.gaps.length > 0 && (
@@ -169,8 +196,11 @@ export function SelectionInsights({ summary, selectedResults }: Props) {
             <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-orange-ink">Coverage gaps</span>
             <ul className="space-y-0.5">
               {insights.gaps.map((g) => (
-                <li key={g} className="text-[11px] leading-snug text-accent-orange-ink">
-                  • {g}
+                <li
+                  key={g.text}
+                  className={`text-[11px] leading-snug ${g.strong ? "font-semibold text-accent-red-ink" : "text-accent-orange-ink"}`}
+                >
+                  • {g.text}
                 </li>
               ))}
             </ul>
@@ -210,17 +240,82 @@ function Distribution({
           const pct = total > 0 ? (b.count / total) * 100 : 0;
           return (
             <div key={b.key} className="flex items-center gap-2">
-              <span className="w-24 shrink-0 truncate text-[11px] text-foreground/80" title={b.label}>
+              <span
+                className={`w-24 shrink-0 truncate text-[11px] ${b.muted ? "italic text-muted" : "text-foreground/80"}`}
+                title={b.label}
+              >
                 {b.label}
               </span>
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-hover">
-                <div className={`h-full rounded-full ${b.count === 0 ? "bg-transparent" : bar}`} style={{ width: `${pct}%` }} />
+                <div
+                  className={`h-full rounded-full ${b.count === 0 ? "bg-transparent" : b.muted ? "bg-muted/40" : bar}`}
+                  style={{ width: `${pct}%` }}
+                />
               </div>
               <span className="w-8 shrink-0 text-right font-mono text-[11px] text-muted tabular-nums">{b.count}</span>
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Body pose from argus-puppet: the selection's stance, arms and facing, and how much of it sits in one scan-level
+ * pose cluster. Rows with no labels land in no bucket; the not-measured line says why.
+ */
+function BodyPoseBlock({
+  summary,
+  coverage,
+  total,
+  pending,
+}: {
+  summary: ScanSummary;
+  coverage: BodyPoseCoverage;
+  total: number;
+  pending: readonly string[];
+}) {
+  const { top } = coverage;
+  const notMeasured = notMeasuredLine(coverage, total);
+  const medoid = top?.medoidRelPath ? summary.results.find((r) => r.rel_path === top.medoidRelPath) : undefined;
+  // A medoid this page does not hold has not been checked, so it stays blurred (as the identity tiles do).
+  const blurred = medoid ? thumbSafety(medoid, scanCheckedNsfw(summary), pending).blurred : true;
+  return (
+    <div className="space-y-3">
+      <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted">Body pose</span>
+      {top && (
+        <div className="flex items-center gap-2">
+          {top.medoidRelPath && (
+            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md" title={blurred ? "Blurred" : top.medoidRelPath}>
+              <div className={blurred ? "h-full w-full scale-105 blur-md" : "h-full w-full"}>
+                <ThumbImage scanId={summary.scan_id} relPath={top.medoidRelPath} rounded="rounded-md" />
+              </div>
+            </div>
+          )}
+          <div className="min-w-0 text-[11px] leading-snug">
+            <div className="text-foreground">
+              <span className="font-mono tabular-nums">{Math.round(top.share * 100)}%</span> share one pose
+            </div>
+            <div className="text-muted">
+              {top.count} of {coverage.clustered} clustered · pose cluster {top.id}
+            </div>
+          </div>
+        </div>
+      )}
+      <Distribution title="Stance" buckets={coverage.stance} total={total} accent="accent-purple" />
+      <Distribution title="Arms" buckets={coverage.arms} total={total} accent="accent-teal" />
+      <Distribution title="Facing" buckets={coverage.facing} total={total} accent="accent-green" />
+      {(notMeasured || coverage.stale || coverage.skipped) && (
+        <ul className="space-y-0.5 text-[10px] leading-relaxed text-muted">
+          {notMeasured && <li>{notMeasured}</li>}
+          {coverage.skipped && <li>Pose clusters were not formed: {coverage.skipped}</li>}
+          {coverage.stale && <li>
+              Images were deleted or moved since the scan was clustered: sizes are recounted, but the clusters may be
+              out of date.
+            </li>}
+        </ul>
+      )}
     </div>
   );
 }

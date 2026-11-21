@@ -749,7 +749,7 @@ export default function CuratePage() {
                   visibleCount={filtered.length}
                   pending={pending}
                 />
-                <SelectionInsights summary={summary} selectedResults={selectedResults} />
+                <SelectionInsights summary={summary} selectedResults={selectedResults} pending={pending} />
                 {scanning ? (
                   <p className="rounded-xl border border-border bg-surface p-4 text-[11px] leading-relaxed text-muted">
                     Export opens when the scan finishes. The keep-set is chosen then.
