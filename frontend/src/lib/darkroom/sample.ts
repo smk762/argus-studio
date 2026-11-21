@@ -1,7 +1,9 @@
 /**
  * The bundled sample behind `/darkroom` in demo mode, when no darkroom answers.
- * These are argus-safelight's fixture records: flat drawings with canned
- * verdicts, read-only, so nothing here came from a real generation.
+ * These are argus-safelight's fixture records (`fixture/` on its `dev`), copied
+ * unchanged: flat drawings with canned verdicts, read-only, so nothing here came
+ * from a real generation. `fixture/darkroom.json` names the darkroom build they
+ * follow. Re-copy them from Safelight rather than editing them here.
  */
 
 import type { GenerationRecord, Health, Models, Policies, RecordPage, RecordQuery } from "@/lib/darkroomApi";
@@ -12,16 +14,19 @@ import fx_deleted_illegal from "./fixture/records/fx-deleted-illegal.json";
 import fx_deleted_minor from "./fixture/records/fx-deleted-minor.json";
 import fx_deleted_unchecked from "./fixture/records/fx-deleted-unchecked.json";
 import fx_failed from "./fixture/records/fx-failed.json";
+import fx_img2img_passed from "./fixture/records/fx-img2img-passed.json";
+import fx_inpaint_passed from "./fixture/records/fx-inpaint-passed.json";
 import fx_omitted_exposed from "./fixture/records/fx-omitted-exposed.json";
 import fx_omitted_unchecked from "./fixture/records/fx-omitted-unchecked.json";
 import fx_passed from "./fixture/records/fx-passed.json";
 import fx_passed_noage from "./fixture/records/fx-passed-noage.json";
 import fx_refused from "./fixture/records/fx-refused.json";
 import fx_refused_illegal from "./fixture/records/fx-refused-illegal.json";
+import fx_refused_input from "./fixture/records/fx-refused-input.json";
 import fx_review_agree from "./fixture/records/fx-review-agree.json";
 import fx_review_disagree from "./fixture/records/fx-review-disagree.json";
 
-const RECORDS = [fx_deleted_illegal, fx_deleted_minor, fx_deleted_unchecked, fx_failed, fx_omitted_exposed, fx_omitted_unchecked, fx_passed, fx_passed_noage, fx_refused, fx_refused_illegal, fx_review_agree, fx_review_disagree] as unknown as GenerationRecord[];
+const RECORDS = [fx_deleted_illegal, fx_deleted_minor, fx_deleted_unchecked, fx_failed, fx_img2img_passed, fx_inpaint_passed, fx_omitted_exposed, fx_omitted_unchecked, fx_passed, fx_passed_noage, fx_refused, fx_refused_illegal, fx_refused_input, fx_review_agree, fx_review_disagree] as unknown as GenerationRecord[];
 
 /** Read-only, so every write control stays off. No backend answers, so none is claimed. */
 export const SAMPLE_HEALTH: Health = {
