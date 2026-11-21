@@ -48,11 +48,15 @@ export const inlineScriptHashes = (html) => hashes(html, INLINE_SCRIPT);
 /** @param {string} html @returns {string[]} CSP hash sources for each non-empty inline <style>. */
 export const inlineStyleHashes = (html) => hashes(html, INLINE_STYLE);
 
+// Cloudflare Web Analytics is on for the zone: Cloudflare adds its beacon tag at the edge, and the
+// tag loads this one script. It reports to this site's own /cdn-cgi/rum, so connect-src is unchanged.
+const BEACON = "https://static.cloudflareinsights.com";
+
 /** @param {string[]} scripts @param {string[]} styles */
 export function policy(scripts, styles = []) {
   return [
     "default-src 'self'",
-    `script-src 'self' ${scripts.join(" ")}`.trim(),
+    `script-src 'self' ${BEACON} ${scripts.join(" ")}`.trim(),
     "style-src 'self'",
     `style-src-elem 'self' ${styles.join(" ")}`.trim(),
     "style-src-attr 'unsafe-inline'",
