@@ -10,9 +10,9 @@
   "curator": {
     "repo": "smk762/argus-curator",
     "branch": "dev",
-    "commit": "b94d89b0c7078602ced43b2bfe6592e299dfe93a",
-    "version": "0.18.0",
-    "recorded_at": "2026-11-21",
+    "commit": "1d04173c6e8a1a30bdf4e0991c3aa87ce50e17b9",
+    "version": "0.20.0",
+    "recorded_at": "2026-11-22",
     "recording": "public/curator-sample/"
   }
 }

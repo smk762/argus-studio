@@ -11,7 +11,6 @@
  */
 
 import { guardBody } from "@/lib/curatorGuard";
-import type * as Cortex from "@/lib/generated/cortex";
 import type * as Wire from "@/lib/generated/curator";
 import type { Filled, Sparse } from "@/lib/wire";
 
@@ -35,15 +34,22 @@ import type { Filled, Sparse } from "@/lib/wire";
  *
  * 2.3 adds `primary_face` (the primary face's box, pose, quality readings,
  * distances and age) and the scan's `set_age` per row. Also additive.
+ *
+ * 2.4 to 2.7 (curator 0.19 and 0.20) are additive too: `split` (2.4), `modality`
+ * on the profile, always `image` (2.5), the consent record's hashes and the
+ * image's `provenance` on a consented face set (2.6), and the primary person's
+ * `pose_labels` and `pose_cluster` (2.7).
  */
-export const MANIFEST_VERSION = "2.3";
+export const MANIFEST_VERSION = "2.7";
 
 /**
- * The suite's shared training-target profile, from argus-cortex's
- * taxonomy-schema.json. `@/lib/wire` checks that each pinned service's copy
- * matches it.
+ * The suite's shared training-target profile for an image dataset: curator's
+ * narrowing of argus-cortex's, whose `modality` is always `image` and whose
+ * `target_category` is an image category. Studio curates and trains images
+ * only. `@/lib/wire` checks that curator's image and speech profiles together
+ * are cortex's, and that forge's matches.
  */
-export type TargetProfile = Required<Cortex.TargetProfile>;
+export type TargetProfile = Required<Wire.TargetProfile>;
 export type TargetStyle = TargetProfile["target_style"];
 export type TargetCategory = TargetProfile["target_category"];
 export type FacePose = "frontal" | "three_quarter" | "profile";
@@ -293,6 +299,20 @@ export interface ImageResult {
   crop_source?: "manual" | "detected" | null;
   /** Hits on the uncropped frame. Empty means none found; null means not checked. */
   watermarks?: WatermarkDetection[] | null;
+  /** Curator 0.19+. Which check called it a duplicate. Null: not a duplicate, or an older scan. */
+  duplicate_kind?: Wire.ImageResult["duplicate_kind"];
+  /** Curator 0.19+. Distance from the reference or the set's centroid embedding. Null means not measured. */
+  likeness_distance?: number | null;
+  /** Curator 0.19+. The zero-shot junk and profile-fit readings. Null means not run. */
+  zero_shot?: Wire.ZeroShotResult | null;
+  /** Curator 0.19+, a consented face set only: whether this frame's face is bound to the consent record. */
+  consent?: Wire.ConsentBinding | null;
+  /** Curator 0.20+. How the body-pose check went. Null: not checked (stage off, or rejected before it). */
+  pose_check?: PoseCheck | null;
+  /** Null: no person, failed or not checked. An unusable pose keeps the labels the rules could decide. */
+  pose_labels?: BodyPoseLabels | null;
+  /** Scan-level cluster id, 0 the largest. Null: unusable, no person, failed, not checked, or not clustered. */
+  pose_cluster?: number | null;
   phash: string;
   score_breakdown: Record<string, number>;
 }
@@ -322,6 +342,7 @@ export type FaceCluster = Sparse<Wire.FaceCluster, "cluster_id" | "representativ
 export interface ScanSummary {
   scan_id: string;
   folder: string;
+  /** Always an image profile here: `getScan` in curatorApi refuses a speech scan (curator 0.19+). */
   target_profile: TargetProfile;
   config: ScanConfig;
   faces_config: FaceConfig;
@@ -349,19 +370,30 @@ export interface ScanSummary {
   /** Curator 0.18: a scan cached before the `min_short_side` floor ran with this lower value
    * (`config` then reads the floor); null or absent otherwise. */
   legacy_min_short_side?: number | null;
+  /** Curator 0.19+: what the embedding stage ran with, and how `likeness_distance` was measured. */
+  embeddings_config?: Wire.EmbeddingConfig | null;
+  likeness_source?: Wire.ScanSummary["likeness_source"];
+  likeness_skipped?: string | null;
+  /** Rows were dropped since the semantic duplicate groups were made. */
+  semantic_groups_stale?: boolean;
+  /** A consented face set's record check. Null without one. */
+  consent?: Wire.ConsentCheck | null;
+  /** Curator 0.20+: whether the body-pose stage ran (a finished scan records true or false). */
+  pose_config?: { enabled?: boolean | null } | null;
+  /** Null when the stage did not run. */
+  pose?: PoseSummary | null;
+  /** A speech scan's clips and readings (curator 0.19+). Empty on an image scan, the only kind loaded here. */
+  clips?: Wire.ClipResult[];
+  speech_config?: Wire.SpeechConfig | null;
+  speaker_clusters?: Wire.SpeakerCluster[];
+  speaker_mismatches?: number;
+  language_mismatches?: number;
   offset: number;
   limit: number | null;
   returned: number;
 }
 
-/*
- * Body pose from argus-puppet (argus-curator#221, on curator `dev` after 0.18.0, unreleased).
- *
- * Ahead of the wire pin on purpose: the pin moves only with a re-recorded demo, and the recording has no pose
- * stage. So these fields are not on `ImageResult` and `ScanSummary`, whose keys `@/lib/wire` holds to the pinned
- * schema; a row or summary is read through {@link PosedImageResult} / {@link PosedScanSummary}. When the curator pin
- * moves past #221, `Fits` in `@/lib/wire` fails until the fields below are folded into those two types.
- */
+/* Body pose from argus-puppet (argus-curator#221, curator 0.20). */
 
 /** Puppet's label values, in puppet's order (`docs/metrics.md#labels` there). `unknown` is a real reading. */
 export const BODY_STANCES = ["standing", "jumping", "crouching", "seated", "lying", "unknown"] as const;
@@ -378,14 +410,6 @@ export interface BodyPoseLabels {
 /** How the pose check went for one image. Null: not checked (stage off, or rejected before it). */
 export type PoseCheck = "ok" | "unusable" | "no_person" | "failed";
 
-export interface PoseRowFields {
-  pose_check?: PoseCheck | null;
-  /** Null: no person, failed or not checked. An unusable pose keeps the labels the rules could decide. */
-  pose_labels?: BodyPoseLabels | null;
-  /** Scan-level cluster id, 0 the largest. Null: unusable, no person, failed, not checked, or not clustered. */
-  pose_cluster?: number | null;
-}
-
 /** One scan-level pose cluster: puppet's average linkage over every posed image in the scan. */
 export interface PoseCluster {
   id: number;
@@ -401,8 +425,8 @@ export interface PoseSummary {
   posed?: number;
   no_person?: number;
   failed?: number;
-  /** Posed images with a usable primary pose: the clustered ones. */
-  usable?: number;
+  /** Posed images with a usable primary pose: the clustered ones. Null when the scan was not clustered. */
+  usable?: number | null;
   comparable_share?: number | null;
   diversity?: number | null;
   largest_cluster_share?: number | null;
@@ -412,16 +436,6 @@ export interface PoseSummary {
   /** Rows were dropped since: sizes and medoids are recounted, diversity is as measured. */
   stale?: boolean;
 }
-
-export interface PoseScanFields {
-  /** Whether the stage ran (a finished scan records true or false). */
-  pose_config?: { enabled?: boolean | null } | null;
-  /** Null when the stage did not run. */
-  pose?: PoseSummary | null;
-}
-
-export type PosedImageResult = ImageResult & PoseRowFields;
-export type PosedScanSummary = ScanSummary & PoseScanFields;
 
 /** Transfer modes the curator accepts. Only `move` relocates (deletes) the source. */
 export type ExportMode = "copy" | "symlink" | "move";
@@ -778,11 +792,19 @@ export function defaultScanConfig(): ScanConfig {
     resolution_ref: 1024,
     diversity_weight: 0.4,
     max_workers: 4,
+    // Curator 0.19's zero-shot and embedding checks, at its defaults (all off). The form has no control for them yet.
+    junk_check: false,
+    junk_threshold: 0.8,
+    junk_weight: 0.15,
+    profile_fit: false,
+    profile_fit_weight: 0.1,
+    semantic_duplicates: false,
+    semantic_duplicate_cosine: 0.95,
   };
 }
 
 export function defaultPrefilter(): PrefilterConfig {
-  return { drop_nsfw: false, drop_no_face: false, drop_no_age: false };
+  return { drop_nsfw: false, drop_no_face: false, drop_no_age: false, drop_junk: false };
 }
 
 export function defaultCrops(): CropConfig {
@@ -801,6 +823,7 @@ export function defaultCrops(): CropConfig {
 export function defaultCuratorConfig(): CuratorConfig {
   return {
     profile: {
+      modality: "image",
       target_style: "photo",
       target_backend: "sdxl",
       checkpoint: null,

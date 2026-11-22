@@ -211,6 +211,22 @@ describe("getWholeScan", () => {
     expect(limits).toEqual([10000, 10003]);
   });
 
+  it("refuses a speech scan, which has clips and no image rows", async () => {
+    vi.stubGlobal("fetch", async () => ({
+      ok: true,
+      json: async () => ({ scan_id: "s2", total: 0, results: [], clips: [{}], target_profile: { modality: "speech", target_category: "voice" } }),
+    }));
+    await expect(getWholeScan("s2")).rejects.toThrow("Scan s2 is a speech scan");
+  });
+
+  it("takes an image scan from a curator that sends no modality", async () => {
+    vi.stubGlobal("fetch", async () => ({
+      ok: true,
+      json: async () => ({ scan_id: "s3", total: 0, results: [], target_profile: { target_category: "identity" } }),
+    }));
+    expect((await getWholeScan("s3")).scan_id).toBe("s3");
+  });
+
   it("takes a scan that fits the first page in one request", async () => {
     const limits = serve(3);
     expect((await getWholeScan("s1")).results).toHaveLength(3);

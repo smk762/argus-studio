@@ -1,4 +1,4 @@
-// Generated from smk762/argus-proof@3773d89 (0.5.2) schema/proof-wire.schema.json.
+// Generated from smk762/argus-proof@b8b5c0d (0.5.3.dev10+gb8b5c0d) schema/proof-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 /**
@@ -29,6 +29,12 @@ export interface ProofWire {
   LoRASpec?: LoRASpec;
   MetricScores?: MetricScores;
   ModelRef?: ModelRef;
+  PoseClosePair?: PoseClosePair;
+  PoseComparison?: PoseComparison;
+  PoseCoverage?: PoseCoverage;
+  PoseDistanceQuantiles?: PoseDistanceQuantiles;
+  PoseProvenance?: PoseProvenance;
+  PoseReport?: PoseReport;
   ProgressEvent?: ProgressEvent;
   Refinement?: Refinement;
   RejectArchive?: RejectArchive;
@@ -62,11 +68,13 @@ export interface ProofWire {
  */
 export interface AcceptanceThresholds {
   confidence?: number;
+  max_pose_cluster_share?: number;
   max_unsafe_rate?: number | null;
   min_identity_mean?: number | null;
   min_likeness_mean?: number | null;
   min_pass_rate?: number | null;
   min_pass_rate_ci_lower?: number | null;
+  min_pose_diversity?: number | null;
   unsafe_safety_floor?: number;
 }
 /**
@@ -166,6 +174,7 @@ export interface EvalReport {
   created_at: string | null;
   gate: GateConfig | null;
   images: ImageScores[];
+  pose: PoseReport | null;
   proof_version: string;
   run_id: string;
   scorers: ScorerProvenance[];
@@ -258,6 +267,120 @@ export interface RejectReason {
   note?: string | null;
 }
 /**
+ * Run-level pose diversity of the outputs (argus-puppet ``POST /stats`` on each
+ * image's primary person), and, when the training export is readable here, the
+ * comparison with the training frames' poses.
+ *
+ * ``count`` is every output image of the run; ``posed`` those puppet returned a
+ * pose for (``partial`` when fewer); ``usable`` those with a usable primary pose.
+ * A number puppet could not measure is ``None``, never ``0.0``.
+ * ``largest_cluster_medoids`` names the image(s) at the centre of the largest pose
+ * cluster(s), so a collapse says which pose the outputs collapsed onto.
+ */
+export interface PoseReport {
+  cluster_count: number | null;
+  comparable_share: number | null;
+  comparison: PoseComparison | null;
+  count: number;
+  coverage: PoseCoverage | null;
+  diversity: number | null;
+  failed_images: string[];
+  largest_cluster_medoids: string[];
+  largest_cluster_share: number | null;
+  mean_pairwise_distance: number | null;
+  partial: boolean;
+  posed: number;
+  provenance: PoseProvenance;
+  usable: number | null;
+}
+/**
+ * The run's poses against its training set's (argus-puppet ``POST /compare``).
+ *
+ * ``close_share`` is the share of eligible outputs within ``threshold`` of a
+ * training frame; ``baseline_close_share`` is the same statistic inside the
+ * training set (leave-one-out), and ``close_excess`` the difference: the
+ * run-level copying signal. A pose-conditioned generator shows a high excess by
+ * design, so it is evidence for review, never a reject. ``training_diversity``
+ * and ``training_largest_cluster_share`` describe the training set itself, so a
+ * collapse onto a pose the training set is dominated by reads as a dataset
+ * problem. Every statistic puppet could not define is ``None``.
+ */
+export interface PoseComparison {
+  baseline_close_share: number | null;
+  baseline_eligible: number;
+  close_eligible: number;
+  close_excess: number | null;
+  close_pairs: PoseClosePair[];
+  close_share: number | null;
+  coverage_divergence: number | null;
+  matched_count: number;
+  n_close: number;
+  output_count: number;
+  output_nn_distance: PoseDistanceQuantiles | null;
+  reference_count: number;
+  reference_coverage: PoseCoverage | null;
+  reference_nn_distance: PoseDistanceQuantiles | null;
+  threshold: number;
+  training_diversity: number | null;
+  training_frames: number;
+  training_largest_cluster_share: number | null;
+}
+/**
+ * An output whose pose is a close match to one training frame: a pointer for an
+ * image-level check, not evidence of copying on its own (the same pose is not the
+ * same frame). ``training_frame`` is the frame's path relative to the curator
+ * export, or its file name when it lives outside it; ``training_sha256`` names it
+ * exactly.
+ */
+export interface PoseClosePair {
+  distance: number;
+  image_id: string;
+  training_frame: string;
+  /**
+   * lowercase hex SHA256 digest
+   */
+  training_sha256: string;
+}
+/**
+ * Quantiles of nearest-neighbour pose distances (torso units) over ``n`` poses.
+ */
+export interface PoseDistanceQuantiles {
+  n: number;
+  p01: number;
+  p10: number;
+  p50: number;
+  p90: number;
+}
+/**
+ * How many usable poses carry each coarse label (argus-puppet's rule-based labels).
+ */
+export interface PoseCoverage {
+  arms: {
+    [k: string]: number;
+  };
+  facing: {
+    [k: string]: number;
+  };
+  stance: {
+    [k: string]: number;
+  };
+}
+/**
+ * Which argus-puppet produced the pose block, with what parameters, and what
+ * was not checked. Never the service's URL.
+ */
+export interface PoseProvenance {
+  detector_model: string | null;
+  not_checked: string[];
+  package_version: string | null;
+  params: {
+    [k: string]: number;
+  };
+  pose_model: string | null;
+  puppet_version: string | null;
+  training: string | null;
+}
+/**
  * Where a score came from: the scorer, its version, and the model it used.
  *
  * Recorded for every scorer that contributed to an :class:`EvalReport` so a
@@ -303,6 +426,7 @@ export interface Verdict {
  */
 export interface GateCheck {
   actual: number | null;
+  code: string | null;
   detail: string;
   name: string;
   passed: boolean;

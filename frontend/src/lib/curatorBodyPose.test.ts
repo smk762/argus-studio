@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BodyPoseLabels, PoseCluster, PosedImageResult, PosedScanSummary, PoseSummary } from "@/components/curator/types";
+import type { BodyPoseLabels, PoseCluster, ImageResult, ScanSummary, PoseSummary } from "@/components/curator/types";
 import {
   bodyPoseCoverage,
   hasPoseData,
@@ -14,8 +14,8 @@ import {
 } from "@/lib/curatorBodyPose";
 
 let seq = 0;
-const row = (extra: Partial<PosedImageResult> = {}): PosedImageResult =>
-  ({ rel_path: `img/${seq++}.jpg`, score: 0.9, passed: true, faces: [], face_count: 0, ...extra }) as PosedImageResult;
+const row = (extra: Partial<ImageResult> = {}): ImageResult =>
+  ({ rel_path: `img/${seq++}.jpg`, score: 0.9, passed: true, faces: [], face_count: 0, ...extra }) as ImageResult;
 const labels = (stance: BodyPoseLabels["stance"], arms: BodyPoseLabels["arms"] = "down", facing: BodyPoseLabels["facing"] = "front") => ({
   stance,
   arms,
@@ -25,8 +25,8 @@ const posed = (cluster: number | null, l: BodyPoseLabels = labels("standing")) =
   row({ pose_check: "ok", pose_labels: l, pose_cluster: cluster });
 const clusters = (...ids: number[]): PoseCluster[] =>
   ids.map((id) => ({ id, size: 1, share: 0, medoid_rel_path: `medoid/${id}.jpg` }));
-const scan = (results: PosedImageResult[], pose: PoseSummary | null = { clusters: clusters(0, 1, 2) }, enabled = true): PosedScanSummary =>
-  ({ scan_id: "s", results, pose_config: { enabled }, pose }) as PosedScanSummary;
+const scan = (results: ImageResult[], pose: PoseSummary | null = { clusters: clusters(0, 1, 2) }, enabled = true): ScanSummary =>
+  ({ scan_id: "s", results, pose_config: { enabled }, pose }) as ScanSummary;
 const counts = (b: { key: string; count: number }[]) => Object.fromEntries(b.map((x) => [x.key, x.count]));
 
 describe("hasPoseData", () => {
@@ -35,7 +35,7 @@ describe("hasPoseData", () => {
     expect(hasPoseData(scan(rows, null, false))).toBe(false);
     expect(hasPoseData(scan(rows))).toBe(false);
     // A curator before #221 sends neither field.
-    expect(hasPoseData({ scan_id: "s", results: [posed(0)] } as PosedScanSummary)).toBe(false);
+    expect(hasPoseData({ scan_id: "s", results: [posed(0)] } as ScanSummary)).toBe(false);
     expect(bodyPoseCoverage(scan(rows, null, false), rows)).toBeNull();
   });
 

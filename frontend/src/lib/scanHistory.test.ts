@@ -76,7 +76,7 @@ describe("configFromSummary", () => {
     const box = { left: 1, top: 2, right: 3, bottom: 4 };
     const ran = configFromSummary({
       ...summary([image("keep.jpg")]),
-      prefilter_config: { drop_nsfw: true, drop_no_face: false, drop_no_age: false },
+      prefilter_config: { drop_nsfw: true, drop_no_face: false, drop_no_age: false, drop_junk: false },
       crop_config: { ...old.crops, enabled: true, detect: true, max_cut: 0.2, boxes: { "keep.jpg": box } },
     });
     expect(ran.prefilter.drop_nsfw).toBe(true);

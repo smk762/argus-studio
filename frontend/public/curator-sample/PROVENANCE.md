@@ -11,7 +11,7 @@ The 50 images behind the static `/curate` demo come from two places:
   [`web/public/data-tape/PROVENANCE.md`](https://github.com/smk762/argus-cull/blob/dev/web/public/data-tape/PROVENANCE.md).
 
 They replace the synthetic SDXL sets of 2026-11-14 to 2026-11-20. The scan (`scan.json`) and the thumbnails
-(`thumbs/`) are a **real recording of argus-curator 0.18.0** (its `dev` HEAD, commit `b94d89b`, the build
+(`thumbs/`) are a **real recording of argus-curator 0.20.0** (its `dev` HEAD, commit `1d04173`, the build
 `frontend/schema/pins.json` pins for the wire types) run over those images: no number in it was edited by hand.
 `recording.json` records that version, the date and the scan options; `frontend/schema/demo.json` records the
 commit, and `src/lib/demoRecordings.test.ts` fails if the three disagree.
@@ -88,13 +88,14 @@ synthetic people are fictional and have no names.
 
 ## The recorded scan
 
-`scripts/record_curator_demo.py` sent `POST /scan/folder` to a throwaway `ghcr.io/smk762/argus-curator:0.18.0-gpu`
-(`dev` at `b94d89b` is that release) with the set mounted at `/data/images`, its face, scene and garment models
-leased from argus-iris, on 2026-11-21, then saved the `ScanSummary` verbatim and fetched each image's
+`scripts/record_curator_demo.py` sent `POST /scan/folder` to a throwaway `ghcr.io/smk762/argus-curator:0.20.0-gpu`
+(`dev` at `1d04173` has that release's tree) with the set mounted at `/data/images`, its face, scene and garment models
+leased from argus-iris, on 2026-11-22, then saved the `ScanSummary` verbatim and fetched each image's
 `GET /thumb`. Options: photo / SDXL / identity target; min short side 512, max aspect 3.0, blur threshold 100,
 pHash cluster distance 10; InsightFace `buffalo_l` faces with MiVOLO age and gender, clustered at a distance of
 **0.8** (curator's default is 0.5; 0.8 is argus-cull's setting, at which each fictional person holds one cluster);
-Places365 scenes; Fashionpedia garments; NudeNet (the imogen NudeNet server); watermark crops (`crops.detect`,
+Places365 scenes; Fashionpedia garments; body pose from a throwaway `ghcr.io/smk762/argus-puppet:0.4.0-gpu`
+(DWPose-l and YOLOX-m, its GPU leased from argus-iris; `pose.enabled: true`, so a curator without puppet refuses the scan); NudeNet (the imogen NudeNet server); watermark crops (`crops.detect`,
 max cut 15%) with argus-retina's watermark detector 0.1.0 (the image and weights argus-cull runs); SingGuard
 (`SingGuard-4b`, the Q4_K_M GGUF through Ollama on dragon) under the `adult` policy with the `default`,
 `adult-granular`, `adult-cautious` and `adult-cinematic` variants, in cascade mode. SingGuard ran with one
@@ -117,34 +118,43 @@ What it found is what the page shows:
   error; it is the curator's real output), and the second player's, the volleyball player's and the skier's in
   one each. At 0.8 five faces in the crowd behind `handball_a/03.jpg` merge into one cluster: also real
   output. `skier/02_copy.jpg` is flagged as a near duplicate of `skier/02.jpg`.
-- **Ages.** MiVOLO reads every face as an adult, from about 21 to 52 on the photos and 24.9 and up on the
+- **Ages.** MiVOLO reads every face as an adult, from about 20.8 to 52 on the photos and 24.9 and up on the
   synthetic frames; the same person can read years apart between frames.
 - **Nudity.** NudeNet rated 21 passing frames `suggestive` (sports kit, swimwear, lingerie, evening dresses)
   and 26 safe. It found no exposed female breast, genitalia or buttocks, so no frame is blurred for nudity;
   the shirtless men's `MALE_BREAST_EXPOSED` detections are not an exposed class. Rejected frames are always
   veiled.
-- **SingGuard.** Every passing frame has a verdict under all five policies. Eleven frames are unsafe under at
+- **Body pose.** Puppet posed all 47 passing frames and found a person in each. 40 have a usable pose and are
+  clustered; 7 are `unusable` (too few confident body joints, mostly tight crops). One cluster holds 25 of the 40
+  (62.5%, medoid `D_surf_shirtless.jpg`): the synthetic frames are mostly front-facing, arms-down portraits. The
+  rest split into ten clusters of one to three frames, the skier's three among them. Puppet's stance rule needs
+  the legs, so 43 frames read `unknown` stance and 4 `standing`; arms read `down` on 30, facing `front` on 35.
+  Scan-wide pose diversity is 0.611. A selection of the whole set therefore shows a one-pose coverage warning.
+- **SingGuard.** Every passing frame has a verdict under all five policies. Twelve frames are unsafe under at
   least one, and the page veils them until you reveal them:
 
   | Frame | adult | default | adult-granular | adult-cautious | adult-cinematic |
   |---|---|---|---|---|---|
-  | `personA/A_heist_film.jpg` | B | | | B | |
-  | `personA/A_noir_detective.jpg` | | | B | B | |
-  | `personB/B_detective_film.jpg` | B | | B | B | |
+  | `personA/A_heist_film.jpg` | B | | B | B | |
+  | `personA/A_noir_detective.jpg` | | | | B | |
+  | `personB/B_detective_film.jpg` | B | | | B | |
   | `personB/B_drugdeal_film.jpg` | B | B | B | B | |
   | `personC/C_lingerie.jpg` | | A | | | |
   | `personC/C_rooftop_film.jpg` | B | | B | B | |
+  | `personC/C_spy_film.jpg` | B | | | | |
   | `personD/D_action_film.jpg` | B | | B | B | |
-  | `personD/D_hostage_film.jpg` | | C | B | | B |
+  | `personD/D_hostage_film.jpg` | | C | C | B | B |
   | `personD/D_smuggler_film.jpg` | B | B | B | B | G |
   | `personE/E_getaway_film.jpg` | | | B | B | |
   | `personE/E_heist_film.jpg` | B | | B | B | |
 
   Letters are each policy's own rule (`default`'s A is sexual content and C unethical behaviour; the `adult*`
-  policies' B is real-world crime and public safety, except `adult-cinematic`, whose B is unethical behaviour
-  and G criminal instructions). Every other frame is safe under all five, including `C_spy_film.jpg` and
-  `E_boudoir_robe.jpg`, which argus-cull's recording on curator 0.15.1 flagged: SingGuard is not
-  deterministic across runs and builds, and this is what this run said.
+  policies' B is real-world crime and public safety and `adult-granular`'s C unethical behaviour, except
+  `adult-cinematic`, whose B is unethical behaviour and G criminal instructions). Every other frame is safe under
+  all five, including `E_boudoir_robe.jpg`, which argus-cull's recording on curator 0.15.1 flagged. SingGuard is
+  not deterministic across runs and builds: against the 0.18.0 recording of 2026-11-21 on the same images and
+  server, `C_spy_film.jpg` became unsafe under `adult` and four other frames changed policies. This is what this
+  run said.
 
 ## Licences
 
