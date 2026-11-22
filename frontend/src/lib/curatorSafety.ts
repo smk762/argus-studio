@@ -143,8 +143,9 @@ export function thumbSafety(img: ImageResult, nsfwRan: boolean, pending: readonl
     if (exposedReading(img) >= MINOR_EXPOSED_SCORE) {
       return held("Stays blurred", "Exposure is in, and the ages are still coming.");
     }
-    // An under-18 age would hold this frame for good, so it can't be revealed before the ages land.
-    if (img.nudenet_failed || (nsfwRan && img.nsfw == null)) {
+    // An under-18 age would hold this frame for good, so it can't be shown before the ages land. That holds
+    // on a scan that never ran NudeNet too: isMinorUnscored blocks such a frame from export either way.
+    if (img.nudenet_failed || img.nsfw == null) {
       return held("Stays blurred", "Nudity was not scored, and the ages are still coming.");
     }
   }
@@ -158,10 +159,12 @@ export function thumbSafety(img: ImageResult, nsfwRan: boolean, pending: readonl
     return veiled("NudeNet failed", "NudeNet's check failed, so this stays blurred until you reveal it.");
   }
   if (img.nsfw == null) {
-    if (!nsfwRan) return clearUnlessFlagged(img);
-    if (mivoloAges(img).some((age) => age < MINOR_AGE_YEARS)) {
+    // Before the no-NudeNet early return: a scan that skipped NudeNet has no score to clear an under-18 face
+    // either, and isMinorUnscored keeps the frame out of every export.
+    if (isMinorUnscored(img)) {
       return held("Stays blurred", "An under-18 face has no nudity score, so this stays blurred.");
     }
+    if (!nsfwRan) return clearUnlessFlagged(img);
     return veiled("Not checked", "Nudity was not scored, so this stays blurred until you reveal it.");
   }
   if (exposedReading(img) >= BLUR_EXPOSED_SCORE) {

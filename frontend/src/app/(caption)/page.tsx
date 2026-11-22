@@ -374,6 +374,9 @@ export default function Home() {
 
   const runUpload = async (files: File[] = uploadFiles) => {
     if (files.length === 0) return;
+    // Like the other runs: a result or error lands only in the tab the run started in (recaptionLast reuses this).
+    const run = ++batchRun.current;
+    const runMode = modeRef.current;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -390,8 +393,11 @@ export default function Home() {
           ...hybridRequestFields(hybrid),
           ...backendField(captionBackend, backendInfo),
         },
-        (_row, done) => setProgress({ done, total: files.length }),
+        (_row, done) => {
+          if (!isStale(run, runMode)) setProgress({ done, total: files.length });
+        },
       );
+      if (isStale(run, runMode)) return;
       if (rows.length === 0 && errors.length > 0) {
         setError(errors.length === 1 ? errors[0].error : `${errors.length} images failed: ${errors[0].error}`);
       } else if (rows.length === 1 && files.length === 1) {
@@ -424,6 +430,7 @@ export default function Home() {
         setBatchSource(`${files.length} uploaded file(s)`);
       }
     } catch (err) {
+      if (isStale(run, runMode)) return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);

@@ -403,3 +403,18 @@ export async function fetchSlice(
   if (!summary) throw new Error("Fetch stream ended without a result");
   return summary;
 }
+
+/** Most rows one match-set slice asks for. */
+export const SLICE_MAX = 5000;
+
+/**
+ * The "Max images" field as the slice limit quarry gets: a whole number, capped at {@link SLICE_MAX}, or null when
+ * the field is empty, not a positive whole number ("150.5", "abc", "0"), so the form treats it as invalid rather
+ * than sending a fraction as a LIMIT.
+ */
+export function sliceLimit(raw: string): number | null {
+  const text = raw.trim();
+  if (!/^\d+$/.test(text)) return null;
+  const n = Number(text);
+  return n >= 1 ? Math.min(n, SLICE_MAX) : null;
+}

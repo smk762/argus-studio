@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { applyEdits, type EvalReport, type HitlEdit, type ImageScores } from "@/lib/proofApi";
-import {
+import { refinementSaveVia,
   applyRefinement,
   passingSubset,
   refinedRanking,
@@ -110,5 +110,20 @@ describe("a review that fails a refined image", () => {
     expect(applyEdits(r, fail, null).images[0].refinement).toBeNull();
     const pass = new Map<string, HitlEdit>([["a", { hitl_rating: 5, reject_reasons: [] }]]);
     expect(applyEdits(r, pass, null).images[0].refinement).toEqual({ rank: 4, notes: null, rater: null });
+  });
+});
+
+// Audit pack-argus-studio-81e5e8aca4: the label and the save must pick the same path.
+describe("refinementSaveVia", () => {
+  it("applies locally whenever the panel isn't live, whatever a stale capability says", () => {
+    expect(refinementSaveVia(false, true)).toBe("local");
+    expect(refinementSaveVia(false, false)).toBe("local");
+    expect(refinementSaveVia(false, null)).toBe("local");
+  });
+
+  it("posts only to a live host that permits writes", () => {
+    expect(refinementSaveVia(true, true)).toBe("server");
+    expect(refinementSaveVia(true, false)).toBeNull();
+    expect(refinementSaveVia(true, null)).toBeNull();
   });
 });

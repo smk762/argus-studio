@@ -96,6 +96,14 @@ describe("not measured", () => {
     const all = [posed(0), posed(1)];
     expect(notMeasuredLine(bodyPoseCoverage(scan(all), all)!, 2)).toBeNull();
   });
+
+  // Audit pack-argus-studio-0648121658: the parts must add up to the total.
+  it("counts a pose_check a newer curator adds as failed, never under no reason", () => {
+    const rows = [posed(0), row({ pose_check: "occluded" as never })];
+    const c = bodyPoseCoverage(scan(rows), rows)!;
+    expect(c.notMeasured).toEqual({ total: 1, unusable: 0, noPerson: 0, failed: 1, unchecked: 0 });
+    expect(notMeasuredLine(c, 2)).toBe("1 of 2 not measured: 1 failed");
+  });
 });
 
 describe("topPoseCluster", () => {

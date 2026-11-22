@@ -141,7 +141,9 @@ export function bodyPoseCoverage(summary: ScanSummary, rows: readonly ImageResul
   for (const r of rows) {
     if (r.pose_check === "ok") continue;
     notMeasured.total += 1;
-    notMeasured[r.pose_check == null ? "unchecked" : reasons[r.pose_check]] += 1;
+    // A value a newer curator adds still counts under a reason, so the parts add up to the total.
+    const reason: string | null | undefined = r.pose_check;
+    notMeasured[reason == null ? "unchecked" : (reasons[reason as keyof typeof reasons] ?? "failed")] += 1;
   }
   const clustered = rows.filter((r) => r.pose_cluster != null).length;
   const top = topPoseCluster(summary, rows);

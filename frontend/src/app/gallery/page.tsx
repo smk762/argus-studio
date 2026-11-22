@@ -110,6 +110,8 @@ export default function GalleryPage() {
       setChecking(false);
       if (health.status === "fulfilled") {
         const state = ready.status === "fulfilled" ? ready.value : "unknown";
+        // A failed check earlier (quarry briefly busy or restarting) must not outlast quarry answering again.
+        setUnreachable(false);
         setVersion(health.value.version);
         setReadiness(state);
         setStats(s.status === "fulfilled" ? s.value : null);
@@ -232,6 +234,17 @@ export default function GalleryPage() {
               It serves read-only provenance for everything quarry has acquired — subjects, licences, sources, and
               per-image attribution.
             </p>
+            <button
+              type="button"
+              disabled={checking}
+              onClick={() => {
+                setChecking(true);
+                setPoolVersion((v) => v + 1);
+              }}
+              className="cursor-pointer rounded-lg border border-border bg-surface px-4 py-2 text-sm text-foreground hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {checking ? "Checking…" : "Check again"}
+            </button>
           </div>
         ) : (
           <div className="space-y-6">

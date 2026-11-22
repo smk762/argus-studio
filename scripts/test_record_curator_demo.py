@@ -61,3 +61,36 @@ def test_success_replaces_the_thumbs(tmp_path: Path) -> None:
     assert dims == {"a.jpg": (10, 20), "sub/b.jpg": (10, 20)}
     assert sorted(str(p.relative_to(tmp_path / "thumbs")) for p in (tmp_path / "thumbs").rglob("*.webp")) == ["a.webp", "sub/b.webp"]
     assert [p.name for p in tmp_path.iterdir()] == ["thumbs"]
+
+
+# Audit pack-argus-studio-a521955191: the swap never leaves no thumbs/, or half of one.
+def test_failed_install_puts_the_old_thumbs_back(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    old = old_bundle(tmp_path)
+    real_rename = Path.rename
+
+    def rename(self: Path, target):
+        if self.name.startswith(".thumbs-") and not self.name.startswith(".thumbs-old-"):
+            raise OSError("interrupted installing the new set")
+        return real_rename(self, target)
+
+    monkeypatch.setattr(Path, "rename", rename)
+    with pytest.raises(OSError):
+        rec.record_thumbs(summary("a.jpg"), tmp_path, lambda rel: webp(1, 1))
+    assert old.read_bytes() == b"old"
+    assert [p.name for p in tmp_path.iterdir()] == ["thumbs"]
+
+
+def test_failed_cleanup_keeps_the_new_thumbs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    old_bundle(tmp_path)
+    real_rmtree = rec.shutil.rmtree
+
+    def rmtree(path, ignore_errors=False, **kw):
+        if Path(path).name.startswith(".thumbs-old-"):
+            if not ignore_errors:
+                raise OSError("a file held open")
+            return None
+        return real_rmtree(path, ignore_errors=ignore_errors, **kw)
+
+    monkeypatch.setattr(rec.shutil, "rmtree", rmtree)
+    rec.record_thumbs(summary("a.jpg"), tmp_path, lambda rel: webp(1, 1))
+    assert sorted(p.name for p in (tmp_path / "thumbs").iterdir()) == ["a.webp"]

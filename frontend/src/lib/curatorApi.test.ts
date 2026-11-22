@@ -117,6 +117,17 @@ describe("normalizeExportResult", () => {
     expect(n.manifestGap).toMatch(/manifest 3\.0/);
     expect(n.exported_paths).toEqual({});
   });
+
+  // Audit pack-argus-studio-4193b5ec2c: only an omitted version is legacy, as speaksSupportedManifest rules.
+  it.each(["v2", "02.1", "garbage", ""])("refuses a declared but malformed version %j even with paths", (v) => {
+    const n = normalizeExportResult(result({ manifest_version: v, exported_paths: { "x.jpg": "x.jpg" } }));
+    expect(n.manifestGap).toMatch(/neither this app nor argus-forge can read/);
+    expect(n.exported_paths).toEqual({});
+  });
+
+  it("still takes an omitted or null version as 2.0 by its paths", () => {
+    expect(normalizeExportResult(result({ manifest_version: null as never, exported_paths: { "x.jpg": "x.jpg" } })).manifestGap).toBeNull();
+  });
 });
 
 describe("exported locators", () => {

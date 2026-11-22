@@ -55,15 +55,18 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
   }, {});
   const hasPoses = Object.keys(poseCounts).length > 0;
 
+  const garmentFloor = summary.garments_config?.min_conf ?? 0;
+  // Counted at the confidence the sliders show: the garment slider never reads below the scan's floor.
+  const garmentConf = Math.max(filters.minGarmentConf, garmentFloor);
   const counts = useMemo(
-    () => facetCounts(summary.results, filters.minSceneConf, filters.minGarmentConf, filters.minAttributeConf),
-    [summary.results, filters.minSceneConf, filters.minGarmentConf, filters.minAttributeConf],
+    () => facetCounts(summary.results, filters.minSceneConf, garmentConf, filters.minAttributeConf),
+    [summary.results, filters.minSceneConf, garmentConf, filters.minAttributeConf],
   );
-  const recorded = useMemo(() => facetCounts(summary.results, 0, 0), [summary.results]);
+  // Everything recorded, at no threshold: only decides whether a group is shown at all.
+  const recorded = useMemo(() => facetCounts(summary.results, 0, 0, 0), [summary.results]);
   const hasAttributes = recorded.races.size + recorded.genders.size + recorded.ages.size + recorded.yearsKnown > 0;
   const hasScenes = recorded.scenes.size + recorded.environments.size > 0;
   const hasGarments = recorded.garments.size > 0;
-  const garmentFloor = summary.garments_config?.min_conf ?? 0;
   const ratings = useMemo(() => ratingCounts(summary.results), [summary.results]);
   const nsfwRan = scanCheckedNsfw(summary);
   const official = summary.guard_config?.policy ?? null;
@@ -199,19 +202,19 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
           <Chips
             options={FACE_GENDERS}
             selected={filters.faceGenders}
-            count={(v) => recorded.genders.get(v) ?? 0}
+            count={(v) => counts.genders.get(v) ?? 0}
             onToggle={(v) => set({ faceGenders: flip(filters.faceGenders, v) })}
           />
           <Chips
             options={FACE_AGES}
             selected={filters.faceAges}
-            count={(v) => recorded.ages.get(v) ?? 0}
+            count={(v) => counts.ages.get(v) ?? 0}
             onToggle={(v) => set({ faceAges: flip(filters.faceAges, v) })}
           />
           <Chips
             options={FACE_RACES}
             selected={filters.faceRaces}
-            count={(v) => recorded.races.get(v) ?? 0}
+            count={(v) => counts.races.get(v) ?? 0}
             onToggle={(v) => set({ faceRaces: flip(filters.faceRaces, v) })}
           />
           {recorded.yearsKnown > 0 && (
@@ -273,7 +276,7 @@ export function FacetRail({ summary, filters, onChange, visibleCount, pending = 
           />
           <ConfSlider
             label="Garment confidence"
-            value={Math.max(filters.minGarmentConf, garmentFloor)}
+            value={garmentConf}
             min={garmentFloor}
             onChange={(v) => set({ minGarmentConf: v })}
           />

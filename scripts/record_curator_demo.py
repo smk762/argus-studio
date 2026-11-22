@@ -125,9 +125,20 @@ def record_thumbs(summary: dict, out: Path, fetch) -> dict[str, tuple[int, int]]
     try:
         dims = fetch_thumbs(summary, staging, fetch)
         thumbs = out / "thumbs"
+        # Move the old set aside rather than delete it first: an interruption or a failed delete then leaves a
+        # whole set in place (the old one until the new one is renamed in), never none or half of one.
+        old = Path(tempfile.mkdtemp(prefix=".thumbs-old-", dir=out))
+        old.rmdir()
         if thumbs.exists():
-            shutil.rmtree(thumbs)
-        staging.rename(thumbs)
+            thumbs.rename(old)
+        try:
+            staging.rename(thumbs)
+        except BaseException:
+            if old.exists() and not thumbs.exists():
+                old.rename(thumbs)
+            raise
+        if old.exists():
+            shutil.rmtree(old, ignore_errors=True)
         return dims
     finally:
         if staging.exists():

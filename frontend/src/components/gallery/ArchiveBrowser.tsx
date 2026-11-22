@@ -10,6 +10,7 @@ import {
   listArchives,
   planSlice,
   searchArchive,
+  sliceLimit,
   type ArchiveFacets,
   type ArchiveItem,
   type ArchiveListing,
@@ -97,8 +98,6 @@ function toQuery(f: Form): ArchiveQuery {
  * hands over the `slice.json` and the CLI command that lands it.
  */
 
-/** Most rows one match-set slice asks for: target() clamps the limit to it, and the count shown uses it too. */
-const SLICE_MAX = 5000;
 export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
   const [listing, setListing] = useState<ArchiveListing | null>(null);
   const [archive, setArchive] = useState<string>("");
@@ -170,6 +169,8 @@ export function ArchiveBrowser({ onLanded }: { onLanded?: () => void }) {
       setForm(EMPTY_FORM);
       setQuery(toQuery(EMPTY_FORM));
       setSelected(new Set());
+      // The old archive's collections and licences must not sit under the new one's labels while its own loads.
+      setFacets(null);
       try {
         setFacets(await getArchiveFacets(archive, ctrl.signal));
       } catch {
@@ -510,8 +511,9 @@ function SliceBar({
 
   const useSelection = selected.length > 0;
   const sliceQuery = useMemo<ArchiveQuery>(() => (useSelection ? { ...query, ids: selected } : query), [query, selected, useSelection]);
-  // The count shown is the count fetched: the same 5000 cap target() sends.
-  const n = useSelection ? selected.length : Math.min(total, Number(limit) || 0, SLICE_MAX);
+  // The count shown is the count fetched: the same whole, capped limit target() sends (sliceLimit).
+  const max = sliceLimit(limit);
+  const n = useSelection ? selected.length : Math.min(total, max ?? 0);
   const ready = subject.trim() !== "" && n > 0;
   const planKey = JSON.stringify([archive, sliceQuery, category, subject.trim(), limit]);
   const plan = saved?.key === planKey ? saved.plan : null;
@@ -519,7 +521,8 @@ function SliceBar({
   const target = () => ({
     category,
     subject: subject.trim(),
-    limit: useSelection ? selected.length : Math.max(1, Math.min(Number(limit) || 100, SLICE_MAX)),
+    // `ready` keeps an invalid limit from getting here.
+    limit: useSelection ? selected.length : (max ?? 1),
   });
 
   const save = async () => {

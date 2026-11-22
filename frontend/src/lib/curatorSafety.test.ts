@@ -151,8 +151,7 @@ describe("thumbSafety", () => {
     expect(thumbSafety(unscored, true)).toMatchObject({ revealable: true, label: "Not checked" });
     // A measured adult age has landed, so the usual veil applies.
     expect(thumbSafety(image({ nudenet_failed: true, primary_face_attributes: years(30) }), true, ["faces"]).revealable).toBe(true);
-    // A scan that never asked for NudeNet has no score to wait on, and a clear score needs no age.
-    expect(thumbSafety(unscored, false, ["faces"]).blurred).toBe(false);
+    // A clear score needs no age.
     expect(thumbSafety(image({ nsfw: exposed(0) }), true, ["faces"]).blurred).toBe(false);
   });
 
@@ -169,6 +168,22 @@ describe("thumbSafety", () => {
     expect(isMinorExposed(body)).toBe(true);
     const set = image({ nsfw: exposed(0.3), set_age: { years: 16 } });
     expect(isMinorExposed(set)).toBe(true);
+  });
+});
+
+// Audit pack-argus-studio-8a6b22389c: export already holds these back; display must not show them in the clear.
+describe("under-18 frames on a scan that never ran NudeNet", () => {
+  it("holds an under-18 face, as export does", () => {
+    const minor = image({ nsfw: null, primary_face_attributes: years(16) });
+    expect(thumbSafety(minor, false)).toMatchObject({ blurred: true, revealable: false, label: "Stays blurred" });
+    expect(canExport(minor)).toBe(false);
+  });
+
+  it("holds an unscored frame while its ages are still coming, then clears an adult", () => {
+    const unscored = image({ nsfw: null });
+    expect(thumbSafety(unscored, false, ["faces"])).toMatchObject({ blurred: true, revealable: false });
+    expect(thumbSafety(image({ nsfw: null, primary_face_attributes: years(30) }), false, ["faces"]).blurred).toBe(false);
+    expect(thumbSafety(unscored, false).blurred).toBe(false);
   });
 });
 
