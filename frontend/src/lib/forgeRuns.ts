@@ -3,7 +3,7 @@
  * live, how runs are ordered, and the bounded log a run's NDJSON stream builds.
  */
 
-import type { ForgeRunEvent, ForgeRunState, ForgeRunStatus } from "@/lib/forgeApi";
+import type { ForgeRunEvent, ForgeRunRequest, ForgeRunState, ForgeRunStatus } from "@/lib/forgeApi";
 
 /** Lines kept per run log: forge itself replays at most 2000 buffered events. */
 export const LOG_LIMIT = 2000;
@@ -87,4 +87,41 @@ export function startBlockedReason(opts: {
   if (!opts.runnable) return `${opts.trainerLabel} has no training script to run here; it is driven from its own UI.`;
   if (opts.active) return "A run is in progress. Wait for it to finish or cancel it first.";
   return null;
+}
+
+/**
+ * A fresh `Idempotency-Key`: a random v4 UUID. `crypto.randomUUID` exists only
+ * in a secure context, and Studio is often opened over plain HTTP on a LAN, so
+ * the same UUID is built from `getRandomValues` (available everywhere) when it
+ * is missing.
+ */
+export function newIdempotencyKey(c: Pick<Crypto, "getRandomValues"> & Partial<Pick<Crypto, "randomUUID">> = globalThis.crypto): string {
+  if (typeof c.randomUUID === "function") return c.randomUUID();
+  const bytes = c.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // RFC 4122 variant
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** One user confirmation of a training run: what it asked for and the key every send of it carries. */
+export interface RunAttempt {
+  key: string;
+  export_dir: string;
+  trainer: ForgeRunRequest["trainer"];
+}
+
+/**
+ * The attempt a press of Start sends. A resend of the same confirmation (the
+ * previous send failed or its answer was lost) reuses its key, so forge can
+ * answer with the run it already started; anything else (no attempt yet, or the
+ * form now names another export or trainer) is a new confirmation with a new key.
+ */
+export function attemptFor(
+  prev: RunAttempt | null,
+  req: ForgeRunRequest,
+  mint: () => string = newIdempotencyKey,
+): RunAttempt {
+  if (prev && prev.export_dir === req.export_dir && prev.trainer === req.trainer) return prev;
+  return { key: mint(), export_dir: req.export_dir, trainer: req.trainer };
 }

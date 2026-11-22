@@ -356,7 +356,7 @@ describe("forge, atlas and quarry writes", () => {
     routes["POST /run/r1/cancel"] = sent;
     const { startRun, cancelRun } = await import("@/lib/forgeApi");
 
-    await expect(startRun({ export_dir: "/data/out/set", trainer: "kohya" })).rejects.toThrow(/demo-safe/);
+    await expect(startRun({ export_dir: "/data/out/set", trainer: "kohya" }, "k1")).rejects.toThrow(/demo-safe/);
     await expect(cancelRun("r1")).rejects.toThrow(/demo-safe/);
     expect(calls).toEqual(["GET /health"]);
   });
@@ -369,13 +369,13 @@ describe("forge, atlas and quarry writes", () => {
     routes["POST /run"] = sent;
     const { startRun, RunInProgress } = await import("@/lib/forgeApi");
 
-    const err = await startRun({ export_dir: "/data/out/set", trainer: "kohya" }).catch((e) => e);
+    const err = await startRun({ export_dir: "/data/out/set", trainer: "kohya" }, "k1").catch((e) => e);
     expect(err).toBeInstanceOf(RunInProgress);
     expect(err.message).toContain("abcdef12");
     expect(calls).toEqual(["GET /health", "GET /runs"]);
 
     runs = [{ ...running, status: "succeeded" }];
-    await expect(startRun({ export_dir: "/data/out/set", trainer: "kohya" })).rejects.toThrow("reached the server");
+    await expect(startRun({ export_dir: "/data/out/set", trainer: "kohya" }, "k1")).rejects.toThrow("reached the server");
     expect(calls.at(-1)).toBe("POST /run");
   });
 
