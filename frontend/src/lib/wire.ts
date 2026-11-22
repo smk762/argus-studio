@@ -8,6 +8,7 @@
 
 import type {
   AttributeSource,
+  BodyPoseLabels,
   ContentRating,
   EraxResult,
   ExportMode,
@@ -21,6 +22,7 @@ import type {
   ImageResult,
   NsfwResult,
   PersonDetection,
+  PoseCheck,
   ScanSummary,
   SceneEnvironment,
   SetAge,
@@ -62,10 +64,18 @@ type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
  */
 type Fits<Model, Hand> = [Sent<Model>] extends [Hand] ? Same<keyof Model, keyof Hand> : false;
 
+/** An image scan, the only kind this app loads: `getScan` refuses one with a speech profile. */
+type ImageScan = Omit<Curator.ScanSummary, "target_profile"> & { target_profile: Curator.TargetProfile };
+
+/** Curator's two profiles field by field, which together must be cortex's one. */
+type EitherProfile = {
+  [K in keyof Cortex.TargetProfile]-?: NonNullable<(Curator.TargetProfile | Curator.SpeechTargetProfile)[K]> | Extract<Cortex.TargetProfile[K], null>;
+};
+
 export type WireChecks = [
   // Kept by hand because they tolerate more than the schema allows. See curator/types.ts.
   Expect<Fits<Curator.ImageResult, ImageResult>>,
-  Expect<Fits<Curator.ScanSummary, ScanSummary>>,
+  Expect<Fits<ImageScan, ScanSummary>>,
   Expect<Fits<Curator.GuardConfig, GuardConfig>>,
   Expect<Fits<Curator.GuardResult, GuardResult>>,
   Expect<Fits<Curator.NsfwResult, NsfwResult>>,
@@ -79,11 +89,12 @@ export type WireChecks = [
   Expect<Fits<Proof.ReportSummary, ReportSummary>>,
   Expect<Same<RunEvalProgress, Proof.RunStreamFrame>>,
 
-  // The suite's TargetProfile is cortex's, and every pinned service now takes
-  // its copy from cortex (curator from v0.15.0, forge from v0.2.0).
-  Expect<Same<TargetProfile, Required<Cortex.TargetProfile>>>,
-  Expect<Same<Curator.TargetProfile, Cortex.TargetProfile>>,
-  Expect<Same<Forge.TargetProfile, Cortex.TargetProfile>>,
+  // The suite's TargetProfile is cortex's. Curator (0.19+) splits it by modality
+  // into an image and a speech profile; this app's is the image one. Forge reads
+  // image exports only and has not taken `modality` yet.
+  Expect<Same<TargetProfile, Required<Curator.TargetProfile>>>,
+  Expect<Same<EitherProfile, Required<Cortex.TargetProfile>>>,
+  Expect<Same<Forge.TargetProfile, Omit<Curator.TargetProfile, "modality">>>,
 
   // Unions that drive runtime constants, so they stay declared next to those.
   Expect<Same<FacePose, NonNullable<Curator.FaceDetection["pose"]>>>,
@@ -94,4 +105,6 @@ export type WireChecks = [
   Expect<Same<SceneEnvironment, Curator.SceneTags["environment"]>>,
   Expect<Same<ContentRating, NonNullable<Curator.ImageResult["content_rating"]>>>,
   Expect<Same<ExportMode, NonNullable<Curator.ExportRequest["mode"]>>>,
+  Expect<Same<PoseCheck, NonNullable<Curator.ImageResult["pose_check"]>>>,
+  Expect<Same<BodyPoseLabels, Curator.BodyPoseLabels>>,
 ];

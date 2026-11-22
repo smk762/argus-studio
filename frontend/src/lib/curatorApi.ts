@@ -455,7 +455,17 @@ export async function getScan(scanId: string, limit = 10000, signal?: AbortSigna
   const params = new URLSearchParams({ limit: String(limit) });
   const resp = await fetch(`${curatorUrl()}/scan/${encodeURIComponent(scanId)}?${params.toString()}`, { signal });
   if (!resp.ok) return asError(resp);
-  return resp.json();
+  return imageScan(await resp.json(), scanId);
+}
+
+/**
+ * The scan, unless it is a speech scan (curator 0.19+): that one has clips and
+ * no image rows, and this app has no view for it.
+ */
+export function imageScan(summary: ScanSummary, scanId: string): ScanSummary {
+  const modality: string | undefined = summary.target_profile?.modality;
+  if (modality === "speech") throw new Error(`Scan ${scanId} is a speech scan, which Studio cannot show.`);
+  return summary;
 }
 
 /**

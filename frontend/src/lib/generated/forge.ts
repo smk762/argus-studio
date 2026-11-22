@@ -1,4 +1,4 @@
-// Generated from smk762/argus-forge@2415e84 (0.3.1.dev2+g2415e84) schema/forge-wire.schema.json.
+// Generated from smk762/argus-forge@19bfc51 (0.3.1.dev4+g19bfc51) schema/forge-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface ForgeWire {
@@ -9,6 +9,7 @@ export interface ForgeWire {
   InspectRequest?: InspectRequest;
   ManifestRow?: ManifestRow;
   ParamOverrides?: ParamOverrides;
+  PoseLabels?: PoseLabels;
   RunArtifact?: RunArtifact;
   RunEvent?: RunEvent;
   RunRequest?: RunRequest;
@@ -152,12 +153,26 @@ export interface ManifestRow {
   abs_path: string;
   exported_path?: string | null;
   manifest_version: string;
+  pose_cluster?: number | null;
+  pose_labels?: PoseLabels | null;
   primary_face_cluster?: string | null;
   primary_face_pose?: string | null;
   rel_path: string;
   score?: number;
   similar_group?: number;
   target_profile?: TargetProfile;
+}
+/**
+ * The primary person's coarse body-pose labels on a curator 2.7+ row (argus-puppet's rules).
+ *
+ * Plain strings, not literals: ``unknown`` is a real reading (the joints a rule
+ * needs were not confident), and a value a newer puppet adds must not make a
+ * manifest unreadable. Forge only counts these; it never re-derives them.
+ */
+export interface PoseLabels {
+  arms?: string | null;
+  facing?: string | null;
+  stance?: string | null;
 }
 /**
  * The LoRA a succeeded run left behind (``RunState.lora``, GET /run/{id}/lora).

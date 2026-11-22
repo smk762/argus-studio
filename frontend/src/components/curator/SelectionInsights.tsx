@@ -14,8 +14,6 @@ import {
   suggestTrainingParams,
   type FacePose,
   type ImageResult,
-  type PosedImageResult,
-  type PosedScanSummary,
   type ScanSummary,
 } from "./types";
 
@@ -129,7 +127,7 @@ export function SelectionInsights({ summary, selectedResults, pending = [] }: Pr
 
     // Gaps worth flagging.
     // Body pose (argus-puppet, through curator): absent unless the stage ran on this scan.
-    const body = bodyPoseCoverage(summary as PosedScanSummary, selectedResults as PosedImageResult[]);
+    const body = bodyPoseCoverage(summary, selectedResults);
 
     const gaps: Gap[] = [];
     const gap = (text: string) => gaps.push({ text });

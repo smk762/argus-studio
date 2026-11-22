@@ -330,7 +330,7 @@ npx serve out               # or any static file server, to preview
 ```
 
 Every page renders from bundled recorded output and says so: `/` replays one
-real argus-lens caption run, `/curate` replays a recorded argus-curator 0.18.0
+real argus-lens caption run, `/curate` replays a recorded argus-curator 0.20.0
 scan of 50 images (14 CC0 sports photos from PD12M, fetched through
 argus-quarry, and 36 of argus-cull's synthetic demo frames), built by
 `scripts/make_curator_sample.py` (`public/curator-sample/`, written by

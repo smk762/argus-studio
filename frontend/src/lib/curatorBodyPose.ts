@@ -13,8 +13,8 @@ import {
   BODY_STANCES,
   type BodyPoseLabels,
   type PoseCheck,
-  type PosedImageResult,
-  type PosedScanSummary,
+  type ImageResult,
+  type ScanSummary,
 } from "@/components/curator/types";
 
 /*
@@ -77,12 +77,12 @@ const NAMES: Record<string, string> = {
 };
 
 /** The stage ran on this scan and checked at least one row. Without it the panel shows no body-pose block. */
-export function hasPoseData(summary: PosedScanSummary): boolean {
+export function hasPoseData(summary: ScanSummary): boolean {
   const ran = summary.pose != null || summary.pose_config?.enabled === true;
-  return ran && (summary.results as PosedImageResult[]).some((r) => r.pose_check != null);
+  return ran && summary.results.some((r) => r.pose_check != null);
 }
 
-function buckets(rows: readonly PosedImageResult[], axis: keyof BodyPoseLabels, order: readonly string[]): PoseBucket[] {
+function buckets(rows: readonly ImageResult[], axis: keyof BodyPoseLabels, order: readonly string[]): PoseBucket[] {
   const counts = new Map<string, number>(order.map((k) => [k, 0]));
   for (const r of rows) {
     const value = r.pose_labels?.[axis];
@@ -102,7 +102,7 @@ function rank(key: string, order: readonly string[]): number {
 }
 
 /** The selection's largest scan-level cluster, null clusters left out. Ties go to the lower id (the larger scan cluster). */
-export function topPoseCluster(summary: PosedScanSummary, rows: readonly PosedImageResult[]): TopPoseCluster | null {
+export function topPoseCluster(summary: ScanSummary, rows: readonly ImageResult[]): TopPoseCluster | null {
   const clusters = summary.pose?.clusters ?? [];
   if (clusters.length === 0) return null;
   const counts = new Map<number, number>();
@@ -130,7 +130,7 @@ export function poseDominance(share: number, clustered: number): PoseDominance {
 }
 
 /** Null when the scan has no pose data ({@link hasPoseData}), so the block is left out. */
-export function bodyPoseCoverage(summary: PosedScanSummary, rows: readonly PosedImageResult[]): BodyPoseCoverage | null {
+export function bodyPoseCoverage(summary: ScanSummary, rows: readonly ImageResult[]): BodyPoseCoverage | null {
   if (!hasPoseData(summary)) return null;
   const notMeasured = { total: 0, unusable: 0, noPerson: 0, failed: 0, unchecked: 0 };
   const reasons: Record<Exclude<PoseCheck, "ok">, keyof typeof notMeasured> = {

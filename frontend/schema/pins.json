@@ -2,39 +2,39 @@
   "cortex": {
     "repo": "smk762/argus-cortex",
     "branch": "dev",
-    "commit": "281bfe97e832fdcf592279fd2b0f0825d83f4b7a",
-    "version": "0.10.1.dev54+g281bfe9",
+    "commit": "873eb7742a120e4ac072b964a2b7b536922b17d0",
+    "version": "0.13.1.dev22+g873eb77",
     "path": "taxonomy-schema.json",
-    "sha256": "41360429bb7542230bb4e64ad3f94043b521a2eebcdb4b2e723e5fdaab861966"
+    "sha256": "b3e710dd87e6bc07272e13302136b89f6b21b03422641629d8264a6646dfe630"
   },
   "curator": {
     "repo": "smk762/argus-curator",
     "branch": "dev",
-    "commit": "b94d89b0c7078602ced43b2bfe6592e299dfe93a",
-    "version": "0.18.0",
-    "sha256": "27afffccb04f12167f1629acae3b6c211988640555256dbaf9428a8970a5ec75"
+    "commit": "1d04173c6e8a1a30bdf4e0991c3aa87ce50e17b9",
+    "version": "0.20.0",
+    "sha256": "9ed682727695367d704a6c21f2403903fa83d9a2033f7d0280eed1086bbb704f"
   },
   "forge": {
     "repo": "smk762/argus-forge",
     "branch": "dev",
-    "commit": "2415e84c778109700d53599f669bcdf901ff59d2",
-    "version": "0.3.1.dev2+g2415e84",
-    "sha256": "596f19381673160a2427c0ccfce514f699ee3f9e9cef95cee9413e79b8f4ca4e"
+    "commit": "19bfc518dd5a9b404ee3160f2ba4379245ddac44",
+    "version": "0.3.1.dev4+g19bfc51",
+    "sha256": "cdb376390a523a6441ad40d929c91032c4f176cc4ae1f09bf9d8d39b7b37af83"
   },
   "proof": {
     "repo": "smk762/argus-proof",
     "branch": "dev",
-    "commit": "3773d89214ee750befb24c5b37d0997c04859cd4",
-    "version": "0.5.2",
-    "sha256": "af8741ed1ff62ca274f12502ddeabc696869680c167034215b1c438631da0719"
+    "commit": "b8b5c0df7cbe17505d77e0434786b453ec7c8c12",
+    "version": "0.5.3.dev10+gb8b5c0d",
+    "sha256": "14fed67b4f3d6f0d962868849d33e4e58bd9ba6bd4c8898abdc1923a4bc72251"
   },
   "forge-parity": {
     "repo": "smk762/argus-forge",
     "branch": "dev",
     "kind": "fixture",
     "path": "schema/forge-parity.json",
-    "commit": "2415e84c778109700d53599f669bcdf901ff59d2",
-    "version": "0.3.1.dev2+g2415e84",
+    "commit": "19bfc518dd5a9b404ee3160f2ba4379245ddac44",
+    "version": "0.3.1.dev4+g19bfc51",
     "sha256": "f56517f899f0ce669eb1ad6d064d19e5dd6b233b4f864b900c4d79e55d0485ac"
   }
 }

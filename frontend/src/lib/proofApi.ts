@@ -56,6 +56,8 @@ export interface EvalReport {
   created_at: string | null;
   /** The gate the report was scored with (proof wire 1.9); older reports omit it. */
   gate?: Wire.GateConfig | null;
+  /** Body-pose diversity and the comparison with the training poses (proof 0.5.3); null or absent when not scored. Not shown yet (#281). */
+  pose?: Wire.PoseReport | null;
 }
 
 /**

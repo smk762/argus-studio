@@ -1,4 +1,4 @@
-// Generated from smk762/argus-cortex@281bfe9 (0.10.1.dev54+g281bfe9) taxonomy-schema.json.
+// Generated from smk762/argus-cortex@873eb77 (0.13.1.dev22+g873eb77) taxonomy-schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface CortexWire {
@@ -10,10 +10,21 @@ export interface CortexWire {
  * Inherited unchanged from stage to stage (curator → lens → forge → proof) so
  * a decision made once at curation time is honoured everywhere downstream; no
  * stage remaps the taxonomy.
+ *
+ * ``modality`` defaults to ``image``, so a profile without it reads exactly as
+ * before. A ``speech`` profile pairs with a :data:`SpeechCategory` (default
+ * ``voice``) and an image profile with a :data:`TargetCategory`; a mismatch is
+ * refused. For speech, ``target_backend`` names a TTS model family
+ * (``qwen3-tts``, ``xtts-v2``) and defaults to ``None`` rather than ``sdxl``,
+ * and ``target_style`` is ignored. Per-clip language and accent labels belong
+ * in the stage's manifest rows, not here.
  */
 export interface TargetProfile {
   checkpoint?: string | null;
+  modality?: "image" | "speech";
   target_backend?: string | null;
-  target_category?: "identity" | "wardrobe" | "pose_composition" | "setting" | "concept";
+  target_category?:
+    | ("identity" | "wardrobe" | "pose_composition" | "setting" | "concept")
+    | ("voice" | "accent" | "language" | "speaking_style");
   target_style?: "photo" | "anime";
 }

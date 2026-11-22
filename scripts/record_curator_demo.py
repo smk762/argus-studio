@@ -2,14 +2,14 @@
 
 Point it at a running argus-curator whose image mount holds the sample set
 (see frontend/public/curator-sample/PROVENANCE.md), e.g. a throwaway
-`ghcr.io/smk762/argus-curator:0.15.0-gpu` container with the set mounted at
-/data/images:
+`ghcr.io/smk762/argus-curator:0.20.0-gpu` container with the set mounted at
+/data/images and ARGUS_CURATOR_PUPPET_URL naming an argus-puppet server:
 
     python3 scripts/record_curator_demo.py --curator http://127.0.0.1:8100 --folder /data/images
 
 It sends POST /scan/folder with the scan options below (faces + MiVOLO at a
 0.8 clustering distance, Places365 scenes, Fashionpedia garments, NudeNet,
-watermark crops, SingGuard under the adult policy with the default,
+watermark crops, body pose from argus-puppet, SingGuard under the adult policy with the default,
 adult-granular, adult-cautious and adult-cinematic variants), saves the ScanSummary verbatim as
 scan.json, fetches every result's GET /thumb (the curator's own WebP
 thumbnail) into thumbs/<rel_path>.webp, records the curator's GET /health
@@ -44,6 +44,8 @@ SCAN_OPTIONS = {
     "garments": {"enabled": True, "min_conf": 0.3},
     "nsfw": {"enabled": True},
     "crops": {"enabled": True, "sidecars": True, "boxes": {}, "detect": True, "min_conf": 0.4, "max_cut": 0.15, "margin": 4, "reject_overlay": True},
+    # Required, not left to the server: a curator without ARGUS_CURATOR_PUPPET_URL refuses the scan (400).
+    "pose": {"enabled": True},
     "guard": {
         "enabled": True,
         "policy": "adult",
