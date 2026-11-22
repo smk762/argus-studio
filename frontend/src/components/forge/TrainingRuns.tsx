@@ -215,6 +215,8 @@ export function TrainingRuns({
         setConflict(true);
       } else if (caught instanceof RunInProgress) {
         // Possibly this confirmation's own run, started by a send whose answer was lost: show it.
+        // Its key stays: forge's own `run_active` refusal (RunActiveRefused) records no key, so
+        // pressing Retry once that run ends sends this confirmation again and starts it.
         setChosen(caught.runId);
         pinned.current = true;
         void refresh();
