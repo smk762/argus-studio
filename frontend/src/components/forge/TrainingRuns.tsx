@@ -6,6 +6,8 @@ import { permits, type Capability } from "@/lib/capabilities";
 import {
   cancelRun,
   listRuns,
+  RunInProgress,
+  RunKeyConflict,
   startRun,
   streamRun,
   TRAINER_LABELS,
@@ -15,6 +17,7 @@ import {
 } from "@/lib/forgeApi";
 import {
   activeRun,
+  attemptFor,
   defaultRun,
   eventLine,
   LOG_LIMIT,
@@ -22,6 +25,7 @@ import {
   RUN_STATUS_LABEL,
   runDuration,
   startBlockedReason,
+  type RunAttempt,
 } from "@/lib/forgeRuns";
 
 /** How often the run list refreshes, for runs started from the CLI or another tab. */
@@ -76,6 +80,13 @@ export function TrainingRuns({
   const [pending, setPending] = useState<Pending>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The open Start confirmation's Idempotency-Key, minted on its first send and
+  // reused by every resend of it; cleared when the confirmation ends (started,
+  // dismissed, or refused with a 409). Component state only: nothing in /forge
+  // survives a page load, so neither does a key.
+  const [attempt, setAttempt] = useState<RunAttempt | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const canTrain = permits(training);
@@ -176,9 +187,16 @@ export function TrainingRuns({
     if (!pending) return;
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       if (pending.kind === "start") {
-        const started = await startRun({ export_dir: exportDir, trainer });
+        const req = { export_dir: exportDir, trainer };
+        const sending = attemptFor(attempt, req);
+        setAttempt(sending);
+        setConflict(false);
+        const { run: started, replayed } = await startRun(req, sending.key);
+        setAttempt(null);
+        if (replayed) setNotice(`Already started: run ${started.run_id.slice(0, 8)} came from an earlier send of this request.`);
         // List the new run at once, so the selection (and its log stream) moves
         // straight to it rather than reopening another run's log until the
         // refresh below lands.
@@ -191,10 +209,34 @@ export function TrainingRuns({
       setPending(null);
       await refresh();
     } catch (caught) {
+      if (caught instanceof RunKeyConflict) {
+        // Forge refused the key: the next press is a deliberate new run, so it mints a new one.
+        setAttempt(null);
+        setConflict(true);
+      } else if (caught instanceof RunInProgress) {
+        // Possibly this confirmation's own run, started by a send whose answer was lost: show it.
+        setChosen(caught.runId);
+        pinned.current = true;
+        void refresh();
+      }
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setBusy(false);
     }
+  };
+
+  // A new confirmation starts with no key; its first send mints one.
+  const openStart = () => {
+    setAttempt(null);
+    setConflict(false);
+    setError(null);
+    setNotice(null);
+    setPending({ kind: "start" });
+  };
+  const dismissStart = () => {
+    setAttempt(null);
+    setConflict(false);
+    setPending(null);
   };
 
   return (
@@ -210,16 +252,16 @@ export function TrainingRuns({
               </p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => void confirm()} disabled={busy} className={PRIMARY}>
-                  {busy ? "Starting…" : "Start training"}
+                  {busy ? "Starting…" : conflict ? "Start a new run" : attempt ? "Retry" : "Start training"}
                 </button>
-                <button type="button" onClick={() => setPending(null)} disabled={busy} className={PLAIN} autoFocus>
+                <button type="button" onClick={dismissStart} disabled={busy} className={PLAIN} autoFocus>
                   Not now
                 </button>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
-              <button type="button" onClick={() => setPending({ kind: "start" })} disabled={blocked !== null || busy} className={PRIMARY}>
+              <button type="button" onClick={openStart} disabled={blocked !== null || busy} className={PRIMARY}>
                 Train with {TRAINER_LABELS[trainer]}
               </button>
               <span className="text-[11px] text-muted">
@@ -231,6 +273,11 @@ export function TrainingRuns({
       )}
 
       {error && <CapabilityNotice reason={error} />}
+      {notice && (
+        <p role="status" className="text-xs text-muted">
+          {notice}
+        </p>
+      )}
       {listError && <CapabilityNotice reason={`Couldn't list runs: ${listError}`} />}
 
       {/* Runs */}

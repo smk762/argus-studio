@@ -11,7 +11,7 @@ import type { TargetProfile } from "@/components/curator/types";
 import { forgeUrl } from "@/lib/curatorEnv";
 import type * as Wire from "@/lib/generated/forge";
 import type { Filled } from "@/lib/wire";
-import { asError } from "@/lib/apiError";
+import { ApiError, asError, readError } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import { readNdjson } from "@/lib/lensApi";
 
@@ -215,24 +215,66 @@ export class RunInProgress extends Error {
   }
 }
 
+/** Request header that makes a retried `POST /run` return the run it already started (argus-forge#61). */
+export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+/** Response header forge sets to `true` when a `POST /run` returned an earlier request's run. */
+export const REPLAYED_HEADER = "Idempotent-Replayed";
+
+/** What {@link startRun} got back: the run, and whether forge replayed an earlier request's run. */
+export interface StartedRun {
+  run: ForgeRunState;
+  /** True when forge answered with the run an earlier request carrying the same key started. */
+  replayed: boolean;
+}
+
+/**
+ * Raised by {@link startRun} on a 409: forge has seen this `Idempotency-Key`
+ * with a different request, or no longer retains the run it started. Nothing
+ * was started; a deliberate new run needs a new key.
+ */
+export class RunKeyConflict extends ApiError {
+  constructor(readonly detail: string) {
+    super(
+      "Nothing started: this request matched an earlier one sent with different settings, or one this forge no longer remembers. Start a new run to send it afresh.",
+      409,
+    );
+    this.name = "RunKeyConflict";
+  }
+}
+
 /**
  * Start training on a written config (POST /run). Gated on `/health.training`
  * like a writing {@link forgeConfig}, and refused while another run is going:
  * forge itself starts every request it gets, and two trainings on one GPU
  * would fight for its memory.
+ *
+ * `idempotencyKey` is minted once per user confirmation and sent again on any
+ * resend of it (see `attemptFor` in `forgeRuns.ts`): a forge with argus-forge#61
+ * answers a repeat with the run the first request started (`replayed`) instead
+ * of starting a second one. A forge without it ignores the header.
  */
-export async function startRun(req: ForgeRunRequest, signal?: AbortSignal): Promise<ForgeRunState> {
+export async function startRun(req: ForgeRunRequest, idempotencyKey: string, signal?: AbortSignal): Promise<StartedRun> {
   await requireCapability(forgeHealth, allowsTraining, DEMO_SAFE_RUN, signal);
+  // The pre-check catches the common case (a run already going, from here, the
+  // CLI or another tab) before anything is sent. It is check-then-act, so two
+  // requests can both pass it; the key is what makes a resend of one
+  // confirmation (a lost 202, a retry after a timeout) start nothing new. Two
+  // separate confirmations carry two keys and are two runs to forge: only the
+  // pre-check stands between them.
   const running = (await listRuns(signal)).find((run) => run.status === "running");
   if (running) throw new RunInProgress(running.run_id);
   const resp = await fetch(`${forgeUrl()}/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", [IDEMPOTENCY_KEY_HEADER]: idempotencyKey },
     body: JSON.stringify({ export_dir: req.export_dir, trainer: req.trainer }),
     signal,
   });
+  if (resp.status === 409) throw new RunKeyConflict(await readError(resp));
   if (!resp.ok) return asError(resp);
-  return normalizeRun(await resp.json());
+  return {
+    run: normalizeRun(await resp.json()),
+    replayed: resp.headers.get(REPLAYED_HEADER)?.trim().toLowerCase() === "true",
+  };
 }
 
 /** Cancel a run (POST /run/{id}/cancel); forge kills its process group and answers once it is gone. */

@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { ForgeRunState } from "@/lib/forgeApi";
-import { activeRun, appendLog, defaultRun, eventLine, newestFirst, runDuration, startBlockedReason } from "@/lib/forgeRuns";
+import {
+  activeRun,
+  appendLog,
+  attemptFor,
+  defaultRun,
+  eventLine,
+  newIdempotencyKey,
+  newestFirst,
+  runDuration,
+  startBlockedReason,
+} from "@/lib/forgeRuns";
 
 const run = (id: string, started_at: string, status: ForgeRunState["status"] = "succeeded"): ForgeRunState => ({
   run_id: id,
@@ -87,5 +97,42 @@ describe("startBlockedReason", () => {
     expect(startBlockedReason({ ...ok, atRoot: true })).toMatch(/root/);
     expect(startBlockedReason({ ...ok, runnable: false, trainerLabel: "OneTrainer" })).toMatch(/OneTrainer/);
     expect(startBlockedReason({ ...ok, active: run("b", "2026-11-15T11:00:00Z", "running") })).toMatch(/in progress/);
+  });
+});
+
+describe("Idempotency-Key per confirmation", () => {
+  const req = { export_dir: "/data/out/set", trainer: "kohya" as const };
+  const counter = () => {
+    let n = 0;
+    return () => `key-${++n}`;
+  };
+
+  it("mints a key on a confirmation's first send and reuses it for every resend", () => {
+    const mint = counter();
+    const first = attemptFor(null, req, mint);
+    expect(first.key).toBe("key-1");
+    const retry = attemptFor(first, req, mint);
+    expect(retry).toBe(first);
+    expect(attemptFor(retry, { ...req }, mint).key).toBe("key-1");
+  });
+
+  it("a new confirmation, or new parameters, gets a new key", () => {
+    const mint = counter();
+    const first = attemptFor(null, req, mint);
+    expect(attemptFor(null, req, mint).key).toBe("key-2");
+    expect(attemptFor(first, { ...req, export_dir: "/data/out/other" }, mint).key).toBe("key-3");
+    expect(attemptFor(first, { ...req, trainer: "onetrainer" }, mint).key).toBe("key-4");
+  });
+
+  it("keys are random v4 UUIDs, from getRandomValues where randomUUID is missing (plain HTTP)", () => {
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    expect(newIdempotencyKey()).toMatch(uuid);
+    const insecure: Pick<Crypto, "getRandomValues"> = { getRandomValues: globalThis.crypto.getRandomValues.bind(globalThis.crypto) };
+    const a = newIdempotencyKey(insecure);
+    const b = newIdempotencyKey(insecure);
+    expect(a).toMatch(uuid);
+    expect(a).not.toBe(b);
+    // forge accepts 1-200 printable ASCII characters.
+    expect(a).toMatch(/^[\x20-\x7e]{1,200}$/);
   });
 });
