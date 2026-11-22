@@ -87,6 +87,9 @@ services:
       # Footer link, and a link from /darkroom, to argus-assay: argus-mint's own
       # UI for card drafts, review and publishing (it runs from the argus-mint repo, :3108).
       - ARGUS_ASSAY_URL=${ARGUS_ASSAY_URL-}
+      # Footer link, and links from /curate and /proof, to argus-puppet's demo UI (body pose).
+      # The `puppet` profile runs the pose service on :8220, not the UI; set this to show the links.
+      - ARGUS_PUPPET_UI_URL=${ARGUS_PUPPET_UI_URL-}
       - ARGUS_CURATOR_UI_MODE=${ARGUS_CURATOR_UI_MODE-${NEXT_PUBLIC_CURATOR_UI_MODE-demo}}
       # /forge and /proof follow the curator mode unless these are set (#59).
       - ARGUS_FORGE_UI_MODE=${ARGUS_FORGE_UI_MODE:-}
@@ -284,6 +287,9 @@ services:
       # Watermark detector for crops, off unless .env sets a URL (no server is
       # bundled). A scan asking for it gets a 503 while the detector is down.
       - ARGUS_CURATOR_WATERMARK_URL=${ARGUS_CURATOR_WATERMARK_URL-}
+      # Body pose from argus-puppet (curator 0.20+), off unless .env sets a URL.
+      # With the `puppet` profile up: http://argus-puppet:8220.
+      - ARGUS_CURATOR_PUPPET_URL=${ARGUS_CURATOR_PUPPET_URL-}
       # SingGuard policy check, off unless .env sets a URL (no server is bundled:
       # it runs a vision language model).
       - ARGUS_CURATOR_SINGGUARD_URL=${ARGUS_CURATOR_SINGGUARD_URL-}
@@ -641,7 +647,28 @@ services:
     command: ["serve", "--host", "0.0.0.0", "--port", "8102", "--cors"]
     restart: unless-stopped
 
+
+  argus-puppet:
+    # Body pose (keypoints, pose labels and set metrics) as a service other
+    # stages call, like retina's detectors: no studio stage. Curator's pose
+    # stage reaches it at ARGUS_CURATOR_PUPPET_URL=http://argus-puppet:8220.
+    # Named after its argus-iris tenant. Not in "full": curator works without it.
+    # The image ships no weights: fetch them into the volume once with
+    #   docker compose --profile puppet run --rm argus-puppet argus-puppet models fetch
+    profiles: ["puppet"]
+    image: ghcr.io/smk762/argus-puppet:${PUPPET_TAG:-0.4.0}
+    ports:
+      # Loopback by default: other services reach it by DNS name, not the port.
+      - "${PUPPET_PUBLISH:-127.0.0.1:8220}:8220"
+    environment:
+      ARGUS_PUPPET_MODEL_DIR: /models
+      ARGUS_PUPPET_READ_ONLY: ${PUPPET_READ_ONLY:-0}
+      ARGUS_PUPPET_CORS_ORIGINS: ${PUPPET_CORS_ORIGINS:-}
+    volumes:
+      - puppet-models:/models
+    restart: unless-stopped
 volumes:
   argus-darkroom:
+  puppet-models:
   ollama:
     name: argus-ollama

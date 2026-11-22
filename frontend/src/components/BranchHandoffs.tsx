@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ExternalLink } from "@/components/ExternalLink";
-import { assayUrl, maskUrl } from "@/lib/curatorEnv";
+import { assayUrl, maskUrl, puppetUiUrl } from "@/lib/curatorEnv";
 import { branchesFrom, stageFor } from "@/lib/pipeline";
 import { STAGE_TONE } from "@/components/StageHandoff";
 
@@ -9,11 +9,11 @@ const PILL = "inline-block rounded-lg border px-3 py-1.5 text-xs font-medium tra
 /**
  * "From here": the branches a stage leads to besides the next number (#236),
  * from `BRANCHES` in lib/pipeline.ts. A stage branch is a Studio page; an
- * external one is a standalone UI (Mask, Assay), shown only when the deployment
+ * external one is a standalone UI (Mask, Assay, Puppet), shown only when the deployment
  * configures its URL. Renders nothing for a stage with no branches.
  */
 export function BranchHandoffs({ from, className = "" }: { from: string; className?: string }) {
-  const branches = branchesFrom(from, { mask: maskUrl(), assay: assayUrl() });
+  const branches = branchesFrom(from, { mask: maskUrl(), assay: assayUrl(), puppet: puppetUiUrl() });
   if (branches.length === 0) return null;
   const name = stageFor(from)?.label ?? "here";
   return (

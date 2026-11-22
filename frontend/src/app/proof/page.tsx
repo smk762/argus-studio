@@ -20,6 +20,7 @@ import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 import { proofLive } from "@/lib/curatorEnv";
 import { REPO_URL, STATIC_DEMO } from "@/lib/staticDemo";
 import { DemoBadge } from "@/components/DemoChrome";
+import { BranchHandoffs } from "@/components/BranchHandoffs";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ProofBoard } from "@/components/proof/ProofBoard";
@@ -214,6 +215,7 @@ export default function ProofPage() {
 
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
         <MadeWith pkg="proof" verb="Report from" version={version} command="argus-proof run → score → gate" className="mb-4" />
+        <BranchHandoffs from="/proof" className="-mt-2 mb-4" />
         {STATIC_DEMO && !previewSample ? (
           <ProofComingSoon onPreview={() => setPreviewSample(true)} />
         ) : unreachable ? (

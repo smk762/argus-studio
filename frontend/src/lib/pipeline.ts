@@ -59,16 +59,19 @@ export function stageFor(href: string): PipelineStage | undefined {
  * Where a stage leads besides the next number (#236). The numbered core stays
  * the nav; a stage that branches lists its branches here, and its page shows
  * them as a "From here" row. An external branch is a standalone UI that owns
- * the work (Mask, Assay): Studio links to it rather than duplicating it, and
- * only when the deployment configures its URL.
+ * the work (Mask, Assay, Puppet): Studio links to it rather than duplicating it,
+ * and only when the deployment configures its URL. Puppet is stage-less (#281):
+ * it has no number, only these branches from the stages that read its pose data.
  */
-export type ExternalUi = "mask" | "assay";
+export type ExternalUi = "mask" | "assay" | "puppet";
 
 export type Branch =
   | { kind: "stage"; href: string; label: string }
   | { kind: "external"; ui: ExternalUi; label: string; service: string };
 
 export const BRANCHES: Readonly<Record<string, readonly Branch[]>> = {
+  "/curate": [{ kind: "external", ui: "puppet", label: "Check pose balance in Puppet", service: "argus-puppet" }],
+  "/proof": [{ kind: "external", ui: "puppet", label: "Compare output poses to training in Puppet", service: "argus-puppet" }],
   "/darkroom": [
     { kind: "stage", href: "/forge", label: "Train a new LoRA in Forge" },
     { kind: "external", ui: "mask", label: "Rig a face in Mask", service: "argus-mask" },

@@ -23,7 +23,18 @@ describe("branchesFrom", () => {
   });
 
   it("is empty for a stage that doesn't branch", () => {
-    expect(branchesFrom("/curate", { mask: "https://mask.example/" })).toEqual([]);
+    expect(branchesFrom("/forge", { mask: "https://mask.example/", puppet: "https://puppet.example/" })).toEqual([]);
+  });
+
+  it("links /curate and /proof to Puppet only when its demo UI is configured (#281)", () => {
+    expect(branchesFrom("/curate", {})).toEqual([]);
+    expect(branchesFrom("/proof", { mask: "https://mask.example/" })).toEqual([]);
+    const curate = branchesFrom("/curate", { puppet: "https://puppet.example/" });
+    expect(curate.map((b) => [b.label, b.href])).toEqual([["Check pose balance in Puppet", "https://puppet.example/"]]);
+    expect(curate[0].external).toEqual({ service: "argus-puppet" });
+    expect(branchesFrom("/proof", { puppet: "https://puppet.example/" }).map((b) => b.label)).toEqual([
+      "Compare output poses to training in Puppet",
+    ]);
   });
 
   it("only branches from and to pipeline stages", () => {

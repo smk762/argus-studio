@@ -117,3 +117,8 @@ export function maskUrl(): string {
 export function assayUrl(): string {
   return runtimeConfig().assayUrl;
 }
+
+/** Link to argus-puppet's demo UI (body pose), or "" for no link. Studio does not call puppet itself. */
+export function puppetUiUrl(): string {
+  return runtimeConfig().puppetUiUrl;
+}
