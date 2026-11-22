@@ -31,6 +31,8 @@ import { LearnButton } from "@/components/LearnPanel";
 import { RefinementPanel } from "@/components/proof/RefinementPanel";
 import { RejectReasonPicker, UnsafeCategoryPicker } from "@/components/proof/RejectReasonPicker";
 import { tileLoading } from "@/lib/imageLoading";
+import { POSE_MAX_CLUSTER_SHARE, coverageAxis, readPose } from "@/lib/proofPose";
+import type * as ProofWire from "@/lib/generated/proof";
 
 /** Deterministic shuffle keyed by the run id, so blind-mode order is randomised
  * once per run rather than re-shuffling on every keystroke. */
@@ -155,6 +157,99 @@ function UnsafeBreakdownPanel({ images }: { images: ImageScores[] }) {
         ))}
       </ul>
       {overlapping && <p className="mt-1.5">An image can sit under more than one category.</p>}
+    </div>
+  );
+}
+
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+/** One coverage axis as chips; `unknown` (the joints a rule needs were not confident) is muted. */
+function CoverageRow({ axis, counts }: { axis: string; counts: Record<string, number> | undefined }) {
+  const entries = coverageAxis(counts);
+  if (entries.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-12 shrink-0 text-foreground/70">{axis}</span>
+      {entries.map(([label, n]) => (
+        <span key={label} className={`rounded-md border border-border px-2 py-0.5 ${label === "unknown" ? "opacity-60" : ""}`}>
+          {label} <span className="font-mono">{n}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Body pose of the outputs (argus-proof#122, scored through argus-puppet), as the report measured it: run-level, so
+ * a review never changes it. Proof's gate decides with these numbers; this panel only reads them (lib/proofPose.ts).
+ * Renders nothing for a report without a pose block. Counts and image ids only, so it gives nothing away in blind mode.
+ */
+function PosePanel({ pose }: { pose: ProofWire.PoseReport | null | undefined }) {
+  const reading = readPose(pose);
+  if (reading.state === "absent") return null;
+  const p = reading.pose;
+  const comparison = p.comparison;
+  return (
+    <div className="mt-4 space-y-2 border-t border-border pt-3 text-[11px] text-muted">
+      <div className="font-medium text-foreground/70">
+        Body pose{" "}
+        <span className="font-normal">
+          ({p.posed}/{p.count} posed{p.usable != null ? `, ${p.usable} usable` : ""}
+          {p.provenance?.puppet_version ? `, argus-puppet wire ${p.provenance.puppet_version}` : ""})
+        </span>
+      </div>
+      {reading.state === "unmeasurable" ? (
+        <p>Not measurable: {reading.why}. With its pose gate on (<span className="font-mono">min_pose_diversity</span>), proof fails a run it can&apos;t read.</p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-x-5 gap-y-1">
+            <span>
+              Diversity <span className="font-mono text-foreground">{reading.diversity.toFixed(2)}</span>
+            </span>
+            <span>
+              Largest pose cluster <span className="font-mono text-foreground">{pct(reading.largestShare)}</span>
+              {p.cluster_count != null ? ` of ${p.cluster_count} clusters` : ""}
+            </span>
+            {p.largest_cluster_medoids.length > 0 && (
+              <span>
+                centred on <span className="font-mono">{p.largest_cluster_medoids.slice(0, 3).join(", ")}</span>
+              </span>
+            )}
+          </div>
+          {reading.collapsed && (
+            <p className="text-accent-orange-ink">
+              Pose collapse: {pct(reading.largestShare)} of the usable outputs share one pose, at or above proof&apos;s
+              default cut-off of {pct(POSE_MAX_CLUSTER_SHARE)}.
+              {comparison?.training_largest_cluster_share != null &&
+                comparison.training_largest_cluster_share >= POSE_MAX_CLUSTER_SHARE &&
+                ` The training set is just as dominated (${pct(comparison.training_largest_cluster_share)}), so it may be a dataset problem.`}
+            </p>
+          )}
+        </>
+      )}
+      {p.coverage && (
+        <div className="space-y-1">
+          <CoverageRow axis="stance" counts={p.coverage.stance} />
+          <CoverageRow axis="arms" counts={p.coverage.arms} />
+          <CoverageRow axis="facing" counts={p.coverage.facing} />
+        </div>
+      )}
+      {comparison && (
+        <p>
+          Against {comparison.training_frames} training frame{comparison.training_frames === 1 ? "" : "s"}:{" "}
+          {comparison.close_share != null && comparison.baseline_close_share != null
+            ? `${pct(comparison.close_share)} of outputs sit within ${comparison.threshold} of a training pose, against ${pct(comparison.baseline_close_share)} among the training frames themselves.`
+            : "too few comparable poses to compare."}
+          {reading.state === "measured" && reading.copying && (
+            <span className="text-accent-orange-ink">
+              {" "}
+              Possible pose copying, for review: a pose-conditioned generator does this by design, so proof never rejects
+              on it.
+            </span>
+          )}
+        </p>
+      )}
+      {p.partial && <p>{p.count - p.posed} image(s) could not be posed.</p>}
     </div>
   );
 }
@@ -455,6 +550,7 @@ export function ProofBoard({ initialReport, live, canWrite, onReportChange }: Pr
         </div>
 
         <UnsafeBreakdownPanel images={view.images} />
+        <PosePanel pose={report.pose} />
       </section>
 
       {/* Review controls */}
