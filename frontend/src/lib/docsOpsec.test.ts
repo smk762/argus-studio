@@ -16,7 +16,7 @@ describe("opsecFindings", () => {
   });
 
   it("refuses private, CGNAT and link-local addresses", () => {
-    const rules = opsecFindings("10.0.0.5 172.20.1.1 192.168.1.20 100.70.0.1 169.254.1.1 fe80::1 fd12:3456::1").map(
+    const rules = opsecFindings("10.0.0.5 172.20.1.1 192.168.200.20 100.70.0.1 169.254.1.1 fe80::1 fd12:3456::1").map(
       (f) => f.rule,
     );
     expect(rules).toEqual(["private-ip", "private-ip", "private-ip", "private-ip", "link-local", "private-ip", "link-local"]);
