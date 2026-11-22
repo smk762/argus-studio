@@ -62,6 +62,8 @@ export interface RuntimeConfig {
   maskUrl: string;
   /** Link to argus-assay, argus-mint's review UI, or empty for no link. */
   assayUrl: string;
+  /** Link to argus-puppet's demo UI (body pose), or empty for no link. */
+  puppetUiUrl: string;
   /** `demo` = bundled read-only sample, `live` = real backends. */
   curatorUiMode: CuratorUiMode;
   /**
@@ -232,6 +234,7 @@ export function resolveRuntimeConfig(
     sightlineUrl: resolveLink(source, "ARGUS_SIGHTLINE_URL"),
     maskUrl: resolveLink(source, "ARGUS_MASK_URL"),
     assayUrl: resolveLink(source, "ARGUS_ASSAY_URL"),
+    puppetUiUrl: resolveLink(source, "ARGUS_PUPPET_UI_URL"),
     curatorUiMode,
     forgeUiMode: resolveStageMode(source, "ARGUS_FORGE_UI_MODE", curatorUiMode),
     proofUiMode: resolveStageMode(source, "ARGUS_PROOF_UI_MODE", curatorUiMode),
@@ -263,6 +266,7 @@ const STATIC_DEMO_CONFIG: RuntimeConfig = {
   sightlineUrl: "",
   maskUrl: "",
   assayUrl: "",
+  puppetUiUrl: "",
   curatorUiMode: "demo",
   forgeUiMode: "demo",
   proofUiMode: "demo",

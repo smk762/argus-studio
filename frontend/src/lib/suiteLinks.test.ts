@@ -25,6 +25,11 @@ describe("suiteLinks", () => {
     expect(links).toEqual([{ label: "Assay", service: "argus-mint", href: "http://localhost:3108" }]);
   });
 
+  it("links argus-puppet's demo UI when configured", () => {
+    const links = suiteLinks({ lightbox: "", cull: "", safelight: "", puppet: "http://localhost:3110" });
+    expect(links).toEqual([{ label: "Puppet", service: "argus-puppet", href: "http://localhost:3110" }]);
+  });
+
   it("links argus-mask's viewer when configured", () => {
     const links = suiteLinks({ lightbox: "", cull: "", safelight: "", mask: "http://localhost:8109" });
     expect(links).toEqual([{ label: "Mask", service: "argus-mask", href: "http://localhost:8109" }]);

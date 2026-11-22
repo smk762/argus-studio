@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { askConfirm } from "@/lib/confirmed";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { BranchHandoffs } from "@/components/BranchHandoffs";
 import { ApiVersionBadge } from "@/components/ApiVersionBadge";
 import { ScanConfigPanel } from "@/components/curator/ScanConfigPanel";
 import { FolderPicker } from "@/components/curator/FolderPicker";
@@ -600,6 +601,8 @@ export default function CuratePage() {
           command={curatorScanCommand()}
           className="mb-4"
         />
+        {/* Puppet's demo UI, when deployed: body pose is a service, not a stage (#281). */}
+        <BranchHandoffs from="/curate" className="-mt-2 mb-4" />
         {STATIC_DEMO && (
           <div className="mb-6">
             <RecordedDemoNote summary={`A recorded argus-curator ${CURATOR_SAMPLE_VERSION} scan of 50 images.`}>
@@ -607,7 +610,7 @@ export default function CuratePage() {
               handball players, a volleyball player, a skier and a relay team, with a near duplicate and three
               deliberate rejects. The other 36 are argus-cull&apos;s synthetic demo frames of five fictional adults,
               including crime-film stills and lingerie that SingGuard&apos;s policies judge differently. Every score,
-              face, pose, scene, garment and moderation verdict here is the curator&apos;s real output, recorded with its
+              face, head and body pose (body pose from argus-puppet), scene, garment and moderation verdict here is the curator&apos;s real output, recorded with its
               own thumbnails. Filtering, selection and the export manifest all run in your browser; scanning real
               folders needs a running argus-curator.
             </RecordedDemoNote>

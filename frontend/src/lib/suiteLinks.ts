@@ -7,7 +7,7 @@ export interface SuiteLink {
   href: string;
 }
 
-export function suiteLinks(urls: { lightbox: string; cull: string; safelight: string; sightline?: string; mask?: string; assay?: string }): SuiteLink[] {
+export function suiteLinks(urls: { lightbox: string; cull: string; safelight: string; sightline?: string; mask?: string; assay?: string; puppet?: string }): SuiteLink[] {
   const all = [
     { label: "Lightbox", service: "argus-lens", href: urls.lightbox },
     { label: "Cull", service: "argus-curator", href: urls.cull },
@@ -15,6 +15,7 @@ export function suiteLinks(urls: { lightbox: string; cull: string; safelight: st
     { label: "Sightline", service: "argus-survey", href: urls.sightline ?? "" },
     { label: "Mask", service: "argus-mask", href: urls.mask ?? "" },
     { label: "Assay", service: "argus-mint", href: urls.assay ?? "" },
+    { label: "Puppet", service: "argus-puppet", href: urls.puppet ?? "" },
   ];
   return all.filter((link) => link.href !== "");
 }

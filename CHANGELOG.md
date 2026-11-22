@@ -6,6 +6,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Added
 
+- **argus-puppet links and a `puppet` compose profile** (#281). `ARGUS_PUPPET_UI_URL` (runtime config, empty by default) adds a Puppet footer link and "From here" branches on `/curate` ("Check pose balance in Puppet") and `/proof` ("Compare output poses to training in Puppet") to puppet's demo UI; puppet is a service, so it gets no stage number. The `puppet` profile (not in `full`) runs `ghcr.io/smk762/argus-puppet:0.4.0` on loopback :8220 with its weights in a `puppet-models` volume, and curator's pose stage reaches it through `ARGUS_CURATOR_PUPPET_URL=http://argus-puppet:8220` (curator 0.20+).
 - **`/curate`'s Selection coverage shows body pose** (argus-puppet through argus-curator#221, on curator `dev`, unreleased). When the scan ran curator's pose stage, a Body pose block gives the selection's stance, arms and facing (puppet's `unknown` as its own muted bucket), the share of the selection in its most common scan-level pose cluster ("40% share one pose", 4 of 10 clustered, with the cluster's medoid as a thumbnail, blurred as the identity tiles are), and how many selected images have no usable pose and why. One pose at 40% or more of at least 10 clustered images is a coverage gap, and 75% (puppet's and proof's collapse cut-off) a strong one; both thresholds are uncalibrated. The block says when clustering was skipped or the clusters are stale, and is absent when the stage did not run. The static demo shows it from the re-recorded scan below.
 
 ### Changed

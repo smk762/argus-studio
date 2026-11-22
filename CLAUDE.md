@@ -17,6 +17,7 @@ The Argus suite's **web UI + compose orchestration hub**. A Next.js frontend on 
 | argus-darkroom | :8106 | `/darkroom` (guarded generation) | ../argus-darkroom |
 | argus-survey | :8107 | none here: footer link to **argus-sightline** (:3107, `ARGUS_SIGHTLINE_URL`); both run under the `survey` profile (not in `full`) | ../argus-survey, ../argus-sightline |
 | argus-mask | :8109 | none here: footer link to its own viewer (`ARGUS_MASK_URL`); runs under the `mask` profile (not in `full`) | ../argus-mask |
+| argus-puppet | :8220 | none here: curator's pose stage calls it (`/curate` shows the result); links to its demo UI from the footer, `/curate` and `/proof` (`ARGUS_PUPPET_UI_URL`); runs under the `puppet` profile (not in `full`) | ../argus-puppet |
 
 Formerly `argus-vision-demo`; the old GitHub URL redirects to `smk762/argus-studio`. Keep new references pointing at the current name.
 
