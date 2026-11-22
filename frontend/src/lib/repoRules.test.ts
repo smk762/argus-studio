@@ -29,6 +29,23 @@ function sources(dir: string, out: string[] = []): string[] {
 // CLAUDE.md). CI checks out the whole repo, so there the root rules must run.
 const hasRepo = existsSync(join(repo, "compose.yaml"));
 
+/**
+ * The name of the call whose argument list holds position `at` directly (the innermost unclosed `(` to its left),
+ * or null. `f(a, devMode())` gives "f"; `f(g(devMode()))` gives "g".
+ */
+export function enclosingCall(line: string, at: number): string | null {
+  let depth = 0;
+  for (let j = at - 1; j >= 0; j -= 1) {
+    const c = line[j];
+    if (c === ")") depth += 1;
+    else if (c === "(") {
+      if (depth === 0) return /([A-Za-z_$][\w$]*)\s*$/.exec(line.slice(0, j))?.[1] ?? null;
+      depth -= 1;
+    }
+  }
+  return null;
+}
+
 describe("repo rules", () => {
   it("runs the repo-root rules in CI", () => {
     if (process.env.CI) expect(hasRepo).toBe(true);
@@ -81,12 +98,27 @@ describe("repo rules", () => {
       read(file)
         .split("\n")
         .forEach((line, i) => {
-          if (!/\bdevMode\(\)/.test(line)) return;
-          uses += 1;
-          if (!/offeredPolicies\([^;]*\bdevMode\(\)\s*\)/.test(line)) stray.push(`${rel(file)}:${i + 1}`);
+          // Each call on its own: every devMode() must be a direct argument of offeredPolicies(…).
+          for (const m of line.matchAll(/\bdevMode\(\)/g)) {
+            uses += 1;
+            if (enclosingCall(line, m.index) !== "offeredPolicies") stray.push(`${rel(file)}:${i + 1}`);
+          }
         });
     }
     expect(stray).toEqual([]);
     expect(uses).toBeGreaterThan(0);
+  });
+});
+
+// Audit pack-argus-studio-5e82b06f27: a second devMode() on an allowed line is checked on its own.
+describe("enclosingCall", () => {
+  const at = (line: string, n = 0) => [...line.matchAll(/devMode\(\)/g)][n].index;
+  it("names the call a devMode() is a direct argument of", () => {
+    expect(enclosingCall("offeredPolicies(a, { b }, devMode())", at("offeredPolicies(a, { b }, devMode())"))).toBe("offeredPolicies");
+    const line = "{offeredPolicies(p, c, devMode()).map(render)} <Img blur={nsfwBlur(devMode())} />";
+    expect(enclosingCall(line, at(line, 0))).toBe("offeredPolicies");
+    expect(enclosingCall(line, at(line, 1))).toBe("nsfwBlur");
+    expect(enclosingCall("offeredPolicies(wrap(devMode()))", at("offeredPolicies(wrap(devMode()))"))).toBe("wrap");
+    expect(enclosingCall("const x = devMode();", at("const x = devMode();"))).toBeNull();
   });
 });

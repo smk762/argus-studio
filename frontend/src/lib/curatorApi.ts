@@ -111,6 +111,14 @@ export function normalizeExportResult(result: ExportResult): NormalizedExportRes
     manifestGap: reason,
   });
 
+  // Declared but unparseable ("v2", "02.1", ""): forge would refuse the manifest, so it must not pass as legacy.
+  // Only an omitted field is the 2.0 case below, as in speaksSupportedManifest.
+  if (result.manifest_version != null && major === null) {
+    return refuse(
+      `this curator declares manifest version ${JSON.stringify(result.manifest_version)}, which neither this app ` +
+        "nor argus-forge can read — fix or upgrade the curator",
+    );
+  }
   if (major !== null && major !== SUPPORTED_MANIFEST_MAJOR) {
     return refuse(
       `this curator writes manifest ${result.manifest_version}, but this app reads ` +

@@ -11,17 +11,20 @@ import {
 import {
   applyRefinement,
   refinedRanking,
+  refinementSaveVia,
   refinementUpdates,
   storedRefinement,
   withRefinementEdit,
   type RefinementEdit,
 } from "@/lib/proofRefinement";
-import { permits, type Capability } from "@/lib/capabilities";
+import type { Capability } from "@/lib/capabilities";
 import { StarRating } from "@/components/proof/StarRating";
 
 function Thumb({ runId, img, live }: { runId: string; img: ImageScores; live: boolean }) {
-  const [failed, setFailed] = useState(false);
-  if (!live || failed) {
+  const src = proofImageUrl(runId, img.image_id);
+  // The URL that failed, not a flag: rows reset in place on a run change, and image ids can repeat across runs.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  if (!live || failedSrc === src) {
     return (
       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-dashed border-border bg-surface-hover/40 text-[9px] text-muted">
         seed {img.seed}
@@ -31,10 +34,10 @@ function Thumb({ runId, img, live }: { runId: string; img: ImageScores; live: bo
   return (
     // eslint-disable-next-line @next/next/no-img-element -- served by the proof API, not a Next asset
     <img
-      src={proofImageUrl(runId, img.image_id)}
+      src={src}
       alt={`${img.image_id} (seed ${img.seed})`}
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
       className="h-14 w-14 shrink-0 rounded-md border border-border bg-surface-hover/40 object-cover"
     />
   );
@@ -81,9 +84,12 @@ export function RefinementPanel({ report, live, canWrite, rater, reviewDirty, bl
   const ranked = useMemo(() => refinedRanking(report.images), [report.images]);
   const nRefined = ranked.filter((img) => img.refinement != null).length;
 
-  const localApply = !live;
+  // One answer for the button and the save: a panel that isn't live applies locally even if a capability
+  // resolved earlier still permits a write.
+  const via = refinementSaveVia(live, canWrite);
+  const localApply = via === "local";
   const writeRefused = live && canWrite === false;
-  const canSave = localApply || permits(canWrite);
+  const canSave = via !== null;
   const dirty = edits.size > 0;
 
   const edit = (img: ImageScores, patch: Partial<RefinementEdit>) =>
@@ -99,7 +105,7 @@ export function RefinementPanel({ report, live, canWrite, rater, reviewDirty, bl
     const startedFor = report.run_id;
     const stillCurrent = () => currentRun.current === startedFor;
     try {
-      const updated = permits(canWrite)
+      const updated = via === "server"
         ? await submitRefinement(startedFor, { rater, updates: refinementUpdates(sent) })
         : applyRefinement(report, sent, rater);
       if (!stillCurrent()) return;

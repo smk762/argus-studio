@@ -71,8 +71,9 @@ export function FolderPicker({ onSelect, selectedAbs, fetcher = listFolders }: P
   );
 
   useEffect(() => {
-    const ctrl = fetchListing("");
-    return () => ctrl.abort();
+    fetchListing("");
+    // Whatever is in flight on unmount, the first listing or a later navigation: each replaces inFlight.
+    return () => inFlight.current?.abort();
   }, [fetchListing]);
 
   const crumbs = rel ? rel.split("/") : [];

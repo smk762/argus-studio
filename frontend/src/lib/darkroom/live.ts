@@ -73,10 +73,14 @@ export function liveReducer(state: LiveState, event: LiveEvent): LiveState {
       return { ...state, phase: "scanning", policies, cells: { ...state.cells, [policy]: { ...pair, [context]: cell } } };
     }
     case "complete":
+      // A refused preflight leaves the run complete with no record; its `complete` still attaches one.
+      if (settled(state)) return state;
       return { ...state, phase: "complete", record: event.record };
     case "record":
       return state.record?.id === event.record.id ? { ...state, record: event.record } : state;
     case "error":
+      // An error from a closing stream must not fail a finished run, or revive one that was cleared.
+      if (settled(state)) return state;
       return { ...state, phase: "error", error: event.error };
     case "reset":
       return IDLE;
@@ -94,3 +98,9 @@ export const RUNNING: readonly LivePhase[] = ["preflight", "queued", "rendering"
 /** Phases a run doesn't leave on a stray progress event: only `start` begins another. */
 const FINISHED: readonly LivePhase[] = ["idle", "complete", "error"];
 export const isRunning = (state: LiveState): boolean => RUNNING.includes(state.phase);
+/**
+ * Nothing more can land on this run: cleared, failed, or complete with its record. A run a refused preflight
+ * ended is complete without one, and still takes its `complete` and any error.
+ */
+const settled = (state: LiveState): boolean =>
+  state.phase === "idle" || state.phase === "error" || (state.phase === "complete" && state.record != null);

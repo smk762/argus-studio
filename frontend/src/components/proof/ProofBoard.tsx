@@ -110,8 +110,10 @@ function SampleImage({
   hidden: boolean;
   live: boolean;
 }) {
-  const [failed, setFailed] = useState(false);
-  if (!live || failed) {
+  const src = hidden ? proofImageAtUrl(runId, index) : proofImageUrl(runId, img.image_id);
+  // The URL that failed, not a flag: a blind reveal or a new run with the same image id is another URL to try.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  if (!live || failedSrc === src) {
     return (
       <div className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-border bg-surface-hover/40 text-center text-[11px] text-muted">
         {hidden ? "blind sample" : `seed ${img.seed}`}
@@ -121,10 +123,10 @@ function SampleImage({
   return (
     // eslint-disable-next-line @next/next/no-img-element -- served by the proof API, not a Next asset
     <img
-      src={hidden ? proofImageAtUrl(runId, index) : proofImageUrl(runId, img.image_id)}
+      src={src}
       alt={hidden ? "blind sample" : `${img.image_id} (seed ${img.seed})`}
       loading={tileLoading(position, 3)}
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
       className="aspect-square w-full rounded-lg border border-border bg-surface-hover/40 object-cover"
     />
   );

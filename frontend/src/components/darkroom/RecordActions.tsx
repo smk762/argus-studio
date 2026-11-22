@@ -88,7 +88,8 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
         confirming ? (
           <span role="group" aria-label="Confirm removing the image" className="inline-flex flex-wrap items-center gap-2 text-sm text-foreground/70">
             <span>Delete the image file? The record stays.</span>
-            <Button tone="danger" onClick={(event) => void remove(confirmedBy(event))} disabled={removing}>
+            {/* The gate holds after the first click too: darkroom can turn read-only while this is open. */}
+            <Button tone="danger" onClick={(event) => void remove(confirmedBy(event))} disabled={removing || writeBlock != null} title={writeBlock ?? undefined}>
               {removing ? "Removing…" : "Delete image"}
             </Button>
             <Button onClick={() => setConfirming(false)} disabled={removing}>
@@ -106,7 +107,8 @@ export function RecordActions({ record, onRemoved }: { record: GenerationRecord;
         confirmingPurge ? (
           <span role="group" aria-label="Confirm deleting the record" className="inline-flex flex-wrap items-center gap-2 text-sm text-foreground/70">
             <span>Delete this record and any image? It leaves no trace in the history.</span>
-            <Button tone="danger" onClick={(event) => void purge(confirmedBy(event))} disabled={purging}>
+            {/* A generation started while this is open blocks the delete, as it blocks opening it. */}
+            <Button tone="danger" onClick={(event) => void purge(confirmedBy(event))} disabled={purging || running} title={running ? "Wait for the current generation to finish." : undefined}>
               {purging ? "Deleting…" : "Delete for good"}
             </Button>
             <Button onClick={() => setConfirmingPurge(false)} disabled={purging}>

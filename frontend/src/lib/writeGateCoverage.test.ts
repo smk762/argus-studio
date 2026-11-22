@@ -64,16 +64,36 @@ function calls(node: ts.Node): ts.CallExpression[] {
 
 const calleeName = (call: ts.CallExpression) => (ts.isIdentifier(call.expression) ? call.expression.text : null);
 
+/** `fetch(…)`, or `window.fetch(…)`, `globalThis.fetch(…)` and the like: any call whose callee is named fetch. */
+const isFetch = (call: ts.CallExpression) =>
+  calleeName(call) === "fetch" || (ts.isPropertyAccessExpression(call.expression) && call.expression.name.text === "fetch");
+
+/**
+ * A property key's name: `method`, `"method"`, `` `method` `` and `["method"]` all read "method". A computed
+ * key that is not a literal could be anything, so it is `undefined`, never a name that rules a write out.
+ */
+function keyName(name: ts.PropertyName | undefined): string | null | undefined {
+  if (!name) return null;
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNoSubstitutionTemplateLiteral(name)) return name.text;
+  if (ts.isComputedPropertyName(name)) {
+    const e = name.expression;
+    return ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e) ? e.text : undefined;
+  }
+  return null;
+}
+
 /** A `fetch` that is not provably a GET: any `method` but the literal "GET". */
 function isWrite(call: ts.CallExpression): boolean {
-  if (calleeName(call) !== "fetch") return false;
+  if (!isFetch(call)) return false;
   const init = call.arguments[1];
   if (!init) return false;
   // An init passed by name could carry any method, so it counts as a write.
   if (!ts.isObjectLiteralExpression(init)) return true;
   for (const prop of init.properties) {
     if (ts.isSpreadAssignment(prop)) return true;
-    if (!prop.name || !ts.isIdentifier(prop.name) || prop.name.text !== "method") continue;
+    const name = keyName(prop.name);
+    if (name === undefined) return true;
+    if (name !== "method") continue;
     if (ts.isShorthandPropertyAssignment(prop)) return true;
     return !(
       ts.isPropertyAssignment(prop) &&
@@ -89,7 +109,7 @@ function methodOf(call: ts.CallExpression): string | null {
   const init = call.arguments[1];
   if (!init || !ts.isObjectLiteralExpression(init)) return null;
   for (const prop of init.properties) {
-    if (ts.isPropertyAssignment(prop) && prop.name.getText() === "method" && ts.isStringLiteral(prop.initializer)) {
+    if (ts.isPropertyAssignment(prop) && keyName(prop.name) === "method" && ts.isStringLiteral(prop.initializer)) {
       return prop.initializer.text.toUpperCase();
     }
   }
@@ -199,6 +219,12 @@ describe("write gate coverage", () => {
       export const arrow = async () => fetch(u, { method: verb });
       export async function read() { return fetch(u, { signal }); }
       export async function plainGet() { return fetch(u, { method: "GET" }); }
+      export async function viaWindow() { return window.fetch(u, { method: "POST" }); }
+      export async function viaGlobal() { return globalThis.fetch(u, { method: "DELETE" }); }
+      export async function quoted() { return fetch(u, { "method": "POST" }); }
+      export async function computed() { return fetch(u, { ["method"]: "DELETE" }); }
+      export async function anyKey(k) { return fetch(u, { [k]: "POST" }); }
+      export async function quotedGet() { return fetch(u, { "method": "GET" }); }
     `;
     expect(writersIn("x.ts", sample)).toEqual([
       { key: "x.ts gated", gated: true, confirmed: false },
@@ -207,6 +233,13 @@ describe("write gate coverage", () => {
       { key: "x.ts byName", gated: false, confirmed: null },
       { key: "x.ts spread", gated: false, confirmed: null },
       { key: "x.ts arrow", gated: false, confirmed: null },
+      // Audit pack-argus-studio-6b90a662eb: a member-expression fetch is a fetch.
+      { key: "x.ts viaWindow", gated: false, confirmed: null },
+      { key: "x.ts viaGlobal", gated: false, confirmed: false },
+      // Audit pack-argus-studio-e2949a586f: a quoted or computed key can name the method too.
+      { key: "x.ts quoted", gated: false, confirmed: null },
+      { key: "x.ts computed", gated: false, confirmed: false },
+      { key: "x.ts anyKey", gated: false, confirmed: null },
     ]);
   });
 

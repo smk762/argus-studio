@@ -66,6 +66,15 @@ describe("matchModel", () => {
     expect(matchModel({ name: "base.safetensors", sha256: null }, MODELS.checkpoints)?.name).toBe("base.safetensors");
     expect(matchModel({ name: "base", sha256: null }, MODELS.checkpoints)).toBeNull();
   });
+
+  // Audit pack-argus-studio-3f1742702b: same filename, different known sha256, is a different model.
+  it("refuses a name match whose own sha256 contradicts the handed-off one", () => {
+    const opts = [{ name: "sabine.safetensors", sha256: S("d") }, { name: "plain.safetensors" }];
+    expect(matchModel({ name: "sabine.safetensors", sha256: S("b") }, opts)).toBeNull();
+    expect(matchModel({ name: "sabine.safetensors", sha256: S("d").toUpperCase().toLowerCase() }, opts)?.name).toBe("sabine.safetensors");
+    // No hash on darkroom's side to contradict it: the name still matches.
+    expect(matchModel({ name: "plain.safetensors", sha256: S("b") }, opts)?.name).toBe("plain.safetensors");
+  });
 });
 
 describe("applyHandoff", () => {

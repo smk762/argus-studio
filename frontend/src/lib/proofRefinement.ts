@@ -10,6 +10,7 @@
  */
 
 import type { EvalReport, ImageScores, RefinementImageUpdate } from "@/lib/proofApi";
+import { permits, type Capability } from "@/lib/capabilities";
 
 /** A reviewer's unsaved refinement of one image. `rank: null` retracts it. */
 export interface RefinementEdit {
@@ -105,4 +106,14 @@ export function applyRefinement(
       };
     }),
   };
+}
+
+/**
+ * Where a refinement save goes: the proof server only when the panel is live and the host permits writes,
+ * otherwise applied locally, or nowhere on a live host that refuses (or hasn't answered yet). The button's label
+ * and the save read this one answer, so a stale capability on a panel that isn't live can't send a POST.
+ */
+export function refinementSaveVia(live: boolean, canWrite: Capability): "server" | "local" | null {
+  if (!live) return "local";
+  return permits(canWrite) ? "server" : null;
 }

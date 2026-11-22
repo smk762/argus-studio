@@ -7,6 +7,7 @@ import {
   getQuarryReadiness,
   parsePhotoId,
 } from "@/lib/galleryApi";
+import { SLICE_MAX, sliceLimit } from "@/lib/galleryApi";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -99,4 +100,17 @@ describe("externalUrl", () => {
       expect(externalUrl(raw)).toBeNull();
     },
   );
+});
+
+// Audit pack-argus-studio-b719c477a3: a fraction must never reach quarry as a LIMIT.
+describe("sliceLimit", () => {
+  it("takes a positive whole number, capped", () => {
+    expect(sliceLimit("150")).toBe(150);
+    expect(sliceLimit(" 42 ")).toBe(42);
+    expect(sliceLimit("999999")).toBe(SLICE_MAX);
+  });
+
+  it("treats a fraction, zero, empty or text as invalid", () => {
+    for (const raw of ["150.5", "0", "", "  ", "abc", "-3", "1e3"]) expect(sliceLimit(raw)).toBeNull();
+  });
 });

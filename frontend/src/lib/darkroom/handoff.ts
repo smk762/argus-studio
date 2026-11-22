@@ -77,13 +77,20 @@ export function parseHandoff(params: URLSearchParams): DarkroomHandoff | null {
   };
 }
 
-/** The darkroom option for a handed-off model: same sha256, else same name; null when there is none. */
+/**
+ * The darkroom option for a handed-off model: same sha256, else same name; null when there is none. A name match
+ * whose own sha256 is known and differs is a different model (retrained under the same filename), so it is null:
+ * reported missing rather than silently swapped in.
+ */
 export function matchModel(want: HandoffModel, options: readonly ModelOption[]): ModelOption | null {
   if (want.sha256) {
     const bySha = options.find((o) => o.sha256?.toLowerCase() === want.sha256);
     if (bySha) return bySha;
   }
-  return options.find((o) => o.name === want.name) ?? null;
+  return (
+    options.find((o) => o.name === want.name && (!want.sha256 || !o.sha256 || o.sha256.toLowerCase() === want.sha256)) ??
+    null
+  );
 }
 
 export interface HandoffResult {

@@ -180,6 +180,8 @@ export default function ProofPage() {
           setError(null);
         }
         setSelected(nextRun);
+        // The run already selected can survive a bulk purge: setSelected is then a no-op, so reload it here.
+        if (nextRun !== null) setReloadKey((k) => k + 1);
       }
     },
     [summaries, selected],

@@ -93,6 +93,28 @@ describe("live reducer", () => {
     expect(isRunning(liveReducer(state, { type: "queued" }))).toBe(false);
   });
 
+  // Audit packs pack-argus-studio-9e6976f5ba and -e207a053c1: a late complete or error can't revive a settled run.
+  const record = fixtureRecord("fx-review-disagree");
+  it.each(["idle", "error"] as const)("ignores a late complete or error once %s", (phase) => {
+    const state: LiveState = { ...IDLE, phase };
+    expect(liveReducer(state, { type: "complete", record })).toBe(state);
+    expect(liveReducer(state, { type: "error", error: "stream closed" })).toBe(state);
+  });
+
+  it("keeps a finished run's record when an error or a second complete arrives after it", () => {
+    let state = liveReducer(IDLE, { type: "start", request });
+    state = liveReducer(state, { type: "complete", record });
+    expect(liveReducer(state, { type: "error", error: "stream closed" })).toBe(state);
+    expect(liveReducer(state, { type: "complete", record: { ...record, id: "other" } })).toBe(state);
+  });
+
+  it("attaches the record that follows a refused preflight", () => {
+    let state = liveReducer(IDLE, { type: "start", request });
+    state = liveReducer(state, { type: "preflight", preflight: preflight("refused") });
+    state = liveReducer(state, { type: "complete", record });
+    expect(state).toMatchObject({ phase: "complete", record });
+  });
+
   // Audit pack-argus-studio-6edd014758: a late verdict is a straggler too, and must not clear a finished grid.
   it.each(["idle", "complete", "error"] as const)("ignores a late preflight once %s", (phase) => {
     const state: LiveState = { ...IDLE, phase, policies: ["default"], cells: { default: { isolated: safe, with_prompt: null } } };
