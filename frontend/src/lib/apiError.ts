@@ -43,9 +43,13 @@ export class ApiError extends Error {
 
 /** The response's FastAPI `detail` (any shape), as readable text. */
 export async function readError(resp: Response): Promise<string> {
-  const body: unknown = await resp.json().catch(() => null);
+  return errorDetail(await resp.json().catch(() => null), resp.status);
+}
+
+/** {@link readError} for a body already read (`null` when it was not JSON). */
+export function errorDetail(body: unknown, status: number): string {
   const detail = body && typeof body === "object" ? (body as { detail?: unknown }).detail : null;
-  return formatDetail(detail, resp.status);
+  return formatDetail(detail, status);
 }
 
 /** Throw the response's FastAPI `detail` as an {@link ApiError}. */

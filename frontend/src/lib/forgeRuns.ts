@@ -15,7 +15,7 @@ export const RUN_STATUS_LABEL: Record<ForgeRunStatus, string> = {
   cancelled: "Cancelled",
 };
 
-/** The run forge is training now, if any. Forge doesn't refuse a second one; Studio does. */
+/** The run forge is training (or queued to train) now, if any. Studio refuses a second one; forge does too since argus-forge#62. */
 export function activeRun(runs: readonly ForgeRunState[]): ForgeRunState | null {
   return runs.find((run) => run.status === "running") ?? null;
 }

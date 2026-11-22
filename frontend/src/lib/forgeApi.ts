@@ -11,7 +11,7 @@ import type { TargetProfile } from "@/components/curator/types";
 import { forgeUrl } from "@/lib/curatorEnv";
 import type * as Wire from "@/lib/generated/forge";
 import type { Filled } from "@/lib/wire";
-import { ApiError, asError, readError } from "@/lib/apiError";
+import { ApiError, asError, errorDetail } from "@/lib/apiError";
 import { capabilityOf, healthMemo, requireCapability, type Capability } from "@/lib/capabilities";
 import { readNdjson } from "@/lib/lensApi";
 
@@ -215,6 +215,37 @@ export class RunInProgress extends Error {
   }
 }
 
+/**
+ * Raised by {@link startRun} when forge itself refused `POST /run` because a run
+ * is already active (argus-forge#62: a 409 with `code: "run_active"`). It is a
+ * {@link RunInProgress}, so the panel selects that run just as it does for the
+ * pre-check; the subclass only changes the message, because forge counts a run
+ * still queued for its GPU lease as active, which the pre-check cannot tell
+ * from one that is training.
+ */
+export class RunActiveRefused extends RunInProgress {
+  constructor(runId: string) {
+    super(runId);
+    this.message = `A run is already active (run ${runId.slice(0, 8)}, queued or running). Wait for it to finish or cancel it.`;
+    this.name = "RunActiveRefused";
+  }
+}
+
+/**
+ * The run named by a `run_active` 409 body, or null for any other body (an
+ * Idempotency-Key 409 has no `code`; a proxy's page is not JSON at all).
+ * Hand-checked because forge's `RunActiveError` is not in the pinned schema
+ * yet: switch to `Wire.RunActiveError` once the forge pin moves past
+ * argus-forge#62.
+ */
+function activeRunIdOf(body: unknown): string | null {
+  if (typeof body !== "object" || body === null) return null;
+  const { code, active_run } = body as { code?: unknown; active_run?: unknown };
+  if (code !== "run_active" || typeof active_run !== "object" || active_run === null) return null;
+  const runId = (active_run as { run_id?: unknown }).run_id;
+  return typeof runId === "string" && runId ? runId : null;
+}
+
 /** Request header that makes a retried `POST /run` return the run it already started (argus-forge#61). */
 export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 /** Response header forge sets to `true` when a `POST /run` returned an earlier request's run. */
@@ -228,7 +259,7 @@ export interface StartedRun {
 }
 
 /**
- * Raised by {@link startRun} on a 409: forge has seen this `Idempotency-Key`
+ * Raised by {@link startRun} on a 409 other than `run_active`: forge has seen this `Idempotency-Key`
  * with a different request, or no longer retains the run it started. Nothing
  * was started; a deliberate new run needs a new key.
  */
@@ -246,7 +277,8 @@ export class RunKeyConflict extends ApiError {
  * Start training on a written config (POST /run). Gated on `/health.training`
  * like a writing {@link forgeConfig}, and refused while another run is going:
  * forge itself starts every request it gets, and two trainings on one GPU
- * would fight for its memory.
+ * would fight for its memory. A forge with argus-forge#62 refuses too, with a
+ * `run_active` 409 that becomes {@link RunActiveRefused}.
  *
  * `idempotencyKey` is minted once per user confirmation and sent again on any
  * resend of it (see `attemptFor` in `forgeRuns.ts`): a forge with argus-forge#61
@@ -269,7 +301,15 @@ export async function startRun(req: ForgeRunRequest, idempotencyKey: string, sig
     body: JSON.stringify({ export_dir: req.export_dir, trainer: req.trainer }),
     signal,
   });
-  if (resp.status === 409) throw new RunKeyConflict(await readError(resp));
+  if (resp.status === 409) {
+    // Read once: the body decides which 409 this is. Forge records no key for
+    // a `run_active` refusal, so the caller keeps its key and a retry of this
+    // confirmation, once the active run ends, starts the run it asked for.
+    const body: unknown = await resp.json().catch(() => null);
+    const activeId = activeRunIdOf(body);
+    if (activeId !== null) throw new RunActiveRefused(activeId);
+    throw new RunKeyConflict(errorDetail(body, resp.status));
+  }
   if (!resp.ok) return asError(resp);
   return {
     run: normalizeRun(await resp.json()),

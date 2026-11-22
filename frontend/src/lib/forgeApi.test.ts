@@ -66,7 +66,7 @@ describe("startRun's Idempotency-Key", () => {
     expect(started.run.run_id).toBe("abcdef123456");
   });
 
-  it("a 409 is a RunKeyConflict that says nothing started", async () => {
+  it("an idempotency 409 (no code) is a RunKeyConflict that says nothing started", async () => {
     routes["POST /run"] = () =>
       json({ detail: "this Idempotency-Key was already used for a different request (run abc)" }, 409);
     const { startRun, RunKeyConflict } = await import("@/lib/forgeApi");
@@ -87,6 +87,62 @@ describe("startRun's Idempotency-Key", () => {
     expect(err).not.toBeInstanceOf(RunKeyConflict);
     expect(err.status).toBe(422);
     expect(err.message).toContain("printable ASCII");
+  });
+
+  it("forge's run_active 409 is a RunInProgress naming the active run, not a key conflict", async () => {
+    routes["POST /run"] = () =>
+      json(
+        {
+          detail: "a run is already active (run 99887766aabb, queued or running); wait for it to finish or cancel it",
+          code: "run_active",
+          active_run: { run_id: "99887766aabb", status: "running" },
+        },
+        409,
+      );
+    const { startRun, RunInProgress, RunActiveRefused, RunKeyConflict } = await import("@/lib/forgeApi");
+
+    const err = await startRun(req, "key-1").catch((e) => e);
+    expect(err).toBeInstanceOf(RunInProgress);
+    expect(err).toBeInstanceOf(RunActiveRefused);
+    expect(err).not.toBeInstanceOf(RunKeyConflict);
+    expect(err.runId).toBe("99887766aabb");
+    expect(err.message).toBe(
+      "A run is already active (run 99887766, queued or running). Wait for it to finish or cancel it.",
+    );
+    expect(err.message).not.toMatch(/Start a new run/);
+  });
+
+  it("a run_active refusal keeps the key: the retry of the same confirmation resends it and starts the run", async () => {
+    let active = true;
+    routes["POST /run"] = () =>
+      active
+        ? json({ detail: "a run is already active", code: "run_active", active_run: { run_id: "other1234567", status: "running" } }, 409)
+        : json(run, 202);
+    const { startRun, RunInProgress } = await import("@/lib/forgeApi");
+
+    const attempt = attemptFor(null, req, () => "key-9");
+    await expect(startRun(req, attempt.key)).rejects.toBeInstanceOf(RunInProgress);
+    active = false; // the active run ended
+    const started = await startRun(req, attemptFor(attempt, req, () => "never").key);
+
+    expect(posts.map((h) => h.get("Idempotency-Key"))).toEqual(["key-9", "key-9"]);
+    expect(started).toMatchObject({ replayed: false, run: { run_id: "abcdef123456" } });
+  });
+
+  it.each([
+    ["not JSON", () => new Response("<html>conflict</html>", { status: 409, headers: { "content-type": "text/html" } })],
+    ["a code without active_run", () => json({ detail: "x", code: "run_active" }, 409)],
+    ["an active_run without a string run_id", () => json({ detail: "x", code: "run_active", active_run: { run_id: 7 } }, 409)],
+    ["another code", () => json({ detail: "x", code: "something_else", active_run: { run_id: "abc" } }, 409)],
+    ["a JSON array", () => json([{ code: "run_active" }], 409)],
+  ])("a 409 whose body is %s is a RunKeyConflict", async (_label, route) => {
+    routes["POST /run"] = route;
+    const { startRun, RunInProgress, RunKeyConflict } = await import("@/lib/forgeApi");
+
+    const err = await startRun(req, "key-1").catch((e) => e);
+    expect(err).toBeInstanceOf(RunKeyConflict);
+    expect(err).not.toBeInstanceOf(RunInProgress);
+    expect(err.status).toBe(409);
   });
 
   it("the running-run pre-check still refuses before anything is sent", async () => {
