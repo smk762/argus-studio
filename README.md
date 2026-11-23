@@ -137,6 +137,8 @@ share the dataset at `/data/images` (`DATASET_DIR`) so lens can read the manifes
 server-to-server at the compose service DNS name (`http://argus-lens:8100`), not
 `localhost`. Each service still runs perfectly on its own.
 
+**Suite directory labels.** Every Argus service container in `compose.yaml` carries the labels argus-iris's node agents read to list the suite's services (`argus.peer`, `argus.service`, `argus.health`, `argus.port`), and `ARGUS_PEER` in its environment: lens, curator, quarry (the server), forge, proof, atlas, darkroom, survey, mask and puppet. The frontend, argus-sightline, the upstream NudeNet image, Ollama and the run-to-completion jobs are not labelled. A label on an image released before argus-cortex 0.16 is harmless: the directory lists the service and marks its health "off contract" until the image is one built with the shared `/health`.
+
 ### Run services individually
 
 You can also run any piece outside Docker. Start the `argus-lens` server (in a separate terminal):
