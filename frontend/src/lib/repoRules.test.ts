@@ -46,6 +46,23 @@ export function enclosingCall(line: string, at: number): string | null {
   return null;
 }
 
+/** Each service of a compose file (comments already dropped), by name: the text of its block. */
+function composeServices(text: string): Record<string, string> {
+  const lines = text.split("\n").map((line) => line.trimEnd());
+  const start = lines.indexOf("services:");
+  const out: Record<string, string> = {};
+  let name: string | null = null;
+  for (const line of lines.slice(start + 1)) {
+    if (/^\S/.test(line)) break; // the next top-level key (volumes:)
+    const header = /^ {2}([\w-]+):$/.exec(line);
+    if (header) {
+      name = header[1];
+      out[name] = "";
+    } else if (name) out[name] += `${line}\n`;
+  }
+  return out;
+}
+
 describe("repo rules", () => {
   it("runs the repo-root rules in CI", () => {
     if (process.env.CI) expect(hasRepo).toBe(true);
@@ -72,6 +89,47 @@ describe("repo rules", () => {
     const dir = join(repo, ".github/workflows");
     const users = readdirSync(dir).filter((f) => code(read(join(dir, f))).includes("compose.train"));
     expect(users).toEqual([]);
+  });
+
+  it.skipIf(!hasRepo)("every Argus service container carries the suite directory labels", () => {
+    // argus-iris's node agents build the suite directory from these labels (argus-cortex#212). A service this
+    // stack runs without them never appears in it. `argus.port` is the container port, and ARGUS_PEER repeats
+    // the peer name for the process, which cannot read its own labels.
+    const expected: Record<string, [peer: string, service: string, port: string]> = {
+      "argus-lens": ["lens", "argus-lens", "8100"],
+      "argus-curator": ["curator", "argus-curator", "8101"],
+      "argus-quarry-server": ["quarry", "argus-quarry", "8102"],
+      "argus-forge": ["forge", "argus-forge", "8103"],
+      "argus-proof": ["proof", "argus-proof", "8104"],
+      "argus-atlas": ["atlas", "argus-atlas", "8105"],
+      "argus-darkroom": ["darkroom", "argus-darkroom", "8106"],
+      "argus-survey": ["survey", "argus-survey", "8107"],
+      "argus-mask": ["mask", "argus-mask", "8109"],
+      "argus-puppet": ["puppet", "argus-puppet", "8220"],
+    };
+    // Not labelled, each for a reason: this UI and sightline (UIs), the upstream NudeNet image and Ollama
+    // (third-party), and the two run-to-completion jobs.
+    const unlabelled = ["frontend", "argus-sightline", "nudenet", "ollama", "ollama-pull", "argus-quarry"];
+
+    const blocks = composeServices(code(read(join(repo, "compose.yaml"))));
+    // A new service must be put in one list or the other.
+    expect(Object.keys(blocks).sort()).toEqual([...Object.keys(expected), ...unlabelled].sort());
+    for (const name of unlabelled) expect(blocks[name], name).not.toMatch(/argus\.peer|ARGUS_PEER/);
+    for (const [name, [peer, service, port]] of Object.entries(expected)) {
+      const block = blocks[name];
+      expect(block, name).toMatch(/^ {4}labels:$/m);
+      expect(block, name).toContain(`\n      argus.peer: ${peer}\n`);
+      expect(block, name).toContain(`\n      argus.service: ${service}\n`);
+      expect(block, name).toContain("\n      argus.health: /health\n");
+      expect(block, name).toContain(`\n      argus.port: "${port}"\n`);
+      // The label names the port the container listens on, which is the target of its published port.
+      expect(block, name).toMatch(new RegExp(`^ {6}- "\\$\\{[^"]*\\}:${port}"$`, "m"));
+      expect(block, name).toMatch(new RegExp(`^ {6}(- ARGUS_PEER=${peer}|ARGUS_PEER: ${peer})$`, "m"));
+    }
+    // The overrides layer onto those services and must not rename one.
+    for (const file of ["compose.gpu.yaml", "compose.train.yaml", "compose.build.yaml"]) {
+      expect(code(read(join(repo, file))), file).not.toMatch(/argus\.peer|ARGUS_PEER/);
+    }
   });
 
   it("next.config.ts pins no headers, so the CSP stays per request", () => {

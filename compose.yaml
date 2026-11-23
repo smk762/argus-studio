@@ -108,7 +108,19 @@ services:
     image: ghcr.io/smk762/argus-lens:${LENS_TAG:-0.13.0}
     ports:
       - "${LENS_PORT:-8100}:8100"
+    # How the suite finds this service (argus-cortex#212): argus-iris's node agents
+    # read these labels and build the service directory from them. `argus.peer`
+    # is the name callers ask for; `argus.port` is the container port. Every
+    # Argus service below carries the same four (repoRules.test.ts).
+    labels:
+      argus.peer: lens
+      argus.service: argus-lens
+      argus.health: /health
+      argus.port: "8100"
     environment:
+      # The argus.peer label above, repeated for the process (it cannot read its
+      # own labels): an image on argus-cortex 0.16+ reports it in GET /health.
+      - ARGUS_PEER=lens
       - ARGUS_BACKEND=${ARGUS_BACKEND:-hybrid}
       # Backends a caption request may switch to (comma-separated; the default is
       # always allowed). Empty = any registered backend. A public or shared-GPU
@@ -238,7 +250,13 @@ services:
     image: ghcr.io/smk762/argus-curator:${CURATOR_TAG:-0.16.0}
     ports:
       - "${CURATOR_PORT:-8101}:8101"
+    labels:
+      argus.peer: curator
+      argus.service: argus-curator
+      argus.health: /health
+      argus.port: "8101"
     environment:
+      - ARGUS_PEER=curator
       - CURATOR_SOURCE_PATH=/data/images
       # Required for live-mode export: the server refuses /export outright when
       # the export root is unset. Matches the /data/out mount below, so the
@@ -346,7 +364,13 @@ services:
     image: ghcr.io/smk762/argus-forge:${FORGE_TAG:-0.2.0}
     ports:
       - "${FORGE_PORT:-8103}:8103"
+    labels:
+      argus.peer: forge
+      argus.service: argus-forge
+      argus.health: /health
+      argus.port: "8103"
     environment:
+      - ARGUS_PEER=forge
       # Same deal as CURATOR_CORS_ORIGINS above: default mirrors the image's
       # --cors (localhost:3000); add other browser origins comma-separated.
       - FORGE_CORS_ORIGINS=${FORGE_CORS_ORIGINS:-http://localhost:3000}
@@ -375,7 +399,13 @@ services:
     image: ghcr.io/smk762/argus-proof:${PROOF_TAG:-0.4.0}
     ports:
       - "${PROOF_PORT:-8104}:8104"
+    labels:
+      argus.peer: proof
+      argus.service: argus-proof
+      argus.health: /health
+      argus.port: "8104"
     environment:
+      ARGUS_PEER: proof
       # Where the report store reads/writes <run_id>.json (under the mounted
       # output volume, so reviews persist across restarts).
       ARGUS_PROOF_REPORTS_DIR: /data/out/proof/reports
@@ -439,7 +469,13 @@ services:
     image: ghcr.io/smk762/argus-atlas:${ATLAS_TAG:-0.3.1}
     ports:
       - "${ATLAS_PORT:-8105}:8105"
+    labels:
+      argus.peer: atlas
+      argus.service: argus-atlas
+      argus.health: /health
+      argus.port: "8105"
     environment:
+      ARGUS_PEER: atlas
       # The image's defaults, restated: jobs under the shared output volume,
       # DEMs/vectors/OSM extracts under /data/dem, models read-only.
       ATLAS_JOBS_DIR: /data/out/atlas
@@ -478,7 +514,13 @@ services:
     command: [argus-survey, serve, --host, 0.0.0.0, --port, "8107", --cors]
     ports:
       - "${SURVEY_PORT:-8107}:8107"
+    labels:
+      argus.peer: survey
+      argus.service: argus-survey
+      argus.health: /health
+      argus.port: "8107"
     environment:
+      ARGUS_PEER: survey
       HOME: /tmp
       SURVEY_ALLOW_PROCESS: ${SURVEY_ALLOW_PROCESS:-}
       # The browser origin of argus-sightline.
@@ -513,7 +555,13 @@ services:
     ports:
       # Loopback by default: darkroom is not for public hosting.
       - "${DARKROOM_PUBLISH:-127.0.0.1:8106}:8106"
+    labels:
+      argus.peer: darkroom
+      argus.service: argus-darkroom
+      argus.health: /health
+      argus.port: "8106"
     environment:
+      ARGUS_PEER: darkroom
       ARGUS_DARKROOM_SINGGUARD_URL: ${DARKROOM_SINGGUARD_URL:-${SINGGUARD_URL:-}}
       # Shared with argus-proof and argus-atlas.
       ARGUS_DARKROOM_COMFYUI_URL: ${COMFYUI_BASE_URL:-http://host.docker.internal:8188}
@@ -558,7 +606,13 @@ services:
       # authentication, so reaching the port is access. Put a TLS proxy in
       # front to serve screens on the LAN.
       - "${MASK_PUBLISH:-127.0.0.1:8109}:8109"
+    labels:
+      argus.peer: mask
+      argus.service: argus-mask
+      argus.health: /health
+      argus.port: "8109"
     environment:
+      ARGUS_PEER: mask
       # energy: mouth from loudness, CPU only. a2f: an Audio2Face server at
       # MASK_A2F_URL (built from argus-mask's a2f/, needs an NVIDIA GPU; not
       # bundled here). Mask's own process uses no GPU.
@@ -620,7 +674,13 @@ services:
     image: ghcr.io/smk762/argus-quarry:${QUARRY_TAG:-0.4.0}
     ports:
       - "${QUARRY_SERVER_PORT:-8102}:8102"
+    labels:
+      argus.peer: quarry
+      argus.service: argus-quarry
+      argus.health: /health
+      argus.port: "8102"
     environment:
+      - ARGUS_PEER=quarry
       - QUARRY_HOME=/data/quarry
       # Public-domain metadata archives for /gallery's Sources view (links,
       # captions, sizes — no photos; see argus-quarry's
@@ -660,7 +720,13 @@ services:
     ports:
       # Loopback by default: other services reach it by DNS name, not the port.
       - "${PUPPET_PUBLISH:-127.0.0.1:8220}:8220"
+    labels:
+      argus.peer: puppet
+      argus.service: argus-puppet
+      argus.health: /health
+      argus.port: "8220"
     environment:
+      ARGUS_PEER: puppet
       ARGUS_PUPPET_MODEL_DIR: /models
       ARGUS_PUPPET_READ_ONLY: ${PUPPET_READ_ONLY:-0}
       ARGUS_PUPPET_CORS_ORIGINS: ${PUPPET_CORS_ORIGINS:-}
