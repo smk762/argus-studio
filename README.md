@@ -98,7 +98,7 @@ docker compose -f compose.yaml -f compose.build.yaml --profile full up --build
 | `proof` | frontend + argus-proof | Post-training LoRA evaluation ([epic](https://github.com/smk762/argus-studio/issues/6)): review scored eval runs at `/proof` — pass/fail verdict, per-metric scores, and a keyboard-first HITL review (5-star + structured reject reasons, blind mode) against argus-proof on :8104 |
 | `atlas` | frontend + argus-atlas | Baking a georeferenced fantasy-map overlay from a DEM at `/atlas`: GDAL controls, a ComfyUI restyle (off unless `ATLAS_ALLOW_BAKE=1`), the alignment gate, and a PMTiles archive, against argus-atlas on :8105 |
 | `darkroom` | frontend + argus-darkroom | Guarded generation at `/darkroom`. Needs `DARKROOM_SINGGUARD_URL` and ComfyUI; not part of `full`, because no SingGuard is bundled and darkroom refuses to start without one |
-| `mask` | frontend + argus-mask | A talking face: audio in, a rigged head speaking in step on any screen. Mask serves its own viewer on :8109 (loopback, `MASK_PUBLISH`); studio only links to it from the footer when `ARGUS_MASK_URL` is set. Faces go in `MASK_ASSETS_DIR`. Not part of `full` |
+| `mask` | frontend + argus-mask | A talking face: audio in, a rigged head speaking in step on any screen. Mask serves its own viewer on :8109 (loopback, `MASK_PUBLISH`); studio only links to it from the footer when `ARGUS_MASK_UI_URL` is set. Faces go in `MASK_ASSETS_DIR`. Not part of `full` |
 | `puppet` | argus-puppet | Body pose for curator's pose stage (curator 0.20+, `ARGUS_CURATOR_PUPPET_URL=http://argus-puppet:8220`), which `/curate`'s Selection coverage shows. A service on :8220 (loopback, `PUPPET_PUBLISH`), not a page; fetch its weights once with `docker compose --profile puppet run --rm argus-puppet argus-puppet models fetch`. Not part of `full` |
 | `full` | frontend + curator + nudenet + lens + ollama + quarry server + forge + proof + atlas | End-to-end acquire → curate → caption → forge → evaluate → bake (set `ARGUS_CURATOR_UI_MODE=live`) |
 
@@ -149,7 +149,7 @@ pip install argus-lens[server,local]
 argus-lens serve --cors --port 8100
 ```
 
-If you are developing **argus-lens locally**, rebuild the wheel and reinstall into the same environment you use for `serve` (the demo always talks to whatever is running on `ARGUS_LENS_URL`). Targets use [uv](https://docs.astral.sh/uv/) so installs work on PEP 668 (externally managed) system Pythons:
+If you are developing **argus-lens locally**, rebuild the wheel and reinstall into the same environment you use for `serve` (the demo always talks to whatever is running on `ARGUS_LENS_BROWSER_URL`). Targets use [uv](https://docs.astral.sh/uv/) so installs work on PEP 668 (externally managed) system Pythons:
 
 ```bash
 cd ../argus-lens
@@ -200,7 +200,7 @@ The caption page shows `training_prose` directly under `training`, and the headc
 
 ### Curator SPA (`/curate`)
 
-The curator UI calls `ARGUS_CURATOR_URL` (default `http://localhost:8101`). Run the FastAPI app from [argus-curator](https://github.com/smk762/argus-curator) in another terminal.
+The curator UI calls `ARGUS_CURATOR_BROWSER_URL` (default `http://localhost:8101`). Run the FastAPI app from [argus-curator](https://github.com/smk762/argus-curator) in another terminal.
 
 In live mode the page also offers:
 
@@ -209,11 +209,11 @@ In live mode the page also offers:
 - **Detector badges** — what the curator reports from `GET /detectors`, from torch, cuda and CLIP through faces, FairFace, MiVOLO, NudeNet, EraX, SingGuard, watermark crops, scenes and garments. Greyed-out options explain themselves.
 - **Export modes** — copy, symlink or move. **Move** relocates the source images, so the curator rejects it unless it was started with `--allow-move` (`CURATOR_ALLOW_MOVE=1`), and the option is disabled to match.
 - **Deleting source images** — **Delete selected** and **Delete rejected** remove files from disk after a confirm. They need `CURATOR_ALLOW_DELETE=1` (or `DEVMODE=1`) on the curator. Without it, only **Delete under-18 exposed** works, for frames the curator reads as under 18 with exposure. Compose leaves both flags commented out.
-- **Forge training config** — after export (and captioning), [argus-forge](https://github.com/smk762/argus-forge) turns the export into a ready-to-run LoRA config for kohya sd-scripts, OneTrainer, or diffusers (`POST /config` on `ARGUS_FORGE_URL`, default `http://localhost:8103`), seeded from the same selection-insight heuristics the panel displays. Demo mode offers a client-side kohya TOML download instead. Two caveats when forge runs in Docker: the generated configs reference **container paths** (`/data/out/…`), so substitute your `OUTPUT_DIR` (and prefer `copy`-mode exports over `symlink`) when running `train.sh` on the host; and if you run forge outside compose, start it with `argus-forge serve --cors` so the browser can reach it.
+- **Forge training config** — after export (and captioning), [argus-forge](https://github.com/smk762/argus-forge) turns the export into a ready-to-run LoRA config for kohya sd-scripts, OneTrainer, or diffusers (`POST /config` on `ARGUS_FORGE_BROWSER_URL`, default `http://localhost:8103`), seeded from the same selection-insight heuristics the panel displays. Demo mode offers a client-side kohya TOML download instead. Two caveats when forge runs in Docker: the generated configs reference **container paths** (`/data/out/…`), so substitute your `OUTPUT_DIR` (and prefer `copy`-mode exports over `symlink`) when running `train.sh` on the host; and if you run forge outside compose, start it with `argus-forge serve --cors` so the browser can reach it.
 
 ### Gallery (`/gallery`)
 
-A view over [argus-quarry](https://github.com/smk762/argus-quarry)'s provenance database (`ARGUS_QUARRY_URL`, default `http://localhost:8102`): pool stats, licence/source/category/subject filters, thumbnails, and a per-image provenance card (source page, photographer, attribution, SHA256). Every photo links straight into `/curate` with its published subject folder preselected. Run the server with the `gallery` profile, or standalone:
+A view over [argus-quarry](https://github.com/smk762/argus-quarry)'s provenance database (`ARGUS_QUARRY_BROWSER_URL`, default `http://localhost:8102`): pool stats, licence/source/category/subject filters, thumbnails, and a per-image provenance card (source page, photographer, attribution, SHA256). Every photo links straight into `/curate` with its published subject folder preselected. Run the server with the `gallery` profile, or standalone:
 
 ```bash
 pip install "argus-quarry[server]"
@@ -280,7 +280,7 @@ Open [http://localhost:3000](http://localhost:3000) (captioning) or [http://loca
 
 ### Proof (`/proof`)
 
-Review post-training LoRA evaluation runs from [argus-proof](https://github.com/smk762/argus-proof) (`ARGUS_PROOF_URL`, default `http://localhost:8104`). A run browser lists scored runs; the selected run shows its pass/fail **verdict**, group-collapsed pass-rate, per-metric means (identity / adherence / quality / preference / safety), diversity, and scorer provenance. Below it is the **human-in-the-loop review**: a keyboard-first grid (`1`–`5` rate, `0` clear, arrows move) with a 5-star rating and a structured, multi-label reject taxonomy (deformation / decoherence / ID-not-applied / …) captured as structured codes, not free text. **Blind mode** hides each sample's checkpoint/weight/epoch/seed and randomises order to remove expectation bias, revealing provenance after you rate; the borderline (needs-review) band is surfaced first via the automated pre-pass. Saving folds the ratings + reasons + rater id back into the report and recomputes the verdict (`POST /report/{id}/hitl`). Demo mode reviews a bundled sample report with no backend; run the server with the `proof` profile, or standalone:
+Review post-training LoRA evaluation runs from [argus-proof](https://github.com/smk762/argus-proof) (`ARGUS_PROOF_BROWSER_URL`, default `http://localhost:8104`). A run browser lists scored runs; the selected run shows its pass/fail **verdict**, group-collapsed pass-rate, per-metric means (identity / adherence / quality / preference / safety), diversity, and scorer provenance. Below it is the **human-in-the-loop review**: a keyboard-first grid (`1`–`5` rate, `0` clear, arrows move) with a 5-star rating and a structured, multi-label reject taxonomy (deformation / decoherence / ID-not-applied / …) captured as structured codes, not free text. **Blind mode** hides each sample's checkpoint/weight/epoch/seed and randomises order to remove expectation bias, revealing provenance after you rate; the borderline (needs-review) band is surfaced first via the automated pre-pass. Saving folds the ratings + reasons + rater id back into the report and recomputes the verdict (`POST /report/{id}/hitl`). Demo mode reviews a bundled sample report with no backend; run the server with the `proof` profile, or standalone:
 
 ```bash
 pip install "argus-proof[server]"
@@ -289,7 +289,7 @@ argus-proof serve --cors --port 8104
 
 ### Atlas (`/atlas`)
 
-Bake one georeferenced fantasy-map overlay from real terrain with [argus-atlas](https://github.com/smk762/argus-atlas) ([PyPI](https://pypi.org/project/argus-atlas/); `ARGUS_ATLAS_URL`, default `http://localhost:8105`). It is the stage after proof: a cartography LoRA that passed evaluation goes in as a file, and atlas does the geodata work with GDAL.
+Bake one georeferenced fantasy-map overlay from real terrain with [argus-atlas](https://github.com/smk762/argus-atlas) ([PyPI](https://pypi.org/project/argus-atlas/); `ARGUS_ATLAS_BROWSER_URL`, default `http://localhost:8105`). It is the stage after proof: a cartography LoRA that passed evaluation goes in as a file, and atlas does the geodata work with GDAL.
 
 - **Host doctor** (`GET /doctor`) reports GDAL, the tiler, the PMTiles packer, the bake backend and the server's directories. It is collapsed, and probes only when opened.
 - **New canvas** picks a DEM (GeoTIFF or `.vrt` mosaic) and an optional OSM extract from what the server lists under `ATLAS_DEM_DIR` (`GET /inputs`), takes an AOI in degrees and an optional gdalwarp `resampling` method, and builds the hillshade, slope, layer masks and composite (`POST /controls`). No GPU, so this works on a read-only host too. A job pins the hash of a `.vrt` file, not of the tiles it lists.
@@ -309,7 +309,7 @@ argus-atlas serve --cors          # :8105; add ATLAS_ALLOW_BAKE=1 to bake
 
 ### Darkroom (`/darkroom`)
 
-Guarded image generation with [argus-darkroom](https://github.com/smk762/argus-darkroom) (`ARGUS_DARKROOM_URL`, default `http://localhost:8106`), the stage after proof: a LoRA that passed evaluation can be tried here, and a passed report on `/proof` links to it.
+Guarded image generation with [argus-darkroom](https://github.com/smk762/argus-darkroom) (`ARGUS_DARKROOM_BROWSER_URL`, default `http://localhost:8106`), the stage after proof: a LoRA that passed evaluation can be tried here, and a passed report on `/proof` links to it.
 
 - **Compose** a prompt with a checkpoint, LoRAs, an enforcing SingGuard policy and advisory ones. **Check** (`POST /preflight`) shows the pre-flight verdict before anything is generated.
 - **Generate** streams `POST /generate/stream` over SSE, then shows what every guard said about the output and which rule fired.
@@ -397,17 +397,17 @@ Each package's own README and `docs/*.md` pages, and the suite's setup guides, a
 
 | Variable | Default | Description |
 |---|---|---|
-| `ARGUS_LENS_URL` | `http://localhost:8100` | URL the **browser** uses to reach the argus-lens API |
-| `ARGUS_CURATOR_URL` | `http://localhost:8101` | URL the **browser** uses to reach the argus-curator API (`/curate`) |
-| `ARGUS_QUARRY_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
+| `ARGUS_LENS_BROWSER_URL` | `http://localhost:8100` | URL the **browser** uses to reach the argus-lens API |
+| `ARGUS_CURATOR_BROWSER_URL` | `http://localhost:8101` | URL the **browser** uses to reach the argus-curator API (`/curate`) |
+| `ARGUS_QUARRY_BROWSER_URL` | `http://localhost:8102` | URL the **browser** uses to reach the argus-quarry provenance API (`/gallery`) |
 | `PUBLIC_DOMAIN_DIR` | `./public_domain` | Host dir holding the archived `pd12m/` and `megalith/` metadata, mounted read-only into the quarry server for `/gallery` → Sources |
 | `QUARRY_ALLOW_FETCH` | _(unset)_ | Let the quarry server land a Sources slice in the pool itself; unset, the page hands back `slice.json` + the CLI command |
 | `QUARRY_CORS_ORIGINS` | _(unset = read-only `*`)_ | Comma-separated studio origins the quarry server allows; required for **Fetch into the pool** (argus-quarry ≥ 0.3.1) |
-| `ARGUS_FORGE_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (`/forge`) |
-| `ARGUS_PROOF_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
-| `ARGUS_DARKROOM_URL` | `http://localhost:8106` | URL the **browser** uses to reach argus-darkroom (the `/darkroom` generation view) |
-| `ARGUS_ATLAS_URL` | `http://localhost:8105` | URL the **browser** uses to reach argus-atlas (the `/atlas` map-bake view) |
-| `ARGUS_LIGHTBOX_URL`, `ARGUS_CULL_URL`, `ARGUS_SAFELIGHT_URL`, `ARGUS_SIGHTLINE_URL`, `ARGUS_MASK_URL`, `ARGUS_ASSAY_URL`, `ARGUS_PUPPET_UI_URL` | _(empty)_ | Footer links to the standalone demo UIs, to argus-sightline (the `survey` profile, `:3107`), to argus-mask's viewer (the `mask` profile, `:8109`) to argus-assay, argus-mint's UI (`:3108`, also linked from `/darkroom`), and to argus-puppet's demo UI (also linked from `/curate` and `/proof`). A UI left empty gets no link |
+| `ARGUS_FORGE_BROWSER_URL` | `http://localhost:8103` | URL the **browser** uses to reach the argus-forge training bridge (`/forge`) |
+| `ARGUS_PROOF_BROWSER_URL` | `http://localhost:8104` | URL the **browser** uses to reach argus-proof (the `/proof` eval-review view) |
+| `ARGUS_DARKROOM_BROWSER_URL` | `http://localhost:8106` | URL the **browser** uses to reach argus-darkroom (the `/darkroom` generation view) |
+| `ARGUS_ATLAS_BROWSER_URL` | `http://localhost:8105` | URL the **browser** uses to reach argus-atlas (the `/atlas` map-bake view) |
+| `ARGUS_LIGHTBOX_URL`, `ARGUS_CULL_URL`, `ARGUS_SAFELIGHT_URL`, `ARGUS_SIGHTLINE_URL`, `ARGUS_MASK_UI_URL`, `ARGUS_ASSAY_URL`, `ARGUS_PUPPET_UI_URL` | _(empty)_ | Footer links to the standalone demo UIs, to argus-sightline (the `survey` profile, `:3107`), to argus-mask's viewer (the `mask` profile, `:8109`) to argus-assay, argus-mint's UI (`:3108`, also linked from `/darkroom`), and to argus-puppet's demo UI (also linked from `/curate` and `/proof`). A UI left empty gets no link |
 | `ARGUS_CSP` | `enforce` | The nonce-based Content-Security-Policy on every page: `enforce`, `report-only` (logs violations to the console) or `off`. X-Frame-Options, nosniff and Referrer-Policy are sent in every mode |
 | `DEVMODE` (or `ARGUS_DEVMODE`, which wins) | _(unset)_ | Offers SingGuard's `adult-*` policies on `/curate` and `/darkroom`, and lets curator and darkroom delete anything (darkroom's Delete record / Delete everything). Every delete still asks first. `CURATOR_DEVMODE=0` / `DARKROOM_DEVMODE=0` keep the policies without that service's deletes |
 | `CURATOR_ALLOW_MOVE` / `CURATOR_ALLOW_DELETE` | _(commented out)_ | Let the curator `move` source images on export / delete any selected image. Uncomment them in `compose.yaml` |
@@ -453,8 +453,8 @@ applies a change without a rebuild — one published image deploys to any origin
 Behind a reverse proxy, give each service a **path prefix** on the proxy's origin:
 
 ```bash
-ARGUS_CURATOR_URL=/api/curator   # browser calls /api/curator/scan/folder
-ARGUS_LENS_URL=/api/lens
+ARGUS_CURATOR_BROWSER_URL=/api/curator   # browser calls /api/curator/scan/folder
+ARGUS_LENS_BROWSER_URL=/api/lens
 ```
 
 An **empty string** means the origin root (`/scan/folder` instead of
@@ -469,9 +469,17 @@ browser its config needs it. If a proxy replaces or rewrites the policy, that
 script is blocked, and the page falls back to localhost demo defaults with a
 console error. Set `ARGUS_CSP` instead of overriding the header.
 
+These variables were `ARGUS_<SERVICE>_URL` (and `ARGUS_MASK_URL`) before the
+rename. That name is now the suite-wide **server** URL of each service
+([argus-cortex `peers`](https://github.com/smk762/argus-cortex)), so `compose.yaml`
+no longer reads it for the frontend: rename the lines in your `.env`
+([CHANGELOG](CHANGELOG.md) has the table). Outside this compose file the frontend
+still accepts an old name whose value is a path (`/api/lens`), with a deprecation
+warning in its log; an absolute URL or an empty value under an old name is ignored.
+
 The pre-existing `NEXT_PUBLIC_*` names are still honoured as a fallback for older
 `.env` files. The one rename that is not a straight prefix swap:
-`NEXT_PUBLIC_API_URL` is now `ARGUS_LENS_URL`.
+`NEXT_PUBLIC_API_URL` is now `ARGUS_LENS_BROWSER_URL`.
 
 The repo-root `.env` is read by **`docker compose`**. A host `npm run dev` does
 not see it — put local overrides in `frontend/.env.local`.

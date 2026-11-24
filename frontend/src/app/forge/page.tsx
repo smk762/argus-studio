@@ -387,7 +387,7 @@ export default function ForgePage() {
             reason={
               <>
                 argus-forge is unreachable. Start it with the <span className="font-mono">forge</span> compose
-                profile, or set <span className="font-mono">ARGUS_FORGE_URL</span> to where it is running.
+                profile, or set <span className="font-mono">ARGUS_FORGE_BROWSER_URL</span> to where it is running.
               </>
             }
           />
