@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyEdits, needsReviewFrames, summaryFromReport, withReportSummary, type HitlEdit, type ReportSummary } from "@/lib/proofApi";
+import { afterPurgeUnlisted, applyEdits, needsReviewFrames, summaryFromReport, withReportSummary, type HitlEdit, type ReportSummary } from "@/lib/proofApi";
 import { DEMO_REPORT, DEMO_SUMMARY } from "@/lib/proofSample";
 
 // The /proof run list must agree with the open report after "Apply review".
@@ -96,5 +96,20 @@ describe("allowsPurge", () => {
   it("is false for a proof without capabilities, and unknown before /health answers", () => {
     expect(allowsPurge({ ...base })).toBe(false);
     expect(allowsPurge(null)).toBeNull();
+  });
+});
+
+// Audit pack-argus-studio-786cf27ab1: a failed refresh after a bulk purge emptied the list.
+describe("afterPurgeUnlisted", () => {
+  const list = [DEMO_SUMMARY, OTHER];
+
+  it("keeps the list and the open run after a bulk purge", () => {
+    expect(afterPurgeUnlisted(list, null, OTHER.run_id)).toEqual({ summaries: list, selected: OTHER.run_id });
+  });
+
+  it("drops a deleted run, moving off it only if it was open", () => {
+    expect(afterPurgeUnlisted(list, DEMO_SUMMARY.run_id, DEMO_SUMMARY.run_id)).toEqual({ summaries: [OTHER], selected: OTHER.run_id });
+    expect(afterPurgeUnlisted(list, DEMO_SUMMARY.run_id, OTHER.run_id)).toEqual({ summaries: [OTHER], selected: OTHER.run_id });
+    expect(afterPurgeUnlisted([OTHER], OTHER.run_id, OTHER.run_id)).toEqual({ summaries: [], selected: null });
   });
 });

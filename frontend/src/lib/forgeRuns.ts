@@ -20,6 +20,33 @@ export function activeRun(runs: readonly ForgeRunState[]): ForgeRunState | null 
   return runs.find((run) => run.status === "running") ?? null;
 }
 
+/**
+ * Orders run-list responses by when they were requested, so one that arrives
+ * late cannot overwrite newer state: neither a newer response nor a run added
+ * locally ({@link RunListOrder.supersede}) since it was sent.
+ */
+export class RunListOrder {
+  private issued = 0;
+  private settled = 0;
+
+  /** Number a request as it is sent. */
+  send(): number {
+    return ++this.issued;
+  }
+
+  /** Whether this response is still news; if so, every request sent before it is stale from now on. */
+  accept(request: number): boolean {
+    if (request <= this.settled) return false;
+    this.settled = request;
+    return true;
+  }
+
+  /** The list changed locally: every request already in flight predates it. */
+  supersede(): void {
+    this.settled = this.issued;
+  }
+}
+
 /** Newest first. Forge lists oldest first; ISO-8601 UTC timestamps sort as strings. */
 export function newestFirst(runs: readonly ForgeRunState[]): ForgeRunState[] {
   return runs

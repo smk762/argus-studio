@@ -8,6 +8,7 @@ import {
   eventLine,
   newIdempotencyKey,
   newestFirst,
+  RunListOrder,
   runDuration,
   startBlockedReason,
 } from "@/lib/forgeRuns";
@@ -134,5 +135,31 @@ describe("Idempotency-Key per confirmation", () => {
     expect(a).not.toBe(b);
     // forge accepts 1-200 printable ASCII characters.
     expect(a).toMatch(/^[\x20-\x7e]{1,200}$/);
+  });
+});
+
+// Audit pack-argus-studio-50df60adc3: a poll sent before a Start dropped the new run when it landed late.
+describe("RunListOrder", () => {
+  it("drops a response older than the latest applied one", () => {
+    const order = new RunListOrder();
+    const poll = order.send();
+    const refresh = order.send();
+    expect(order.accept(refresh)).toBe(true);
+    expect(order.accept(poll)).toBe(false);
+    expect(order.accept(order.send())).toBe(true);
+  });
+
+  it("drops a poll that was in flight when a run was added locally", () => {
+    const order = new RunListOrder();
+    const poll = order.send();
+    order.supersede();
+    expect(order.accept(poll)).toBe(false);
+    expect(order.accept(order.send())).toBe(true);
+  });
+
+  it("applies responses that arrive in order", () => {
+    const order = new RunListOrder();
+    const [a, b] = [order.send(), order.send()];
+    expect([order.accept(a), order.accept(b)]).toEqual([true, true]);
   });
 });

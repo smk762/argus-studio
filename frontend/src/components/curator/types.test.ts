@@ -3,7 +3,11 @@ import {
   CATEGORY_LABELS,
   DATASET_SIZE_GUIDE,
   TARGET_CATEGORIES,
+  buildScanBody,
   datasetSizeStatus,
+  defaultCuratorConfig,
+  defaultPrefilter,
+  prefilterOn,
   suggestTrainingParams,
 } from "./types";
 
@@ -46,5 +50,20 @@ describe("concept target category (argus-forge 0.2.0 parity)", () => {
     );
     expect(datasetSizeStatus(100, "concept").tone).toBe("good");
     expect(datasetSizeStatus(101, "concept").tone).toBe("high");
+  });
+});
+
+// Audit pack-argus-studio-68d8655dc4: a junk-only prefilter was left out of the request.
+describe("prefilterOn", () => {
+  it("is off by default, and the block is not sent", () => {
+    expect(prefilterOn(defaultPrefilter())).toBe(false);
+    expect(buildScanBody("/data/images", defaultCuratorConfig())).not.toHaveProperty("prefilter");
+  });
+
+  it.each(Object.keys(defaultPrefilter()))("%s alone sends the block", (flag) => {
+    const cfg = defaultCuratorConfig();
+    cfg.prefilter = { ...defaultPrefilter(), [flag]: true };
+    expect(prefilterOn(cfg.prefilter)).toBe(true);
+    expect(buildScanBody("/data/images", cfg)).toMatchObject({ prefilter: { [flag]: true } });
   });
 });

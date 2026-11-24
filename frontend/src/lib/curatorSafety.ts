@@ -79,7 +79,11 @@ export function exposedReading(img: ImageResult): number {
   return Math.max(fromLabels, nsfw.exposed_score ?? 0);
 }
 
-/** Rejected, and not left to the under-18 action, which a server without `delete_any` also accepts. Deleting shows nothing. */
+/**
+ * Rejected, and not left to the under-18 action, which a server without `delete_any` also accepts. Deleting shows
+ * nothing. An under-18 reject with no nudity score stays here: without `delete_any` the server refuses it (its
+ * rule needs a score), and no other action offers it.
+ */
 export function isDeletableReject(img: ImageResult): boolean {
   return img.passed === false && !isMinorExposed(img);
 }

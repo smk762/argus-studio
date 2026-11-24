@@ -103,6 +103,20 @@ describe("applyEdits", () => {
     expect(r.verdict.passed).toBe(true);
   });
 
+  // Audit pack-argus-studio-60e92c891f: the bar is the one the report was scored with.
+  it("uses the report's own gate threshold, falling back to the default", () => {
+    const half = { ...report([image("a", { passed: true }), image("b", { passed: false })]), gate: { run_pass_rate: 0.5 } };
+    const low = applyEdits(half, new Map(), null);
+    expect(low.verdict.passed).toBe(true);
+    expect(low.verdict.reasons[0]).toContain("vs threshold 0.50");
+
+    const undecided = report([image("a", { passed: true }), image("b", { passed: true }), image("c", { passed: true }), image("d")]);
+    const strict = applyEdits({ ...undecided, gate: { run_pass_rate: 0.9 } }, new Map(), null);
+    expect(strict.verdict).toMatchObject({ passed: false, pending: true });
+    expect(applyEdits({ ...undecided, gate: null }, new Map(), null).verdict.passed).toBe(true);
+    expect(applyEdits({ ...undecided, gate: {} }, new Map(), null).verdict.passed).toBe(true);
+  });
+
   it("is pending when undecided groups could still clear the bar", () => {
     const r = applyEdits(report([image("a", { passed: true }), image("b"), image("c"), image("d", { passed: true })]), new Map(), null);
     expect(r.verdict.passed).toBe(false);

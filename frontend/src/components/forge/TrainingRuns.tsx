@@ -23,6 +23,7 @@ import {
   LOG_LIMIT,
   newestFirst,
   RUN_STATUS_LABEL,
+  RunListOrder,
   runDuration,
   startBlockedReason,
   type RunAttempt,
@@ -96,14 +97,16 @@ export function TrainingRuns({
   const selectedId = selected?.run_id ?? null;
   const blocked = startBlockedReason({ exportDir, atRoot, runnable, trainerLabel: TRAINER_LABELS[trainer], active });
 
+  const listOrder = useRef(new RunListOrder());
   const refresh = useCallback(async (signal?: AbortSignal) => {
+    const request = listOrder.current.send();
     try {
       const next = await listRuns(signal);
-      if (signal?.aborted) return;
+      if (signal?.aborted || !listOrder.current.accept(request)) return;
       setRuns(next);
       setListError(null);
     } catch (caught) {
-      if (signal?.aborted) return;
+      if (signal?.aborted || !listOrder.current.accept(request)) return;
       setListError(caught instanceof Error ? caught.message : String(caught));
     }
   }, []);
@@ -199,7 +202,8 @@ export function TrainingRuns({
         if (replayed) setNotice(`Already started: run ${started.run_id.slice(0, 8)} came from an earlier send of this request.`);
         // List the new run at once, so the selection (and its log stream) moves
         // straight to it rather than reopening another run's log until the
-        // refresh below lands.
+        // refresh below lands. A poll already in flight may not know the run yet.
+        listOrder.current.supersede();
         setRuns((cur) => (cur?.some((run) => run.run_id === started.run_id) ? cur : [...(cur ?? []), started]));
         setChosen(started.run_id);
         pinned.current = true;

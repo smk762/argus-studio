@@ -265,6 +265,13 @@ describe("isDeletableReject", () => {
     expect(isMinorExposed(image(minor))).toBe(true);
     expect(isDeletableReject(image(minor))).toBe(false);
   });
+
+  // Audit pack-argus-studio-66af4c5559: curator's under-18 rule needs a score, so only this action can delete one.
+  it("keeps an under-18 reject that has no nudity score", () => {
+    const unscored = image({ ...minor, nsfw: null });
+    expect(isMinorExposed(unscored)).toBe(false);
+    expect(isDeletableReject(unscored)).toBe(true);
+  });
 });
 
 // Audit pack-argus-studio-055b4d4382: the two never disagree, whatever `passed` holds.

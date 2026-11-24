@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  afterPurgeUnlisted,
   allowsEval,
   allowsPurge,
   getProofHealth,
@@ -162,17 +163,18 @@ export default function ProofPage() {
   // A devmode purge (#229): re-read the list, and leave a run that no longer exists.
   const onPurged = useCallback(
     async (removed: string | null) => {
-      let next: ReportSummary[] = [];
+      let next: ReportSummary[];
+      let nextRun: string | null;
       try {
         next = await listReports();
+        nextRun = next[0]?.run_id ?? null;
       } catch {
-        // the list refresh is best-effort; the deleted run is dropped below regardless
-        next = summaries.filter((s) => removed !== null && s.run_id !== removed);
+        // The list refresh is best-effort: drop what we know was deleted, and only that.
+        ({ summaries: next, selected: nextRun } = afterPurgeUnlisted(summaries, removed, selected));
       }
       setSummaries(next);
       if (removed === null || removed === selected) {
         setReport(null);
-        const nextRun = next[0]?.run_id ?? null;
         // No run left: the aborted load leaves its spinner to a successor that
         // never starts (the selection effect returns early on null), so clear it here.
         if (nextRun === null) {
