@@ -70,20 +70,20 @@ services:
     # means "call this API on the page's own origin", which is what argus-halo
     # wants behind Caddy. Only an *unset* variable takes the default.
     environment:
-      - ARGUS_LENS_URL=${ARGUS_LENS_URL-${NEXT_PUBLIC_API_URL-http://localhost:8100}}
-      - ARGUS_CURATOR_URL=${ARGUS_CURATOR_URL-${NEXT_PUBLIC_CURATOR_URL-http://localhost:8101}}
-      - ARGUS_QUARRY_URL=${ARGUS_QUARRY_URL-${NEXT_PUBLIC_QUARRY_URL-http://localhost:8102}}
-      - ARGUS_FORGE_URL=${ARGUS_FORGE_URL-${NEXT_PUBLIC_FORGE_URL-http://localhost:8103}}
-      - ARGUS_PROOF_URL=${ARGUS_PROOF_URL-${NEXT_PUBLIC_PROOF_URL-http://localhost:8104}}
-      - ARGUS_ATLAS_URL=${ARGUS_ATLAS_URL-${NEXT_PUBLIC_ATLAS_URL-http://localhost:8105}}
-      - ARGUS_DARKROOM_URL=${ARGUS_DARKROOM_URL-http://localhost:8106}
+      - ARGUS_LENS_BROWSER_URL=${ARGUS_LENS_BROWSER_URL-${NEXT_PUBLIC_API_URL-http://localhost:8100}}
+      - ARGUS_CURATOR_BROWSER_URL=${ARGUS_CURATOR_BROWSER_URL-${NEXT_PUBLIC_CURATOR_URL-http://localhost:8101}}
+      - ARGUS_QUARRY_BROWSER_URL=${ARGUS_QUARRY_BROWSER_URL-${NEXT_PUBLIC_QUARRY_URL-http://localhost:8102}}
+      - ARGUS_FORGE_BROWSER_URL=${ARGUS_FORGE_BROWSER_URL-${NEXT_PUBLIC_FORGE_URL-http://localhost:8103}}
+      - ARGUS_PROOF_BROWSER_URL=${ARGUS_PROOF_BROWSER_URL-${NEXT_PUBLIC_PROOF_URL-http://localhost:8104}}
+      - ARGUS_ATLAS_BROWSER_URL=${ARGUS_ATLAS_BROWSER_URL-${NEXT_PUBLIC_ATLAS_URL-http://localhost:8105}}
+      - ARGUS_DARKROOM_BROWSER_URL=${ARGUS_DARKROOM_BROWSER_URL-http://localhost:8106}
       - ARGUS_LIGHTBOX_URL=${ARGUS_LIGHTBOX_URL-}
       - ARGUS_CULL_URL=${ARGUS_CULL_URL-}
       - ARGUS_SAFELIGHT_URL=${ARGUS_SAFELIGHT_URL-}
       # Footer link to argus-sightline. The `survey` profile runs it on :3107; set this to show the link.
       - ARGUS_SIGHTLINE_URL=${ARGUS_SIGHTLINE_URL-}
       # Footer link to argus-mask's viewer. The `mask` profile runs it on :8109; set this to show the link.
-      - ARGUS_MASK_URL=${ARGUS_MASK_URL-}
+      - ARGUS_MASK_UI_URL=${ARGUS_MASK_UI_URL-}
       # Footer link, and a link from /darkroom, to argus-assay: argus-mint's own
       # UI for card drafts, review and publishing (it runs from the argus-mint repo, :3108).
       - ARGUS_ASSAY_URL=${ARGUS_ASSAY_URL-}
@@ -538,8 +538,13 @@ services:
     ports:
       - "${SIGHTLINE_PORT:-3107}:3000"
     environment:
-      # As the browser reaches the API, not a compose DNS name.
-      ARGUS_SURVEY_URL: ${ARGUS_SURVEY_URL-http://localhost:8107}
+      # As the browser reaches the API, not a compose DNS name. Set
+      # ARGUS_SURVEY_BROWSER_URL in .env: ARGUS_SURVEY_URL is the suite-wide
+      # server URL of argus-survey (argus-cortex peers) and is not read here.
+      ARGUS_SURVEY_BROWSER_URL: ${ARGUS_SURVEY_BROWSER_URL-http://localhost:8107}
+      # The released sightline image reads only the old name. Remove this line
+      # once SIGHTLINE_TAG pins a release with argus-sightline#53.
+      ARGUS_SURVEY_URL: ${ARGUS_SURVEY_BROWSER_URL-http://localhost:8107}
       ARGUS_STUDIO_URL: ${ARGUS_STUDIO_URL-http://localhost:3000}
     depends_on: [argus-survey]
     restart: unless-stopped
@@ -597,7 +602,7 @@ services:
   argus-mask:
     # A talking face: audio in, facial animation frames out, rendered by the
     # viewer mask serves on its own port. A standalone viewer, not a studio
-    # stage, so studio only links to it (ARGUS_MASK_URL on the frontend). Not
+    # stage, so studio only links to it (ARGUS_MASK_UI_URL on the frontend). Not
     # in "full": a separate audience, and a face needs assets you provide.
     profiles: ["mask"]
     image: ghcr.io/smk762/argus-mask:${MASK_TAG:-0.2.0}

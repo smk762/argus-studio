@@ -22,7 +22,7 @@ describe("resolveRuntimeConfig", () => {
 
   it("prefers the runtime name over the legacy NEXT_PUBLIC_* one", () => {
     const c = resolveRuntimeConfig({
-      ARGUS_LENS_URL: "https://lens.example",
+      ARGUS_LENS_BROWSER_URL: "https://lens.example",
       NEXT_PUBLIC_API_URL: "https://legacy.example",
       NEXT_PUBLIC_CURATOR_URL: "https://curator.example",
     });
@@ -31,20 +31,60 @@ describe("resolveRuntimeConfig", () => {
   });
 
   it("keeps an explicitly empty URL as same-origin rather than the default", () => {
-    expect(resolveRuntimeConfig({ ARGUS_QUARRY_URL: "" }).quarryUrl).toBe("");
-    expect(resolveRuntimeConfig({ ARGUS_QUARRY_URL: "/" }).quarryUrl).toBe("");
+    expect(resolveRuntimeConfig({ ARGUS_QUARRY_BROWSER_URL: "" }).quarryUrl).toBe("");
+    expect(resolveRuntimeConfig({ ARGUS_QUARRY_BROWSER_URL: "/" }).quarryUrl).toBe("");
   });
 
   it("strips trailing slashes from bases and path prefixes", () => {
-    const c = resolveRuntimeConfig({ ARGUS_FORGE_URL: " https://forge.example/// ", ARGUS_PROOF_URL: "/api/proof/" });
+    const c = resolveRuntimeConfig({ ARGUS_FORGE_BROWSER_URL: " https://forge.example/// ", ARGUS_PROOF_BROWSER_URL: "/api/proof/" });
     expect(c.forgeUrl).toBe("https://forge.example");
     expect(c.proofUrl).toBe("/api/proof");
   });
 
   it("warns about a scheme-less base instead of silently accepting it", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    expect(resolveRuntimeConfig({ ARGUS_CURATOR_URL: "curator:8101" }).curatorUrl).toBe("curator:8101");
+    expect(resolveRuntimeConfig({ ARGUS_CURATOR_BROWSER_URL: "curator:8101" }).curatorUrl).toBe("curator:8101");
     expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it("reads a pre-rename name only when it holds a path, and says so once", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const c = resolveRuntimeConfig({ ARGUS_LENS_URL: "/api/lens/", ARGUS_MASK_URL: "/mask" });
+    expect(c.lensUrl).toBe("/api/lens");
+    expect(c.maskUrl).toBe("/mask");
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("ARGUS_LENS_BROWSER_URL"));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("ARGUS_MASK_UI_URL"));
+  });
+
+  it("ignores a server URL or an empty value under a pre-rename name", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The suite-wide peer URL (argus-cortex peers) is never the browser's base.
+    const c = resolveRuntimeConfig({
+      ARGUS_LENS_URL: "http://lens:8100",
+      ARGUS_CURATOR_URL: "",
+      ARGUS_PROOF_URL: "http://proof:8104",
+      NEXT_PUBLIC_PROOF_URL: "https://proof.example",
+      ARGUS_MASK_URL: "http://mask:8109",
+    });
+    expect(c.lensUrl).toBe("http://localhost:8100");
+    expect(c.curatorUrl).toBe("http://localhost:8101");
+    expect(c.proofUrl).toBe("https://proof.example");
+    expect(c.maskUrl).toBe("");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("prefers the new name over a path under the pre-rename one", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const c = resolveRuntimeConfig({
+      ARGUS_FORGE_BROWSER_URL: "",
+      ARGUS_FORGE_URL: "/api/forge",
+      ARGUS_MASK_UI_URL: "http://localhost:8109",
+      ARGUS_MASK_URL: "/mask",
+    });
+    expect(c.forgeUrl).toBe("");
+    expect(c.maskUrl).toBe("http://localhost:8109");
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -140,7 +180,7 @@ describe("devMode", () => {
 
 describe("runtimeConfigScript", () => {
   it("escapes < so a value cannot close the inline script tag", () => {
-    const script = runtimeConfigScript(resolveRuntimeConfig({ ARGUS_LENS_URL: "/x</script><script>alert(1)" }));
+    const script = runtimeConfigScript(resolveRuntimeConfig({ ARGUS_LENS_BROWSER_URL: "/x</script><script>alert(1)" }));
     expect(script).not.toContain("</script>");
     expect(script.startsWith("window.__ARGUS_ENV__=")).toBe(true);
   });

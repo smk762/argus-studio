@@ -22,6 +22,10 @@
  * Precedence per field: `ARGUS_*` (runtime) → `NEXT_PUBLIC_*` (build-time,
  * kept for backwards compatibility with existing compose files) → default.
  *
+ * The API bases are `ARGUS_<SERVICE>_BROWSER_URL`, not `ARGUS_<SERVICE>_URL`:
+ * the short name is the suite-wide server-to-server URL (argus-cortex `peers`),
+ * and a browser path under it would stop a service that reads it as a peer.
+ *
  * An explicitly **empty** URL means "same origin": the API clients build
  * relative URLs (`/scan/folder`). Only an *unset* variable falls back to the
  * `http://localhost:810x` dev defaults. A **path prefix** (`/api/curator`) works
@@ -164,22 +168,48 @@ function normalizeBase(value: string, name = "API base"): string {
   return base;
 }
 
-/** Resolve one API base from its runtime name, legacy build-time name, and dev default. */
+/**
+ * The pre-rename name of a browser-side URL (`ARGUS_LENS_URL` for
+ * `ARGUS_LENS_BROWSER_URL`), honoured only when its value is a path. That name is
+ * now the suite-wide *server* URL of the service (argus-cortex `peers`,
+ * smk762/argus-cortex#209), so an absolute URL under it is another service's
+ * setting and an empty one says nothing: both are ignored here.
+ */
+function deprecatedPath(
+  source: Record<string, string | undefined>,
+  oldName: string,
+  newName: string,
+): string | undefined {
+  const value = source[oldName]?.trim();
+  if (!value?.startsWith("/")) return undefined;
+  console.warn(`[argus] ${oldName} is deprecated as a browser path; set ${newName} instead.`);
+  return value;
+}
+
+/**
+ * Resolve one API base: its runtime name, then the pre-rename name when that
+ * holds a path, then the legacy build-time name, then the dev default.
+ */
 function resolveBase(
   source: Record<string, string | undefined>,
-  names: readonly string[],
+  name: string,
+  oldName: string,
+  legacy: readonly string[],
   fallback: string,
 ): string {
-  return normalizeBase(firstDefined(source, names) ?? fallback, names[0]);
+  const value =
+    firstDefined(source, [name]) ?? deprecatedPath(source, oldName, name) ?? firstDefined(source, legacy) ?? fallback;
+  return normalizeBase(value, name);
 }
 
 /**
  * A link to another app, not an API base: empty means no link rather than same
  * origin, and it ends up in an `href`, so anything but http(s) or a path is
- * dropped instead of only warned about.
+ * dropped instead of only warned about. `oldName` is a pre-rename name, read
+ * as {@link deprecatedPath} reads it.
  */
-function resolveLink(source: Record<string, string | undefined>, name: string): string {
-  const value = firstNonEmpty(source, [name]);
+function resolveLink(source: Record<string, string | undefined>, name: string, oldName?: string): string {
+  const value = firstNonEmpty(source, [name]) ?? (oldName ? deprecatedPath(source, oldName, name) : undefined);
   if (value === undefined) return "";
   if (value.startsWith("/") || isAbsoluteUrl(value)) return value.replace(/\/+$/, "");
   console.warn(`[argus] ${name}="${value}" is not a valid absolute URL or "/"-prefixed path; omitting the link.`);
@@ -221,18 +251,18 @@ export function resolveRuntimeConfig(
     firstNonEmpty(source, ["ARGUS_CURATOR_UI_MODE", "NEXT_PUBLIC_CURATOR_UI_MODE"]),
   );
   return {
-    lensUrl: resolveBase(source, ["ARGUS_LENS_URL", "NEXT_PUBLIC_API_URL"], "http://localhost:8100"),
-    curatorUrl: resolveBase(source, ["ARGUS_CURATOR_URL", "NEXT_PUBLIC_CURATOR_URL"], "http://localhost:8101"),
-    quarryUrl: resolveBase(source, ["ARGUS_QUARRY_URL", "NEXT_PUBLIC_QUARRY_URL"], "http://localhost:8102"),
-    forgeUrl: resolveBase(source, ["ARGUS_FORGE_URL", "NEXT_PUBLIC_FORGE_URL"], "http://localhost:8103"),
-    proofUrl: resolveBase(source, ["ARGUS_PROOF_URL", "NEXT_PUBLIC_PROOF_URL"], "http://localhost:8104"),
-    atlasUrl: resolveBase(source, ["ARGUS_ATLAS_URL", "NEXT_PUBLIC_ATLAS_URL"], "http://localhost:8105"),
-    darkroomUrl: resolveBase(source, ["ARGUS_DARKROOM_URL"], "http://localhost:8106"),
+    lensUrl: resolveBase(source, "ARGUS_LENS_BROWSER_URL", "ARGUS_LENS_URL", ["NEXT_PUBLIC_API_URL"], "http://localhost:8100"),
+    curatorUrl: resolveBase(source, "ARGUS_CURATOR_BROWSER_URL", "ARGUS_CURATOR_URL", ["NEXT_PUBLIC_CURATOR_URL"], "http://localhost:8101"),
+    quarryUrl: resolveBase(source, "ARGUS_QUARRY_BROWSER_URL", "ARGUS_QUARRY_URL", ["NEXT_PUBLIC_QUARRY_URL"], "http://localhost:8102"),
+    forgeUrl: resolveBase(source, "ARGUS_FORGE_BROWSER_URL", "ARGUS_FORGE_URL", ["NEXT_PUBLIC_FORGE_URL"], "http://localhost:8103"),
+    proofUrl: resolveBase(source, "ARGUS_PROOF_BROWSER_URL", "ARGUS_PROOF_URL", ["NEXT_PUBLIC_PROOF_URL"], "http://localhost:8104"),
+    atlasUrl: resolveBase(source, "ARGUS_ATLAS_BROWSER_URL", "ARGUS_ATLAS_URL", ["NEXT_PUBLIC_ATLAS_URL"], "http://localhost:8105"),
+    darkroomUrl: resolveBase(source, "ARGUS_DARKROOM_BROWSER_URL", "ARGUS_DARKROOM_URL", [], "http://localhost:8106"),
     lightboxUrl: resolveLink(source, "ARGUS_LIGHTBOX_URL"),
     cullUrl: resolveLink(source, "ARGUS_CULL_URL"),
     safelightUrl: resolveLink(source, "ARGUS_SAFELIGHT_URL"),
     sightlineUrl: resolveLink(source, "ARGUS_SIGHTLINE_URL"),
-    maskUrl: resolveLink(source, "ARGUS_MASK_URL"),
+    maskUrl: resolveLink(source, "ARGUS_MASK_UI_URL", "ARGUS_MASK_URL"),
     assayUrl: resolveLink(source, "ARGUS_ASSAY_URL"),
     puppetUiUrl: resolveLink(source, "ARGUS_PUPPET_UI_URL"),
     curatorUiMode,
