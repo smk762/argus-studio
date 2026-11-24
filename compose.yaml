@@ -538,8 +538,13 @@ services:
     ports:
       - "${SIGHTLINE_PORT:-3107}:3000"
     environment:
-      # As the browser reaches the API, not a compose DNS name.
-      ARGUS_SURVEY_URL: ${ARGUS_SURVEY_URL-http://localhost:8107}
+      # As the browser reaches the API, not a compose DNS name. Set
+      # ARGUS_SURVEY_BROWSER_URL in .env: ARGUS_SURVEY_URL is the suite-wide
+      # server URL of argus-survey (argus-cortex peers) and is not read here.
+      ARGUS_SURVEY_BROWSER_URL: ${ARGUS_SURVEY_BROWSER_URL-http://localhost:8107}
+      # The released sightline image reads only the old name. Remove this line
+      # once SIGHTLINE_TAG pins a release with argus-sightline#53.
+      ARGUS_SURVEY_URL: ${ARGUS_SURVEY_BROWSER_URL-http://localhost:8107}
       ARGUS_STUDIO_URL: ${ARGUS_STUDIO_URL-http://localhost:3000}
     depends_on: [argus-survey]
     restart: unless-stopped
