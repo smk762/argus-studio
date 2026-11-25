@@ -37,7 +37,7 @@ Each rule names what fails when it is broken. **UNENFORCED** means only this fil
 
 | Never | Enforced by |
 |---|---|
-| Layer `compose.train.yaml` on a public demo. It arms live forge training: the `-train` image, the GPU and `ARGUS_FORGE_READONLY=0` | Partial: `repoRules.test.ts` (only that file arms training, and no workflow layers it). The deployed stack is **UNENFORCED**: smk762/argus-halo#33 |
+| Layer `compose.train.yaml` on a public demo. It arms live forge training: the `-train` image, the GPU and `ARGUS_FORGE_READONLY=0` | `repoRules.test.ts` (only that file arms training, and no workflow layers it). For the deployed stack, argus-halo's `scripts/check-cloud-init.sh` (CI) refuses a `-train` image or a forge without `ARGUS_FORGE_READONLY=1`, and its `scripts/smoke-demo.py` probes the 403 |
 | Arm training from `compose.gpu.yaml`, `compose.yaml` or `.env.example` | `repoRules.test.ts` |
 | Run an Argus service from `compose.yaml` without its suite directory labels (`argus.peer`, `argus.service`, `argus.health`, `argus.port`, plus `ARGUS_PEER`), or label a UI, a job or a third-party image | `repoRules.test.ts` (every service is in its labelled or unlabelled list) |
 | Read a literal `process.env.NAME` in `src/` (only `NODE_ENV`, and `staticDemo.ts`'s one flag) | ESLint `no-restricted-syntax` (`eslint.config.mjs`) |
