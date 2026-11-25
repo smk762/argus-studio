@@ -277,6 +277,77 @@
       "title": "CropBox",
       "type": "object"
     },
+    "EchoImage": {
+      "description": "The echo engine image a speech run generated on.\n\n``version`` and ``revision`` are what echo's ``/health`` ``image`` reports (``None`` for a\nlocal build); ``tag`` is the image reference proof was configured with (``PROOF_ECHO_IMAGE``),\nsince a running container can't report its own digest. ``runtime`` is what to compare before claiming two runs\nshould give the same audio.",
+      "properties": {
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revision"
+        },
+        "runtime": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime"
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tag"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "tag",
+        "version",
+        "revision",
+        "runtime"
+      ],
+      "title": "EchoImage",
+      "type": "object"
+    },
     "EvalReport": {
       "description": "Scored evaluation of a generation run: per-image + aggregate + verdict.\n\nLinks to its :class:`RunManifest` by ``run_id`` rather than embedding it, so\nthe run dir stays the single source of truth for generation params.",
       "properties": {
@@ -325,7 +396,7 @@
           "default": null
         },
         "proof_version": {
-          "default": "1.11",
+          "default": "1.16",
           "title": "Proof Version",
           "type": "string"
         },
@@ -484,6 +555,142 @@
         "checks"
       ],
       "title": "GateResult",
+      "type": "object"
+    },
+    "GeneratedClip": {
+      "description": "One utterance a speech run produced: prompt ``prompt_index`` in reference ``ref_id``'s voice at ``seed``.\n\n``item_id`` is the clip's handle (its WAV is ``<item_id>.wav`` in the run dir, never a\nclient-supplied path); ``sha256`` pins the audio, so a re-run's clip can be compared byte for\nbyte. ``device`` is where XTTS ran it (``cpu`` or its GPU device; ``None`` on Qwen).",
+      "properties": {
+        "device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Device"
+        },
+        "duration_s": {
+          "minimum": 0,
+          "title": "Duration S",
+          "type": "number"
+        },
+        "item_id": {
+          "title": "Item Id",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "prompt_index": {
+          "minimum": 0,
+          "title": "Prompt Index",
+          "type": "integer"
+        },
+        "ref_id": {
+          "title": "Ref Id",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "sample_rate": {
+          "exclusiveMinimum": 0,
+          "title": "Sample Rate",
+          "type": "integer"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "sha256": {
+          "description": "lowercase hex SHA256 digest",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "run_id",
+        "prompt_index",
+        "ref_id",
+        "seed",
+        "path",
+        "sha256",
+        "sample_rate",
+        "duration_s",
+        "device"
+      ],
+      "title": "GeneratedClip",
+      "type": "object"
+    },
+    "GeneratedFrame": {
+      "description": "A speech run's last frame (#118): its clips and ``manifest.json`` are written; nothing is scored yet (#119).\n\n``weights_fingerprint`` is echo's fingerprint of the weights every clip was spoken by.",
+      "properties": {
+        "checkpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checkpoint"
+        },
+        "engine": {
+          "title": "Engine",
+          "type": "string"
+        },
+        "modality": {
+          "const": "speech",
+          "default": "speech",
+          "title": "Modality",
+          "type": "string"
+        },
+        "n_clips": {
+          "minimum": 0,
+          "title": "N Clips",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "speaker_check": {
+          "title": "Speaker Check",
+          "type": "string"
+        },
+        "type": {
+          "const": "generated",
+          "default": "generated",
+          "title": "Type",
+          "type": "string"
+        },
+        "weights_fingerprint": {
+          "description": "lowercase hex SHA256 digest",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Weights Fingerprint",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "type",
+        "modality",
+        "n_clips",
+        "engine",
+        "checkpoint",
+        "weights_fingerprint",
+        "speaker_check"
+      ],
+      "title": "GeneratedFrame",
       "type": "object"
     },
     "GeneratedImage": {
@@ -1046,7 +1253,7 @@
       "type": "object"
     },
     "PoseComparison": {
-      "description": "The run's poses against its training set's (argus-puppet ``POST /compare``).\n\n``close_share`` is the share of eligible outputs within ``threshold`` of a\ntraining frame; ``baseline_close_share`` is the same statistic inside the\ntraining set (leave-one-out), and ``close_excess`` the difference: the\nrun-level copying signal. A pose-conditioned generator shows a high excess by\ndesign, so it is evidence for review, never a reject. ``training_diversity``\nand ``training_largest_cluster_share`` describe the training set itself, so a\ncollapse onto a pose the training set is dominated by reads as a dataset\nproblem. Every statistic puppet could not define is ``None``.",
+      "description": "The run's poses against its training set's (argus-puppet ``POST /compare``).\n\n``close_share`` is the share of eligible outputs within ``threshold`` of a\ntraining frame; ``baseline_close_share`` is the same statistic inside the\ntraining set (leave-one-out), and ``close_excess`` the signed difference\n(in [-1, 1]; negative when outputs are close to training frames less often\nthan the training frames are to each other): the run-level copying signal. A pose-conditioned generator shows a high excess by\ndesign, so it is evidence for review, never a reject. ``training_diversity``\nand ``training_largest_cluster_share`` describe the training set itself, so a\ncollapse onto a pose the training set is dominated by reads as a dataset\nproblem. Every statistic puppet could not define is ``None``.",
       "properties": {
         "baseline_close_share": {
           "anyOf": [
@@ -1076,7 +1283,7 @@
           "anyOf": [
             {
               "maximum": 1.0,
-              "minimum": 0.0,
+              "minimum": -1.0,
               "type": "number"
             },
             {
@@ -1692,7 +1899,7 @@
           "type": "object"
         },
         "proof_version": {
-          "default": "1.11",
+          "default": "1.16",
           "title": "Proof Version",
           "type": "string"
         },
@@ -1935,7 +2142,7 @@
           "type": "string"
         },
         "proof_version": {
-          "default": "1.11",
+          "default": "1.16",
           "title": "Proof Version",
           "type": "string"
         },
@@ -2135,12 +2342,13 @@
       "type": "object"
     },
     "RunStreamFrame": {
-      "description": "One NDJSON line of ``POST /run/stream``, discriminated by ``type``.\n\nGeneration streams :class:`ProgressEvent` frames (``start`` / ``progress`` /\n``image`` / ``done``), then a :class:`ScoringFrame`, then either a\n:class:`CompleteFrame` or a ``ProgressEvent`` of type ``error``.",
+      "description": "One NDJSON line of ``POST /run/stream``, discriminated by ``type``.\n\nGeneration streams :class:`ProgressEvent` frames (``start`` / ``progress`` /\n``image`` / ``done``), then a :class:`ScoringFrame`, then either a\n:class:`CompleteFrame` or a ``ProgressEvent`` of type ``error``. A speech run\n(``modality: speech``) has no scoring yet: it ends with a :class:`GeneratedFrame`\n(or an ``error``) after its ``done``.",
       "discriminator": {
         "mapping": {
           "complete": "#/$defs/CompleteFrame",
           "done": "#/$defs/ProgressEvent",
           "error": "#/$defs/ProgressEvent",
+          "generated": "#/$defs/GeneratedFrame",
           "image": "#/$defs/ProgressEvent",
           "progress": "#/$defs/ProgressEvent",
           "scoring": "#/$defs/ScoringFrame",
@@ -2157,6 +2365,9 @@
         },
         {
           "$ref": "#/$defs/CompleteFrame"
+        },
+        {
+          "$ref": "#/$defs/GeneratedFrame"
         }
       ],
       "title": "RunStreamFrame"
@@ -2302,7 +2513,7 @@
           "type": "integer"
         },
         "proof_version": {
-          "default": "1.11",
+          "default": "1.16",
           "title": "Proof Version",
           "type": "string"
         },
@@ -2370,6 +2581,13 @@
     "ScorerProvenance": {
       "description": "Where a score came from: the scorer, its version, and the model it used.\n\nRecorded for every scorer that contributed to an :class:`EvalReport` so a\nresult is auditable and reproducible \u2014 a score is only as trustworthy as the\nmodel and version that produced it.",
       "properties": {
+        "extra_files": {
+          "items": {
+            "$ref": "#/$defs/ModelRef"
+          },
+          "title": "Extra Files",
+          "type": "array"
+        },
         "metric": {
           "title": "Metric",
           "type": "string"
@@ -2419,7 +2637,8 @@
         "metric",
         "version",
         "model",
-        "model_file"
+        "model_file",
+        "extra_files"
       ],
       "title": "ScorerProvenance",
       "type": "object"
@@ -2448,6 +2667,487 @@
         "n_images"
       ],
       "title": "ScoringFrame",
+      "type": "object"
+    },
+    "SpeechPrompt": {
+      "description": "One prompt of a speech run, by position: ``index`` is what each clip's ``prompt_index`` points at.",
+      "properties": {
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "text"
+      ],
+      "title": "SpeechPrompt",
+      "type": "object"
+    },
+    "SpeechReference": {
+      "description": "A reference clip as a speech run used it: where it sits in the held-out export, pinned by SHA256.",
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accent"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "ref_id": {
+          "title": "Ref Id",
+          "type": "string"
+        },
+        "rel_path": {
+          "title": "Rel Path",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "lowercase hex SHA256 digest",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "speaker_cluster": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Speaker Cluster"
+        },
+        "speaker_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Speaker Label"
+        },
+        "transcript": {
+          "default": "",
+          "title": "Transcript",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref_id",
+        "rel_path",
+        "sha256",
+        "transcript",
+        "speaker_label",
+        "speaker_cluster",
+        "language",
+        "accent"
+      ],
+      "title": "SpeechReference",
+      "type": "object"
+    },
+    "SpeechReferenceSpec": {
+      "description": "One held-out reference clip a speech run clones a voice from, as requested.\n\nRead from the held-out curator speech export (its ``speech_manifest.jsonl`` row):\n``path`` is where the clip is readable on this host, ``rel_path`` its path inside\nthat export. The backend hashes the clip into the manifest's :class:`SpeechReference`.",
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accent"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "ref_id": {
+          "pattern": "^r[0-9]{1,3}$",
+          "title": "Ref Id",
+          "type": "string"
+        },
+        "rel_path": {
+          "title": "Rel Path",
+          "type": "string"
+        },
+        "speaker_cluster": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Speaker Cluster"
+        },
+        "speaker_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Speaker Label"
+        },
+        "transcript": {
+          "default": "",
+          "title": "Transcript",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref_id",
+        "path",
+        "rel_path"
+      ],
+      "title": "SpeechReferenceSpec",
+      "type": "object"
+    },
+    "SpeechRunManifest": {
+      "description": "A fully reproducible speech run: the engine, its weights, the prompts, the references and the seeds.\n\nEvery clip is ``(prompt_index, ref_id, seed)``, generated through echo's\n``/synthesise/stream`` (``route``). Reproducing a clip byte for byte also needs the same GPU\nmodel and the same torch/engine library versions (echo's docs/api.md, Reproducibility).",
+      "properties": {
+        "clips": {
+          "items": {
+            "$ref": "#/$defs/GeneratedClip"
+          },
+          "title": "Clips",
+          "type": "array"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "engine": {
+          "title": "Engine",
+          "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/EchoImage"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "modality": {
+          "const": "speech",
+          "default": "speech",
+          "title": "Modality",
+          "type": "string"
+        },
+        "prompts": {
+          "items": {
+            "$ref": "#/$defs/SpeechPrompt"
+          },
+          "minItems": 1,
+          "title": "Prompts",
+          "type": "array"
+        },
+        "proof_version": {
+          "default": "1.16",
+          "title": "Proof Version",
+          "type": "string"
+        },
+        "references": {
+          "items": {
+            "$ref": "#/$defs/SpeechReference"
+          },
+          "minItems": 1,
+          "title": "References",
+          "type": "array"
+        },
+        "references_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "References Manifest"
+        },
+        "route": {
+          "const": "/synthesise/stream",
+          "default": "/synthesise/stream",
+          "title": "Route",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seeds": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Seeds",
+          "type": "array"
+        },
+        "source_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Manifest"
+        },
+        "training_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Training Run Id"
+        },
+        "weights": {
+          "$ref": "#/$defs/SpeechWeights"
+        }
+      },
+      "required": [
+        "proof_version",
+        "run_id",
+        "modality",
+        "engine",
+        "image",
+        "weights",
+        "route",
+        "language",
+        "prompts",
+        "references",
+        "seeds",
+        "clips",
+        "source_manifest",
+        "references_manifest",
+        "training_run_id",
+        "created_at"
+      ],
+      "title": "SpeechRunManifest",
+      "type": "object"
+    },
+    "SpeechRunSpec": {
+      "description": "A speech generation request: every prompt in every reference voice, at every seed.\n\n``checkpoint`` names the fine-tune echo loads (``POST /admin/load``) from its checkpoint\nroot; ``None`` is the engine's stock weights, which is also how a baseline run is asked\nfor. ``source_manifest`` is the training export's ``speech_manifest.jsonl`` and\n``references_manifest`` the held-out export's.",
+      "properties": {
+        "checkpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checkpoint"
+        },
+        "engine": {
+          "enum": [
+            "xtts",
+            "qwen"
+          ],
+          "title": "Engine",
+          "type": "string"
+        },
+        "language": {
+          "default": "en",
+          "maxLength": 16,
+          "minLength": 2,
+          "title": "Language",
+          "type": "string"
+        },
+        "prompts": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Prompts",
+          "type": "array"
+        },
+        "references": {
+          "items": {
+            "$ref": "#/$defs/SpeechReferenceSpec"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "References",
+          "type": "array"
+        },
+        "references_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "References Manifest"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seeds": {
+          "items": {
+            "maximum": 4294967295,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Seeds",
+          "type": "array"
+        },
+        "source_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Manifest"
+        },
+        "training_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Training Run Id"
+        }
+      },
+      "required": [
+        "run_id",
+        "engine",
+        "prompts",
+        "references",
+        "seeds"
+      ],
+      "title": "SpeechRunSpec",
+      "type": "object"
+    },
+    "SpeechWeights": {
+      "description": "The weights every clip of a speech run was generated with, pinned by SHA256.\n\n``fingerprint`` is echo's weights fingerprint over ``files`` (sha256 of the sorted\n``name:sha256`` lines; echo's docs/api.md), checked against every clip's response.\n``model`` is Qwen's slot (``base`` speaks clones); ``None`` on XTTS.",
+      "properties": {
+        "checkpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checkpoint"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/ModelRef"
+          },
+          "minItems": 1,
+          "title": "Files",
+          "type": "array"
+        },
+        "fingerprint": {
+          "description": "lowercase hex SHA256 digest",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        }
+      },
+      "required": [
+        "checkpoint",
+        "model",
+        "fingerprint",
+        "files"
+      ],
+      "title": "SpeechWeights",
       "type": "object"
     },
     "Verdict": {

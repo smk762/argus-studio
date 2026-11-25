@@ -1,7 +1,8 @@
-// Generated from smk762/argus-forge@19bfc51 (0.3.1.dev4+g19bfc51) schema/forge-wire.schema.json.
+// Generated from smk762/argus-forge@8179fac (0.3.1.dev28+g8179fac) schema/forge-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 export interface ForgeWire {
+  ActiveRun?: ActiveRun;
   DatasetInfo?: DatasetInfo;
   ForgeRequest?: ForgeRequest;
   ForgeResult?: ForgeResult;
@@ -10,6 +11,7 @@ export interface ForgeWire {
   ManifestRow?: ManifestRow;
   ParamOverrides?: ParamOverrides;
   PoseLabels?: PoseLabels;
+  RunActiveError?: RunActiveError;
   RunArtifact?: RunArtifact;
   RunEvent?: RunEvent;
   RunRequest?: RunRequest;
@@ -18,6 +20,13 @@ export interface ForgeWire {
   TargetProfile?: TargetProfile;
   TrainerInfo?: TrainerInfo;
   TrainingParams?: TrainingParams;
+}
+/**
+ * The run that blocks a new one (``RunActiveError.active_run``).
+ */
+export interface ActiveRun {
+  run_id: string;
+  status: "running" | "succeeded" | "failed" | "cancelled";
 }
 /**
  * What forge found in an export directory.
@@ -70,11 +79,22 @@ export interface TrainingParams {
  * Inherited unchanged from stage to stage (curator → lens → forge → proof) so
  * a decision made once at curation time is honoured everywhere downstream; no
  * stage remaps the taxonomy.
+ *
+ * ``modality`` defaults to ``image``, so a profile without it reads exactly as
+ * before. A ``speech`` profile pairs with a :data:`SpeechCategory` (default
+ * ``voice``) and an image profile with a :data:`TargetCategory`; a mismatch is
+ * refused. For speech, ``target_backend`` names a TTS model family
+ * (``qwen3-tts``, ``xtts-v2``) and defaults to ``None`` rather than ``sdxl``,
+ * and ``target_style`` is ignored. Per-clip language and accent labels belong
+ * in the stage's manifest rows, not here.
  */
 export interface TargetProfile {
   checkpoint?: string | null;
+  modality?: "image" | "speech";
   target_backend?: string | null;
-  target_category?: "identity" | "wardrobe" | "pose_composition" | "setting" | "concept";
+  target_category?:
+    | ("identity" | "wardrobe" | "pose_composition" | "setting" | "concept")
+    | ("voice" | "accent" | "language" | "speaking_style");
   target_style?: "photo" | "anime";
 }
 /**
@@ -173,6 +193,18 @@ export interface PoseLabels {
   arms?: string | null;
   facing?: string | null;
   stance?: string | null;
+}
+/**
+ * POST /run's 409 body when a run is already active (queued for its GPU lease, or running).
+ *
+ * ``detail`` is the human-readable message, a string like every other forge
+ * error; ``code`` is always ``run_active``. The Idempotency-Key 409s are plain
+ * ``{"detail": ...}`` with no ``code``.
+ */
+export interface RunActiveError {
+  active_run: ActiveRun;
+  code?: "run_active";
+  detail: string;
 }
 /**
  * The LoRA a succeeded run left behind (``RunState.lora``, GET /run/{id}/lora).

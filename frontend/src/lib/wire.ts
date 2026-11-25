@@ -90,11 +90,11 @@ export type WireChecks = [
   Expect<Same<RunEvalProgress, Proof.RunStreamFrame>>,
 
   // The suite's TargetProfile is cortex's. Curator (0.19+) splits it by modality
-  // into an image and a speech profile; this app's is the image one. Forge reads
-  // image exports only and has not taken `modality` yet.
+  // into an image and a speech profile; this app's is the image one. Forge
+  // (after 0.3.0) carries cortex's whole profile, both modalities.
   Expect<Same<TargetProfile, Required<Curator.TargetProfile>>>,
   Expect<Same<EitherProfile, Required<Cortex.TargetProfile>>>,
-  Expect<Same<Forge.TargetProfile, Omit<Curator.TargetProfile, "modality">>>,
+  Expect<Same<Required<Forge.TargetProfile>, Required<Cortex.TargetProfile>>>,
 
   // Unions that drive runtime constants, so they stay declared next to those.
   Expect<Same<FacePose, NonNullable<Curator.FaceDetection["pose"]>>>,

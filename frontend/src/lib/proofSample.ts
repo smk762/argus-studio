@@ -113,11 +113,11 @@ export const DEMO_REPORT: EvalReport = {
     diversity: 0.63,
   },
   scorers: [
-    { name: "insightface", metric: "identity", version: "0.7.3", model: "buffalo_l" },
-    { name: "clipscore", metric: "clip_score", version: "1.0", model: "ViT-L/14" },
-    { name: "pyiqa", metric: "aesthetic", version: "0.1.13", model: "topiq_nr" },
-    { name: "imagereward", metric: "preference", version: "1.0", model: "ImageReward-v1.0" },
-    { name: "phash", metric: "duplicate", version: "1.0", model: "phash-8" },
+    { name: "insightface", metric: "identity", version: "0.7.3", model: "buffalo_l", extra_files: [] },
+    { name: "clipscore", metric: "clip_score", version: "1.0", model: "ViT-L/14", extra_files: [] },
+    { name: "pyiqa", metric: "aesthetic", version: "0.1.13", model: "topiq_nr", extra_files: [] },
+    { name: "imagereward", metric: "preference", version: "1.0", model: "ImageReward-v1.0", extra_files: [] },
+    { name: "phash", metric: "duplicate", version: "1.0", model: "phash-8", extra_files: [] },
   ],
   verdict: {
     passed: false,
