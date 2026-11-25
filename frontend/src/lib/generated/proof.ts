@@ -1,4 +1,4 @@
-// Generated from smk762/argus-proof@b8b5c0d (0.5.3.dev10+gb8b5c0d) schema/proof-wire.schema.json.
+// Generated from smk762/argus-proof@0a4bbea (0.8.1.dev20+g0a4bbea) schema/proof-wire.schema.json.
 // Do not edit: change schema/pins.json and run `npm run wire:pull`.
 
 /**
@@ -6,9 +6,11 @@
  *
  * Generation streams :class:`ProgressEvent` frames (``start`` / ``progress`` /
  * ``image`` / ``done``), then a :class:`ScoringFrame`, then either a
- * :class:`CompleteFrame` or a ``ProgressEvent`` of type ``error``.
+ * :class:`CompleteFrame` or a ``ProgressEvent`` of type ``error``. A speech run
+ * (``modality: speech``) has no scoring yet: it ends with a :class:`GeneratedFrame`
+ * (or an ``error``) after its ``done``.
  */
-export type RunStreamFrame = ProgressEvent | ScoringFrame | CompleteFrame;
+export type RunStreamFrame = ProgressEvent | ScoringFrame | CompleteFrame | GeneratedFrame;
 
 export interface ProofWire {
   AcceptanceThresholds?: AcceptanceThresholds;
@@ -16,10 +18,13 @@ export interface ProofWire {
   BackendCapabilities?: BackendCapabilities;
   CompleteFrame?: CompleteFrame;
   CropBox?: CropBox;
+  EchoImage?: EchoImage;
   EvalReport?: EvalReport;
   GateCheck?: GateCheck;
   GateConfig?: GateConfig;
   GateResult?: GateResult;
+  GeneratedClip?: GeneratedClip;
+  GeneratedFrame?: GeneratedFrame;
   GeneratedImage?: GeneratedImage;
   GridConfig?: GridConfig;
   GridEstimate?: GridEstimate;
@@ -50,6 +55,12 @@ export interface ProofWire {
   ScoredImage?: ScoredImage;
   ScorerProvenance?: ScorerProvenance;
   ScoringFrame?: ScoringFrame;
+  SpeechPrompt?: SpeechPrompt;
+  SpeechReference?: SpeechReference;
+  SpeechReferenceSpec?: SpeechReferenceSpec;
+  SpeechRunManifest?: SpeechRunManifest;
+  SpeechRunSpec?: SpeechRunSpec;
+  SpeechWeights?: SpeechWeights;
   Verdict?: Verdict;
 }
 /**
@@ -162,6 +173,22 @@ export interface CropBox {
   width: number;
   x: number;
   y: number;
+}
+/**
+ * The echo engine image a speech run generated on.
+ *
+ * ``version`` and ``revision`` are what echo's ``/health`` ``image`` reports (``None`` for a
+ * local build); ``tag`` is the image reference proof was configured with (``PROOF_ECHO_IMAGE``),
+ * since a running container can't report its own digest. ``runtime`` is what to compare before claiming two runs
+ * should give the same audio.
+ */
+export interface EchoImage {
+  revision: string | null;
+  runtime: {
+    [k: string]: string | null;
+  } | null;
+  tag: string | null;
+  version: string | null;
 }
 /**
  * Scored evaluation of a generation run: per-image + aggregate + verdict.
@@ -298,8 +325,9 @@ export interface PoseReport {
  *
  * ``close_share`` is the share of eligible outputs within ``threshold`` of a
  * training frame; ``baseline_close_share`` is the same statistic inside the
- * training set (leave-one-out), and ``close_excess`` the difference: the
- * run-level copying signal. A pose-conditioned generator shows a high excess by
+ * training set (leave-one-out), and ``close_excess`` the signed difference
+ * (in [-1, 1]; negative when outputs are close to training frames less often
+ * than the training frames are to each other): the run-level copying signal. A pose-conditioned generator shows a high excess by
  * design, so it is evidence for review, never a reject. ``training_diversity``
  * and ``training_largest_cluster_share`` describe the training set itself, so a
  * collapse onto a pose the training set is dominated by reads as a dataset
@@ -388,6 +416,7 @@ export interface PoseProvenance {
  * model and version that produced it.
  */
 export interface ScorerProvenance {
+  extra_files: ModelRef[];
   metric: string;
   model: string | null;
   model_file: ModelRef | null;
@@ -438,6 +467,46 @@ export interface GateCheck {
 export interface GateResult {
   checks: GateCheck[];
   passed: boolean;
+}
+/**
+ * One utterance a speech run produced: prompt ``prompt_index`` in reference ``ref_id``'s voice at ``seed``.
+ *
+ * ``item_id`` is the clip's handle (its WAV is ``<item_id>.wav`` in the run dir, never a
+ * client-supplied path); ``sha256`` pins the audio, so a re-run's clip can be compared byte for
+ * byte. ``device`` is where XTTS ran it (``cpu`` or its GPU device; ``None`` on Qwen).
+ */
+export interface GeneratedClip {
+  device: string | null;
+  duration_s: number;
+  item_id: string;
+  path: string;
+  prompt_index: number;
+  ref_id: string;
+  run_id: string;
+  sample_rate: number;
+  seed: number;
+  /**
+   * lowercase hex SHA256 digest
+   */
+  sha256: string;
+}
+/**
+ * A speech run's last frame (#118): its clips and ``manifest.json`` are written; nothing is scored yet (#119).
+ *
+ * ``weights_fingerprint`` is echo's fingerprint of the weights every clip was spoken by.
+ */
+export interface GeneratedFrame {
+  checkpoint: string | null;
+  engine: string;
+  modality: "speech";
+  n_clips: number;
+  run_id: string;
+  speaker_check: string;
+  type: "generated";
+  /**
+   * lowercase hex SHA256 digest
+   */
+  weights_fingerprint: string;
 }
 /**
  * One image a backend produced, ready to be scored.
@@ -862,4 +931,128 @@ export interface ScoredImage {
   filename: string | null;
   index: number;
   metrics: MetricScores;
+}
+/**
+ * One prompt of a speech run, by position: ``index`` is what each clip's ``prompt_index`` points at.
+ */
+export interface SpeechPrompt {
+  index: number;
+  text: string;
+}
+/**
+ * A reference clip as a speech run used it: where it sits in the held-out export, pinned by SHA256.
+ */
+export interface SpeechReference {
+  accent: string | null;
+  language: string | null;
+  ref_id: string;
+  rel_path: string;
+  /**
+   * lowercase hex SHA256 digest
+   */
+  sha256: string;
+  speaker_cluster: string | null;
+  speaker_label: string | null;
+  transcript: string;
+}
+/**
+ * One held-out reference clip a speech run clones a voice from, as requested.
+ *
+ * Read from the held-out curator speech export (its ``speech_manifest.jsonl`` row):
+ * ``path`` is where the clip is readable on this host, ``rel_path`` its path inside
+ * that export. The backend hashes the clip into the manifest's :class:`SpeechReference`.
+ */
+export interface SpeechReferenceSpec {
+  accent?: string | null;
+  language?: string | null;
+  path: string;
+  ref_id: string;
+  rel_path: string;
+  speaker_cluster?: string | null;
+  speaker_label?: string | null;
+  transcript?: string;
+}
+/**
+ * A fully reproducible speech run: the engine, its weights, the prompts, the references and the seeds.
+ *
+ * Every clip is ``(prompt_index, ref_id, seed)``, generated through echo's
+ * ``/synthesise/stream`` (``route``). Reproducing a clip byte for byte also needs the same GPU
+ * model and the same torch/engine library versions (echo's docs/api.md, Reproducibility).
+ */
+export interface SpeechRunManifest {
+  clips: GeneratedClip[];
+  created_at: string | null;
+  engine: string;
+  image: EchoImage;
+  language: string;
+  modality: "speech";
+  /**
+   * @minItems 1
+   */
+  prompts: [SpeechPrompt, ...SpeechPrompt[]];
+  proof_version: string;
+  /**
+   * @minItems 1
+   */
+  references: [SpeechReference, ...SpeechReference[]];
+  references_manifest: string | null;
+  route: "/synthesise/stream";
+  run_id: string;
+  /**
+   * @minItems 1
+   */
+  seeds: [number, ...number[]];
+  source_manifest: string | null;
+  training_run_id: string | null;
+  weights: SpeechWeights;
+}
+/**
+ * The weights every clip of a speech run was generated with, pinned by SHA256.
+ *
+ * ``fingerprint`` is echo's weights fingerprint over ``files`` (sha256 of the sorted
+ * ``name:sha256`` lines; echo's docs/api.md), checked against every clip's response.
+ * ``model`` is Qwen's slot (``base`` speaks clones); ``None`` on XTTS.
+ */
+export interface SpeechWeights {
+  checkpoint: string | null;
+  /**
+   * @minItems 1
+   */
+  files: [ModelRef, ...ModelRef[]];
+  /**
+   * lowercase hex SHA256 digest
+   */
+  fingerprint: string;
+  model: string | null;
+}
+/**
+ * A speech generation request: every prompt in every reference voice, at every seed.
+ *
+ * ``checkpoint`` names the fine-tune echo loads (``POST /admin/load``) from its checkpoint
+ * root; ``None`` is the engine's stock weights, which is also how a baseline run is asked
+ * for. ``source_manifest`` is the training export's ``speech_manifest.jsonl`` and
+ * ``references_manifest`` the held-out export's.
+ */
+export interface SpeechRunSpec {
+  checkpoint?: string | null;
+  engine: "xtts" | "qwen";
+  language?: string;
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  prompts: [string, ...string[]];
+  /**
+   * @minItems 1
+   * @maxItems 32
+   */
+  references: [SpeechReferenceSpec, ...SpeechReferenceSpec[]];
+  references_manifest?: string | null;
+  run_id: string;
+  /**
+   * @minItems 1
+   */
+  seeds: [number, ...number[]];
+  source_manifest?: string | null;
+  training_run_id?: string | null;
 }
