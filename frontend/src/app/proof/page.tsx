@@ -9,6 +9,7 @@ import {
   getReportManifest,
   servesReportManifest,
   listReports,
+  summariesAfterPurge,
   withReportSummary,
   type EvalReport,
   type ProofHealth,
@@ -166,8 +167,8 @@ export default function ProofPage() {
       try {
         next = await listReports();
       } catch {
-        // the list refresh is best-effort; the deleted run is dropped below regardless
-        next = summaries.filter((s) => removed !== null && s.run_id !== removed);
+        // the list refresh is best-effort: a deleted run is dropped regardless, and a bulk purge keeps the list
+        next = summariesAfterPurge(summaries, removed);
       }
       setSummaries(next);
       if (removed === null || removed === selected) {

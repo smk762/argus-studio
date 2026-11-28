@@ -22,6 +22,7 @@ import {
   eventLine,
   LOG_LIMIT,
   newestFirst,
+  requestSequence,
   RUN_STATUS_LABEL,
   runDuration,
   startBlockedReason,
@@ -96,17 +97,23 @@ export function TrainingRuns({
   const selectedId = selected?.run_id ?? null;
   const blocked = startBlockedReason({ exportDir, atRoot, runnable, trainerLabel: TRAINER_LABELS[trainer], active });
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const next = await listRuns(signal);
-      if (signal?.aborted) return;
-      setRuns(next);
-      setListError(null);
-    } catch (caught) {
-      if (signal?.aborted) return;
-      setListError(caught instanceof Error ? caught.message : String(caught));
-    }
-  }, []);
+  // Polls and the re-read after a Start or Cancel overlap: only the newest list request's answer lands.
+  const [listTurns] = useState(requestSequence);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      const newest = listTurns.next();
+      try {
+        const next = await listRuns(signal);
+        if (signal?.aborted || !newest()) return;
+        setRuns(next);
+        setListError(null);
+      } catch (caught) {
+        if (signal?.aborted || !newest()) return;
+        setListError(caught instanceof Error ? caught.message : String(caught));
+      }
+    },
+    [listTurns],
+  );
 
   // The run list: on mount, then on a slow poll. Fetch-only effect.
   useEffect(() => {
@@ -199,7 +206,9 @@ export function TrainingRuns({
         if (replayed) setNotice(`Already started: run ${started.run_id.slice(0, 8)} came from an earlier send of this request.`);
         // List the new run at once, so the selection (and its log stream) moves
         // straight to it rather than reopening another run's log until the
-        // refresh below lands.
+        // refresh below lands. A list request already in flight was sent before
+        // the run existed, so its answer must not replace this one.
+        listTurns.supersede();
         setRuns((cur) => (cur?.some((run) => run.run_id === started.run_id) ? cur : [...(cur ?? []), started]));
         setChosen(started.run_id);
         pinned.current = true;

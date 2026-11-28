@@ -43,6 +43,15 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 - **`/darkroom`'s sample follows argus-safelight's current fixture.** The bundled records are re-copied unchanged from Safelight, which follows darkroom 0.1.4.dev82 (`fixture/darkroom.json`) where the old copy followed 0.1.1: records now carry the policy behind each verdict, NudeNet's detections, the people darkroom found and the model family and workflow, and three cases join the twelve (image-to-image and inpainting passes, and an input image refused for exposure). A blocked request's prompt is darkroom's withheld marker, so refilling the form from one fills in the marker, as in Safelight.
 - **Demo recordings and the curator wire pin move to each package's `dev` HEAD** (#250, #259). The static `/` caption is re-recorded on argus-lens 0.14.1.dev9 (`61d8c16`): the same flags, now with lens's factual `straightforward` prompt and reconcile checks, so the prose reads plainer. `/curate`'s scan is re-recorded on argus-curator 0.18.0 (`b94d89b`) over the kept 2026-11-18 images, against the same NudeNet and SingGuard servers as before, and finds exactly what it found before. The curator pin moves with it, adding `legacy_min_short_side` to `ScanSummary`. The GPU work of both runs was leased from argus-iris.
 
+### Fixed
+
+- **The caption page's runs no longer clear each other's loading state.** A folder, manifest, upload or Immich run that settled after a newer run started reset the shared loading flag and progress bar, re-enabling Caption mid-run; it now resets them only while it is the newest run. A URL caption takes its turn on the same counter, so a slow URL answer no longer lands over a newer upload or re-enables the buttons during one (`lib/batchRun.ts`).
+- **`/curate` sends a junk-only prefilter.** `prefilterOn` checked three of the four rules, so a scan with only "drop junk" on ran without the prefilter block; it now reads every flag.
+- **`/proof`'s review preview scores against the report's own gate.** `applyEdits` used the default 0.75 run pass rate even when the report's `gate` (proof wire 1.9) set another, so the preview's passed and pending could disagree with the server's.
+- **A bulk purge on `/proof` keeps the run list when the refresh fails.** The fallback emptied the list (and the selection) after a bulk purge; it now drops only a single removed run.
+- **`/forge`'s run list ignores out-of-order answers.** A poll sent before a Start could answer after it with a list lacking the new run, moving the selection and the log stream to another run; only the newest list request now lands.
+- **The write-gate and dev-mode scans close three holes.** `writeGateCoverage.test.ts` reads an init's method as the last property that sets it (`{ method: "GET", ...o }` is a write) and fails on a write fetch outside every top-level function it judges; `repoRules.test.ts` no longer accepts `devMode()` inside an object or array literal argument, and flags `devMode` passed or kept by reference.
+
 ## [0.6.0] - 2026-11-19
 
 ### Added

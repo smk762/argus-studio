@@ -20,6 +20,7 @@ import { FolderPicker } from "@/components/curator/FolderPicker";
 import { DropZone } from "@/components/DropZone";
 import { StageHandoff } from "@/components/StageHandoff";
 import { useDeepLink } from "@/lib/deepLink";
+import { startRun } from "@/lib/batchRun";
 import {
   HybridBalance,
   hybridRequestFields,
@@ -227,8 +228,20 @@ export default function Home() {
     setFinalVariant(null);
   };
 
+  // The tab on screen now, and the newest run (URL, upload, folder, manifest,
+  // Immich), for a run that finishes after the user moved on: its result, error
+  // and hand-off must not land in another tab, and the loading flag and progress
+  // bar it shares with the other runs are reset only while no newer run owns them.
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+  const batchRun = useRef(0);
+  const begin = (runMode: InputMode) => startRun(batchRun, () => modeRef.current, runMode);
+
   const runUrl = async (url: string) => {
     if (!url) return;
+    const run = begin(modeRef.current);
     setLoading(true);
     setError(null);
 
@@ -244,13 +257,15 @@ export default function Home() {
       };
 
       const data = await captionUrl(body);
+      if (run.stale()) return;
       showResult(data, targetBackend);
       setAnalyzedUrl(url);
       setLastSingle({ kind: "url", url });
     } catch (err) {
+      if (run.stale()) return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      setLoading(false);
+      run.settle(() => setLoading(false));
     }
   };
 
@@ -258,17 +273,6 @@ export default function Home() {
     e.preventDefault();
     void runUrl(imageUrl.trim());
   };
-
-  // The tab on screen now, and the newest batch run (folder, manifest, Immich),
-  // for a run that finishes after the user moved on: its result, error and
-  // hand-off must not land in another tab.
-  const modeRef = useRef(mode);
-  useEffect(() => {
-    modeRef.current = mode;
-  }, [mode]);
-  const batchRun = useRef(0);
-  const isStale = (run: number, runMode: InputMode) =>
-    run !== batchRun.current || modeRef.current !== runMode;
 
   const runFolder = async () => {
     // Snapshot the path for this run: the input stays editable while captioning
@@ -283,7 +287,7 @@ export default function Home() {
     setError(null);
     setBatchResult(null);
     setCaptionedFolder(null);
-    const run = ++batchRun.current;
+    const run = begin("folder");
     try {
       const data = await captionFolder({
         folder,
@@ -300,7 +304,7 @@ export default function Home() {
         ...backendField(captionBackend, backendInfo),
       });
       // The sidecars are written either way; only what this page shows is skipped.
-      if (isStale(run, "folder")) return;
+      if (run.stale()) return;
       setBatchResult(data);
       setBatchSource(folder);
       // Sidecars are what forge sizes a dataset from: without them the folder
@@ -308,10 +312,10 @@ export default function Home() {
       if (sidecars && data.captioned > 0) setCaptionedFolder(folder);
     } catch (err) {
       // Like a result, a stale run's failure must not land in another tab.
-      if (isStale(run, "folder")) return;
+      if (run.stale()) return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      setLoading(false);
+      run.settle(() => setLoading(false));
     }
   };
 
@@ -323,7 +327,7 @@ export default function Home() {
     setBatchResult(null);
     setCaptionedFolder(null);
     setBatchSource(manifestFile.name);
-    const run = ++batchRun.current;
+    const run = begin("manifest");
 
     const rows: BatchCaptionRow[] = [];
     const errors: { rel_path: string; error: string }[] = [];
@@ -332,7 +336,7 @@ export default function Home() {
       // Seed a total from the manifest line count so the bar renders before the
       // first row lands; the server's authoritative total overrides it below.
       const total = manifestText.split("\n").filter((l) => l.trim()).length;
-      if (!isStale(run, "manifest")) setProgress({ done: 0, total });
+      if (!run.stale()) setProgress({ done: 0, total });
 
       const summary = await captionManifestStream(
         manifestText,
@@ -341,7 +345,7 @@ export default function Home() {
           else rows.push({ rel_path: p.rel_path, final_caption: p.final_caption ?? "", metadata: p.metadata });
           // The rows keep streaming (and the sidecars keep being written); only
           // what another tab would show is skipped.
-          if (isStale(run, "manifest")) return;
+          if (run.stale()) return;
           setProgress({ done: p.done, total: p.total });
           // Publish a growing snapshot so captions stream into the results table.
           setBatchResult({
@@ -361,22 +365,23 @@ export default function Home() {
           ...backendField(captionBackend, backendInfo),
         },
       );
-      if (isStale(run, "manifest")) return;
+      if (run.stale()) return;
       setBatchResult({ ...summary, results: rows, errors });
     } catch (err) {
-      if (isStale(run, "manifest")) return;
+      if (run.stale()) return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      setLoading(false);
-      setProgress(null);
+      run.settle(() => {
+        setLoading(false);
+        setProgress(null);
+      });
     }
   };
 
   const runUpload = async (files: File[] = uploadFiles) => {
     if (files.length === 0) return;
     // Like the other runs: a result or error lands only in the tab the run started in (recaptionLast reuses this).
-    const run = ++batchRun.current;
-    const runMode = modeRef.current;
+    const run = begin(modeRef.current);
     setLoading(true);
     setError(null);
     setResult(null);
@@ -394,10 +399,10 @@ export default function Home() {
           ...backendField(captionBackend, backendInfo),
         },
         (_row, done) => {
-          if (!isStale(run, runMode)) setProgress({ done, total: files.length });
+          if (!run.stale()) setProgress({ done, total: files.length });
         },
       );
-      if (isStale(run, runMode)) return;
+      if (run.stale()) return;
       if (rows.length === 0 && errors.length > 0) {
         setError(errors.length === 1 ? errors[0].error : `${errors.length} images failed: ${errors[0].error}`);
       } else if (rows.length === 1 && files.length === 1) {
@@ -430,11 +435,13 @@ export default function Home() {
         setBatchSource(`${files.length} uploaded file(s)`);
       }
     } catch (err) {
-      if (isStale(run, runMode)) return;
+      if (run.stale()) return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      setLoading(false);
-      setProgress(null);
+      run.settle(() => {
+        setLoading(false);
+        setProgress(null);
+      });
     }
   };
 
@@ -446,7 +453,7 @@ export default function Home() {
     setBatchResult(null);
     setCaptionedFolder(null);
     setProgress(null);
-    const run = ++batchRun.current;
+    const run = begin("immich");
     const rows: BatchCaptionRow[] = [];
     const errors: { rel_path: string; error: string }[] = [];
     try {
@@ -464,18 +471,20 @@ export default function Home() {
         (p) => {
           if (p.error) errors.push({ rel_path: p.name, error: p.error });
           else rows.push({ rel_path: p.name, final_caption: p.final_caption ?? "" });
-          if (!isStale(run, "immich")) setProgress({ done: p.done, total: p.total });
+          if (!run.stale()) setProgress({ done: p.done, total: p.total });
         },
       );
-      if (isStale(run, "immich")) return;
+      if (run.stale()) return;
       setBatchResult({ ...summary, results: rows, errors });
       setBatchSource(album ? `Immich · ${album.name}` : "Immich album");
     } catch (err) {
-      if (isStale(run, "immich")) return;
+      if (run.stale()) return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      setLoading(false);
-      setProgress(null);
+      run.settle(() => {
+        setLoading(false);
+        setProgress(null);
+      });
     }
   };
 
