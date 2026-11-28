@@ -8,6 +8,7 @@ import {
   eventLine,
   newIdempotencyKey,
   newestFirst,
+  requestSequence,
   runDuration,
   startBlockedReason,
 } from "@/lib/forgeRuns";
@@ -134,5 +135,24 @@ describe("Idempotency-Key per confirmation", () => {
     expect(a).not.toBe(b);
     // forge accepts 1-200 printable ASCII characters.
     expect(a).toMatch(/^[\x20-\x7e]{1,200}$/);
+  });
+});
+
+// Audit pack-argus-studio-428076bba8: a poll sent before a Start must not answer after it.
+describe("requestSequence", () => {
+  it("lets only the newest request's answer land", () => {
+    const turns = requestSequence();
+    const poll = turns.next();
+    const reread = turns.next();
+    expect(poll()).toBe(false);
+    expect(reread()).toBe(true);
+  });
+
+  it("retires every turn in flight when a local update supersedes them", () => {
+    const turns = requestSequence();
+    const poll = turns.next();
+    turns.supersede();
+    expect(poll()).toBe(false);
+    expect(turns.next()()).toBe(true);
   });
 });

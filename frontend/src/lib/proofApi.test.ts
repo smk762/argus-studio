@@ -12,6 +12,7 @@ import {
   POLICY_CATEGORIES,
   policyLabel,
   reasonLabel,
+  summariesAfterPurge,
   toggleUnsafeCategory,
   unsafeBreakdown,
   unsafeCategories,
@@ -20,6 +21,7 @@ import {
   type ImageScores,
   type MetricScores,
   type RejectReason,
+  type ReportSummary,
 } from "@/lib/proofApi";
 
 const NO_METRICS: MetricScores = { identity: null, clip_score: null, aesthetic: null, preference: null, safety: null };
@@ -117,6 +119,20 @@ describe("applyEdits", () => {
     expect(b.passed).toBe(true);
     expect(b.hitl_rater).toBe("sam");
     expect(r.aggregate.pass_rate).toBe(1);
+  });
+
+  // Audit pack-argus-studio-a436140f7c: the preview scores against the report's own gate.
+  it("judges the run by the report's own run_pass_rate", () => {
+    const images = [image("a", { passed: true }), image("b", { passed: true }), image("c", { passed: false })];
+    const strict = applyEdits({ ...report(images), gate: { run_pass_rate: 0.9 } }, new Map(), null);
+    expect(strict.verdict.passed).toBe(false);
+    expect(strict.verdict.reasons[0]).toMatch(/vs threshold 0\.90/);
+    const lenient = applyEdits({ ...report(images), gate: { run_pass_rate: 0.5 } }, new Map(), null);
+    expect(lenient.verdict.passed).toBe(true);
+    // Pending too: two of three could still clear 0.6, though not the default 0.75.
+    const undecided = [image("a", { passed: true }), image("b"), image("c", { passed: false })];
+    expect(applyEdits({ ...report(undecided), gate: { run_pass_rate: 0.6 } }, new Map(), null).verdict.pending).toBe(true);
+    expect(applyEdits(report(undecided), new Map(), null).verdict.pending).toBe(false);
   });
 
   it("falls back to the gate's decision when a rating is cleared", () => {
@@ -326,5 +342,15 @@ describe("clearSentEdits", () => {
       ["a", newerA],
       ["c", fresh],
     ]);
+  });
+});
+
+// Audit pack-argus-studio-13e4a82b18: a bulk purge whose list refresh failed keeps the runs it may have left.
+describe("summariesAfterPurge", () => {
+  const summary = (run_id: string) => ({ run_id }) as ReportSummary;
+  it("drops only the run removed, and keeps the list after a bulk purge", () => {
+    const list = [summary("a"), summary("b")];
+    expect(summariesAfterPurge(list, "a").map((s) => s.run_id)).toEqual(["b"]);
+    expect(summariesAfterPurge(list, null).map((s) => s.run_id)).toEqual(["a", "b"]);
   });
 });

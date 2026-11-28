@@ -105,6 +105,15 @@ export function withReportSummary(summaries: ReportSummary[], report: EvalReport
   );
 }
 
+/**
+ * The run list after a purge (#229) when the server's list could not be
+ * re-read: drop the one run removed, and keep the list as it is after a bulk
+ * purge (`removed` null), whose survivors only the server knows.
+ */
+export function summariesAfterPurge(summaries: ReportSummary[], removed: string | null): ReportSummary[] {
+  return removed === null ? summaries : summaries.filter((s) => s.run_id !== removed);
+}
+
 // --- HITL request shapes (POST /report/{id}/hitl) --------------------------
 
 export interface HitlImageUpdate {
@@ -363,9 +372,11 @@ function rollup(images: ImageScores[]): { n_groups: number; n_passed: number; n_
 export function applyEdits(report: EvalReport, edits: Map<string, HitlEdit>, rater: string | null): EvalReport {
   const images = report.images.map((img) => withEdit(img, edits.get(img.image_id), rater));
   const r = rollup(images);
-  const passed = r.pass_rate >= RUN_PASS_RATE;
+  // The bar the run was scored against: its own gate (proof wire 1.9), else the default.
+  const threshold = report.gate?.run_pass_rate ?? RUN_PASS_RATE;
+  const passed = r.pass_rate >= threshold;
   const bestCase = r.n_groups ? (r.n_passed + r.n_needs_hitl) / r.n_groups : 0;
-  const pending = !passed && r.n_needs_hitl > 0 && bestCase >= RUN_PASS_RATE;
+  const pending = !passed && r.n_needs_hitl > 0 && bestCase >= threshold;
   const status = passed ? "passed" : pending ? "pending review" : "failed";
   return {
     ...report,
@@ -375,7 +386,7 @@ export function applyEdits(report: EvalReport, edits: Map<string, HitlEdit>, rat
       passed,
       pending,
       reasons: [
-        `pass_rate ${r.pass_rate.toFixed(2)} vs threshold ${RUN_PASS_RATE.toFixed(2)} — ${status} ` +
+        `pass_rate ${r.pass_rate.toFixed(2)} vs threshold ${threshold.toFixed(2)} — ${status} ` +
           `(${r.n_passed}/${r.n_groups} groups passed, ${r.n_needs_hitl} need review)`,
         ...(report.aggregate.diversity != null ? [`diversity ${report.aggregate.diversity.toFixed(2)}`] : []),
       ],

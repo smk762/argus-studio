@@ -125,3 +125,24 @@ export function attemptFor(
   if (prev && prev.export_dir === req.export_dir && prev.trainer === req.trainer) return prev;
   return { key: mint(), export_dir: req.export_dir, trainer: req.trainer };
 }
+
+/**
+ * Turns for overlapping requests whose answers replace the same state, such as
+ * the run list (polled, and re-read after a Start or Cancel): only the newest
+ * request's answer may land, so a poll sent before a Start cannot answer after
+ * it with a list that lacks the new run. `next()` hands out a turn and returns
+ * whether it is still the newest; `supersede()` retires every turn in flight,
+ * for a local update (the started run listed at once) that they would undo.
+ */
+export function requestSequence(): { next: () => () => boolean; supersede: () => void } {
+  let issued = 0;
+  return {
+    next: () => {
+      const turn = ++issued;
+      return () => turn === issued;
+    },
+    supersede: () => {
+      issued += 1;
+    },
+  };
+}

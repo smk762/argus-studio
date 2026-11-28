@@ -38,8 +38,9 @@ const paramTypes = (fn: ts.SignatureDeclaration) => fn.parameters.map((p) => p.t
 function topLevelFunctions(source: ts.SourceFile): Fn[] {
   const fns: Fn[] = [];
   for (const stmt of source.statements) {
-    if (ts.isFunctionDeclaration(stmt) && stmt.name && stmt.body) {
-      fns.push({ name: stmt.name.text, body: stmt.body, params: paramTypes(stmt) });
+    if (ts.isFunctionDeclaration(stmt) && stmt.body) {
+      // `export default async function () {…}` has no name of its own.
+      fns.push({ name: stmt.name?.text ?? "default", body: stmt.body, params: paramTypes(stmt) });
     } else if (ts.isVariableStatement(stmt)) {
       for (const d of stmt.declarationList.declarations) {
         const init = d.initializer;
@@ -82,6 +83,29 @@ function keyName(name: ts.PropertyName | undefined): string | null | undefined {
   return null;
 }
 
+/**
+ * The method an init literal ends up with, read as JavaScript does: the last
+ * property wins. "GET" when nothing sets one, the literal when the last setter
+ * is one, and `undefined` when the last could set anything (a spread, a
+ * shorthand or non-literal `method`, a computed key that is not a literal).
+ */
+function finalMethod(init: ts.ObjectLiteralExpression): string | undefined {
+  let method: string | undefined = "GET";
+  for (const prop of init.properties) {
+    if (ts.isSpreadAssignment(prop)) {
+      method = undefined;
+      continue;
+    }
+    const name = keyName(prop.name);
+    if (name === undefined) method = undefined;
+    else if (name === "method") {
+      method =
+        ts.isPropertyAssignment(prop) && ts.isStringLiteral(prop.initializer) ? prop.initializer.text.toUpperCase() : undefined;
+    }
+  }
+  return method;
+}
+
 /** A `fetch` that is not provably a GET: any `method` but the literal "GET". */
 function isWrite(call: ts.CallExpression): boolean {
   if (!isFetch(call)) return false;
@@ -89,31 +113,14 @@ function isWrite(call: ts.CallExpression): boolean {
   if (!init) return false;
   // An init passed by name could carry any method, so it counts as a write.
   if (!ts.isObjectLiteralExpression(init)) return true;
-  for (const prop of init.properties) {
-    if (ts.isSpreadAssignment(prop)) return true;
-    const name = keyName(prop.name);
-    if (name === undefined) return true;
-    if (name !== "method") continue;
-    if (ts.isShorthandPropertyAssignment(prop)) return true;
-    return !(
-      ts.isPropertyAssignment(prop) &&
-      ts.isStringLiteral(prop.initializer) &&
-      prop.initializer.text.toUpperCase() === "GET"
-    );
-  }
-  return false;
+  return finalMethod(init) !== "GET";
 }
 
-/** The literal method of a write, or null when it is not a literal. */
+/** The literal method of a write, or null when it is not a literal (or a later property could replace it). */
 function methodOf(call: ts.CallExpression): string | null {
   const init = call.arguments[1];
   if (!init || !ts.isObjectLiteralExpression(init)) return null;
-  for (const prop of init.properties) {
-    if (ts.isPropertyAssignment(prop) && keyName(prop.name) === "method" && ts.isStringLiteral(prop.initializer)) {
-      return prop.initializer.text.toUpperCase();
-    }
-  }
-  return null;
+  return finalMethod(init) ?? null;
 }
 
 /**
@@ -124,6 +131,21 @@ function methodOf(call: ts.CallExpression): string | null {
 function isDestructive(fn: Fn, writes: ts.CallExpression[]): boolean {
   if (/purge|delete|remove/i.test(fn.name)) return true;
   return writes.some((w) => methodOf(w) === "DELETE" || /\/(purge|delete)\b/.test(w.arguments[0]?.getText() ?? ""));
+}
+
+/**
+ * Writes this scan cannot judge: a write fetch outside every function
+ * {@link topLevelFunctions} sees (an object-literal or class method, an arrow
+ * wrapped in a call, module scope). Each is named by its line, and must move
+ * into a top-level function, where its guard and confirmation are checked.
+ */
+function unjudgedWrites(file: string, text: string): string[] {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+  const bodies = topLevelFunctions(source).map((fn) => fn.body);
+  const inside = (call: ts.CallExpression) => bodies.some((b) => b.getStart() <= call.getStart() && call.getEnd() <= b.getEnd());
+  return calls(source)
+    .filter((c) => isWrite(c) && !inside(c))
+    .map((c) => `${file}:${source.getLineAndCharacterOfPosition(c.getStart()).line + 1}`);
 }
 
 interface Writer {
@@ -203,6 +225,11 @@ describe("write gate coverage", () => {
     expect(destructive.filter((w) => !w.confirmed).map((w) => w.key)).toEqual([]);
   });
 
+  // Audit pack-argus-studio-bcad7ed314: a writer the scan cannot see would pass every check above.
+  it("finds every write fetch inside a function it judges", () => {
+    expect(clients.flatMap((f) => unjudgedWrites(f, readFileSync(join(LIB, f), "utf8")))).toEqual([]);
+  });
+
   it("lists no exemption for a fetcher that is gated or gone", () => {
     const live = new Set(writers.filter((w) => !w.gated).map((w) => w.key));
     expect(Object.keys(UNGATED).filter((k) => !live.has(k))).toEqual([]);
@@ -225,6 +252,11 @@ describe("write gate coverage", () => {
       export async function computed() { return fetch(u, { ["method"]: "DELETE" }); }
       export async function anyKey(k) { return fetch(u, { [k]: "POST" }); }
       export async function quotedGet() { return fetch(u, { "method": "GET" }); }
+      export async function getThenSpread(o) { return fetch(u, { method: "GET", ...o }); }
+      export async function getThenKey(k) { return fetch(u, { method: "GET", [k]: "POST" }); }
+      export async function getThenDelete() { return fetch(u, { method: "GET", method: "DELETE" }); }
+      export async function postThenSpread(o) { return fetch(u, { method: "POST", ...o }); }
+      export async function spreadThenGet(o) { return fetch(u, { ...o, method: "GET" }); }
     `;
     expect(writersIn("x.ts", sample)).toEqual([
       { key: "x.ts gated", gated: true, confirmed: false },
@@ -240,7 +272,25 @@ describe("write gate coverage", () => {
       { key: "x.ts quoted", gated: false, confirmed: null },
       { key: "x.ts computed", gated: false, confirmed: false },
       { key: "x.ts anyKey", gated: false, confirmed: null },
+      // Audit pack-argus-studio-3c06c8d3e5: the last property wins, so a GET can be overridden after it.
+      { key: "x.ts getThenSpread", gated: false, confirmed: null },
+      { key: "x.ts getThenKey", gated: false, confirmed: null },
+      { key: "x.ts getThenDelete", gated: false, confirmed: false },
+      { key: "x.ts postThenSpread", gated: false, confirmed: null },
     ]);
+  });
+
+  it("sees the writes no top-level function holds", () => {
+    const sample = `
+      export const api = { async del() { return fetch(u, { method: "DELETE" }); } };
+      export class Client { async post() { return fetch(u, { method: "POST" }); } }
+      export const wrapped = withRetry(async () => fetch(u, { method: "POST" }));
+      export default async function () { return fetch(u, { method: "DELETE" }); }
+      export async function judged() { return fetch(u, { method: "POST" }); }
+      export async function read() { return fetch(u); }
+    `;
+    expect(unjudgedWrites("x.ts", sample)).toEqual(["x.ts:2", "x.ts:3", "x.ts:4"]);
+    expect(writersIn("x.ts", sample).map((w) => w.key)).toEqual(["x.ts default", "x.ts judged"]);
   });
 
   it("tells a confirmed delete from one that only looks it", () => {

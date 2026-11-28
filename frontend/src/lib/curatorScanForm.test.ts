@@ -110,6 +110,14 @@ describe("buildScanBody", () => {
     expect(body).not.toHaveProperty("garments");
   });
 
+  // Audit pack-argus-studio-4c2f7b2f9f: a junk-only prefilter is a prefilter, so it is sent.
+  it("sends the prefilter when any one rule is on, junk included", () => {
+    for (const rule of Object.keys(defaultPrefilter()) as (keyof ReturnType<typeof defaultPrefilter>)[]) {
+      const prefilter = { ...defaultPrefilter(), [rule]: true };
+      expect(buildScanBody("f", form({ prefilter })), rule).toMatchObject({ prefilter });
+    }
+  });
+
   it("sends scenes and garments when they are on", () => {
     const base = defaultCuratorConfig();
     const body = buildScanBody("f", form({ scenes: { ...base.scenes, enabled: true }, garments: { ...base.garments, enabled: true } }));

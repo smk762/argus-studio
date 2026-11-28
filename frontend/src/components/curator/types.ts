@@ -849,8 +849,9 @@ export function defaultCuratorConfig(): CuratorConfig {
   };
 }
 
+/** Any prefilter rule on. Read from every flag, so a rule the curator adds later is never left out of the body. */
 export function prefilterOn(prefilter: PrefilterConfig): boolean {
-  return prefilter.drop_nsfw || prefilter.drop_no_face || prefilter.drop_no_age;
+  return Object.values(prefilter).some((on) => on === true);
 }
 
 /** The implications the curator's FaceConfig validator applies, so the form and the record agree. */

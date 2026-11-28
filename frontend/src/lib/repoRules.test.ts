@@ -31,19 +31,41 @@ const hasRepo = existsSync(join(repo, "compose.yaml"));
 
 /**
  * The name of the call whose argument list holds position `at` directly (the innermost unclosed `(` to its left),
- * or null. `f(a, devMode())` gives "f"; `f(g(devMode()))` gives "g".
+ * or null. `f(a, devMode())` gives "f"; `f(g(devMode()))` gives "g". Inside an object or array literal it is null:
+ * `f(p, { blur: devMode() })` passes the value on in a field, not as an argument of `f`.
  */
 export function enclosingCall(line: string, at: number): string | null {
   let depth = 0;
   for (let j = at - 1; j >= 0; j -= 1) {
     const c = line[j];
-    if (c === ")") depth += 1;
-    else if (c === "(") {
-      if (depth === 0) return /([A-Za-z_$][\w$]*)\s*$/.exec(line.slice(0, j))?.[1] ?? null;
-      depth -= 1;
+    if (c === ")" || c === "]" || c === "}") depth += 1;
+    else if (c === "(" || c === "[" || c === "{") {
+      if (depth > 0) depth -= 1;
+      else if (c === "(") return /([A-Za-z_$][\w$]*)\s*$/.exec(line.slice(0, j))?.[1] ?? null;
+      else return null;
     }
   }
   return null;
+}
+
+/**
+ * The lines of a file that import `devMode` and then use it other than by calling it (`useX(devMode)`,
+ * `const d = devMode`) or import it under another name: a value the call scan cannot follow.
+ */
+export function devModeAliases(text: string): number[] {
+  const imports = [...text.matchAll(/import\s*(?:type\s*)?\{[^}]*\}\s*from\s*["'][^"']+["'];?/g)].filter((m) =>
+    /\bdevMode\b/.test(m[0]),
+  );
+  if (!imports.length) return [];
+  const lineOf = (index: number) => text.slice(0, index).split("\n").length;
+  const stray = new Set<number>();
+  const importSpans = imports.map((m) => [m.index, m.index + m[0].length] as const);
+  for (const m of imports) if (/\bdevMode\s+as\b/.test(m[0])) stray.add(lineOf(m.index));
+  for (const m of text.matchAll(/(?<![.\w$])devMode\b(?!\s*\()/g)) {
+    if (importSpans.some(([from, to]) => m.index >= from && m.index < to)) continue;
+    stray.add(lineOf(m.index));
+  }
+  return [...stray].sort((a, b) => a - b);
 }
 
 /** Each service of a compose file (comments already dropped), by name: the text of its block. */
@@ -153,6 +175,7 @@ describe("repo rules", () => {
     let uses = 0;
     for (const file of files) {
       if (rel(file) === "src/lib/curatorEnv.ts") continue;
+      for (const line of devModeAliases(read(file))) stray.push(`${rel(file)}:${line}`);
       read(file)
         .split("\n")
         .forEach((line, i) => {
@@ -178,5 +201,30 @@ describe("enclosingCall", () => {
     expect(enclosingCall(line, at(line, 1))).toBe("nsfwBlur");
     expect(enclosingCall("offeredPolicies(wrap(devMode()))", at("offeredPolicies(wrap(devMode()))"))).toBe("wrap");
     expect(enclosingCall("const x = devMode();", at("const x = devMode();"))).toBeNull();
+  });
+
+  // Audit pack-argus-studio-ab2c4b4087: a devMode() inside a literal argument is a field, not the argument.
+  it("gives no call for a devMode() inside an object or array literal", () => {
+    for (const line of ["offeredPolicies(p, { blur: devMode() })", "offeredPolicies(p, [devMode()])", "offeredPolicies(p, { a: [1, devMode()] })"]) {
+      expect(enclosingCall(line, at(line)), line).toBeNull();
+    }
+    const line = "offeredPolicies(a, { b: [c] }, devMode())";
+    expect(enclosingCall(line, at(line))).toBe("offeredPolicies");
+  });
+});
+
+describe("devModeAliases", () => {
+  it("finds devMode passed or kept by reference, or imported under another name", () => {
+    const text = [
+      'import { devMode, other } from "@/lib/curatorEnv";',
+      "const d = devMode;",
+      "useThing(devMode);",
+      "offeredPolicies(p, c, devMode());",
+      "const x = cfg.devMode;",
+    ].join("\n");
+    expect(devModeAliases(text)).toEqual([2, 3]);
+    expect(devModeAliases('import { devMode as dm } from "@/lib/curatorEnv";\ndm();')).toEqual([1]);
+    // A file that does not import it (curatorGuard's `devMode` parameter) is not this rule's business.
+    expect(devModeAliases("function f(devMode: boolean) { if (devMode) return 1; }")).toEqual([]);
   });
 });
