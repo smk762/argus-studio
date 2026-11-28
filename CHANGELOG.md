@@ -15,6 +15,7 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 
 ### Changed
 
+- **Compose services that aren't suite peers say so** (argus-ci `service-peer-label`). `frontend` and `argus-sightline` (UIs), `nudenet` and `ollama` (third-party images), and the `ollama-pull` and `argus-quarry` jobs carry `# nosemgrep: service-peer-label <reason>` on their key lines in `compose.yaml` (and `compose.build.yaml` for the last two), so argus-ci's new rule passes. No service, label or value changes.
 - **Wire schemas follow cortex, forge and proof `dev`** (#298). Forge's `TargetProfile` now carries both modalities, and proof's scorers list their extra model files. Curator stays on the build its bundled recording was made with.
 - **Breaking: the browser-side URL variables are renamed** (smk762/argus-cortex#209). `ARGUS_<SERVICE>_URL` is now the suite-wide name for a service's server URL (`argus_cortex.peers`, cortex 0.16: `ARGUS_LENS_URL=http://lens:8100`, from the environment or the suite file), and Studio used the same names for the address the browser uses (`/api/lens`). A host that set both meanings under one name would give the frontend a server URL, or stop a service that reads the peer on a relative path. The API bases are now `ARGUS_<SERVICE>_BROWSER_URL`, and the footer link to mask's viewer is `ARGUS_MASK_UI_URL`, as `ARGUS_PUPPET_UI_URL` already was. None was dropped: each default is a localhost port that a deployment overrides. Rename the lines in your `.env`:
 

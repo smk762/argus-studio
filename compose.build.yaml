@@ -67,7 +67,7 @@ services:
   # server runs `serve …`). Neither passes EXTRAS: the quarry Dockerfile's
   # default (cli,phash,server,archives) is what both need, and a pinned list
   # here goes stale (one without `archives` drops duckdb and breaks Sources).
-  argus-quarry:
+  argus-quarry:  # nosemgrep: service-peer-label  build for compose.yaml's one-shot argus-quarry job, not a peer
     build:
       context: ../argus-quarry
 
@@ -81,7 +81,7 @@ services:
       args:
         EXTRAS: server,cli
 
-  argus-sightline:
+  argus-sightline:  # nosemgrep: service-peer-label  build for compose.yaml's argus-sightline UI, not a peer
     build:
       context: ../argus-sightline
 

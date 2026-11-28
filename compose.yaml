@@ -52,7 +52,7 @@
 name: argus-suite
 
 services:
-  frontend:
+  frontend:  # nosemgrep: service-peer-label  UI-only: the argus-studio web UI, which serves no cortex /health
     # The one always-local build (argus-studio has no published image yet). `up`
     # builds it on first run but does NOT rebuild on source change — re-run with
     # `up --build` (or `docker compose build frontend`) after editing ./frontend
@@ -223,7 +223,7 @@ services:
 
   # LLM for lens's caption refinement. Internal only (no published port): lens
   # reaches it as http://ollama:11434/v1. ~6 GB VRAM for qwen3:8b while loaded.
-  ollama:
+  ollama:  # nosemgrep: service-peer-label  third-party image (Ollama)
     profiles: ["lens", "full"]
     image: ollama/ollama:${OLLAMA_TAG:-0.40.16}
     volumes:
@@ -232,7 +232,7 @@ services:
 
   # One-shot: pull the refine model into the ollama volume (a no-op once
   # present). Retries until the ollama server is up.
-  ollama-pull:
+  ollama-pull:  # nosemgrep: service-peer-label  one-shot: pulls the refine model, then exits
     profiles: ["lens", "full"]
     image: ollama/ollama:${OLLAMA_TAG:-0.40.16}
     environment:
@@ -343,7 +343,7 @@ services:
   # NudeNet detector server (AGPL-3.0, notAI-tech/NudeNet). Curator only talks to
   # it over HTTP, as http://nudenet:8080; no port is published. Pinned by digest
   # because upstream publishes only `latest`, and it is amd64 only.
-  nudenet:
+  nudenet:  # nosemgrep: service-peer-label  third-party image (NudeNet detector)
     profiles: ["curator", "forge", "full", "darkroom"]
     image: ghcr.io/notai-tech/nudenet@sha256:5d8fb3a20980680b73b7776745ee5b1983851c201a706cbdf3dd827c143783e9
     # The image's start command runs `ulimit -n 1000000 && <worker> & <api>`.
@@ -532,7 +532,7 @@ services:
       - ${OUTPUT_DIR:-./out}/survey:/data/jobs
     restart: unless-stopped
 
-  argus-sightline:
+  argus-sightline:  # nosemgrep: service-peer-label  UI-only: argus-survey's workspace UI, which serves no cortex /health
     profiles: ["survey"]
     image: ghcr.io/smk762/argus-sightline:${SIGHTLINE_TAG:-0.1.1}
     ports:
@@ -649,7 +649,7 @@ services:
   # (symlinks by default -> hence the read-only /data/quarry mount on
   # curator/lens above). Add --category identity|wardrobe|setting|concept to
   # the command below to harvest a single category instead of all four.
-  argus-quarry:
+  argus-quarry:  # nosemgrep: service-peer-label  one-shot acquisition job (runs to completion); the quarry peer is argus-quarry-server
     profiles: ["gallery"]
     # Same published image as argus-quarry-server (baked EXTRAS=cli,phash,server);
     # here it runs the acquisition job via the command override below.
