@@ -28,29 +28,53 @@ const UNGATED: Record<string, string> = {
 
 interface Fn {
   name: string;
-  body: ts.Node;
+  /** The whole function, or the source file for a fetch outside any function. */
+  node: ts.Node;
   /** The declared type of each parameter, as written. */
   params: string[];
 }
 
 const paramTypes = (fn: ts.SignatureDeclaration) => fn.parameters.map((p) => p.type?.getText() ?? "");
 
-function topLevelFunctions(source: ts.SourceFile): Fn[] {
-  const fns: Fn[] = [];
-  for (const stmt of source.statements) {
-    if (ts.isFunctionDeclaration(stmt) && stmt.name && stmt.body) {
-      fns.push({ name: stmt.name.text, body: stmt.body, params: paramTypes(stmt) });
-    } else if (ts.isVariableStatement(stmt)) {
-      for (const d of stmt.declarationList.declarations) {
-        const init = d.initializer;
-        if (ts.isIdentifier(d.name) && init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))) {
-          fns.push({ name: d.name.text, body: init.body, params: paramTypes(init) });
-        }
-      }
-    }
+/** What a function is called: the names on the way out to the file, `api.del` for a method of `const api`. */
+function nameOf(fn: ts.Node): string {
+  const names: string[] = [];
+  for (let n = fn; n && !ts.isSourceFile(n); n = n.parent) {
+    const name = (n as Partial<ts.NamedDeclaration>).name;
+    if (name && !ts.isCallExpression(n) && !ts.isPropertyAccessExpression(n)) names.unshift(name.getText());
+    else if (ts.isConstructorDeclaration(n)) names.unshift("constructor");
   }
-  return fns;
+  return names.join(".") || "default";
 }
+
+/**
+ * Every outermost function of the file, whatever holds it: a declaration, an
+ * object or class member, an argument of a wrapping call, an unnamed default
+ * export. Functions nested in one belong to it. The file itself comes last, for
+ * a fetch that runs outside any function.
+ */
+function outermostFunctions(source: ts.SourceFile): Fn[] {
+  const fns: Fn[] = [];
+  const walk = (n: ts.Node) => {
+    if (ts.isFunctionLike(n) && "body" in n && n.body) fns.push({ name: nameOf(n), node: n, params: paramTypes(n) });
+    else ts.forEachChild(n, walk);
+  };
+  walk(source);
+  return [...fns, { name: "(top level)", node: source, params: [] }];
+}
+
+/** The nearest function holding a node, or the file. */
+function scopeOf(node: ts.Node): ts.Node {
+  let n = node.parent;
+  while (!ts.isSourceFile(n) && !ts.isFunctionLike(n)) n = n.parent;
+  return n;
+}
+
+const holds = (scope: ts.Node, node: ts.Node) => scope.getStart() <= node.getStart() && node.getEnd() <= scope.getEnd();
+
+/** `call` runs before `write`: earlier in the text, in the write's own function or one around it (not a sibling). */
+const runsBefore = (call: ts.CallExpression, write: ts.CallExpression) =>
+  call.getStart() < write.getStart() && holds(scopeOf(call), write);
 
 function calls(node: ts.Node): ts.CallExpression[] {
   const found: ts.CallExpression[] = [];
@@ -82,48 +106,39 @@ function keyName(name: ts.PropertyName | undefined): string | null | undefined {
   return null;
 }
 
-/** A `fetch` that is not provably a GET: any `method` but the literal "GET". */
-function isWrite(call: ts.CallExpression): boolean {
-  if (!isFetch(call)) return false;
-  const init = call.arguments[1];
-  if (!init) return false;
-  // An init passed by name could carry any method, so it counts as a write.
-  if (!ts.isObjectLiteralExpression(init)) return true;
-  for (const prop of init.properties) {
-    if (ts.isSpreadAssignment(prop)) return true;
-    const name = keyName(prop.name);
-    if (name === undefined) return true;
-    if (name !== "method") continue;
-    if (ts.isShorthandPropertyAssignment(prop)) return true;
-    return !(
-      ts.isPropertyAssignment(prop) &&
-      ts.isStringLiteral(prop.initializer) &&
-      prop.initializer.text.toUpperCase() === "GET"
-    );
-  }
-  return false;
-}
-
-/** The literal method of a write, or null when it is not a literal. */
+/**
+ * The method a `fetch` sends, or null when the source does not say. As in
+ * JavaScript the last property wins, so a spread or a computed key after a
+ * literal `method` can replace it, and one before it cannot.
+ */
 function methodOf(call: ts.CallExpression): string | null {
   const init = call.arguments[1];
-  if (!init || !ts.isObjectLiteralExpression(init)) return null;
+  if (!init) return "GET";
+  // An init passed by name could carry any method.
+  if (!ts.isObjectLiteralExpression(init)) return null;
+  let method: string | null = "GET";
   for (const prop of init.properties) {
-    if (ts.isPropertyAssignment(prop) && keyName(prop.name) === "method" && ts.isStringLiteral(prop.initializer)) {
-      return prop.initializer.text.toUpperCase();
+    const name = ts.isSpreadAssignment(prop) ? undefined : keyName(prop.name);
+    if (name === undefined) method = null;
+    else if (name === "method") {
+      const value = ts.isPropertyAssignment(prop) ? prop.initializer : null;
+      method = value && ts.isStringLiteralLike(value) ? value.text.toUpperCase() : null;
     }
   }
-  return null;
+  return method;
 }
 
+/** A `fetch` that is not provably a GET. */
+const isWrite = (call: ts.CallExpression) => isFetch(call) && methodOf(call) !== "GET";
+
 /**
- * A write that removes something: a DELETE, a URL with a `/purge` or `/delete`
+ * A write that removes something: a DELETE, a method that could be one, a URL with a `/purge` or `/delete`
  * segment, or a function named for it (the purge helpers take their path as an
  * argument, so only the name says what they do).
  */
 function isDestructive(fn: Fn, writes: ts.CallExpression[]): boolean {
   if (/purge|delete|remove/i.test(fn.name)) return true;
-  return writes.some((w) => methodOf(w) === "DELETE" || /\/(purge|delete)\b/.test(w.arguments[0]?.getText() ?? ""));
+  return writes.some((w) => ["DELETE", null].includes(methodOf(w)) || /\/(purge|delete)\b/.test(w.arguments[0]?.getText() ?? ""));
 }
 
 interface Writer {
@@ -135,7 +150,7 @@ interface Writer {
 
 function writersIn(file: string, text: string): Writer[] {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
-  const fns = topLevelFunctions(source);
+  const fns = outermostFunctions(source);
 
   // A guard is requireCapability, or a function of this file that calls one.
   const guards = new Set(["requireCapability"]);
@@ -143,8 +158,8 @@ function writersIn(file: string, text: string): Writer[] {
     grew = false;
     for (const fn of fns) {
       if (guards.has(fn.name)) continue;
-      const guardsItself = calls(fn.body).some((c) => guards.has(calleeName(c) ?? ""));
-      const sends = calls(fn.body).some(isWrite);
+      const guardsItself = calls(fn.node).some((c) => guards.has(calleeName(c) ?? ""));
+      const sends = calls(fn.node).some(isWrite);
       // A writer that guards itself is a gated writer, not a guard for others.
       if (guardsItself && !sends) {
         guards.add(fn.name);
@@ -154,13 +169,14 @@ function writersIn(file: string, text: string): Writer[] {
   }
 
   const writers: Writer[] = [];
+  const seen = new Set<ts.Node>();
   for (const fn of fns) {
-    const all = calls(fn.body);
-    const writes = all.filter(isWrite);
+    const all = calls(fn.node);
+    const writes = all.filter((c) => isWrite(c) && !seen.has(c));
     if (!writes.length) continue;
-    const firstWrite = Math.min(...writes.map((w) => w.getStart()));
-    const gated = all.some((c) => guards.has(calleeName(c) ?? "") && c.getStart() < firstWrite);
-    const spends = all.some((c) => calleeName(c) === "spendConfirmation" && c.getStart() < firstWrite);
+    writes.forEach((w) => seen.add(w));
+    const gated = writes.every((w) => all.some((c) => guards.has(calleeName(c) ?? "") && runsBefore(c, w)));
+    const spends = writes.every((w) => all.some((c) => calleeName(c) === "spendConfirmation" && runsBefore(c, w)));
     const confirmed = isDestructive(fn, writes) ? spends && fn.params.includes("Confirmed") : null;
     writers.push({ key: `${file} ${fn.name}`, gated, confirmed });
   }
@@ -224,22 +240,33 @@ describe("write gate coverage", () => {
       export async function quoted() { return fetch(u, { "method": "POST" }); }
       export async function computed() { return fetch(u, { ["method"]: "DELETE" }); }
       export async function anyKey(k) { return fetch(u, { [k]: "POST" }); }
+      export async function getThenSpread(o) { return fetch(u, { method: "GET", ...o }); }
+      export async function getThenKey(k) { return fetch(u, { method: "GET", [k]: "POST" }); }
+      export async function postThenSpread(o) { return fetch(u, { method: "POST", ...o }); }
+      export async function twice() { return fetch(u, { method: "GET", "method": "DELETE" }); }
+      export async function spreadThenGet(o) { return fetch(u, { ...o, method: "GET" }); }
       export async function quotedGet() { return fetch(u, { "method": "GET" }); }
     `;
     expect(writersIn("x.ts", sample)).toEqual([
       { key: "x.ts gated", gated: true, confirmed: false },
       { key: "x.ts late", gated: false, confirmed: null },
       { key: "x.ts bare", gated: false, confirmed: null },
-      { key: "x.ts byName", gated: false, confirmed: null },
-      { key: "x.ts spread", gated: false, confirmed: null },
-      { key: "x.ts arrow", gated: false, confirmed: null },
+      // A method the source does not name could be DELETE, so it needs a confirmation too.
+      { key: "x.ts byName", gated: false, confirmed: false },
+      { key: "x.ts spread", gated: false, confirmed: false },
+      { key: "x.ts arrow", gated: false, confirmed: false },
       // Audit pack-argus-studio-6b90a662eb: a member-expression fetch is a fetch.
       { key: "x.ts viaWindow", gated: false, confirmed: null },
       { key: "x.ts viaGlobal", gated: false, confirmed: false },
       // Audit pack-argus-studio-e2949a586f: a quoted or computed key can name the method too.
       { key: "x.ts quoted", gated: false, confirmed: null },
       { key: "x.ts computed", gated: false, confirmed: false },
-      { key: "x.ts anyKey", gated: false, confirmed: null },
+      { key: "x.ts anyKey", gated: false, confirmed: false },
+      // Audit pack-argus-studio-154d8f41c4: the last property wins, so what follows `method` can replace it.
+      { key: "x.ts getThenSpread", gated: false, confirmed: false },
+      { key: "x.ts getThenKey", gated: false, confirmed: false },
+      { key: "x.ts postThenSpread", gated: false, confirmed: false },
+      { key: "x.ts twice", gated: false, confirmed: false },
     ]);
   });
 
@@ -259,6 +286,41 @@ describe("write gate coverage", () => {
       ["x.ts tooLate", false],
       ["x.ts purgeThings", false],
       ["x.ts save", null],
+    ]);
+  });
+
+  // Audit pack-argus-studio-d786cd2a73: a writer is found wherever its function sits.
+  it("finds writers outside top-level functions", () => {
+    const sample = `
+      export const api = {
+        async safe() { await requireCapability(m, a, "no"); return fetch(u, { method: "POST" }); },
+        async del() { return fetch(u, { method: "DELETE" }); },
+        arrow: async () => fetch(u, { method: "POST" }),
+      };
+      class Client { async save() { return fetch(u, { method: "POST" }); } put = async () => fetch(u, { method: "PUT" }); }
+      export const wrapped = withRetry(async () => fetch(u, { method: "POST" }));
+      export const retried = async () => { await requireCapability(m, a, "no"); return withRetry(() => fetch(u, { method: "POST" })); };
+      export function make() {
+        return {
+          async safe() { await requireCapability(m, a, "no"); return fetch(u, { method: "POST" }); },
+          async bare() { return fetch(u, { method: "POST" }); },
+        };
+      }
+      const eager = fetch(u, { method: "POST" });
+      export default async function () { return fetch(u, { method: "POST" }); }
+    `;
+    expect(writersIn("x.ts", sample).map((w) => [w.key, w.gated, w.confirmed])).toEqual([
+      ["x.ts api.safe", true, null],
+      ["x.ts api.del", false, false],
+      ["x.ts api.arrow", false, null],
+      ["x.ts Client.save", false, null],
+      ["x.ts Client.put", false, null],
+      ["x.ts wrapped", false, null],
+      ["x.ts retried", true, null],
+      // One member's guard does not cover its sibling.
+      ["x.ts make", false, null],
+      ["x.ts default", false, null],
+      ["x.ts (top level)", false, null],
     ]);
   });
 });

@@ -850,7 +850,8 @@ export function defaultCuratorConfig(): CuratorConfig {
 }
 
 export function prefilterOn(prefilter: PrefilterConfig): boolean {
-  return prefilter.drop_nsfw || prefilter.drop_no_face || prefilter.drop_no_age;
+  // Every flag, so one added to PrefilterConfig cannot be left out of the request.
+  return Object.values(prefilter).some((flag) => flag === true);
 }
 
 /** The implications the curator's FaceConfig validator applies, so the form and the record agree. */

@@ -105,6 +105,22 @@ export function withReportSummary(summaries: ReportSummary[], report: EvalReport
   );
 }
 
+/**
+ * The run list and selection after a purge whose list refresh failed. Deleting
+ * one run drops it (`removed`) and, if it was open, moves to the next. After a
+ * bulk purge (null) some runs may survive and nothing here says which, so the
+ * list and the selection stay as they were.
+ */
+export function afterPurgeUnlisted(
+  summaries: ReportSummary[],
+  removed: string | null,
+  selected: string | null,
+): { summaries: ReportSummary[]; selected: string | null } {
+  if (removed === null) return { summaries, selected };
+  const left = summaries.filter((s) => s.run_id !== removed);
+  return { summaries: left, selected: selected === removed ? (left[0]?.run_id ?? null) : selected };
+}
+
 // --- HITL request shapes (POST /report/{id}/hitl) --------------------------
 
 export interface HitlImageUpdate {
@@ -311,7 +327,7 @@ export function needsReviewFrames(images: readonly ImageScores[]): number {
 // passes if any member passes, needs review if any is undecided, else fails —
 // and the pass-rate is over groups, not frames.
 
-/** Default GateConfig.run_pass_rate — the bar the group pass-rate must clear. */
+/** Default GateConfig.run_pass_rate, for reports that carry no gate — the bar the group pass-rate must clear. */
 export const RUN_PASS_RATE = 0.75;
 
 /** A reviewer's unsaved decision for one image. */
@@ -363,9 +379,10 @@ function rollup(images: ImageScores[]): { n_groups: number; n_passed: number; n_
 export function applyEdits(report: EvalReport, edits: Map<string, HitlEdit>, rater: string | null): EvalReport {
   const images = report.images.map((img) => withEdit(img, edits.get(img.image_id), rater));
   const r = rollup(images);
-  const passed = r.pass_rate >= RUN_PASS_RATE;
+  const threshold = report.gate?.run_pass_rate ?? RUN_PASS_RATE;
+  const passed = r.pass_rate >= threshold;
   const bestCase = r.n_groups ? (r.n_passed + r.n_needs_hitl) / r.n_groups : 0;
-  const pending = !passed && r.n_needs_hitl > 0 && bestCase >= RUN_PASS_RATE;
+  const pending = !passed && r.n_needs_hitl > 0 && bestCase >= threshold;
   const status = passed ? "passed" : pending ? "pending review" : "failed";
   return {
     ...report,
@@ -375,7 +392,7 @@ export function applyEdits(report: EvalReport, edits: Map<string, HitlEdit>, rat
       passed,
       pending,
       reasons: [
-        `pass_rate ${r.pass_rate.toFixed(2)} vs threshold ${RUN_PASS_RATE.toFixed(2)} — ${status} ` +
+        `pass_rate ${r.pass_rate.toFixed(2)} vs threshold ${threshold.toFixed(2)} — ${status} ` +
           `(${r.n_passed}/${r.n_groups} groups passed, ${r.n_needs_hitl} need review)`,
         ...(report.aggregate.diversity != null ? [`diversity ${report.aggregate.diversity.toFixed(2)}`] : []),
       ],

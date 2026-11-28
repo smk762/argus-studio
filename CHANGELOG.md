@@ -44,6 +44,15 @@ All notable changes to argus-studio are recorded here. The format follows [Keep 
 - **`/darkroom`'s sample follows argus-safelight's current fixture.** The bundled records are re-copied unchanged from Safelight, which follows darkroom 0.1.4.dev82 (`fixture/darkroom.json`) where the old copy followed 0.1.1: records now carry the policy behind each verdict, NudeNet's detections, the people darkroom found and the model family and workflow, and three cases join the twelve (image-to-image and inpainting passes, and an input image refused for exposure). A blocked request's prompt is darkroom's withheld marker, so refilling the form from one fills in the marker, as in Safelight.
 - **Demo recordings and the curator wire pin move to each package's `dev` HEAD** (#250, #259). The static `/` caption is re-recorded on argus-lens 0.14.1.dev9 (`61d8c16`): the same flags, now with lens's factual `straightforward` prompt and reconcile checks, so the prose reads plainer. `/curate`'s scan is re-recorded on argus-curator 0.18.0 (`b94d89b`) over the kept 2026-11-18 images, against the same NudeNet and SingGuard servers as before, and finds exactly what it found before. The curator pin moves with it, adding `legacy_min_short_side` to `ScanSummary`. The GPU work of both runs was leased from argus-iris.
 
+### Fixed
+
+- **A caption run that was superseded no longer clears the newer run's state on `/`.** All five runners, single-URL captioning included, go through `lib/captionRun.ts`: only the newest run resets the busy state and progress bar, and a result or error lands only in the tab its run started in.
+- **`/proof`'s review preview uses the gate the report was scored with** (`gate.run_pass_rate`, proof wire 1.9) instead of always 0.75.
+- **`/proof` keeps its run list when the refresh after a bulk purge fails**, with the open run still selected.
+- **`/forge` ignores run-list responses that arrive out of order**, so a late poll cannot drop a run that has just started.
+- **A junk-only prefilter is sent with the scan.** `prefilterOn` reads every flag of the config.
+- **The repo's rule tests see more.** The write-gate scan finds writers in object and class members, wrapped functions and default exports, takes the last `method` of a fetch init, and wants a confirmation for a write whose method the source does not name. The dev-mode rule flags aliases and bare references, and test files of every extension are left out of the source rules.
+
 ## [0.6.0] - 2026-11-19
 
 ### Added

@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 // CLAUDE.md's "Must never happen" rules that are about the shape of the repo
@@ -16,11 +17,14 @@ const code = (text: string) =>
     .map((line) => line.replace(/(^|\s)#.*$/, ""))
     .join("\n");
 
+/** Production source: a test may name or mock anything these rules are about. */
+const isSource = (name: string) => /\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name);
+
 function sources(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) sources(path, out);
-    else if (/\.(ts|tsx)$/.test(name) && !/\.test\.ts$/.test(name)) out.push(path);
+    else if (isSource(name)) out.push(path);
   }
   return out;
 }
@@ -30,20 +34,50 @@ function sources(dir: string, out: string[] = []): string[] {
 const hasRepo = existsSync(join(repo, "compose.yaml"));
 
 /**
- * The name of the call whose argument list holds position `at` directly (the innermost unclosed `(` to its left),
- * or null. `f(a, devMode())` gives "f"; `f(g(devMode()))` gives "g".
+ * Every mention of `devMode` in a source file that is not harmless, as line
+ * numbers, plus how many times the flag is used as allowed. Allowed: importing
+ * it under its own name, calling it as a direct argument of `offeredPolicies(…)`,
+ * a parameter of that name, and a property name in a type or an object literal.
+ * An alias, a bare reference or a string naming it would carry the flag elsewhere.
  */
-export function enclosingCall(line: string, at: number): string | null {
-  let depth = 0;
-  for (let j = at - 1; j >= 0; j -= 1) {
-    const c = line[j];
-    if (c === ")") depth += 1;
-    else if (c === "(") {
-      if (depth === 0) return /([A-Za-z_$][\w$]*)\s*$/.exec(line.slice(0, j))?.[1] ?? null;
-      depth -= 1;
+function devModeUses(file: string, text: string): { uses: number; stray: number[] } {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+  const stray: number[] = [];
+  let uses = 0;
+
+  const isParam = (node: ts.Node) => {
+    for (let n = node.parent; n; n = n.parent) {
+      if (ts.isFunctionLike(n) && n.parameters.some((p) => ts.isIdentifier(p.name) && p.name.text === "devMode")) return true;
     }
-  }
-  return null;
+    return false;
+  };
+  const isOffered = (id: ts.Node) => {
+    const call = id.parent;
+    if (!ts.isCallExpression(call) || call.expression !== id) return false;
+    const outer = call.parent;
+    return (
+      ts.isCallExpression(outer) &&
+      outer.arguments.includes(call) &&
+      ts.isIdentifier(outer.expression) &&
+      outer.expression.text === "offeredPolicies"
+    );
+  };
+  const harmless = (id: ts.Identifier) => {
+    const p = id.parent;
+    if (ts.isImportSpecifier(p)) return !p.propertyName;
+    if ((ts.isPropertySignature(p) || ts.isPropertyAssignment(p)) && p.name === id) return true;
+    // A name after a dot is a read of the flag, never of a parameter.
+    return !(ts.isPropertyAccessExpression(p) && p.name === id) && isParam(id);
+  };
+  const walk = (n: ts.Node) => {
+    if ((ts.isIdentifier(n) || ts.isStringLiteralLike(n)) && n.text === "devMode") {
+      if (ts.isIdentifier(n) && isOffered(n)) uses += 1;
+      else if (!ts.isIdentifier(n) || !harmless(n)) stray.push(source.getLineAndCharacterOfPosition(n.getStart()).line + 1);
+    }
+    ts.forEachChild(n, walk);
+  };
+  walk(source);
+  return { uses, stray };
 }
 
 /** Each service of a compose file (comments already dropped), by name: the text of its block. */
@@ -153,30 +187,53 @@ describe("repo rules", () => {
     let uses = 0;
     for (const file of files) {
       if (rel(file) === "src/lib/curatorEnv.ts") continue;
-      read(file)
-        .split("\n")
-        .forEach((line, i) => {
-          // Each call on its own: every devMode() must be a direct argument of offeredPolicies(…).
-          for (const m of line.matchAll(/\bdevMode\(\)/g)) {
-            uses += 1;
-            if (enclosingCall(line, m.index) !== "offeredPolicies") stray.push(`${rel(file)}:${i + 1}`);
-          }
-        });
+      const found = devModeUses(file, read(file));
+      uses += found.uses;
+      stray.push(...found.stray.map((line) => `${rel(file)}:${line}`));
     }
     expect(stray).toEqual([]);
     expect(uses).toBeGreaterThan(0);
   });
 });
 
-// Audit pack-argus-studio-5e82b06f27: a second devMode() on an allowed line is checked on its own.
-describe("enclosingCall", () => {
-  const at = (line: string, n = 0) => [...line.matchAll(/devMode\(\)/g)][n].index;
-  it("names the call a devMode() is a direct argument of", () => {
-    expect(enclosingCall("offeredPolicies(a, { b }, devMode())", at("offeredPolicies(a, { b }, devMode())"))).toBe("offeredPolicies");
-    const line = "{offeredPolicies(p, c, devMode()).map(render)} <Img blur={nsfwBlur(devMode())} />";
-    expect(enclosingCall(line, at(line, 0))).toBe("offeredPolicies");
-    expect(enclosingCall(line, at(line, 1))).toBe("nsfwBlur");
-    expect(enclosingCall("offeredPolicies(wrap(devMode()))", at("offeredPolicies(wrap(devMode()))"))).toBe("wrap");
-    expect(enclosingCall("const x = devMode();", at("const x = devMode();"))).toBeNull();
+describe("sources", () => {
+  // Audit pack-argus-studio-3d02db1960: component tests are tests too.
+  it("leaves every kind of test file out", () => {
+    const names = ["a.ts", "a.tsx", "a.test.ts", "a.test.tsx", "a.spec.ts", "a.spec.tsx", "a.css", "latest.ts"];
+    expect(names.filter(isSource)).toEqual(["a.ts", "a.tsx", "latest.ts"]);
+  });
+});
+
+describe("devModeUses", () => {
+  const found = (text: string) => devModeUses("x.tsx", text);
+
+  it("allows the policy list and nothing it needs less", () => {
+    expect(found("const a = offeredPolicies(p, { b }, devMode());")).toEqual({ uses: 1, stray: [] });
+    expect(found('import { devMode } from "@/lib/curatorEnv";\nconst f = (devMode: boolean) => devMode;')).toEqual({ uses: 0, stray: [] });
+    expect(found("interface C { devMode: boolean }\nconst c = { devMode: false }; // devMode()")).toEqual({ uses: 0, stray: [] });
+  });
+
+  // Audit pack-argus-studio-5e82b06f27: a second devMode() on an allowed line is checked on its own.
+  it("checks each call on its own", () => {
+    const line = "const a = <p>{offeredPolicies(p, c, devMode()).map(render)} <Img blur={nsfwBlur(devMode())} /></p>;";
+    expect(found(line)).toEqual({ uses: 1, stray: [1] });
+    expect(found("offeredPolicies(wrap(devMode()));").stray).toEqual([1]);
+    expect(found("const x = devMode();").stray).toEqual([1]);
+  });
+
+  // Audit pack-argus-studio-f784f84a4c: aliases and uncalled references read the flag too.
+  it.each([
+    'import { devMode as dev } from "@/lib/curatorEnv";',
+    'export { devMode } from "@/lib/curatorEnv";',
+    "const f = devMode;",
+    "const x = devMode ();",
+    "const x = env.devMode();",
+    'const x = env["devMode"]();',
+    "const { devMode } = env;",
+    "const { devMode: f } = env;",
+    "const f = (devMode: boolean) => runtimeConfig().devMode;",
+    "offeredPolicies(p, c, devMode);",
+  ])("flags %s", (text) => {
+    expect(found(text).stray).toEqual([1]);
   });
 });
